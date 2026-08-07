@@ -41,6 +41,7 @@ import {
   carcDescription,
   EraClaimListItem,
   EraDetailResponse,
+  EraPayee,
   formatCurrency,
   getApiError,
   X12_ADJUSTMENT_GROUP_LABELS,
@@ -56,6 +57,13 @@ import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { formatDate, formatTaxId } from '../utils/format';
+
+const payeeRows = (payee: EraPayee): { label: string; value: string }[] =>
+  [
+    { label: 'Name', value: payee.name },
+    { label: 'NPI', value: payee.npi },
+    { label: 'Tax ID', value: payee.taxId ? formatTaxId(payee.taxId) : '' },
+  ].filter((row) => row.value);
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
@@ -244,9 +252,10 @@ export default function ERADetail(): ReactElement {
 
             {era.payee && (
               <ReadOnlySection title="Payee">
-                <Row label="Name" value={era.payee.name} />
-                <Row label="NPI" value={era.payee.npi} />
-                <Row label="Tax ID" value={era.payee.taxId ? formatTaxId(era.payee.taxId) : ''} hideBorder />
+                {/* payers commonly identify the payee by NPI alone, so skip what this ERA omits */}
+                {payeeRows(era.payee).map(({ label, value }, idx, rows) => (
+                  <Row key={label} label={label} value={value} hideBorder={idx === rows.length - 1} />
+                ))}
               </ReadOnlySection>
             )}
 

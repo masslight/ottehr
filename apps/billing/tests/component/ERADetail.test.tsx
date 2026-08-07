@@ -232,6 +232,20 @@ describe('ERADetail', () => {
     expect(screen.getByText('12-3456789')).toBeInTheDocument();
   });
 
+  it('shows only the payee fields the ERA carries', async () => {
+    // the common real shape: the payer identifies the payee by NPI alone
+    getBillingEraDetailMock.mockResolvedValue({
+      ...makeEra(),
+      payee: { name: '', npi: '1871112375', taxId: '' },
+    });
+    renderDetail();
+
+    expect(await screen.findByText('Payee')).toBeInTheDocument();
+    expect(screen.getByText('1871112375')).toBeInTheDocument();
+    expect(screen.queryByText('Name')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tax ID')).not.toBeInTheDocument();
+  });
+
   it('hides the payee section when the ERA carries no payee', async () => {
     getBillingEraDetailMock.mockResolvedValue({ ...makeEra(), payee: null });
     renderDetail();

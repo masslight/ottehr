@@ -1,12 +1,6 @@
-import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Organization, PaymentReconciliation } from 'fhir/r4b';
-import {
-  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
-  FHIR_IDENTIFIER_NPI,
-  FHIR_IDENTIFIER_SYSTEM,
-  X12_ADJUSTMENT_GROUP_CODE,
-} from 'utils';
-import { describe, expect, it, vi } from 'vitest';
+import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Organization } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_CODE_TAX_EMPLOYER, FHIR_IDENTIFIER_NPI, FHIR_IDENTIFIER_SYSTEM } from 'utils';
+import { describe, expect, it } from 'vitest';
 import {
   ADJUDICATION_CODES,
   OYSTEHR_ADJUDICATION_SYSTEM,
@@ -18,68 +12,66 @@ import {
   eraPatientAccountNumber,
   resolveEraPayee,
 } from '../../../src/billing/era-remits';
-import { CLAIM_PCN_IDENTIFIER_SYSTEM, ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
+import {
+  CLAIM_PCN_IDENTIFIER_SYSTEM,
+  ERA_ICN_EXTENSION,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_UNITS_EXTENSION,
+  ERA_PCN_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+} from '../../../src/billing/shared';
 
 const adjudication = (
   code: string,
   amount: number,
   system = OYSTEHR_ADJUDICATION_SYSTEM
 ): ClaimResponseItemAdjudication => ({
-  category: {
-    coding: [
-      {
-        system,
-        code,
-      },
-    ],
-  },
-  amount: {
-    value: amount,
-    currency: 'USD',
-  },
+  category: { coding: [{ system, code }] },
+  amount: { value: amount, currency: 'USD' },
 });
 
 const casAdjustment = (group: string, amount: number, reasonCode?: string): ClaimResponseItemAdjudication => ({
   ...adjudication(group, amount, X12_ADJUSTMENT_GROUP_SYSTEM),
   ...(reasonCode
-    ? {
-        reason: {
-          coding: [
-            {
-              system: 'https://x12.org/codes/claim-adjustment-reason-codes',
-              code: reasonCode,
-            },
-          ],
-        },
-      }
+    ? { reason: { coding: [{ system: 'https://x12.org/codes/claim-adjustment-reason-codes', code: reasonCode }] } }
     : {}),
+});
+
+// A ClaimResponse.item as Oystehr's converters actually write it: the procedure code and units
+// ride on extensions, since ClaimResponse.item has nowhere else to carry them.
+const eraItem = (parts: {
+  sequence: number;
+  procedureCode?: string;
+  units?: number;
+  adjudication: ClaimResponseItemAdjudication[];
+}): NonNullable<ClaimResponse['item']>[number] => ({
+  itemSequence: parts.sequence,
+  adjudication: parts.adjudication,
+  extension: [
+    ...(parts.procedureCode ? [{ url: ERA_ITEM_PROCEDURE_CODE_EXTENSION, valueString: parts.procedureCode }] : []),
+    ...(parts.units !== undefined ? [{ url: ERA_ITEM_UNITS_EXTENSION, valueQuantity: { value: parts.units } }] : []),
+  ],
 });
 
 const claimResponse = (overrides: Partial<ClaimResponse> = {}): ClaimResponse => ({
   resourceType: 'ClaimResponse',
   id: 'cr-1',
   status: 'active',
-  type: {
-    coding: [
-      {
-        code: 'professional',
-      },
-    ],
-  },
+  type: { coding: [{ code: 'professional' }] },
   use: 'claim',
-  patient: {
-    reference: 'Patient/p1',
-  },
+  patient: { reference: 'Patient/p1' },
   created: '2026-07-15',
-  insurer: {
-    display: 'Test Payer',
-  },
+  insurer: { display: 'Test Payer' },
   outcome: 'complete',
-  request: {
-    reference: 'Claim/c1',
-  },
+  request: { reference: 'Claim/c1' },
   ...overrides,
 });
+
+const eraExtensions = (parts: { statusCode?: string; pcn?: string; icn?: string }): ClaimResponse['extension'] => [
+  ...(parts.statusCode ? [{ url: ERA_STATUS_CODE_EXTENSION, valueString: parts.statusCode }] : []),
+  ...(parts.pcn ? [{ url: ERA_PCN_EXTENSION, valueString: parts.pcn }] : []),
+  ...(parts.icn ? [{ url: ERA_ICN_EXTENSION, valueString: parts.icn }] : []),
+];
 
 const submittedClaim = (overrides: Partial<Claim> = {}): Claim =>
   ({
@@ -113,58 +105,132 @@ const submittedClaim = (overrides: Partial<Claim> = {}): Claim =>
     ...overrides,
   }) as Claim;
 
+// The unmatched shape the process-era converter produces: contained Claim with no items, plus the
+// billing provider it was submitted under.
+const containedClaim = (overrides: Partial<Claim> = {}): Claim =>
+  ({
+    resourceType: 'Claim',
+    id: 'request',
+    status: 'active',
+    use: 'claim',
+    created: '2026-01-05',
+    type: { coding: [] },
+    priority: { coding: [] },
+    patient: { reference: '#patient' },
+    provider: { reference: '#billing-provider' },
+    insurance: [],
+    ...overrides,
+  }) as Claim;
+
 describe('buildEraRemitServiceLines', () => {
-  it('joins Claim.MD-shape items back to the submitted claim lines', () => {
+  it('reads procedure code and units from the item extensions the converter writes', () => {
     const cr = claimResponse({
       item: [
-        {
-          itemSequence: 1,
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          units: 1,
           adjudication: [
-            adjudication(ADJUDICATION_CODES.CHARGE, 100),
-            adjudication(ADJUDICATION_CODES.PAID, 60),
-            adjudication(ADJUDICATION_CODES.ALLOWED, 80),
-            casAdjustment('PR', 20, '1'),
-            casAdjustment('CO', 20, '45'),
+            adjudication(ADJUDICATION_CODES.CHARGE, 104),
+            adjudication(ADJUDICATION_CODES.PAID, 55.32),
+            adjudication(ADJUDICATION_CODES.ALLOWED, 55.32),
+            casAdjustment('CO', 48.68, '45'),
           ],
-        },
+        }),
       ],
+      contained: [containedClaim()],
     });
 
-    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+    const lines = buildEraRemitServiceLines(cr, undefined);
 
     expect(lines).toHaveLength(1);
     expect(lines[0]).toEqual({
       itemSequence: 1,
       isClaimLevel: false,
+      cptCode: '73100',
+      modifiers: [],
+      units: 1,
+      // no DTM 472 in the remit, so the contained claim's date stands in
+      serviceDate: '2026-01-05',
+      billed: 104,
+      allowed: 55.32,
+      paid: 55.32,
+      deductible: 0,
+      coinsurance: 0,
+      copay: 0,
+      adjustments: [{ groupCode: 'CO', reasonCode: '45', amount: 48.68 }],
+    });
+  });
+
+  it('treats converter-stamped zero units as not reported', () => {
+    const cr = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99213',
+          units: 0,
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 42.98)],
+        }),
+      ],
+    });
+
+    expect(buildEraRemitServiceLines(cr, undefined)[0].units).toBeNull();
+  });
+
+  it('enriches a matched line with the submitted modifiers, units and date by procedure code', () => {
+    const cr = claimResponse({
+      item: [
+        eraItem({
+          sequence: 2,
+          procedureCode: '99213',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60), adjudication(ADJUDICATION_CODES.ALLOWED, 80)],
+        }),
+      ],
+    });
+
+    // the remit calls it line 2; our claim has it at line 1 — the code, not the sequence, wins
+    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+
+    expect(lines[0]).toMatchObject({
       cptCode: '99213',
       modifiers: ['25'],
       units: 1,
       serviceDate: '2026-07-09',
       billed: 100,
-      allowed: 80,
-      paid: 60,
-      deductible: 20,
-      coinsurance: 0,
-      copay: 0,
-      adjustments: [
-        { groupCode: 'PR', reasonCode: '1', amount: 20 },
-        { groupCode: 'CO', reasonCode: '45', amount: 20 },
-      ],
     });
   });
 
-  it('maps the process-era shape: B6 allowed and the claim-level addItem CAS bucket', () => {
+  it('never borrows another service line details when the remit code is not on the claim', () => {
     const cr = claimResponse({
       item: [
-        {
-          itemSequence: 2,
-          adjudication: [
-            adjudication(ADJUDICATION_CODES.CHARGE, 50),
-            adjudication(ADJUDICATION_CODES.PAID, 30),
-            adjudication(ADJUDICATION_CODES.ALLOWED_X12, 40),
-            casAdjustment('PR', 10, '2'),
-          ],
-        },
+        eraItem({
+          sequence: 1,
+          procedureCode: '90717',
+          adjudication: [adjudication(ADJUDICATION_CODES.CHARGE, 20), adjudication(ADJUDICATION_CODES.PAID, 0)],
+        }),
+      ],
+    });
+
+    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+
+    expect(lines[0]).toMatchObject({
+      cptCode: '90717',
+      modifiers: [],
+      units: null,
+      // falls back to the claim's own date rather than line 1's details
+      serviceDate: '2026-07-09',
+      billed: 20,
+    });
+  });
+
+  it('keeps the claim-level addItem bucket separate from real service lines', () => {
+    const cr = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99213',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 30), casAdjustment('PR', 10, '2')],
+        }),
       ],
       addItem: [
         {
@@ -174,240 +240,145 @@ describe('buildEraRemitServiceLines', () => {
       ],
     });
 
-    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+    const lines = buildEraRemitServiceLines(cr, undefined);
 
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toMatchObject({
-      cptCode: '87880',
-      units: 2,
-      serviceDate: '2026-07-09',
-      billed: 50,
-      allowed: 40,
-      paid: 30,
-      coinsurance: 10,
-    });
+    expect(lines[0]).toMatchObject({ cptCode: '99213', coinsurance: 10, isClaimLevel: false });
     expect(lines[1]).toMatchObject({
       itemSequence: null,
       isClaimLevel: true,
       cptCode: '',
       copay: 5,
-      paid: 0,
-      billed: null,
-      allowed: null,
+      serviceDate: '',
     });
   });
 
-  it('degrades to an amounts-only line when the item sequence has no submitted counterpart', () => {
+  it('supports the B6 allowed qualifier from the other converter', () => {
     const cr = claimResponse({
       item: [
-        {
-          itemSequence: 7,
-          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60)],
-        },
+        eraItem({
+          sequence: 1,
+          procedureCode: '99213',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60), adjudication(ADJUDICATION_CODES.ALLOWED_X12, 80)],
+        }),
       ],
     });
 
-    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+    expect(buildEraRemitServiceLines(cr, undefined)[0].allowed).toBe(80);
+  });
 
-    expect(lines[0]).toMatchObject({
+  it('falls back to amounts-only when the remit carries no procedure code at all', () => {
+    const cr = claimResponse({
+      item: [{ itemSequence: 7, adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60)] }],
+    });
+
+    expect(buildEraRemitServiceLines(cr, undefined)[0]).toMatchObject({
       itemSequence: 7,
       cptCode: '',
-      modifiers: [],
       units: null,
       serviceDate: '',
       billed: null,
       paid: 60,
     });
   });
-
-  it('degrades to amounts-only lines when there is no claim at all', () => {
-    const cr = claimResponse({
-      item: [
-        {
-          itemSequence: 1,
-          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 40, '45')],
-        },
-      ],
-    });
-
-    const lines = buildEraRemitServiceLines(cr, undefined);
-
-    expect(lines[0]).toMatchObject({ cptCode: '', serviceDate: '', paid: 60 });
-    expect(lines[0].adjustments).toEqual([{ groupCode: 'CO', reasonCode: '45', amount: 40 }]);
-  });
-
-  it('falls back to the submitted line net amount when the payer reports no charge', () => {
-    const cr = claimResponse({
-      item: [
-        {
-          itemSequence: 1,
-          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60)],
-        },
-      ],
-    });
-
-    const lines = buildEraRemitServiceLines(cr, submittedClaim());
-
-    expect(lines[0].billed).toBe(100);
-  });
-
-  it('falls back to the contained claim when the matched claim lines do not correspond', () => {
-    // a manual match attached this remit to a claim whose only line is sequence 9
-    const manuallyMatched = submittedClaim({
-      item: [
-        {
-          sequence: 9,
-          productOrService: { coding: [{ code: '11111' }] },
-          net: { value: 75, currency: 'USD' },
-        },
-      ],
-    });
-    const cr = claimResponse({
-      contained: [submittedClaim({ id: 'contained-claim' })],
-      item: [
-        {
-          itemSequence: 1,
-          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60)],
-        },
-      ],
-    });
-
-    const lines = buildEraRemitServiceLines(cr, manuallyMatched);
-
-    expect(lines[0].cptCode).toBe('99213');
-  });
 });
 
 describe('eraPatientAccountNumber', () => {
-  it('uses the PCN identifier on matched claims when present', () => {
-    const claim = submittedClaim({
-      identifier: [{ system: CLAIM_PCN_IDENTIFIER_SYSTEM, value: 'PCN-42' }],
-    });
-    expect(eraPatientAccountNumber(claim, true)).toBe('PCN-42');
+  it('prefers the CLP01 the payer echoed on the remit', () => {
+    const cr = claimResponse({ extension: eraExtensions({ pcn: 'FKFQGCL3M6M3VR' }) });
+    expect(eraPatientAccountNumber([cr], submittedClaim(), true)).toBe('FKFQGCL3M6M3VR');
+    expect(eraPatientAccountNumber([cr], undefined, false)).toBe('FKFQGCL3M6M3VR');
   });
 
-  it('falls back to the dash-stripped claim id on matched claims', () => {
-    const claim = submittedClaim({ id: 'aaaa-bbbb' });
-    expect(eraPatientAccountNumber(claim, true)).toBe('aaaabbbb');
-  });
-
-  it('reads only identifiers on unmatched claims, never the synthetic id', () => {
-    const withPcn = submittedClaim({
-      id: 'unmatched-cr-1',
-      identifier: [{ system: CLAIM_PCN_IDENTIFIER_SYSTEM, value: 'ECHOED-01' }],
-    });
-    expect(eraPatientAccountNumber(withPcn, false)).toBe('ECHOED-01');
-
-    const withOther = submittedClaim({
-      id: 'unmatched-cr-1',
-      identifier: [{ value: 'ACC-7' }],
-    });
-    expect(eraPatientAccountNumber(withOther, false)).toBe('ACC-7');
-
-    const withNone = submittedClaim({ id: 'unmatched-cr-1', identifier: undefined });
-    expect(eraPatientAccountNumber(withNone, false)).toBe('');
-
-    expect(eraPatientAccountNumber(undefined, false)).toBe('');
+  it("falls back to our own claim's PCN only when matched", () => {
+    const cr = claimResponse();
+    const claim = submittedClaim({ identifier: [{ system: CLAIM_PCN_IDENTIFIER_SYSTEM, value: 'PCN-42' }] });
+    expect(eraPatientAccountNumber([cr], claim, true)).toBe('PCN-42');
+    expect(eraPatientAccountNumber([cr], submittedClaim({ id: 'aaaa-bbbb' }), true)).toBe('aaaabbbb');
+    // an unmatched row's claim id is synthetic, so it must never leak out as an account number
+    expect(eraPatientAccountNumber([cr], submittedClaim({ id: 'unmatched-cr-1' }), false)).toBe('');
+    expect(eraPatientAccountNumber([], undefined, false)).toBe('');
   });
 });
 
 describe('buildEraClaimRemit', () => {
-  it('carries CLP-level fields: status code, ICN, disposition, notes', () => {
+  it('reads CLP02 and the payer claim control number from the era extensions', () => {
     const cr = claimResponse({
-      identifier: [{ value: 'ICN-123' }],
-      disposition: 'Processed as primary',
-      extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '1' }],
-      processNote: [{ text: 'N130: consult plan benefit documents' }],
+      extension: eraExtensions({ statusCode: '1', pcn: 'FKFQGCL3M6M3VR', icn: 'BTCN7WB7FC00' }),
       item: [
-        {
-          itemSequence: 1,
+        eraItem({
+          sequence: 1,
+          procedureCode: '99214',
           adjudication: [
-            adjudication(ADJUDICATION_CODES.CHARGE, 100),
-            adjudication(ADJUDICATION_CODES.PAID, 60),
-            adjudication(ADJUDICATION_CODES.ALLOWED, 80),
-            casAdjustment('PR', 20, '2'),
+            adjudication(ADJUDICATION_CODES.CHARGE, 380),
+            adjudication(ADJUDICATION_CODES.PAID, 55.32),
+            adjudication(ADJUDICATION_CODES.ALLOWED, 55.32),
+            casAdjustment('CO', 324.68, '45'),
           ],
-        },
+        }),
       ],
     });
 
-    const remit = buildEraClaimRemit(cr, submittedClaim());
+    const remit = buildEraClaimRemit(cr, undefined);
 
     expect(remit).toMatchObject({
       claimResponseId: 'cr-1',
       created: '2026-07-15',
       outcome: 'complete',
-      disposition: 'Processed as primary',
       eraStatusCode: '1',
-      payerClaimControlNumber: 'ICN-123',
-      allowed: 80,
-      paid: 60,
-      patientResp: 20,
-      notes: ['N130: consult plan benefit documents'],
+      payerClaimControlNumber: 'BTCN7WB7FC00',
+      allowed: 55.32,
+      paid: 55.32,
+      notes: [],
     });
-    expect(remit.serviceLines).toHaveLength(1);
+    expect(remit.serviceLines[0].cptCode).toBe('99214');
   });
 
-  it('aggregates PR adjustments per reason code across items and addItem', () => {
+  it('aggregates patient responsibility per reason code across lines', () => {
     const cr = claimResponse({
       item: [
-        {
-          itemSequence: 1,
-          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 30), casAdjustment('PR', 10.005, '2')],
-        },
-        {
-          itemSequence: 2,
-          adjudication: [
-            adjudication(ADJUDICATION_CODES.PAID, 30),
-            casAdjustment('PR', 5, '2'),
-            casAdjustment('CO', 40, '45'),
-          ],
-        },
-      ],
-      addItem: [
-        {
-          productOrService: { coding: [{ code: 'unknown' }] },
-          adjudication: [casAdjustment('PR', 25, '1')],
-        },
+        eraItem({ sequence: 1, adjudication: [casAdjustment('PR', 10.005, '2')] }),
+        eraItem({ sequence: 2, adjudication: [casAdjustment('PR', 5, '2'), casAdjustment('CO', 40, '45')] }),
+        eraItem({ sequence: 3, adjudication: [casAdjustment('PR', 25, '1')] }),
       ],
     });
 
-    const remit = buildEraClaimRemit(cr, submittedClaim());
-
-    expect(remit.patientRespAdjustments).toEqual([
-      { groupCode: X12_ADJUSTMENT_GROUP_CODE.patientResponsibility, reasonCode: '2', amount: 15.01 },
-      { groupCode: X12_ADJUSTMENT_GROUP_CODE.patientResponsibility, reasonCode: '1', amount: 25 },
+    expect(buildEraClaimRemit(cr, undefined).patientRespAdjustments).toEqual([
+      { groupCode: 'PR', reasonCode: '2', amount: 15.01 },
+      { groupCode: 'PR', reasonCode: '1', amount: 25 },
     ]);
   });
 
-  it('passes reversal remits through with negative amounts and CLP02 22', () => {
+  it('passes reversals through with their negative amounts', () => {
     const cr = claimResponse({
-      extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '22' }],
+      extension: eraExtensions({ statusCode: '22' }),
       item: [
-        {
-          itemSequence: 1,
-          adjudication: [adjudication(ADJUDICATION_CODES.PAID, -60), casAdjustment('PR', -20, '1')],
-        },
+        eraItem({
+          sequence: 1,
+          procedureCode: '73140',
+          adjudication: [
+            adjudication(ADJUDICATION_CODES.CHARGE, -116),
+            adjudication(ADJUDICATION_CODES.PAID, -14.46),
+            casAdjustment('CO', -101.54, '45'),
+          ],
+        }),
       ],
     });
 
-    const remit = buildEraClaimRemit(cr, submittedClaim());
+    const remit = buildEraClaimRemit(cr, undefined);
 
     expect(remit.eraStatusCode).toBe('22');
-    expect(remit.paid).toBe(-60);
-    expect(remit.serviceLines[0].deductible).toBe(-20);
+    expect(remit.paid).toBe(-14.46);
+    expect(remit.serviceLines[0]).toMatchObject({ billed: -116, cptCode: '73140' });
   });
 });
 
 describe('resolveEraPayee', () => {
-  const oystehrWith = (get: ReturnType<typeof vi.fn>): Oystehr => ({ fhir: { get } }) as unknown as Oystehr;
-
   const payeeOrg: Organization = {
     resourceType: 'Organization',
-    id: 'payee-1',
-    name: 'Ottehr Medical Group',
+    id: 'billing-provider',
     identifier: [
-      { system: FHIR_IDENTIFIER_NPI, value: '1234567890' },
+      { system: FHIR_IDENTIFIER_NPI, value: '1871112375' },
       {
         type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAX_EMPLOYER }] },
         value: '123456789',
@@ -415,57 +386,24 @@ describe('resolveEraPayee', () => {
     ],
   };
 
-  const pr = (overrides: Partial<PaymentReconciliation> = {}): PaymentReconciliation =>
-    ({
-      resourceType: 'PaymentReconciliation',
-      id: 'era-1',
-      status: 'active',
-      created: '2026-07-20',
-      paymentAmount: { value: 60, currency: 'USD' },
-      ...overrides,
-    }) as PaymentReconciliation;
-
-  it('returns null when the ERA carries no payee', async () => {
-    const get = vi.fn();
-    expect(await resolveEraPayee(oystehrWith(get), pr())).toBeNull();
-    expect(get).not.toHaveBeenCalled();
+  it('reads the billing provider the contained claim points at', () => {
+    const cr = claimResponse({ contained: [containedClaim(), payeeOrg] });
+    expect(resolveEraPayee([cr])).toEqual({ name: '', npi: '1871112375', taxId: '123456789' });
   });
 
-  it('resolves a contained payee organization', async () => {
-    const get = vi.fn();
-    const payee = await resolveEraPayee(
-      oystehrWith(get),
-      pr({
-        contained: [payeeOrg],
-        requestor: { reference: '#payee-1' },
-      })
-    );
-    expect(payee).toEqual({ name: 'Ottehr Medical Group', npi: '1234567890', taxId: '123456789' });
-    expect(get).not.toHaveBeenCalled();
+  it('includes the organization name when the converter supplies one', () => {
+    const cr = claimResponse({
+      contained: [containedClaim(), { ...payeeOrg, name: 'Ottehr Medical Group' }],
+    });
+    expect(resolveEraPayee([cr])?.name).toBe('Ottehr Medical Group');
   });
 
-  it('fetches a referenced payee organization', async () => {
-    const get = vi.fn().mockResolvedValue(payeeOrg);
-    const payee = await resolveEraPayee(oystehrWith(get), pr({ requestor: { reference: 'Organization/payee-1' } }));
-    expect(get).toHaveBeenCalledWith({ resourceType: 'Organization', id: 'payee-1' });
-    expect(payee).toEqual({ name: 'Ottehr Medical Group', npi: '1234567890', taxId: '123456789' });
-  });
-
-  it('falls back to the reference display when the fetch fails', async () => {
-    const get = vi.fn().mockRejectedValue(new Error('nope'));
-    const payee = await resolveEraPayee(
-      oystehrWith(get),
-      pr({ requestor: { reference: 'Organization/payee-1', display: 'Ottehr Medical Group' } })
-    );
-    expect(payee).toEqual({ name: 'Ottehr Medical Group', npi: '', taxId: '' });
-  });
-
-  it('reads detail[].payee after requestor', async () => {
-    const get = vi.fn();
-    const payee = await resolveEraPayee(
-      oystehrWith(get),
-      pr({ detail: [{ type: { coding: [] }, payee: { display: 'From Detail' } }] })
-    );
-    expect(payee).toEqual({ name: 'From Detail', npi: '', taxId: '' });
+  it('skips remits with no payee and returns null when no remit has one', () => {
+    const bare = claimResponse({ id: 'cr-bare' });
+    const withPayee = claimResponse({ id: 'cr-payee', contained: [containedClaim(), payeeOrg] });
+    expect(resolveEraPayee([bare, withPayee])?.npi).toBe('1871112375');
+    // matched responses lose their contained resources entirely
+    expect(resolveEraPayee([bare])).toBeNull();
+    expect(resolveEraPayee([])).toBeNull();
   });
 });

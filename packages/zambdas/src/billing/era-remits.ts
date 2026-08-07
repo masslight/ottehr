@@ -1,13 +1,4 @@
-import Oystehr from '@oystehr/sdk';
-import {
-  Claim,
-  ClaimItem,
-  ClaimResponse,
-  Organization,
-  PaymentReconciliation,
-  Practitioner,
-  Reference,
-} from 'fhir/r4b';
+import { Claim, ClaimItem, ClaimResponse, ClaimResponseItem, Organization } from 'fhir/r4b';
 import {
   asEraClaimStatusCode,
   ClaimRemitAdjustment,
@@ -21,96 +12,122 @@ import {
   X12_ADJUSTMENT_GROUP_CODE,
 } from 'utils';
 import { extractClaimResponseAmounts, extractLineAmounts, extractRemitAdjustments } from './claim-amounts';
-import { CLAIM_PCN_IDENTIFIER_SYSTEM, ERA_STATUS_CODE_EXTENSION, fhirName, getClaimPcn } from './shared';
+import {
+  ERA_ICN_EXTENSION,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_UNITS_EXTENSION,
+  ERA_PCN_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+  getClaimPcn,
+  getEraExtensionString,
+} from './shared';
 
-// CLP01 patient control number. Matched claims round-trip getClaimPcn (its dash-stripped-id
-// fallback is the value Oystehr matched on); unmatched rows get a synthetic 'unmatched-*' id
-// before mapping, so only an identifier echoed on the contained claim counts there.
-export function eraPatientAccountNumber(claim: Claim | undefined, matched: boolean): string {
-  if (!claim) return '';
-  if (matched) return getClaimPcn(claim);
-  return (
-    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
-    claim.identifier?.[0]?.value ??
-    ''
-  );
+// CLP01 patient control number as the payer echoed it back. The converter stamps it on the
+// ClaimResponse; our own claim's PCN is only a fallback, and matters only for matched rows (the
+// contained claim of an unmatched row carries no identifier, and its id is synthetic by this point).
+export function eraPatientAccountNumber(
+  claimResponses: ClaimResponse[],
+  claim: Claim | undefined,
+  matched: boolean
+): string {
+  const echoed = claimResponses.map((cr) => getEraExtensionString(cr, ERA_PCN_EXTENSION)).find(Boolean);
+  if (echoed) return echoed;
+  return matched && claim ? getClaimPcn(claim) : '';
 }
 
-function findClaimItem(claim: Claim | undefined, sequence: number | undefined): ClaimItem | undefined {
-  if (sequence == null) return undefined;
-  return claim?.item?.find((item) => item.sequence === sequence);
+function itemProcedureCode(item: ClaimResponseItem): string {
+  return getEraExtensionString(item, ERA_ITEM_PROCEDURE_CODE_EXTENSION) ?? '';
 }
 
-// The submitted line to join an adjudicated line back to: the matched claim first, then the
-// converter's contained claim — a manual match can attach a remit to a claim whose line sequences
-// don't correspond, and the contained original still has the ERA's own SVC data.
-function joinableClaims(claimResponse: ClaimResponse, claim: Claim | undefined): (Claim | undefined)[] {
-  const contained = claimResponse.contained?.find((resource): resource is Claim => resource.resourceType === 'Claim');
-  return claim === contained ? [claim] : [claim, contained];
+// SVC05 units. The converter stamps 0 on every line of some ERAs, including lines it paid in
+// full, so 0 means "the payer didn't report units" rather than a service delivered zero times.
+function itemUnits(item: ClaimResponseItem): number | null {
+  const units = item.extension?.find((ext) => ext.url === ERA_ITEM_UNITS_EXTENSION)?.valueQuantity?.value;
+  return units ? units : null;
+}
+
+// The submitted line this adjudicated line describes, used only to enrich what the remit omits
+// (modifiers, date of service, submitted charge). Matched on procedure code: the ERA's line order
+// need not agree with ours, so a remit line whose code we can't find is left unenriched rather
+// than borrowing another service's details by sequence. Sequence is the fallback only when the
+// remit line carries no code at all. Matching on a real Claim only — a matched ClaimResponse has
+// no contained resources (Oystehr drops them on match) and an unmatched one's contained Claim
+// carries no items.
+function findSubmittedLine(
+  claim: Claim | undefined,
+  procedureCode: string,
+  sequence: number | undefined
+): ClaimItem | undefined {
+  const items = claim?.item ?? [];
+  if (items.length === 0) return undefined;
+  if (procedureCode) {
+    return items.find((item) => item.productOrService?.coding?.some((coding) => coding.code === procedureCode));
+  }
+  return sequence == null ? undefined : items.find((item) => item.sequence === sequence);
+}
+
+function buildServiceLine(
+  item: ClaimResponseItem,
+  claim: Claim | undefined,
+  claimLevelDate: string,
+  claimLevel: boolean
+): EraRemitServiceLine {
+  const cptCode = itemProcedureCode(item);
+  const submitted = findSubmittedLine(claim, cptCode, item.itemSequence);
+  const amounts = extractLineAmounts(item.adjudication);
+  const buckets = patientRespBuckets(amounts.adjustments);
+  return {
+    itemSequence: item.itemSequence ?? null,
+    isClaimLevel: claimLevel,
+    cptCode: cptCode || submitted?.productOrService?.coding?.[0]?.code || '',
+    modifiers: (submitted?.modifier ?? []).map((modifier) => modifier.coding?.[0]?.code ?? '').filter(Boolean),
+    units: itemUnits(item) ?? submitted?.quantity?.value ?? null,
+    // Neither converter preserves the SVC loop's DTM 472 line service date, so this is the
+    // submitted line's date where we can identify it, and the claim's date otherwise.
+    serviceDate: submitted?.servicedPeriod?.start ?? submitted?.servicedDate ?? claimLevelDate,
+    billed: amounts.billed ?? submitted?.net?.value ?? null,
+    allowed: amounts.allowed ?? null,
+    paid: amounts.paid,
+    deductible: buckets.deductible,
+    coinsurance: buckets.coinsurance,
+    copay: buckets.copay,
+    adjustments: amounts.adjustments,
+  };
 }
 
 export function buildEraRemitServiceLines(
   claimResponse: ClaimResponse,
   claim: Claim | undefined
 ): EraRemitServiceLine[] {
-  const claims = joinableClaims(claimResponse, claim);
-  const lines: EraRemitServiceLine[] = [];
+  const contained = claimResponse.contained?.find((resource): resource is Claim => resource.resourceType === 'Claim');
+  const claimLevelDate =
+    claim?.item?.[0]?.servicedPeriod?.start ??
+    claim?.item?.[0]?.servicedDate ??
+    claim?.created ??
+    contained?.created ??
+    '';
 
-  for (const item of claimResponse.item ?? []) {
-    const claimItem = claims.map((c) => findClaimItem(c, item.itemSequence)).find(Boolean);
-    const amounts = extractLineAmounts(item.adjudication);
-    const buckets = patientRespBuckets(amounts.adjustments);
-    lines.push({
-      itemSequence: item.itemSequence ?? null,
-      isClaimLevel: false,
-      cptCode: claimItem?.productOrService?.coding?.[0]?.code ?? '',
-      modifiers: (claimItem?.modifier ?? []).map((m) => m.coding?.[0]?.code ?? '').filter(Boolean),
-      units: claimItem?.quantity?.value ?? null,
-      serviceDate: claimItem?.servicedPeriod?.start ?? claimItem?.servicedDate ?? '',
-      billed: amounts.billed ?? claimItem?.net?.value ?? null,
-      allowed: amounts.allowed ?? null,
-      paid: amounts.paid,
-      deductible: buckets.deductible,
-      coinsurance: buckets.coinsurance,
-      copay: buckets.copay,
-      adjustments: amounts.adjustments,
-    });
-  }
-
-  for (const addItem of claimResponse.addItem ?? []) {
-    const sequence = addItem.itemSequence?.[0];
-    const claimItem = claims.map((c) => findClaimItem(c, sequence)).find(Boolean);
-    const addItemCode = addItem.productOrService?.coding?.[0]?.code;
-    // both converters stamp 'unknown' on the addItem bucket that carries claim-level CAS
-    const cptCode =
-      (addItemCode && addItemCode !== 'unknown' ? addItemCode : undefined) ??
-      claimItem?.productOrService?.coding?.[0]?.code ??
-      '';
-    const amounts = extractLineAmounts(addItem.adjudication);
-    const buckets = patientRespBuckets(amounts.adjustments);
-    lines.push({
-      itemSequence: sequence ?? null,
-      isClaimLevel: !cptCode,
-      cptCode,
-      modifiers: (addItem.modifier ?? []).map((m) => m.coding?.[0]?.code ?? '').filter(Boolean),
-      units: addItem.quantity?.value ?? claimItem?.quantity?.value ?? null,
-      serviceDate:
-        addItem.servicedPeriod?.start ??
-        addItem.servicedDate ??
-        claimItem?.servicedPeriod?.start ??
-        claimItem?.servicedDate ??
-        '',
-      billed: amounts.billed ?? claimItem?.net?.value ?? null,
-      allowed: amounts.allowed ?? null,
-      paid: amounts.paid,
-      deductible: buckets.deductible,
-      coinsurance: buckets.coinsurance,
-      copay: buckets.copay,
-      adjustments: amounts.adjustments,
-    });
-  }
-
-  return lines;
+  return [
+    ...(claimResponse.item ?? []).map((item) => buildServiceLine(item, claim, claimLevelDate, false)),
+    // The process-era converter parks claim-level CAS adjustments in an addItem bucket coded
+    // 'unknown'; a real procedure code there means it is a genuine payer-added line.
+    ...(claimResponse.addItem ?? []).map((addItem) => {
+      const code = addItem.productOrService?.coding?.[0]?.code;
+      const asItem: ClaimResponseItem = {
+        itemSequence: addItem.itemSequence?.[0] ?? 0,
+        adjudication: addItem.adjudication,
+        extension: addItem.extension,
+      };
+      const claimLevel = !code || code === 'unknown';
+      const line = buildServiceLine(asItem, claim, claimLevel ? '' : claimLevelDate, claimLevel);
+      return {
+        ...line,
+        itemSequence: addItem.itemSequence?.[0] ?? null,
+        cptCode: claimLevel ? '' : line.cptCode || code || '',
+        serviceDate: addItem.servicedPeriod?.start ?? addItem.servicedDate ?? line.serviceDate,
+      };
+    }),
+  ];
 }
 
 // PR-group adjustments aggregated across the whole remit, amounts summed per CARC reason code —
@@ -131,70 +148,48 @@ function aggregatePatientRespAdjustments(adjustments: ClaimRemitAdjustment[]): C
 
 export function buildEraClaimRemit(claimResponse: ClaimResponse, claim: Claim | undefined): EraClaimRemit {
   const amounts = extractClaimResponseAmounts(claimResponse);
+  const serviceLines = buildEraRemitServiceLines(claimResponse, claim);
   return {
     claimResponseId: claimResponse.id ?? '',
     created: claimResponse.created ?? '',
     outcome: claimResponse.outcome ?? '',
     disposition: claimResponse.disposition ?? '',
-    eraStatusCode: asEraClaimStatusCode(
-      claimResponse.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
-    ),
-    payerClaimControlNumber: claimResponse.identifier?.[0]?.value ?? '',
+    eraStatusCode: asEraClaimStatusCode(getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION)),
+    payerClaimControlNumber:
+      getEraExtensionString(claimResponse, ERA_ICN_EXTENSION) ?? claimResponse.identifier?.[0]?.value ?? '',
     allowed: amounts.allowed ?? null,
     paid: amounts.paid,
     patientResp: amounts.patientResp ?? null,
     patientRespAdjustments: aggregatePatientRespAdjustments(extractRemitAdjustments(claimResponse)),
-    serviceLines: buildEraRemitServiceLines(claimResponse, claim),
+    serviceLines,
     notes: (claimResponse.processNote ?? []).map((note) => note.text ?? '').filter(Boolean),
   };
 }
 
-function payeeFromResource(resource: Organization | Practitioner): EraPayee | null {
-  const name = resource.resourceType === 'Organization' ? resource.name ?? '' : fhirName(resource);
-  const npi = getNPI(resource) ?? '';
-  const taxId = getTaxID(resource) ?? '';
+function payeeFromOrganization(org: Organization): EraPayee | null {
+  const name = org.name ?? '';
+  const npi = getNPI(org) ?? '';
+  const taxId = getTaxID(org) ?? '';
   if (!name && !npi && !taxId) return null;
   return { name, npi, taxId };
 }
 
-async function resolvePayeeRef(
-  eraReadClient: Oystehr,
-  pr: PaymentReconciliation,
-  ref: Reference
-): Promise<EraPayee | null> {
-  if (ref.reference?.startsWith('#')) {
-    const containedId = ref.reference.slice(1);
-    const contained = pr.contained?.find((resource) => resource.id === containedId);
-    if (contained && (contained.resourceType === 'Organization' || contained.resourceType === 'Practitioner')) {
-      const payee = payeeFromResource(contained);
-      if (payee) return payee;
-    }
-  } else if (ref.reference) {
-    const [resourceType, id] = ref.reference.split('/');
-    if ((resourceType === 'Organization' || resourceType === 'Practitioner') && id) {
-      try {
-        const resource = await eraReadClient.fhir.get<Organization | Practitioner>({ resourceType, id });
-        const payee = payeeFromResource(resource);
-        if (payee) return payee;
-      } catch (error) {
-        console.error(`Failed to resolve ERA payee ${ref.reference}:`, error);
-      }
-    }
-  }
-  if (ref.display) return { name: ref.display, npi: '', taxId: '' };
-  return null;
-}
-
-// N1*PE payee (the billing provider the check pays). Neither converter has been observed writing
-// it, so every candidate is optional: PaymentReconciliation.requestor, then detail[].payee —
-// contained '#refs' resolved locally, real references fetched on the untagged ERA client, a bare
-// Reference.display as last resort. Null when the ERA carries nothing.
-export async function resolveEraPayee(eraReadClient: Oystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {
-  const candidates = [pr.requestor, ...(pr.detail ?? []).map((detail) => detail.payee)].filter(
-    (ref): ref is Reference => ref != null
-  );
-  for (const ref of candidates) {
-    const payee = await resolvePayeeRef(eraReadClient, pr, ref);
+// N1*PE payee (the billing provider the check pays). The converter does not put it on the
+// PaymentReconciliation; it replicates it onto each unmatched ClaimResponse as a contained
+// Organization referenced by the contained Claim's provider. Matched responses lose their
+// contained resources, so an ERA whose claims are all matched has no payee to show.
+export function resolveEraPayee(claimResponses: ClaimResponse[]): EraPayee | null {
+  for (const claimResponse of claimResponses) {
+    const contained = claimResponse.contained ?? [];
+    const claim = contained.find((resource): resource is Claim => resource.resourceType === 'Claim');
+    const providerRef = claim?.provider?.reference;
+    const organizations = contained.filter(
+      (resource): resource is Organization => resource.resourceType === 'Organization'
+    );
+    const org = providerRef?.startsWith('#')
+      ? organizations.find((candidate) => candidate.id === providerRef.slice(1))
+      : organizations[0];
+    const payee = org ? payeeFromOrganization(org) : null;
     if (payee) return payee;
   }
   return null;

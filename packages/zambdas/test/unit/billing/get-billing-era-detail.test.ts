@@ -7,6 +7,7 @@ import {
   Patient,
   PaymentReconciliation,
 } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI } from 'utils';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,
@@ -15,7 +16,14 @@ import {
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-era-detail';
-import { ERA_CHECK_SYSTEM, ERA_STATUS_CODE_EXTENSION, resolvePayersByRef } from '../../../src/billing/shared';
+import {
+  ERA_CHECK_SYSTEM,
+  ERA_ICN_EXTENSION,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_PCN_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+  resolvePayersByRef,
+} from '../../../src/billing/shared';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -68,6 +76,16 @@ const adjudications = (parts: {
   return list;
 };
 
+const eraItem = (
+  sequence: number,
+  procedureCode: string,
+  amounts: Parameters<typeof adjudications>[0]
+): NonNullable<ClaimResponse['item']>[number] => ({
+  itemSequence: sequence,
+  adjudication: adjudications(amounts),
+  extension: [{ url: ERA_ITEM_PROCEDURE_CODE_EXTENSION, valueString: procedureCode }],
+});
+
 const matchedResponse = (
   id: string,
   created: string,
@@ -83,11 +101,18 @@ const matchedResponse = (
   created,
   insurer: { reference: PAYER_REF, display: 'Acme' },
   outcome: 'complete',
+  // matching strips the contained resources; the era-* extensions are all that is left
   request: { reference: 'Claim/c1' },
-  extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: statusCode }],
-  item: [{ itemSequence: 1, adjudication: adjudications(amounts) }],
+  extension: [
+    { url: ERA_STATUS_CODE_EXTENSION, valueString: statusCode },
+    { url: ERA_PCN_EXTENSION, valueString: 'ECHOED-PCN' },
+    { url: ERA_ICN_EXTENSION, valueString: `ICN-${id}` },
+  ],
+  item: [eraItem(1, '99213', amounts)],
 });
 
+// The unmatched shape: contained Claim carrying no items, plus the billing provider (payee) and
+// the patient the payer named.
 const unmatchedResponse: ClaimResponse = {
   resourceType: 'ClaimResponse',
   id: 'cr-2',
@@ -99,35 +124,36 @@ const unmatchedResponse: ClaimResponse = {
   insurer: { display: 'Acme' },
   outcome: 'queued',
   request: { reference: '#request' },
+  extension: [
+    { url: ERA_STATUS_CODE_EXTENSION, valueString: '4' },
+    { url: ERA_PCN_EXTENSION, valueString: 'ACC-7' },
+    { url: ERA_ICN_EXTENSION, valueString: 'ICN-cr-2' },
+  ],
   contained: [
     {
       resourceType: 'Claim',
       id: 'request',
       status: 'active',
-      created: '2026-07-01',
+      created: '2026-06-30',
       use: 'claim',
       type: { coding: [] },
       priority: { coding: [] },
       patient: { reference: '#patient' },
-      provider: { display: 'Someone' },
+      provider: { reference: '#billing-provider' },
       insurance: [],
-      identifier: [{ value: 'ACC-7' }],
-      item: [
-        {
-          sequence: 1,
-          productOrService: { coding: [{ code: '99213' }] },
-          servicedPeriod: { start: '2026-06-30' },
-          net: { value: 80, currency: 'USD' },
-        },
-      ],
     } as Claim,
     {
       resourceType: 'Patient',
       id: 'patient',
       name: [{ family: 'Smith', given: ['Riley'] }],
     } as Patient,
+    {
+      resourceType: 'Organization',
+      id: 'billing-provider',
+      identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1871112375' }],
+    } as Organization,
   ],
-  item: [{ itemSequence: 1, adjudication: adjudications({ paid: 0, pr: ['3', 25] }) }],
+  item: [eraItem(1, '87880', { paid: 0, pr: ['3', 25] })],
 };
 
 const submittedClaim: Claim = {
@@ -215,11 +241,13 @@ describe('get-billing-era-detail performEffect', () => {
       payerName: 'Acme Insurance',
       payerFhirId: 'org-9',
       status: 'complete',
-      paymentMethod: 'CHK',
+      // BPR04 is not preserved, and the trace number's system says nothing about it
+      paymentMethod: '',
       totalClaims: 2,
       matchedClaims: 1,
       unmatchedClaims: 1,
-      payee: null,
+      // taken off the unmatched remit's contained billing provider
+      payee: { name: '', npi: '1871112375', taxId: '' },
     });
     expect(response.claims).toHaveLength(2);
 
@@ -231,12 +259,14 @@ describe('get-billing-era-detail performEffect', () => {
       patientName: 'Doe, Jane',
       dos: '2026-07-09',
       billed: 100,
-      patientAccountNumber: 'c1',
+      // the CLP01 the payer echoed, not our own claim's PCN
+      patientAccountNumber: 'ECHOED-PCN',
     });
     expect(matched?.remits.map((remit) => remit.claimResponseId)).toEqual(['cr-1', 'cr-1r']);
     expect(matched?.claimResponseIds).toEqual(['cr-1', 'cr-1r']);
     expect(matched?.remits[0]).toMatchObject({
       eraStatusCode: '1',
+      payerClaimControlNumber: 'ICN-cr-1',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -249,7 +279,8 @@ describe('get-billing-era-detail performEffect', () => {
     });
     expect(matched?.remits[1]).toMatchObject({ eraStatusCode: '22', paid: -60 });
 
-    // unmatched row: joined from the contained claim/patient, identifier-only account number
+    // unmatched row: patient and claim date come from the contained resources, the line's own
+    // identity from the remit extensions
     const unmatched = response.claims.find((claim) => !claim.matched);
     expect(unmatched).toMatchObject({
       claimId: 'unmatched-cr-2',
@@ -257,11 +288,11 @@ describe('get-billing-era-detail performEffect', () => {
       patientAccountNumber: 'ACC-7',
     });
     expect(unmatched?.remits).toHaveLength(1);
+    expect(unmatched?.remits[0]).toMatchObject({ eraStatusCode: '4', payerClaimControlNumber: 'ICN-cr-2' });
     expect(unmatched?.remits[0].serviceLines[0]).toMatchObject({
-      cptCode: '99213',
+      cptCode: '87880',
       serviceDate: '2026-06-30',
       copay: 25,
-      billed: 80,
     });
   });
 

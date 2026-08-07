@@ -142,7 +142,7 @@ export async function performEffect(
       paid: payments.insurancePaid,
       posted: payments.insurancePaid,
       patientResp: payments.patientResp,
-      patientAccountNumber: eraPatientAccountNumber(claim, matched),
+      patientAccountNumber: eraPatientAccountNumber(claimResponses, claim, matched),
       status: latestStatus,
       matched,
       claimResponseIds: orderedResponses
@@ -154,7 +154,7 @@ export async function performEffect(
 
   const checkNumber = getEraCheckNumber(pr) ?? '';
   const counts = countEraClaims(claimResponses);
-  const payee = await resolveEraPayee(eraReadClient, pr);
+  const payee = resolveEraPayee(claimResponses);
 
   return {
     id: pr.id ?? '',
@@ -166,7 +166,10 @@ export async function performEffect(
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
     payerFhirId: payerOrg?.id ?? '',
     status: pr.outcome ?? pr.status ?? '',
-    paymentMethod: pr.paymentIdentifier ? (pr.paymentIdentifier.system?.includes('check') ? 'CHK' : 'EFT') : '',
+    // BPR04 (ACH/CHK/NON) is not preserved by either converter: the trace number's system is
+    // always the era-check-number system whether the payer sent a check or an EFT, so anything
+    // derived from it would be a coin flip. Only a typed payment identifier is a real signal.
+    paymentMethod: pr.paymentIdentifier?.type?.coding?.[0]?.code ?? '',
     totalClaims: counts.total,
     matchedClaims: counts.matched,
     unmatchedClaims: counts.unmatched,
