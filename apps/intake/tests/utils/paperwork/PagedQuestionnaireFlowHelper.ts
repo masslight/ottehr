@@ -1,6 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import type { QuestionnaireConfigType, ValueSetsConfig } from 'config-types';
-import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   buildEnableWhenContext,
@@ -53,6 +53,8 @@ export class PagedQuestionnaireFlowHelper {
   private collectedResponses: QuestionnaireResponseItem[] = [];
   /** Optional fully-resolved paperwork config for concrete config tests */
   private paperworkConfig?: QuestionnaireConfigType;
+  /** Optional pre-assembled FHIR Questionnaire (e.g. a paperwork flow's effective questionnaire) */
+  private effectiveQuestionnaire?: Questionnaire;
 
   /**
    * @param page - Playwright page instance
@@ -61,15 +63,22 @@ export class PagedQuestionnaireFlowHelper {
    *                          This should be the result of getIntakePaperworkConfig(overrides) or
    *                          getIntakePaperworkVirtualConfig(overrides). When provided, the
    *                          questionnaire is generated from this config to match what's deployed to FHIR.
+   * @param effectiveQuestionnaire - Optional pre-assembled FHIR Questionnaire. When provided it takes
+   *                          precedence over `paperworkConfig`/service-mode defaults and its `item[]` is
+   *                          used to build the page model. This is how a paperwork *flow* is driven: pass
+   *                          the result of `resolveEffectiveQuestionnaire(flowQuestionnaire, oystehr)` so the
+   *                          helper fills/verifies the exact pages the app renders when a flow is configured.
    */
   constructor(
     page: Page,
     serviceMode: 'in-person' | 'virtual' = 'in-person',
-    paperworkConfig?: QuestionnaireConfigType
+    paperworkConfig?: QuestionnaireConfigType,
+    effectiveQuestionnaire?: Questionnaire
   ) {
     this.page = page;
     this.serviceMode = serviceMode;
     this.paperworkConfig = paperworkConfig;
+    this.effectiveQuestionnaire = effectiveQuestionnaire;
     this.locators = new Locators(page);
     this.uploadDocs = new UploadDocs(page);
     this.loadQuestionnaireItems();
@@ -81,7 +90,11 @@ export class PagedQuestionnaireFlowHelper {
   private loadQuestionnaireItems(): void {
     let questionnaire;
 
-    if (this.paperworkConfig) {
+    if (this.effectiveQuestionnaire) {
+      // A pre-assembled questionnaire (e.g. a paperwork flow's effective questionnaire) was provided.
+      // Use it verbatim so the page model matches exactly what the app renders for the flow.
+      questionnaire = this.effectiveQuestionnaire;
+    } else if (this.paperworkConfig) {
       // Generate questionnaire from provided config (matches what's deployed to FHIR)
       questionnaire = createQuestionnaireFromConfig(this.paperworkConfig);
     } else {
