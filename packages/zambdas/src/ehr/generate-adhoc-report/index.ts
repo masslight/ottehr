@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  AD_HOC_REPORT_EDIT_ROLES,
   buildComponentsPromptSection,
   buildExecutionContractPromptSection,
   fixAndParseJsonObjectFromString,
@@ -12,7 +13,7 @@ import {
   REPORT_ROOT_NAME,
   Secrets,
 } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { getUserToken, requireUserWithRole, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -240,6 +241,9 @@ const performEffect = async (
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
+
   const output = await performEffect(params, secrets);
 
   return { statusCode: 200, body: JSON.stringify(output) };

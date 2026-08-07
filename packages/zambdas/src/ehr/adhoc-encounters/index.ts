@@ -22,6 +22,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  AD_HOC_REPORT_VIEW_ROLES,
   AdHocEncounterRow,
   AdHocEncountersInput,
   AdHocEncountersOutputSchema,
@@ -48,6 +49,8 @@ import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   followUpTypeFromPerformerType,
+  getUserToken,
+  requireUserWithRole,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -150,6 +153,8 @@ const orderDisplay = (sr: ServiceRequest): string =>
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
