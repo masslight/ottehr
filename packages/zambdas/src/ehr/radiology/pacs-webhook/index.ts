@@ -29,6 +29,7 @@ import {
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   advaPacsFetch,
+  AllRadTaskResources,
   configReviewResultTask,
   parseRadiologyResourcesForTask,
   ResourcesForTask,
@@ -229,7 +230,7 @@ const handleDiagnosticReport = async (
 
   if (diagnosticReports.length > 1) {
     console.log(
-      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacsDiagnosticReport.id; updating the most recent and retiring the rest`
+      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacs DR id: ${advaPacsDiagnosticReport.id}; updating the most recent and retiring the rest`
     );
 
     const [drToUpdate, ...drsToRetire] = [...diagnosticReports].sort((a, b) => {
@@ -238,24 +239,20 @@ const handleDiagnosticReport = async (
       return bLastUpdated - aLastUpdated;
     });
 
-    if (drToUpdate.id == null) throw new Error('DiagnosticReport ID is required');
+    const retireRequests = drsToRetire.map(buildRetireDiagnosticReportRequest);
 
-    const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
-    const requests: BatchInputRequest<FhirResource>[] = [
-      ...buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask),
-      ...drsToRetire.map(buildRetireDiagnosticReportRequest),
-    ];
+    const updateRequests = handleUpdateDiagnosticReportRequests(
+      drToUpdate,
+      advaPacsDiagnosticReport,
+      additionalResources
+    );
 
     console.log('making transaction request to update DiagnosticReport and retire its duplicate(s)');
-    await oystehr.fhir.transaction({ requests });
+    await oystehr.fhir.transaction({ requests: [...updateRequests, ...retireRequests] });
   } else if (diagnosticReports.length === 1) {
     const drToUpdate = diagnosticReports[0];
-    if (drToUpdate.id == null) {
-      throw new Error('DiagnosticReport ID is required');
-    }
 
-    const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
-    const requests = buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask);
+    const requests = handleUpdateDiagnosticReportRequests(drToUpdate, advaPacsDiagnosticReport, additionalResources);
 
     console.log('making transaction request for handleUpdateDiagnosticReport');
     await oystehr.fhir.transaction({ requests });
@@ -296,13 +293,24 @@ const handleCreateDiagnosticReport = async (
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
+const handleUpdateDiagnosticReportRequests = (
+  drToUpdate: DiagnosticReport,
+  advaPacsDiagnosticReport: DiagnosticReport,
+  additionalResources: Omit<AllRadTaskResources, 'diagnosticReports'>
+): BatchInputRequest<FhirResource>[] => {
+  if (drToUpdate.id == null) throw new Error('DiagnosticReport ID is required');
+
+  const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
+  const requests = buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask);
+
+  return requests;
+};
+
 const buildUpdateDiagnosticReportRequests = (
   advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
   resourcesForTask: ResourcesForTask
 ): BatchInputRequest<FhirResource>[] => {
-  console.log('processing DiagnosticReport update');
-
   console.log('Updating our DiagnosticReport with ID: ', ourDiagnosticReport.id);
 
   const requests: BatchInputRequest<FhirResource>[] = [];
