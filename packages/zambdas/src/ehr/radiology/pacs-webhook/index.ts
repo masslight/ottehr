@@ -234,9 +234,9 @@ const handleDiagnosticReport = async (
     );
 
     const [drToUpdate, ...drsToRetire] = [...diagnosticReports].sort((a, b) => {
-      const aLastUpdated = a.meta?.lastUpdated ? DateTime.fromISO(a.meta.lastUpdated).toMillis() : 0;
-      const bLastUpdated = b.meta?.lastUpdated ? DateTime.fromISO(b.meta.lastUpdated).toMillis() : 0;
-      return bLastUpdated - aLastUpdated;
+      const aLastIssued = a.issued ? DateTime.fromISO(a.issued).toMillis() : 0;
+      const bLastIssued = b.issued ? DateTime.fromISO(b.issued).toMillis() : 0;
+      return bLastIssued - aLastIssued;
     });
 
     const retireRequests = drsToRetire.map(buildRetireDiagnosticReportRequest);
