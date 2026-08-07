@@ -13,7 +13,7 @@ import { SECRETS as S } from './data/secrets';
 // const COMPLETED_VALID_FULL_QR_WITH_INSURANCE: QuestionnaireResponseItem[] = QRData.full[0].item;
 // const COMPLETED_VALID_FULL_QR_NO_INSURANCE: QuestionnaireResponseItem[] = QRData.full[1].item;
 
-// type QRPageName = 'contact-information-page' | 'payment-option-page' | 'patient-details-page' | 'photo-id-page';
+// type QRPageName = 'contact-information-page' | 'payment-option-page' | 'patient-details-page';
 
 // function makeValueAttachmentAnswer(url: any, title: any, contentType: any): QuestionnaireResponseItemAnswer[] {
 //   return [
@@ -48,7 +48,6 @@ import { SECRETS as S } from './data/secrets';
 //     // making some assumptions here about where the valid, completed pages are in the lists
 //     case 'contact-information-page':
 //     case 'patient-details-page':
-//     case 'photo-id-page':
 //       pageQR = QRData.page[pageId][0].item;
 //       break;
 //     case 'payment-option-page':
@@ -389,7 +388,6 @@ describe('QR item type tests', () => {
     'contact-information-page': null,
     'payment-option-page': null,
     'patient-details-page': null,
-    'photo-id-page': null,
   };
 
   vi.setConfig({ testTimeout: 100_000 });
@@ -623,13 +621,19 @@ describe('QR item type tests', () => {
     });
 
     test('Attachment type fields require url, title, and content type to be defined if attachment is sent', async () => {
-      const validationSchema = getValidationSchema('photo-id-page');
+      const validationSchema = getValidationSchema('contact-information-page');
       const nullValues = makeValueAttachmentAnswer(null, null, null);
       const undefinedValues = makeValueAttachmentAnswer(undefined, undefined, undefined);
       const emptyValues = makeValueAttachmentAnswer('', '', '');
-      const nullAnswer = editQRAnswer('photo-id-page', 'photo-id-front', nullValues, 'attachment', qrType);
-      const undefinedAnswer = editQRAnswer('photo-id-page', 'photo-id-front', undefinedValues, 'attachment', qrType);
-      const emptyAnswer = editQRAnswer('photo-id-page', 'photo-id-front', emptyValues, 'attachment', qrType);
+      const nullAnswer = editQRAnswer('contact-information-page', 'photo-id-front', nullValues, 'attachment', qrType);
+      const undefinedAnswer = editQRAnswer(
+        'contact-information-page',
+        'photo-id-front',
+        undefinedValues,
+        'attachment',
+        qrType
+      );
+      const emptyAnswer = editQRAnswer('contact-information-page', 'photo-id-front', emptyValues, 'attachment', qrType);
 
       await testForInvalidAnswer(nullAnswer, validationSchema, needsValidatePage, undefined, 3);
       await testForInvalidAnswer(undefinedAnswer, validationSchema, needsValidatePage, undefined, 3);
@@ -643,13 +647,13 @@ describe('QR item type tests', () => {
         },
       ];
       const undefinedAnswer = editQRAnswer(
-        'photo-id-page',
+        'contact-information-page',
         'photo-id-front',
         undefinedAttachment,
         'attachment',
         qrType
       );
-      await testForValidAnswer(undefinedAnswer, getValidationSchema('photo-id-page'), needsValidatePage);
+      await testForValidAnswer(undefinedAnswer, getValidationSchema('contact-information-page'), needsValidatePage);
     });
 
     test('Field is required when "require-when" extension exists on item and the conditional is true', async () => {

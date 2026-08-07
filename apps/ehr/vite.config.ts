@@ -8,6 +8,7 @@ import { defineConfig, loadEnv, UserConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
 import { devStampRestartPlugin } from '../../vite/dev-stamp-restart';
+import { adHocReportRuntime } from './adhoc-report-runtime-plugin';
 
 const coreRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -17,7 +18,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr()];
+  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr(), adHocReportRuntime()];
 
   const shouldUploadSentrySourceMaps =
     Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);
@@ -67,6 +68,10 @@ export default ({ mode }: { mode: string }): UserConfig => {
       // Generating them for every env (e2e*, local) bloats rollup's
       // "rendering chunks" phase and OOMs the build on a 23k-module app.
       sourcemap: shouldUploadSentrySourceMaps,
+    },
+    define: {
+      // Chime SDK background-filter deps reference the Node.js `global` which doesn't exist in browsers.
+      global: 'globalThis',
     },
     resolve: {
       preserveSymlinks: true,

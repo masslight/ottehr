@@ -1,6 +1,7 @@
 import { Operation } from 'fast-json-patch';
 import { Extension } from 'fhir/r4b';
-import { PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction, PhotoIdExtractionFields } from 'utils';
+import { PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction, PhotoIdExtractionFields, Secrets } from 'utils';
+import { invokeChatbotVertexAI } from '../../shared/ai';
 import {
   assertBooleanClassifier,
   buildExtractionExtension as buildGenericExtractionExtension,
@@ -113,6 +114,38 @@ export function parseModelResponse(raw: string): ParsedModelResponse {
 
   // all-null extraction is a permanent no-op condition, same as notAPhotoId
   return { isPhotoId: true, fields };
+}
+
+export interface ModelPhotoIdExtraction {
+  isPhotoId: boolean;
+  fields: PhotoIdExtractionFields | null;
+  /** true when mimeType isn't an image/pdf we can even attempt to OCR — caller should treat as notAPhotoId */
+  unsupportedContentType: boolean;
+}
+
+/**
+ * The reusable "bytes in, fields out" core of photo ID OCR: no DocumentReference, no FHIR I/O —
+ * just the model call and response parsing. Shared by the DocumentReference-backed extraction
+ * below and by get-photo-id-suggestions, which OCRs a just-uploaded image before any
+ * DocumentReference exists. Throws on malformed model JSON (parseModelResponse) — callers decide
+ * retry semantics.
+ */
+export async function extractPhotoIdFieldsFromImage(
+  bytes: Buffer,
+  mimeType: string,
+  secrets: Secrets | null
+): Promise<ModelPhotoIdExtraction> {
+  if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
+    return { isPhotoId: false, fields: null, unsupportedContentType: true };
+  }
+
+  const rawModelResponse = await invokeChatbotVertexAI(
+    [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
+    secrets,
+    photoIdResponseSchema
+  );
+  const parsed = parseModelResponse(rawModelResponse);
+  return { ...parsed, unsupportedContentType: false };
 }
 
 export interface ExistingExtraction {

@@ -35,6 +35,7 @@ import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
+  AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
@@ -83,14 +84,13 @@ import {
 } from '../../shared';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
-  AUTO_ACCIDENT_TAG_DESCRIPTION,
-  AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
+  ensureSystemManagedTags,
   findRef,
   getClaimTypeCoding,
   kickOffRulesEngine,
@@ -103,9 +103,6 @@ import {
   resourceDisplayName,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -140,7 +137,6 @@ interface BillingResources {
   renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
-  autoAccidentTag?: Basic;
   billingService?: Basic;
 }
 
@@ -440,21 +436,11 @@ export async function performEffect(
 
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
-    billingTags.push('auto-accident');
-    if (!billingResources.autoAccidentTag) {
-      requests.push({
-        method: 'POST',
-        url: '/Basic',
-        resource: {
-          resourceType: 'Basic',
-          code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-          extension: [
-            { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
-            { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-          ],
-        },
-      });
-      order.push('auto-accident-tag');
+    billingTags.push(AUTO_ACCIDENT_TAG_NAME);
+    try {
+      await ensureSystemManagedTags(billingOystehr);
+    } catch (error) {
+      console.error('Failed to ensure system-managed tags exist:', error);
     }
   }
 
@@ -1085,15 +1071,6 @@ async function findExistingBillingResources(
   ).unbundle();
   const matchingBillingProvider = billingProviderSearch.length > 0 ? billingProviderSearch[0] : undefined;
 
-  // Look for the auto-accident tag
-  const tagSearch = (
-    await billingOystehr.fhir.search<Basic>({
-      resourceType: 'Basic',
-      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
-    })
-  ).unbundle();
-  const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
-
   // Look for the "billing service" (urgent-care, workers-comp, etc) matching the appointment's serviceCategory
   let billingService: Basic | undefined;
   const appointmentService = getService(clinicalResources.appointment);
@@ -1119,7 +1096,6 @@ async function findExistingBillingResources(
     renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
-    autoAccidentTag,
     billingService,
   };
 }

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { DiagnosticReport } from 'fhir/r4b';
+import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -37,10 +37,18 @@ describe('radiology-save-final-report integration — happy path', () => {
       consentObtained: false,
     });
     serviceRequestId = (created.output as { serviceRequestId: string }).serviceRequestId;
+    // A preliminary report is only accepted once the study has been performed (the PACS webhook's job).
+    await oystehrAdmin.fhir.patch<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+      operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+    });
     await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      // Diagnosis is required when saving a preliminary read (it is optional at order time).
+      diagnosisCodes: ['E11.9'],
     });
   }, 60_000);
 

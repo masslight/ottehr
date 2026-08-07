@@ -455,7 +455,7 @@ const renderBodySections = <TData extends PdfData>(
   pdfClient.setY(finalY);
 };
 
-const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
+export const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
   const fonts: PdfAssets['fonts'] = {};
   let icons: PdfAssets['icons'];
   let logo: PdfAssets['logo'];
@@ -481,7 +481,7 @@ const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<P
   return { fonts, icons, logo };
 };
 
-const uploadPdfToStorage = async (
+export const uploadPdfToStorage = async (
   pdfBytes: Uint8Array,
   metadata: UploadMetadata,
   secrets: Secrets | null,

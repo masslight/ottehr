@@ -284,6 +284,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
 export interface FileDocDataForDocReference {
   url: string;
   title: string;
+  language?: string;
 }
 
 export interface CreateDocumentReferenceInput {
@@ -339,7 +340,10 @@ export async function createFilesDocumentReferences(
       // If different version exists, mark it as superseded
       const oldDoc = docsJson.find((doc) => {
         if (!isLabsResultDoc) {
-          return doc.content[0]?.attachment.title === file.title;
+          return (
+            doc.content[0]?.attachment.title === file.title &&
+            (doc.content[0]?.attachment.language ?? 'en') === (file.language ?? 'en')
+          );
         } else {
           console.log('isLabsResultDoc');
           const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
@@ -380,6 +384,7 @@ export async function createFilesDocumentReferences(
                 url: file.url,
                 contentType,
                 title: file.title,
+                language: file.language,
               },
             },
           ],

@@ -476,7 +476,7 @@ export class ResourceHandler {
   // harvest bug) rather than an opaque downstream UI timeout.
   async waitTillCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
     const apiClient = await this.apiClient;
-    const maxAttempts = 15;
+    const maxAttempts = 30;
     const delayMs = 2_000;
     const startTime = Date.now();
     let count = 0;

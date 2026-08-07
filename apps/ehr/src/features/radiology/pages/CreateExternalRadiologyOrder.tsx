@@ -18,6 +18,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { InputMask } from 'ui-components';
 import {
   DiagnosisDTO,
@@ -62,6 +63,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
+  const hasNPI = useEvolveUser()?.hasNPI ?? false;
   const isEditMode = !!initialOrder;
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -140,8 +142,8 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
     e.preventDefault();
     setSubmitting(true);
 
+    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
     const paramsSatisfied =
-      orderDx.length > 0 &&
       orderCpt &&
       encounter.id &&
       clinicalHistory.length <= 255 &&
@@ -186,7 +188,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (clinicalHistory.length > 255) errorMessage.push('Clinical history must be 255 characters or less');
       if (phoneDigitsInvalid(orgPhone)) errorMessage.push('Please enter a valid 10-digit phone number');
@@ -319,7 +320,8 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                   appointmentId={appointmentIdFromUrl || ''}
                   submitting={submitting}
                   submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
-                  errors={error}
+                  disabled={!hasNPI}
+                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
                   cancelUrl={
                     initialOrder
                       ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
