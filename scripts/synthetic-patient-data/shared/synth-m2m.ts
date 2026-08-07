@@ -7,10 +7,11 @@
 // Why it's needed: save-chart-data resolves the caller via oystehr.m2m.me() and
 // loads its `profile` as a Practitioner (packages/utils/lib/auth/user-me.helper.ts).
 // The default project M2M has a `Device/...` profile → save-chart-data 500s. This
-// creates/updates a SEPARATE client whose profile is a real Practitioner (access
-// policy copied from the current pipeline client, so same perms), then REDIRECTS
-// this process to authenticate as it by overwriting AUTH0_CLIENT/AUTH0_SECRET in
-// process.env — which spawned harness children inherit.
+// creates a SEPARATE client whose profile is a real Practitioner, with a broad
+// inline access policy (copied from the terraform admin client — roles alone don't
+// grant direct FHIR on real envs) plus the staff roles, then REDIRECTS this process
+// to authenticate as it by overwriting AUTH0_CLIENT/AUTH0_SECRET in process.env —
+// which spawned harness children inherit.
 import type Oystehr from '@oystehr/sdk';
 import { FHIR_IDENTIFIER_NPI } from 'utils';
 import { makeValidNpi } from './npi';
@@ -130,9 +131,10 @@ export async function ensureSynthM2MInProcess(opts: {
   const admin = createOystehrFromToken(token);
 
   // Grant the synth M2M the project's staff roles (Provider + admin/manager/etc.).
-  // Roles carry the comprehensive access policies a staff USER has — needed for
-  // role/policy-gated zambdas like sign-appointment (a narrow copied policy 401s
-  // "not authorized"). Only roles the project actually defines are applied.
+  // On real envs these roles carry empty policies (see the accessPolicy note below),
+  // but role/policy-gated zambdas still check role MEMBERSHIP via userMe.roles /
+  // requireUserWithRole, so the labels must be present. Only roles the project
+  // actually defines are applied.
   const allRoles = (await admin.role.list()) as Array<{ id: string; name: string }>;
   const roleIds = allRoles.filter((r) => STAFF_ROLE_NAMES.has(r.name)).map((r) => r.id);
   if (roleIds.length === 0) {
@@ -142,18 +144,33 @@ export async function ensureSynthM2MInProcess(opts: {
   }
 
   const clients = (await admin.m2m.list()) as any[];
+
+  // The synth M2M's DIRECT FHIR access comes from an INLINE access policy, not from
+  // roles. On real deployed envs the staff roles carry EMPTY policies — they're only
+  // labels for requireUserWithRole/userMe.roles — so a roles-only client 403s
+  // ("Forbidden") on direct fhir.search/patch/delete even with the Administrator
+  // role. (The integration-test *project* defines broad role policies, which is why
+  // roles-only works there and not here.) Copy the terraform admin client's
+  // known-broad policy (falling back to allow-all) so the harness's direct FHIR
+  // works; the roles are kept for the role-gated zambdas.
+  const ALLOW_ALL = { rule: [{ action: ['*'], effect: 'Allow', resource: ['*'] }] };
+  const adminClientId = process.env.OYSTEHR_ADMIN_CLIENT_ID;
+  const adminPolicy = adminClientId ? clients.find((c) => c.clientId === adminClientId)?.accessPolicy : undefined;
+  const accessPolicy = adminPolicy?.rule?.length ? adminPolicy : ALLOW_ALL;
+
   const practitionerId = await ensureProfilePractitioner(admin, opts.name, opts.practitionerId);
-  // Recreate (delete-then-create) rather than update: an m2m.update({ roles })
-  // leaves any inline accessPolicy from a prior (pre-roles) run in place, which can
-  // override the roles and cause 403s ("Forbidden"). A fresh create guarantees a
-  // clean roles-only client. Nothing external references the old client (we mint
-  // its secret fresh each run anyway), so deleting it is safe.
+  // Recreate (delete-then-create) rather than update: an m2m.update leaves any prior
+  // config in place. A fresh create guarantees the intended policy + roles. Nothing
+  // external references the old client (we mint its secret fresh each run anyway), so
+  // deleting it is safe.
   const existing = clients.find((c) => c.name === opts.name);
   if (existing) await admin.m2m.delete({ id: existing.id });
   const created = (await admin.m2m.create({
     name: opts.name,
-    description: 'Synth pipeline client (Practitioner profile + staff roles) — provisioned in-process.',
+    description:
+      'Synth pipeline client (Practitioner profile + broad access policy + staff roles) — provisioned in-process.',
     profile: `Practitioner/${practitionerId}`,
+    accessPolicy,
     roles: roleIds,
   })) as any;
   const id: string = created.id;
