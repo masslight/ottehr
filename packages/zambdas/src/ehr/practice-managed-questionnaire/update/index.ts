@@ -1,8 +1,13 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { MANAGED_QUESTIONNAIRE_ERROR, PAPERWORK_FLOW_TAG, practiceManagedQuestionnaireToFhir } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { PAPERWORK_FLOW_TAG } from 'utils/lib/fhir/constants';
+import { practiceManagedQuestionnaireToFhir } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getCanonicalUrlFromQ, searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
 import { handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
 import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';

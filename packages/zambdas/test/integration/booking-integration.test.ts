@@ -2,39 +2,41 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { appointmentTypeForAppointment, getCancellationReasonDisplay } from 'utils/lib/fhir/appointments';
 import {
-  APIError,
-  appointmentTypeForAppointment,
-  CanonicalUrl,
-  checkEncounterIsVirtual,
+  parseQuestionnaireCanonicalExtension,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  SlotServiceCategory,
+  SLUG_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { CanonicalUrl, ServiceMode, Timezone } from 'utils/lib/types/common';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import {
+  APIError,
+  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+  POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+} from 'utils/lib/types/errors';
+import {
   createSlotParamsFromSlotAndOptions,
-  getCancellationReasonDisplay,
   getOriginalBookingUrlFromSlot,
   getScheduleExtension,
-  GetScheduleResponse,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  getSlugForBookableResource,
   getTimezone,
-  isPostTelemedAppointment,
-  M2MClientMockType,
-  parseQuestionnaireCanonicalExtension,
-  PatientInfo,
-  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-  POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
-  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotListItem,
-  SlotServiceCategory,
-  SLUG_SYSTEM,
-  Timezone,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
 import { assert } from 'vitest';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';

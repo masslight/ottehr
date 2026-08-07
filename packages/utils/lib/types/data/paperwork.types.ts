@@ -1,5 +1,5 @@
 import { Appointment, HealthcareService, List, Location, Patient, QuestionnaireResponse, Schedule } from 'fhir/r4b';
-import { OptionConfig } from '../../helpers';
+import { OptionConfig } from '../../helpers/paperwork/paperwork';
 import { Secrets } from '../../secrets';
 import { AvailableLocationInformation, FileURLs, FormItemType } from '../common';
 import { AppointmentSummary, IntakeQuestionnaireItem, PaperworkPatient } from './paperwork/paperwork.types';

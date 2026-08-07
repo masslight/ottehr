@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences, FAX_PACKET_CODE } from 'utils';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { FAX_PACKET_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { PdfInfo } from './pdf-utils';
 
 /**

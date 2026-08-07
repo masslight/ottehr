@@ -2,17 +2,13 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getPatchBinary,
-  NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
-  UpdateNursingOrderInputValidated,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getMyPractitionerId,
-  ZambdaInput,
-} from '../../shared';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/orders/constants';
+import { UpdateNursingOrderInputValidated } from 'utils/lib/types/data/orders/types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

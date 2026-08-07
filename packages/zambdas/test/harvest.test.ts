@@ -1,5 +1,7 @@
 import { Patient, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { PATIENT_HAS_MEDICAID_URL, PHARMACY_COLLECTION_LINK_IDS, PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
+import { PREFERRED_PHARMACY_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
+import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
 import { describe, expect, test } from 'vitest';
 import {
   createMasterRecordPatchOperations,

@@ -1,4 +1,4 @@
-import { PatientFollowupDetails } from '.';
+import { PatientFollowupDetails } from './encounter.types';
 
 export interface SaveFollowupEncounterZambdaInput {
   encounterDetails: PatientFollowupDetails;

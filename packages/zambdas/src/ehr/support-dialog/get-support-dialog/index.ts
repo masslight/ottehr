@@ -1,14 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, GetSupportDialogOutput, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getSupportDialogPayload,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { topLevelCatch } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { getSupportDialogPayload } from '../../../shared/support-dialog';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

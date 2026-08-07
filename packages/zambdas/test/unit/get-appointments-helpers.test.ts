@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse } from 'fhir/r4b';
-import { isNonPaperworkQuestionnaireResponse } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { describe, expect, test } from 'vitest';
 import {
   APPOINTMENT_SEARCH_ELEMENTS,

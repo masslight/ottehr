@@ -1,16 +1,18 @@
 import { Practitioner } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
-  getAllNotificationRows,
-  getUiTaskCategoryForCode,
-  normalizeNotificationPreferencesV2,
-  notificationRowMatchesLocation,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
+} from '../types/api/practitioner.types';
+import {
+  getAllNotificationRows,
+  getUiTaskCategoryForCode,
+  normalizeNotificationPreferencesV2,
+  notificationRowMatchesLocation,
   UI_TASK_CATEGORY_IDS,
-} from '../types';
+} from '../types/api/provider-notifications';
 import { getProviderNotificationPreferencesV2 } from './patient';
 
 describe('getUiTaskCategoryForCode', () => {

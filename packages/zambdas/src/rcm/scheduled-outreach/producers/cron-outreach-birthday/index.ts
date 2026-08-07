@@ -1,5 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { produceBirthdayOutreach } from '../shared/produce-birthday-outreach';
 
 let m2mToken: string;

@@ -3,42 +3,27 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { phone } from 'phone';
-import {
-  convertOutreachTextToHtml,
-  getFullestAvailableName,
-  getPatientContactEmail,
-  getPhoneNumberForIndividual,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  getTaskResource,
-  isEmailValid,
-  maskEmail,
-  maskPhoneNumber,
-  Secrets,
-  SecretsKeys,
-  TaskIndicator,
-} from 'utils';
+import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TaskIndicator } from 'utils/lib/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
   ChargeCardConfig,
   NotificationConfig,
   NotificationMedium,
 } from '../../../rcm/scheduled-outreach-config/helpers';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  createOutreachEmailCommunication,
-  fillOutreachTemplate,
-  getEmailClient,
-  getStripeClient,
-  resolveTemplatePlaceholders,
-  safeJsonParse,
-  sendSmsForPatient,
-  StatementType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createOutreachEmailCommunication, getEmailClient, sendSmsForPatient } from '../../../shared/communication';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { StatementType } from '../../../shared/statements/get-statement-details';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { fillOutreachTemplate, resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { findStripeInvoiceByEncounterId } from '../../../shared/template-placeholders';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 let m2mToken: string;
 

@@ -1,10 +1,10 @@
 import {
   collectKnownExamFields,
-  examConfig,
-  ExamObservationDTO,
   extractObservationsFromExamComponents,
-  GetChartDataResponse,
-} from 'utils';
+} from 'utils/lib/config-helpers/exam-observations';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, Examination, PdfSection, ProgressNoteVisitDataInput } from '../../types';
 

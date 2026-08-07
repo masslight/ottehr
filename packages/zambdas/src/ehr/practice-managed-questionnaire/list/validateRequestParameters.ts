@@ -1,5 +1,5 @@
-import { Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
 
 type BaseContext = {
   secrets: Secrets | null;

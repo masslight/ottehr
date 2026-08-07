@@ -2,32 +2,31 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getClosingTime, getOpeningTime, isClosureOverride } from 'utils/lib/helpers/check-office-open';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { WalkinAvailabilityCheckParams, WalkinAvailabilityCheckResult } from 'utils/lib/types/api/appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Closure, ServiceMode, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import {
-  Closure,
-  createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
-  getClosingTime,
-  getOpeningTime,
-  getScheduleExtension,
-  getSecret,
-  getServiceModeFromScheduleOwner,
-  getTimezone,
   INVALID_INPUT_ERROR,
-  isClosureOverride,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+} from 'utils/lib/types/errors';
+import {
+  getScheduleExtension,
+  getServiceModeFromScheduleOwner,
+  getTimezone,
   ScheduleExtension,
-  ScheduleOwnerFhirResource,
-  SecretsKeys,
-  ServiceMode,
-  Timezone,
-  TIMEZONES,
-  WalkinAvailabilityCheckParams,
-  WalkinAvailabilityCheckResult,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 let oystehrToken: string;
 export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

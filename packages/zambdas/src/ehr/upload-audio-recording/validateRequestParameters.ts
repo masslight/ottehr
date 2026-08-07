@@ -1,4 +1,5 @@
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 import { CreateUploadAudioRecordingInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CreateUploadAudioRecordingInputValidated {

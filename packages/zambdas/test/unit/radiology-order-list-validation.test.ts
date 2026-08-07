@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { validateInput } from '../../src/ehr/radiology/order-list/validation';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const UUID_A = '123e4567-e89b-12d3-a456-426614174000';
 const UUID_B = '123e4567-e89b-12d3-a456-426614174001';

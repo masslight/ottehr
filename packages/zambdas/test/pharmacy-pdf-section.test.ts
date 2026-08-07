@@ -1,5 +1,5 @@
 import { Organization } from 'fhir/r4b';
-import { PHONE_NOT_ON_FILE } from 'utils';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { composePharmacyData, createPharmacyFormsSection } from '../src/shared/pdf/sections/pharmacyInfo';
 import { PdfAssets, PdfClient, PdfStyles, pharmacyInfo } from '../src/shared/pdf/types';

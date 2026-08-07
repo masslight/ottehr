@@ -1,4 +1,4 @@
-import { Cms1500 } from '../../types';
+import { Cms1500 } from '../../types/api/rcm-claims/claim.types';
 
 interface RCMClient {
   createClaim: (input: Cms1500) => Promise<string>;

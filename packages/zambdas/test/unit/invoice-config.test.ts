@@ -6,7 +6,7 @@ import {
   parseInvoicingConfig,
 } from '../../src/rcm/invoice-config/helpers';
 import { validateRequestParameters } from '../../src/rcm/invoice-config/save-invoice-config/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
 // parseInvoicingConfig

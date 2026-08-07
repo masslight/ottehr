@@ -1,21 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, MedicationRequest, MedicationStatement } from 'fhir/r4b';
-import {
-  ERX_MEDICATION_META_TAG_CODE,
-  FHIR_EXTENSION,
-  getBooleanExtensionValue,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
-  Secrets,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fillMeta,
-  makeMedicationResource,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ERX_MEDICATION_META_TAG_CODE, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { makeMedicationResource } from '../../../shared/chart-data';
+import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): {
   medicationRequest: MedicationRequest;
