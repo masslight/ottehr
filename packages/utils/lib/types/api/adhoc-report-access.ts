@@ -1,4 +1,4 @@
-import { RoleType } from '../api/user.types';
+import { RoleType } from './user.types';
 
 export const AD_HOC_REPORT_VIEW_ROLES: RoleType[] = [RoleType.Administrator];
 
