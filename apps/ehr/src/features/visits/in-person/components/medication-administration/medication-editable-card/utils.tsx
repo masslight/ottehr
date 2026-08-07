@@ -4,6 +4,7 @@ import { MedicationRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedicationWithTypeDTO } from 'src/features/visits/in-person/hooks/useMedicationHistory';
+import { medicationStatusDisplayLabelMap } from 'utils/lib/fhir/medication-administration';
 import {
   AllergyInteraction,
   DrugInteraction,
@@ -11,10 +12,9 @@ import {
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
-  medicationStatusDisplayLabelMap,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.types';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { ReasonSelect } from './ReasonSelect';
 

@@ -18,14 +18,14 @@ import {
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { dismissSnackbars } from 'tests/e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
 import {
-  FEATURE_FLAGS_CONFIG,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
-  medicationApplianceRoutes,
-  radiologyStudiesConfig,
-  UNIT_OPTIONS,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
 
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;

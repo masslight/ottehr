@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
-import { ArrayElement } from 'src/shared/types';
-import { BRANDING_CONFIG, SchoolWorkNoteExcuseDocDTO } from 'utils';
+import { ArrayElement } from 'src/shared/types/ArrayElement';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const mapExcuseTypeToFields = {
   workTemplate: ['headerNote', 'workFields', 'footerNote'],

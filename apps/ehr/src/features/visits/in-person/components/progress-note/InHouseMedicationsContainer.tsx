@@ -2,7 +2,9 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { createMedicationString, ExtendedMedicationDataForResponse, NoteDTO } from 'utils';
+import { createMedicationString } from 'utils/lib/fhir/medication-administration';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 
 export const InHouseMedicationsContainer: FC<{
   medications: ExtendedMedicationDataForResponse[];

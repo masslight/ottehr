@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { chooseJson } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 
 const GET_INVOICE_CONFIG_ZAMBDA_ID = 'get-invoice-config';
 const SAVE_INVOICE_CONFIG_ZAMBDA_ID = 'save-invoice-config';

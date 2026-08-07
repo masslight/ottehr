@@ -5,7 +5,7 @@ import {
   GetFaxPacketStatusOutput,
   SendFaxPacketInput,
   SendFaxPacketOutput,
-} from 'utils';
+} from 'utils/lib/types/api/fax.types';
 
 /** Only the methods the fax slice needs from the app's zambda API client, so the slice stays decoupled
  * from the client's (legacy, telemed-flavoured) concrete type. */

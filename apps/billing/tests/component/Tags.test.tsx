@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { BillingTag } from 'utils';
+import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Tags from '../../src/pages/Tags';
 

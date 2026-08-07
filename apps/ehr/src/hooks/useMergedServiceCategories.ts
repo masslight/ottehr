@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { listServiceCategories } from '../api/api';
 import { useApiClients } from './useAppClients';
 

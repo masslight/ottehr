@@ -3,7 +3,7 @@ import { AppointmentParticipant, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isTelemedEnabled } from 'test-utils';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
-import { isLocationVirtual } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 test.describe.configure({ mode: 'serial' });

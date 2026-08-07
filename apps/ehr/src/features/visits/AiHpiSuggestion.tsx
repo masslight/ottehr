@@ -1,7 +1,8 @@
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { AiObservationField, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 

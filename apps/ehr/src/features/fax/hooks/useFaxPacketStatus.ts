@@ -1,5 +1,5 @@
 import { useQueries } from '@tanstack/react-query';
-import { GetFaxPacketStatusOutput } from 'utils';
+import { GetFaxPacketStatusOutput } from 'utils/lib/types/api/fax.types';
 import { useOystehrAPIClient } from '../../visits/shared/hooks/useOystehrAPIClient';
 import { fetchFaxPacketStatus } from '../api/faxApi';
 import { nextFaxPollInterval } from '../model/faxPolling';

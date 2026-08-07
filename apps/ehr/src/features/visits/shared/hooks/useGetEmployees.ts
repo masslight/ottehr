@@ -1,5 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { EmployeeDetails, ProviderDetails } from 'utils';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
+import { EmployeeDetails } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 

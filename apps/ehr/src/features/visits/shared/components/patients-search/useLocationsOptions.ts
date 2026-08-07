@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { isLocationInPerson } from 'utils';
+import { isLocationInPerson } from 'utils/lib/fhir/location';
 import { useApiClients } from '../../../../../hooks/useAppClients';
 import { Option } from '../../../in-person/components/medication-administration/medicationTypes';
 

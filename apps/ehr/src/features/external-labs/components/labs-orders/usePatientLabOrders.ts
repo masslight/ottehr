@@ -3,10 +3,9 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getExternalLabOrdersUrl } from 'src/features/visits/in-person/routing/helpers';
+import { DEFAULT_LABS_ITEMS_PER_PAGE, EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
 import {
-  DEFAULT_LABS_ITEMS_PER_PAGE,
   DeleteLabOrderZambdaInput,
-  EMPTY_PAGINATION,
   ExternalLabsStatus,
   GetLabOrdersParameters,
   LabOrderDTO,
@@ -18,8 +17,8 @@ import {
   ReflexLabDTO,
   SpecimenDateChangedParameters,
   TaskReviewedParameters,
-  tryFormatDateToISO,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
+import { tryFormatDateToISO } from 'utils/lib/utils/date';
 import { deleteLabOrder, getExternalLabOrders, updateLabOrderResources } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';

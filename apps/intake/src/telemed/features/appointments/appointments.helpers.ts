@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
-import { PatientInfo, TelemedAppointmentInformationIntake, yupDateTransform } from 'utils';
+import { TelemedAppointmentInformationIntake } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { yupDateTransform } from 'utils/lib/utils/date';
 
 export const findActiveAppointment = (
   appointments?: TelemedAppointmentInformationIntake[]

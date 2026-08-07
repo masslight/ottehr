@@ -4,7 +4,7 @@ import { ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { deleteIcon } from 'src/themes/ottehr';
-import { NursingOrder } from 'utils';
+import { NursingOrder } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 import { NursingOrdersTableColumn } from './NursingOrdersTable';
 import { useUpdateNursingOrder } from './useNursingOrders';

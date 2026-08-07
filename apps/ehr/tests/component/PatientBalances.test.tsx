@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Patient } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { GetPatientBalancesZambdaOutput } from 'utils';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { default as PatientBalances } from '../../src/components/PatientBalances';
 

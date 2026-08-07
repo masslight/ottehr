@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { CONFIG_INJECTION_KEYS } from 'utils';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 
 /**
  * Inject a test config into the page's runtime environment.

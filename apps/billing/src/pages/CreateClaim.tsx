@@ -14,19 +14,21 @@ import {
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CreateBillingClaimInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingCoverageOption,
   BillingLocationOption,
   BillingPatientOption,
   BillingProviderOption,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
   ClaimStatusFieldKey,
   ClaimStatusValues,
-  CreateBillingClaimInput,
   emptyClaimStatusValues,
-  getApiError,
-  REQUIRED_FIELD_ERROR_MESSAGE,
   withArStageInitialization,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { createBillingClaim, getPatientCoverages, searchBillingLocations, searchBillingPatients } from '../api/api';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor, DiagnosisRow } from '../components/claim/DiagnosesEditor';

@@ -12,7 +12,9 @@ import { useGetVitalsForEncounters } from 'src/features/visits/shared/components
 import { useStopAmbientScribeOnLeave } from 'src/features/visits/shared/hooks/useStopAmbientScribeOnLeave';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { APIErrorCode, InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
+import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils/lib/types/constants';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';

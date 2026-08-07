@@ -31,7 +31,9 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPractitionerRole, listServiceCategories, setPractitionerRoleActive } from 'src/api/api';
-import { getPractitionerRoleAllCategories, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, TIMEZONES } from 'utils';
+import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { useApiClients } from '../../hooks/useAppClients';
 
 interface PractitionerRoleListProps {

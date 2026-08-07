@@ -2,16 +2,15 @@ import { expect, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/helpers/data-test-ids';
 import {
-  BookingConfig,
-  chooseJson,
-  CreateAppointmentResponse,
   getReasonForVisitOptionsForServiceCategory,
   getServiceCategoryCodings,
   prepopulateBookingForm,
-  selectBookingQuestionnaire,
   serviceCategorySupportsContext,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/config-helpers/booking';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { BookingConfig, selectBookingQuestionnaire } from 'utils/lib/ottehr-config/booking';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import {
   collectValidationErrors,
   fillChoiceDropdown,

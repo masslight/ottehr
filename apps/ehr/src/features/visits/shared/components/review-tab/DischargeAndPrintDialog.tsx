@@ -6,7 +6,7 @@ import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
-import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils';
+import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButton';
 

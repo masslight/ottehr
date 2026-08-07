@@ -1,7 +1,8 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getSpentTime, isTelemedAppointment } from 'utils';
+import { getSpentTime } from 'utils/lib/fhir/encounter';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
 

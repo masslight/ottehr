@@ -19,20 +19,22 @@ import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } f
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
   BillingService,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  MAX_RUN_RULES_ENGINE_CLAIMS,
-  SearchBillingClaimsInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import {
   runBillingRulesEngine,
   searchBillingClaims,

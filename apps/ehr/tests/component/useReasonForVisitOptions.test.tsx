@@ -2,13 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { HealthcareService } from 'fhir/r4b';
 import { ReactNode } from 'react';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
-  BOOKING_CONFIG,
-  getReasonForVisitOptionsForServiceCategory,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useReasonForVisitOptions } from '../../src/features/visits/shared/hooks/useReasonForVisitOptions';
 

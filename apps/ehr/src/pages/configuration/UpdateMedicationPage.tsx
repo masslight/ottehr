@@ -16,12 +16,12 @@ import {
 import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
+import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_NDC,
-  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
 
 function getMedispanId(medication: Medication | null): string | undefined {
   return medication?.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;

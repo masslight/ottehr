@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
 import { ContactSupportDialog } from '../../components/ContactSupportDialog';
-import { useIntakeCommonStore } from '../features/common';
 import { ContactSupportButton } from './ContactSupportButton';
 
 const Footer: FC = () => {

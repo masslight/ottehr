@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { configResultPageContainerTestId } from 'src/features/in-house-labs/utils/test-ids';
-import { EntryMode } from 'utils';
+import { EntryMode } from 'utils/lib/types/data/in-house/in-house.types';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 import { RadioSelectionResult } from './types';
 

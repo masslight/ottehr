@@ -9,7 +9,7 @@ import {
   GridToolbarFilterButton,
 } from '@mui/x-data-grid-pro';
 import React, { useMemo } from 'react';
-import type { AdHocLinkRoute } from 'utils';
+import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
 import { formatValue, ValueFormat } from './format';
 import { Link } from './Link';
 

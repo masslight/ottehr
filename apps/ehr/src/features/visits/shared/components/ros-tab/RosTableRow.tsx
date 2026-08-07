@@ -1,7 +1,9 @@
 import { Checkbox, TableCell, TableRow, Typography } from '@mui/material';
 import { FC, useCallback, useMemo } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExamObservationDTO, getRosFindingFieldKeys, RosCardItem } from 'utils';
+import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { RosCardItem } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useRosObservations } from '../../hooks/useRosObservations';
 
 interface RosTableRowProps {

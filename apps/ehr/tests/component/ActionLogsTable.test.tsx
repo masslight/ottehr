@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { ActionLogEntry } from 'utils';
+import { ActionLogEntry } from 'utils/lib/types/api/action-logs.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetActionLogs = vi.fn<(...args: any[]) => Promise<any>>();

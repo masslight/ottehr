@@ -3,7 +3,7 @@ import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
 import { Box, IconButton } from '@mui/material';
 import React, { useState } from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
-import { ExtendedMedicationDataForResponse } from 'utils';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
 

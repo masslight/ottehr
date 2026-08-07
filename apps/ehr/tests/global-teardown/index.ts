@@ -1,13 +1,8 @@
 import { getAuth0Token } from 'tests/e2e-utils/auth/getAuth0Token';
-import {
-  cleanAppointmentGraph,
-  cleanupE2ELocations,
-  createOystehrClient,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-  getSecret,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
+import { cleanAppointmentGraph, cleanupE2ELocations } from 'utils/lib/utils/e2eCleanup';
 
 const globalTeardown = async (): Promise<void> => {
   // Global setup logic here

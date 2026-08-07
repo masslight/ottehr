@@ -7,13 +7,9 @@ import { Fragment, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  APIError,
-  CashOrCardPayment,
-  GetPatientBalancesZambdaOutput,
-  isApiError,
-  PostPatientPaymentInput,
-} from 'utils';
+import { CashOrCardPayment, PostPatientPaymentInput } from 'utils/lib/types/api/patient-payment-types';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 import PaymentDialog from './dialogs/PaymentDialog';
 
 export interface PaymentBalancesProps {

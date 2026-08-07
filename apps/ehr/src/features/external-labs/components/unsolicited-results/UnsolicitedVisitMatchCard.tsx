@@ -2,7 +2,7 @@ import { CircularProgress, FormControl, FormControlLabel, Radio, RadioGroup } fr
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { useGetUnsolicitedResultsRelatedRequests } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { UnsolicitedResultsRequestType } from 'utils';
+import { UnsolicitedResultsRequestType } from 'utils/lib/types/data/labs/labs.types';
 
 interface UnsolicitedVisitMatchCardProps {
   diagnosticReportId: string;

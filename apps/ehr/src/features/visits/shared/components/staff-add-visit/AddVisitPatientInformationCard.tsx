@@ -18,7 +18,9 @@ import { FC, MouseEvent, useCallback, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AddVisitErrorState, AddVisitFormState, AddVisitPatientInfo } from 'src/pages/AddPatient';
-import { getFirstName, getLastName, getMiddleName, getPhoneNumberDigits, PersonSex } from 'utils';
+import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
+import { PersonSex } from 'utils/lib/types/common';
 import { AddVisitPatientSearchDialog } from './AddVisitPatientSearchDialog';
 import { AddVisitPatientSearchFields } from './AddVisitPatientSearchFields';
 

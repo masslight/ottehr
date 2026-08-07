@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { configBundleRowTestId } from 'src/features/external-labs/utils/test-ids';
-import { ExternalLabsStatus } from 'utils';
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export class PatientRecordPage {

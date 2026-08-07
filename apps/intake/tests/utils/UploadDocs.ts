@@ -1,9 +1,9 @@
 // cSpell:ignore filechooser
 import { expect, Locator, Page } from '@playwright/test';
 import path, { dirname } from 'path';
+import { FileUploadHelpers } from 'tests/utils/playwright-helpers/interactions';
 import { fileURLToPath } from 'url';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
-import { FileUploadHelpers } from './playwright-helpers';
 
 export type UploadedFile = { uploadedFile: Locator; link: string | null };
 export class UploadDocs {

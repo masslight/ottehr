@@ -1,13 +1,12 @@
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
+import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getGroupAllLocations,
-  isBookingConfigServiceCategoryCode,
   isPractitionerRoleMemberOfGroup,
   practitionerRoleOffersCategory,
-  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
-  ScheduleType,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/healthcareService';
+import { ScheduleType } from 'utils/lib/types/common';
 
 /**
  * Per-Location aggregation of every bookable surface that operates at that

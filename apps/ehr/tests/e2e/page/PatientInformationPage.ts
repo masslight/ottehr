@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { formatPhoneNumberForQuestionnaire, PATIENT_RECORD_CONFIG } from 'utils';
+import { formatPhoneNumberForQuestionnaire } from 'utils/lib/helpers/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
 
