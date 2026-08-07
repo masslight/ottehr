@@ -1,6 +1,10 @@
 import { Task } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM, INVOICE_TASK_SOURCE_SYSTEM, invoiceTaskSourceTag } from '../../types';
+import {
+  INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
+  INVOICE_TASK_SOURCE_SYSTEM,
+  invoiceTaskSourceTag,
+} from '../../types/api/invoicing.types';
 import { getInvoiceTaskClaimId, getInvoiceTaskSource, invoiceTaskSourceSearchParam } from './invoices-tasks';
 
 const task = (overrides: Partial<Task> = {}): Task => ({

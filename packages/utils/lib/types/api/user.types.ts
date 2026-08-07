@@ -1,6 +1,6 @@
 import { User as OystehrUser } from '@oystehr/sdk';
 import { Coding, Practitioner } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from '../../fhir';
+import { PARTICIPATION_CODE_SYSTEM } from '../../fhir/constants';
 
 export type User = OystehrUser & {
   profileResource?: Practitioner;

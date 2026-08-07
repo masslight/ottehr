@@ -17,48 +17,44 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentAttendanceTypeAppointment, appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
 import {
-  APPOINTMENT_SEARCH_TOO_BROAD_ERROR,
-  appointmentAttendanceTypeAppointment,
-  AppointmentRelatedResources,
-  appointmentTypeForAppointment,
-  CONSENT_FORMS_CONFIG,
-  flattenItems,
-  GetAppointmentsZambdaInput,
-  getAttendingPractitionerId,
-  getAttestedConsentFromEncounter,
-  getChatContainsUnreadMessages,
-  getCoding,
+  PRIVATE_EXTENSION_BASE_URL,
+  ROOM_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAttestedConsentFromEncounter, getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import {
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
   getSMSNumberForIndividual,
-  getVisitStatusHistory,
-  InPersonAppointmentInformation,
-  INSURANCE_CARD_CODE,
-  isAnnotationFollowupEncounter,
-  isInPersonAppointment,
-  isNonPaperworkQuestionnaireResponse,
   isPatientDemographicsComplete,
-  isTruthy,
-  PHOTO_ID_CARD_CODE,
-  PRIVATE_EXTENSION_BASE_URL,
-  ROOM_EXTENSION_URL,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  SMSModel,
-  SMSRecipient,
-  TIMEZONE_EXTENSION_URL,
-  ZAP_SMS_MEDIUM_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
+import { Secrets } from 'utils/lib/secrets';
+import { GetAppointmentsZambdaInput } from 'utils/lib/types/api/get-appointments.types';
+import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getTrackingBoardVisitStatus,
-  sortAppointments,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  AppointmentRelatedResources,
+  InPersonAppointmentInformation,
+} from 'utils/lib/types/data/appointments/appointments.types';
+import { INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { APPOINTMENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
+import { isTruthy } from 'utils/lib/types/utils';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,

@@ -1,6 +1,7 @@
 import { Task } from 'fhir/r4b';
-import { pageHarvestStrategy, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
 import { describe, expect, it, vi } from 'vitest';
+import { pageHarvestStrategy } from '../../config-types/config/intake-paperwork';
 import { extractPatchIndex, extractQrId } from '../src/subscriptions/task/sub-harvest-paperwork/index';
 import {
   executePageHarvest,
@@ -23,16 +24,16 @@ vi.mock('../src/ehr/shared/harvest', () => ({
   makeEncounterAccountPatchOp: vi.fn(() => []),
 }));
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/auth/user-auth.helper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/auth/user-auth.helper')>();
   return {
     ...actual,
     getRelatedPersonForPatient: vi.fn(async () => null),
   };
 });
 
-vi.mock('../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/shared')>();
+vi.mock('../src/shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/shared/getAuth0Token')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(async () => 'mock-token'),

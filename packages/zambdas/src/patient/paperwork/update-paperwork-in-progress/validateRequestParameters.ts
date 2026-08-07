@@ -1,7 +1,8 @@
 import { DateTime } from 'luxon';
-import { MISSING_REQUEST_BODY } from 'utils';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 interface UpdatePaperworkInProgressParams {
   appointmentID: string;

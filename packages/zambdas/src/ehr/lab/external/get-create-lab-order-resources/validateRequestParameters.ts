@@ -1,5 +1,6 @@
-import { GetCreateLabOrderResources } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { GetCreateLabOrderResources } from 'utils/lib/types/data/labs/labs.types';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrderResources & { secrets: any } {
   if (!input.body) {

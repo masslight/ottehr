@@ -9,7 +9,9 @@ import {
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
-import { getAttendingPractitionerId, Secrets, TIMEZONE_EXTENSION_URL } from 'utils';
+import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { Secrets } from 'utils/lib/secrets';
 import {
   createRadiologyOrderFormPDF,
   RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE,

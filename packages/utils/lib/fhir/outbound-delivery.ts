@@ -1,6 +1,6 @@
 import { Communication, Task, TaskInput, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { removePrefix } from '../helpers';
+import { removePrefix } from '../helpers/helpers';
 import { ActionLogChannel, ActionLogStatus, OutboundDeliveryAttemptData } from '../types/api/action-logs.types';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,

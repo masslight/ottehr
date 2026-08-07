@@ -10,8 +10,11 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire, getPatientFriendlyId } from 'utils';
-import { assertDefined, resolveTimezone } from '../../shared';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { getAppointmentType } from 'utils/lib/helpers/helpers';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { assertDefined, resolveTimezone } from '../../shared/helpers';
 
 export interface Document {
   patientInfo: PatientInfo;

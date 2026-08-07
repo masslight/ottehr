@@ -1,16 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Address, Appointment, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
-import {
-  getAddressForIndividual,
-  getAttendingPractitionerId,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
-  isInPersonAppointment,
-  isTelemedAppointment,
-  OTTEHR_MODULE,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getAddressForIndividual } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { fetchAllPages } from './fhir';
 
 // The full appointment status set (incl. cancelled / no-show) so a report can include or exclude

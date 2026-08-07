@@ -1,7 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PaymentNotice } from 'fhir/r4b';
-import { DailyPaymentsReportZambdaOutput, PaymentItem, PaymentMethodSummary } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  DailyPaymentsReportZambdaOutput,
+  PaymentItem,
+  PaymentMethodSummary,
+} from 'utils/lib/types/api/daily-payments-report.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

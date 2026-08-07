@@ -1,4 +1,4 @@
-import { PhotoIdExtractionFields } from '../data';
+import { PhotoIdExtractionFields } from '../data/documents';
 
 export interface GetPhotoIdSuggestionsInput {
   appointmentID: string;

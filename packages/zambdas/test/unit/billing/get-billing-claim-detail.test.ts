@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { fetchClaimEraLinks, fetchClaimResponsesByClaimIds } from '../../../src/billing/claim-amounts';

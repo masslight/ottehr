@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { HOLD_TAG_NAME } from 'utils';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/delete-billing-tag';
 import { DeleteBillingTagParams } from '../../../src/billing/delete-billing-tag/validateRequestParameters';

@@ -1,4 +1,5 @@
-import { PATIENT_GENDER_IDENTITY_URL, PATIENT_SEXUAL_ORIENTATION_URL, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { PATIENT_GENDER_IDENTITY_URL, PATIENT_SEXUAL_ORIENTATION_URL } from 'utils/lib/types/constants';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PatientDetails, PatientDetailsInput, PdfSection } from '../types';
 

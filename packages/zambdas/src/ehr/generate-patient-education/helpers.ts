@@ -1,4 +1,4 @@
-import { PatientEducationLanguage } from 'utils';
+import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 import { MedlineLink } from '../../shared/medlineplus';
 
 export function buildEducationPrompt(
