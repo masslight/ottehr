@@ -11,6 +11,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   countEraClaims,
+  extractReportedCharge,
   fetchClaimResponsesByPaymentReconciliations,
   isMatchedToClaim,
   sortClaimResponsesByRecency,
@@ -149,9 +150,12 @@ export async function performEffect(
     const patient = findRef<Patient>(patients, claim.patient?.reference);
     const matched = !claim.id?.startsWith('unmatched');
 
-    const billed = claim.total?.value ?? 0;
-    const payments = summarizeClaimPayments(claimResponses, billed);
     const orderedResponses = sortClaimResponsesByRecency(claimResponses);
+    // our own claim total for matched rows; an unmatched row's contained claim carries no total,
+    // so fall back to the charge the payer reported (CLP03 / line charges) on the latest remit
+    const billed =
+      claim.total?.value ?? orderedResponses.map(extractReportedCharge).findLast((charge) => charge != null) ?? 0;
+    const payments = summarizeClaimPayments(claimResponses, billed);
     const latestStatus = orderedResponses.at(-1)?.outcome ?? '';
 
     const coverageId = coverageIdByClaimId.get(claim.id ?? '');

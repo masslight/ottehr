@@ -104,6 +104,19 @@ export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemi
   return extractAdjustments(allAdjudications(claimResponse));
 }
 
+// CLP03 total claim charge as the payer reported it: the ClaimResponse.total 'charge' entry, else
+// the sum of the line-level 'charge' adjudications. Undefined when the remit reports no charge.
+export function extractReportedCharge(claimResponse: ClaimResponse): number | undefined {
+  const totalCharge = claimResponse.total?.find(
+    (total) => total.category?.coding?.[0]?.code === ADJUDICATION_CODES.CHARGE
+  )?.amount?.value;
+  if (totalCharge !== undefined) return totalCharge;
+  const chargeAdjudications = allAdjudications(claimResponse).filter(
+    (adj) => adjudicationCode(adj) === ADJUDICATION_CODES.CHARGE
+  );
+  return chargeAdjudications.length > 0 ? sumAmounts(chargeAdjudications) : undefined;
+}
+
 export interface RemitLineAmounts {
   // undefined = not reported on this line (distinct from an explicit 0)
   billed: number | undefined;

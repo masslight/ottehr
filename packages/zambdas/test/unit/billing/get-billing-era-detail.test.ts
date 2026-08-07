@@ -54,6 +54,7 @@ const adjudications = (parts: {
   paid: number;
   allowed?: number;
   pr?: [string, number];
+  charge?: number;
 }): ClaimResponseItemAdjudication[] => {
   const list: ClaimResponseItemAdjudication[] = [
     {
@@ -61,6 +62,12 @@ const adjudications = (parts: {
       amount: { value: parts.paid, currency: 'USD' },
     },
   ];
+  if (parts.charge !== undefined) {
+    list.push({
+      category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: ADJUDICATION_CODES.CHARGE }] },
+      amount: { value: parts.charge, currency: 'USD' },
+    });
+  }
   if (parts.allowed !== undefined) {
     list.push({
       category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: ADJUDICATION_CODES.ALLOWED }] },
@@ -154,7 +161,7 @@ const unmatchedResponse: ClaimResponse = {
       identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1871112375' }],
     } as Organization,
   ],
-  item: [eraItem(1, '87880', { paid: 0, pr: ['3', 25] })],
+  item: [eraItem(1, '87880', { paid: 0, pr: ['3', 25], charge: 570 })],
 };
 
 const submittedClaim: Claim = {
@@ -302,6 +309,8 @@ describe('get-billing-era-detail performEffect', () => {
       claimId: 'unmatched-cr-2',
       patientName: 'Smith, Riley',
       patientAccountNumber: 'ACC-7',
+      // the contained claim carries no total, so billed is the charge the payer reported
+      billed: 570,
       // the converter writes no contained Coverage or birth date
       memberId: '',
       patientDob: '',
