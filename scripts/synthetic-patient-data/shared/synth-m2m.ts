@@ -12,6 +12,8 @@
 // this process to authenticate as it by overwriting AUTH0_CLIENT/AUTH0_SECRET in
 // process.env — which spawned harness children inherit.
 import type Oystehr from '@oystehr/sdk';
+import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { makeValidNpi } from './npi';
 import { createOystehrFromToken, mintAccessTokenForClient } from './oystehr-client';
 
 // Marker tag + identifier for the DEDICATED Practitioner used as the M2M profile.
@@ -61,17 +63,36 @@ async function adminToken(): Promise<string | null> {
 async function ensureProfilePractitioner(admin: Oystehr, m2mName: string, override?: string): Promise<string> {
   if (override) return override;
   const idValue = slug(m2mName);
+  // Signing + order zambdas require the caller's Practitioner to carry an NPI
+  // (assertPractitionerHasNPI → NOT_AUTHORIZED), so the profile Practitioner gets a
+  // deterministic checksum-valid one.
+  const npi = makeValidNpi(idValue);
   const existing = (
     await admin.fhir.search<any>({
       resourceType: 'Practitioner',
       params: [{ name: 'identifier', value: `${PROFILE_ID_SYSTEM}|${idValue}` }],
     })
   ).unbundle();
-  if (existing[0]?.id) return existing[0].id as string;
+  if (existing[0]?.id) {
+    // Self-heal a previously-created profile Practitioner that predates the NPI
+    // requirement (added below), so sign-appointment stops 401-ing on it.
+    const p = existing[0] as { id: string; identifier?: Array<{ system?: string }> };
+    if (!(p.identifier ?? []).some((i) => i.system === FHIR_IDENTIFIER_NPI)) {
+      await admin.fhir.patch<any>({
+        resourceType: 'Practitioner',
+        id: p.id,
+        operations: [{ op: 'add', path: '/identifier/-', value: { system: FHIR_IDENTIFIER_NPI, value: npi } }],
+      });
+    }
+    return p.id;
+  }
   const created = await admin.fhir.create<any>({
     resourceType: 'Practitioner',
     active: true,
-    identifier: [{ system: PROFILE_ID_SYSTEM, value: idValue }],
+    identifier: [
+      { system: PROFILE_ID_SYSTEM, value: idValue },
+      { system: FHIR_IDENTIFIER_NPI, value: npi },
+    ],
     meta: { tag: [{ system: STAFF_MARKER_SYSTEM, code: 'synth-m2m-profile' }] },
     name: [{ use: 'official', family: 'Synthesizer', given: ['Synth'] }],
   });

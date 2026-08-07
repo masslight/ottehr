@@ -10,6 +10,7 @@
 // Optional: APPLICATION_ID='<ehr-app-id>' to override application auto-detection.
 import { Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { makeValidNpi } from './shared/npi';
 import {
   createOystehrFromToken,
   mintAccessToken,
@@ -53,32 +54,9 @@ const slug = (s: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-// NPI check digit = Luhn over the 80840-prefixed 9-digit base. Oystehr now
-// validates the NPI checksum on create/update-provider, so a synthetic provider
-// with a blank/arbitrary NPI is rejected on Save. Generate a deterministic
-// (stable across reruns) and per-provider-unique valid NPI.
-function npiCheckDigit(nineDigits: string): number {
-  const full = `80840${nineDigits}`;
-  let sum = 0;
-  let dbl = true; // rightmost digit doubles first — the check digit is appended
-  for (let i = full.length - 1; i >= 0; i--) {
-    let d = full.charCodeAt(i) - 48;
-    if (dbl) {
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
-    dbl = !dbl;
-  }
-  return (10 - (sum % 10)) % 10;
-}
-function npiForStaff(s: StaffDef): string {
-  const key = `${slug(s.first)}-${slug(s.last)}-${s.role}`;
-  let h = 2166136261;
-  for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  const base = `1${String(h % 100000000).padStart(8, '0')}`; // 9 digits, no leading zero
-  return `${base}${npiCheckDigit(base)}`;
-}
+// Deterministic, per-provider checksum-valid NPI (Oystehr validates the checksum
+// on create/update-provider; a blank/arbitrary NPI is rejected on Save).
+const npiForStaff = (s: StaffDef): string => makeValidNpi(`${slug(s.first)}-${slug(s.last)}-${s.role}`);
 
 const STAFF: StaffDef[] = [
   { first: 'Maria', last: 'Alvarez', role: 'provider', location: 'Los Angeles', credential: 'MD' },
