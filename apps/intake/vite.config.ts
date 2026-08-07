@@ -69,10 +69,19 @@ export default (env: any): Record<string, any> => {
       },
       resolve: {
         preserveSymlinks: true,
-        alias: {
-          '@theme': path.resolve(__dirname, appEnv.THEME_PATH || '/src/themes/ottehr'),
-          '@defaultTheme': path.resolve(__dirname, '/src/themes/ottehr'),
-        },
+        alias: [
+          // Resolve the workspace packages to their real source directories. `preserveSymlinks`
+          // otherwise resolves them inside node_modules, where vite treats them as prebundlable
+          // deps: it serves their source raw and, with it, their transitive deps — fatal for CJS
+          // ones like `prop-types` (reached via react-imask) that have no named exports to give.
+          { find: /^utils(\/|$)/, replacement: path.resolve(__dirname, '../../packages/utils') + '/' },
+          {
+            find: /^ui-components(\/|$)/,
+            replacement: path.resolve(__dirname, '../../packages/ui-components') + '/',
+          },
+          { find: '@theme', replacement: path.resolve(__dirname, appEnv.THEME_PATH || '/src/themes/ottehr') },
+          { find: '@defaultTheme', replacement: path.resolve(__dirname, '/src/themes/ottehr') },
+        ],
       },
     })
   );
