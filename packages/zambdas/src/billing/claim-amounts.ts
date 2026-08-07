@@ -27,6 +27,7 @@ export const ADJUDICATION_CODES = {
   PAID: 'paid',
   ALLOWED: 'allowed',
   ALLOWED_X12: 'B6',
+  CHARGE: 'charge',
 } as const;
 export const ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY = X12_ADJUSTMENT_GROUP_CODE.patientResponsibility;
 
@@ -89,14 +90,43 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
 
 // CAS adjustments as written by both ERA converters: category = group code (system
 // X12_ADJUSTMENT_GROUP_SYSTEM), reason = CARC reason code, amount = the adjusted amount.
-export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemitAdjustment[] {
-  return allAdjudications(claimResponse)
+function extractAdjustments(adjudications: ClaimResponseItemAdjudication[]): ClaimRemitAdjustment[] {
+  return adjudications
     .filter((adj) => adj.category?.coding?.[0]?.system === X12_ADJUSTMENT_GROUP_SYSTEM && adjudicationCode(adj) != null)
     .map((adj) => ({
       groupCode: adjudicationCode(adj) as X12AdjustmentGroupCode,
       reasonCode: adj.reason?.coding?.[0]?.code ?? '',
       amount: adj.amount?.value ?? 0,
     }));
+}
+
+export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemitAdjustment[] {
+  return extractAdjustments(allAdjudications(claimResponse));
+}
+
+export interface RemitLineAmounts {
+  // undefined = not reported on this line (distinct from an explicit 0)
+  billed: number | undefined;
+  allowed: number | undefined;
+  paid: number;
+  adjustments: ClaimRemitAdjustment[];
+}
+
+// Per-line variant of extractClaimResponseAmounts: reads a single item/addItem adjudication array.
+export function extractLineAmounts(adjudications: ClaimResponseItemAdjudication[] | undefined): RemitLineAmounts {
+  const all = adjudications ?? [];
+  const amountOf = (code: string): number | undefined => {
+    const matches = all.filter((adj) => adjudicationCode(adj) === code);
+    return matches.length > 0 ? sumAmounts(matches) : undefined;
+  };
+  const allowedCodes: string[] = [ADJUDICATION_CODES.ALLOWED, ADJUDICATION_CODES.ALLOWED_X12];
+  const allowedMatches = all.filter((adj) => allowedCodes.includes(adjudicationCode(adj) ?? ''));
+  return {
+    billed: amountOf(ADJUDICATION_CODES.CHARGE),
+    allowed: allowedMatches.length > 0 ? sumAmounts(allowedMatches) : undefined,
+    paid: amountOf(ADJUDICATION_CODES.PAID) ?? 0,
+    adjustments: extractAdjustments(all),
+  };
 }
 
 export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): ClaimResponse[] {

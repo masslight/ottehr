@@ -16,6 +16,7 @@ import {
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
 } from '../claim-amounts';
+import { buildEraClaimRemit, eraPatientAccountNumber, resolveEraPayee } from '../era-remits';
 import {
   createBillingClient,
   createEraReadClient,
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   eraReadClient: Oystehr,
   params: GetEraDetailParams
@@ -125,10 +126,12 @@ async function performEffect(
   const claimItems = claims.map((claim) => {
     const claimResponses = responsesByClaimId.get(claim.id ?? '') ?? [];
     const patient = findRef<Patient>(patients, claim.patient?.reference);
+    const matched = !claim.id?.startsWith('unmatched');
 
     const billed = claim.total?.value ?? 0;
     const payments = summarizeClaimPayments(claimResponses, billed);
-    const latestStatus = sortClaimResponsesByRecency(claimResponses).at(-1)?.outcome ?? '';
+    const orderedResponses = sortClaimResponsesByRecency(claimResponses);
+    const latestStatus = orderedResponses.at(-1)?.outcome ?? '';
 
     return {
       claimId: claim.id ?? '',
@@ -138,20 +141,28 @@ async function performEffect(
       allowed: payments.allowed,
       paid: payments.insurancePaid,
       posted: payments.insurancePaid,
+      patientResp: payments.patientResp,
+      patientAccountNumber: eraPatientAccountNumber(claim, matched),
       status: latestStatus,
-      matched: !claim.id?.startsWith('unmatched'),
-      claimResponseIds: claimResponses.map((claimResponse) => claimResponse.id).filter((id) => id != null),
+      matched,
+      claimResponseIds: orderedResponses
+        .map((claimResponse) => claimResponse.id)
+        .filter((id): id is string => id != null),
+      remits: orderedResponses.map((claimResponse) => buildEraClaimRemit(claimResponse, claim)),
     };
   });
 
   const checkNumber = getEraCheckNumber(pr) ?? '';
   const counts = countEraClaims(claimResponses);
+  const payee = await resolveEraPayee(eraReadClient, pr);
 
   return {
     id: pr.id ?? '',
     checkNumber,
     checkDate: pr.paymentDate ?? '',
+    createdDate: pr.created ?? '',
     checkAmount: pr.paymentAmount?.value ?? 0,
+    payee,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
     payerFhirId: payerOrg?.id ?? '',
     status: pr.outcome ?? pr.status ?? '',
