@@ -959,7 +959,7 @@ export function makeDispositionDTO(
     if (!followUpType) return [];
     return [
       {
-        type: followUpType,
+        type: followUpType as DispositionFollowUpType,
         note: element.note?.[0].text,
       },
     ];
@@ -992,7 +992,6 @@ export function makeDispositionDTOFromFhirResources(
   encounter?: Encounter,
   serviceRequests?: ServiceRequest[]
 ): DispositionDTO | undefined {
-  // checking and creating dispositionDTO
   if (encounter) {
     const dischargeDisposition = encounter.hospitalization?.dischargeDisposition;
     const dispositionCode = dischargeDisposition?.coding?.find(
@@ -1858,25 +1857,20 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
 };
 
 /**
- * Reverse-maps a sub-follow-up ServiceRequest.performerType back to its DispositionFollowUpType.
- *
- * Most performer types are identified by coding[0].code, but 'other' and 'lurie-ct' are built
- * coding-less (text only) in followUpToPerformerMap. Matching on coding code alone would let
- * `undefined === undefined` resolve every coding-less performer type to whichever coding-less map
- * entry comes first ('lurie-ct'), so the key is derived from coding code OR text and an entry with
- * no derivable key never matches.
+ * Reverse of followUpToPerformerMap: maps a sub-follow-up ServiceRequest.performerType back to its
+ * DispositionFollowUpType key. Coded types carry a SNOMED coding; 'other'/'lurie-ct' are text-only,
+ * so match on coding[0].code OR text — guarded so undefined never matches undefined.
  */
-export function followUpTypeFromPerformerType(
+export const followUpTypeFromPerformerType = (
   performerType: CodeableConcept | undefined
-): DispositionFollowUpType | undefined {
-  const key = performerType?.coding?.[0]?.code ?? performerType?.text;
-  if (key === undefined) return undefined;
-  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((typeName) => {
-    const mapped = followUpToPerformerMap[typeName];
-    const mappedKey = mapped?.coding?.[0]?.code ?? mapped?.text;
-    return mappedKey === key;
+): DispositionFollowUpType | undefined => {
+  const performerKey = performerType?.coding?.[0]?.code ?? performerType?.text;
+  if (!performerKey) return undefined;
+  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((key) => {
+    const performer = followUpToPerformerMap[key];
+    return performer?.coding?.[0]?.code === performerKey || performer?.text === performerKey;
   });
-}
+};
 
 export function makeProceduresDTOFromFhirResources(
   encounter: Encounter,

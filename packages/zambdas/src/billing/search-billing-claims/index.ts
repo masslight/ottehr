@@ -23,7 +23,6 @@ import {
   claimIdFromPcn,
   ClaimSearchParam,
   createBillingClient,
-  CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   fhirName,
   findRef,
@@ -95,7 +94,12 @@ async function performEffect(
   ];
 
   if (params.type) filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
-  if (params.status) filterParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
+  if (params.status) {
+    filterParams.push({
+      name: '_tag',
+      value: `${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus}|${params.status}`,
+    });
+  }
   if (params.arStage)
     filterParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
   if (params.createdFrom) filterParams.push({ name: 'created', value: `ge${params.createdFrom}` });
@@ -159,6 +163,7 @@ async function performEffect(
     total = matching.length;
     pageClaims = matching.slice(offset, offset + pageSize);
   } else {
+    console.log('colin', filterParams);
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
