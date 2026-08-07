@@ -138,8 +138,8 @@ export const GetBillingProviderInputSchema = z.object({
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-  status: nonEmptyString.optional(),
   arStage: nonEmptyString.optional(),
+  status: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
