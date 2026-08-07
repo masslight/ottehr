@@ -130,6 +130,11 @@ jobs:
         # terraform provider pair as OYSTEHR_ADMIN_*, which the wrapper's env-cmd
         # passes through to the census. Nothing is written to disk or the secrets
         # repo; the existing project M2M is untouched. Skipped on --dry.
+        env:
+          # Route the one free-form input through env (not textual ${{ }} in the
+          # script) so a dispatched value can't inject shell — a choice input can't,
+          # but `count` is a free string. environment/phase/dry are choice/boolean.
+          COUNT: ${{ inputs.count }}
         run: |
           set -uo pipefail
           if [ "${{ inputs.dry }}" != "true" ]; then
@@ -145,7 +150,7 @@ jobs:
           [ "${{ inputs.dry }}" = "true" ] && DRY="--dry"
           bash scripts/synthetic-patient-data/run-daily-census.sh \
             --env "${{ inputs.environment }}" \
-            --count "${{ inputs.count }}" \
+            --count "$COUNT" \
             --phase "${{ inputs.phase }}" \
             $DRY
 

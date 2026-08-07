@@ -191,6 +191,14 @@ jobs:
       # repo; the existing project M2M is untouched. On --dry we skip it (dry only
       # reads FHIR), so the admin pair isn't required for a dry run.
       - name: Run population seed
+        env:
+          # Route free-form inputs through env (not textual ${{ }} in the script) so
+          # a dispatched value can't inject shell — especially the unquoted --limit
+          # below. environment/dry are choice/boolean and safe to interpolate.
+          PATIENTS: ${{ inputs.patients }}
+          SEED: ${{ inputs.seed }}
+          LIMIT_IN: ${{ inputs.limit }}
+          CONCURRENCY: ${{ inputs.concurrency }}
         run: |
           set -uo pipefail
           CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
@@ -203,11 +211,11 @@ jobs:
             echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
             export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
           fi
-          LIMIT=""; [ -n "${{ inputs.limit }}" ] && LIMIT="--limit ${{ inputs.limit }}"
-          DRY="";   [ "${{ inputs.dry }}" = "true" ] && DRY="--dry"
+          LIMIT=(); [ -n "$LIMIT_IN" ] && LIMIT=(--limit "$LIMIT_IN")
+          DRY=();   [ "${{ inputs.dry }}" = "true" ] && DRY=(--dry)
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/run-population.ts \
-            --seed "${{ inputs.seed }}" --patients "${{ inputs.patients }}" \
-            --concurrency "${{ inputs.concurrency }}" $LIMIT $DRY
+            --seed "$SEED" --patients "$PATIENTS" \
+            --concurrency "$CONCURRENCY" "${LIMIT[@]}" "${DRY[@]}"
 
       - name: Show failing visit logs
         if: always()
