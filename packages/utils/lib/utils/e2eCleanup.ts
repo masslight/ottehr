@@ -8,6 +8,7 @@ import {
   Observation,
   Patient,
   Person,
+  Questionnaire,
   RelatedPerson,
 } from 'fhir/r4b';
 import { chunkThings } from '../fhir';
@@ -673,5 +674,58 @@ export const cleanupIntegrationTestHealthcareServices = async (oystehr: Oystehr)
     }
   } catch (e) {
     console.log(`Error deleting integration test HealthcareServices: ${e}`, JSON.stringify(e));
+  }
+};
+
+export const cleanupIntegrationTestQuestionnaires = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const questionnairesToDelete = await getAllFhirSearchPages<Questionnaire>(
+    {
+      resourceType: 'Questionnaire',
+      params: [
+        {
+          name: '_tag',
+          value: `${INTEGRATION_TEST_TAG_SYSTEM}|`,
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+      ],
+    },
+    oystehr
+  );
+
+  if (questionnairesToDelete.length === 0) {
+    console.log('No integration test Questionnaires found to clean up');
+    return;
+  }
+
+  console.log(`Found ${questionnairesToDelete.length} integration test Questionnaire resources to clean up`);
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = questionnairesToDelete
+    .filter((res) => res.id)
+    .map((res) => ({
+      method: 'DELETE',
+      url: `Questionnaire/${res.id}`,
+    }));
+
+  try {
+    const chunkedRequests = chunkThings(batchDeleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      try {
+        await oystehr.fhir.batch({ requests: [...chunkedRequests[i]] });
+        console.log(`Successfully deleted integration test Questionnaire, chunk ${i + 1} of ${chunkedRequests.length}`);
+      } catch (e) {
+        console.log(
+          `Error deleting integration test Questionnaire, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+          JSON.stringify(e)
+        );
+      }
+      await sleep(250);
+    }
+  } catch (e) {
+    console.log(`Error deleting integration test Questionnaires: ${e}`, JSON.stringify(e));
   }
 };

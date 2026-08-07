@@ -1,7 +1,7 @@
 import { HealthcareService, Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import {
   CanonicalUrl,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  INTEGRATION_TEST_TAG_SYSTEM,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
@@ -59,6 +59,8 @@ interface CustomFormSpec {
   fieldValue: string;
 }
 
+type CreatedId = ['Questionnaire' | 'HealthcareService', string | undefined];
+
 /**
  * Stands up a self-contained, worker-isolated paperwork-flow fixture for E2E tests:
  *   - ≥2 test-managed custom form Questionnaires (each a single fillable page),
@@ -75,6 +77,7 @@ interface CustomFormSpec {
 export class TestServiceCategoryFlowManager {
   private resourceHandler: ResourceHandler;
   private workerUniqueId: string;
+  private createdIds: CreatedId[];
   private created?: CreatedServiceCategoryFlow;
 
   /**
@@ -83,6 +86,7 @@ export class TestServiceCategoryFlowManager {
   constructor(workerUniqueId: string) {
     this.resourceHandler = new ResourceHandler();
     this.workerUniqueId = workerUniqueId;
+    this.createdIds = [];
   }
 
   /**
@@ -153,8 +157,8 @@ export class TestServiceCategoryFlowManager {
         meta: {
           tag: [
             {
-              system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-              code: `${processId}-e2e-flow-custom-form-${spec.slug}`,
+              system: INTEGRATION_TEST_TAG_SYSTEM,
+              code: `DELETE_ME-${processId}`,
               display: 'E2E Test Flow Custom Form',
             },
           ],
@@ -164,6 +168,10 @@ export class TestServiceCategoryFlowManager {
       if (!created.id) {
         throw new Error(`Failed to create custom form "${spec.slug}"`);
       }
+
+      const createdId: CreatedId = ['Questionnaire', created.id];
+      this.createdIds.push(createdId);
+
       forms.push({
         pageLinkId: spec.pageLinkId,
         fieldLinkId: spec.fieldLinkId,
@@ -188,8 +196,8 @@ export class TestServiceCategoryFlowManager {
         tag: [
           PAPERWORK_FLOW_TAG,
           {
-            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-            code: `${processId}-e2e-paperwork-flow`,
+            system: INTEGRATION_TEST_TAG_SYSTEM,
+            code: `DELETE_ME-${processId}`,
             display: 'E2E Test Paperwork Flow',
           },
         ],
@@ -199,6 +207,9 @@ export class TestServiceCategoryFlowManager {
     if (!flowQuestionnaire.id) {
       throw new Error('Failed to create paperwork flow Questionnaire');
     }
+
+    const qCreatedId: CreatedId = ['Questionnaire', flowQuestionnaire.id];
+    this.createdIds.push(qCreatedId);
 
     // 3. Custom service-category HealthcareService, with the in-person flow extension baked in. The flow
     //    extension's valueCanonical is the flow's BARE url (the backend resolver matches
@@ -231,8 +242,8 @@ export class TestServiceCategoryFlowManager {
         tag: [
           SERVICE_CATEGORY_TAG,
           {
-            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-            code: `${processId}-e2e-flow-service-category`,
+            system: INTEGRATION_TEST_TAG_SYSTEM,
+            code: `DELETE_ME-${processId}`,
             display: 'E2E Test Flow Service Category',
           },
         ],
@@ -242,6 +253,9 @@ export class TestServiceCategoryFlowManager {
     if (!healthcareService.id) {
       throw new Error('Failed to create custom service-category HealthcareService');
     }
+
+    const hsCreatedId: CreatedId = ['HealthcareService', healthcareService.id];
+    this.createdIds.push(hsCreatedId);
 
     // 4. Assemble the flow's effective questionnaire exactly as get-paperwork does (fetches the constituent
     //    forms and concatenates their top-level items) — this is what we drive the paperwork helper from.
@@ -268,28 +282,16 @@ export class TestServiceCategoryFlowManager {
   }
 
   /**
-   * Get the created fixture, if any.
-   */
-  getCreated(): CreatedServiceCategoryFlow | undefined {
-    return this.created;
-  }
-
-  /**
-   * Delete everything this manager created (custom forms, flow Questionnaire, custom service-category HS) by
-   * id. There is no global sweep for Questionnaire or HealthcareService, so this must run in afterAll.
+   * Delete everything this manager created (custom form Questionnaires, flow Questionnaire, and custom service-category HS) by id.
    */
   async cleanup(): Promise<void> {
-    if (!this.created) {
+    if (this.createdIds.length === 0) {
       return;
     }
     const oystehr = this.resourceHandler.apiClient;
-    const { flowQuestionnaire, healthcareService, forms } = this.created;
 
-    const deletions: Array<['Questionnaire' | 'HealthcareService', string | undefined]> = [
-      ['HealthcareService', healthcareService.id],
-      ['Questionnaire', flowQuestionnaire.id],
-      ...forms.map((f) => ['Questionnaire', f.questionnaire.id] as ['Questionnaire', string | undefined]),
-    ];
+    const deletions = this.createdIds;
+
     for (const [resourceType, id] of deletions) {
       if (!id) {
         continue;
