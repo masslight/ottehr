@@ -66,10 +66,6 @@ interface CustomFormSpec {
  *   - a custom FHIR-backed service category (a HealthcareService tagged {@link SERVICE_CATEGORY_TAG}) with the
  *     flow assigned for the in-person mode (a per-mode extension on the HealthcareService).
  *
- * Everything is owned + torn down by the test. Unlike ottehr-managed service categories (whose flow
- * assignment is a global `meta.tag` on the flow Questionnaire and can't be isolated per parallel worker),
- * a FHIR-backed category's flow assignment lives as an extension on its own HealthcareService.
- *
  * The zambda flow-builder helpers live in the `zambdas` package (not importable from intake tests), so the
  * flow Questionnaire + HealthcareService are built directly via FHIR using `utils` constants — the same
  * shapes the backend produces/reads. The custom forms are minimal hand-authored questionnaires: a single
@@ -135,7 +131,7 @@ export class TestServiceCategoryFlowManager {
       },
     ];
 
-    // 1. Deploy the custom forms.
+    // 1. Custom forms.
     const forms: CustomFlowForm[] = [];
     for (const spec of formSpecs) {
       const url = `https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson-e2e-custom-${spec.slug}-${processId}`;
@@ -144,7 +140,6 @@ export class TestServiceCategoryFlowManager {
         linkId: spec.pageLinkId,
         type: 'group',
         text: spec.title,
-        // The field is a DIRECT child of the page group, so its DOM id === its linkId (fill-helper requirement).
         item: [{ linkId: spec.fieldLinkId, type: 'string', text: spec.fieldLabel, required: false }],
       };
       const formInput: Questionnaire = {
@@ -178,9 +173,8 @@ export class TestServiceCategoryFlowManager {
       });
     }
 
-    // 2. The paperwork flow Questionnaire: tagged PAPERWORK_FLOW_TAG, active, in-person mode, derivedFrom the
-    //    two custom forms (canonicals must be `url|version`). Its own item[] is irrelevant — the effective
-    //    questionnaire is assembled from derivedFrom.
+    // 2. Paperwork Flow Questionnaire: tagged PAPERWORK_FLOW_TAG, active, in-person mode, derivedFrom the
+    //    two custom forms (canonicals must be `url|version`).
     const flowInput: Questionnaire = {
       resourceType: 'Questionnaire',
       status: 'active',
@@ -206,7 +200,7 @@ export class TestServiceCategoryFlowManager {
       throw new Error('Failed to create paperwork flow Questionnaire');
     }
 
-    // 3. The custom service-category HealthcareService, with the in-person flow extension baked in. The flow
+    // 3. Custom service-category HealthcareService, with the in-person flow extension baked in. The flow
     //    extension's valueCanonical is the flow's BARE url (the backend resolver matches
     //    `flowQuestionnaire.url === valueCanonical`), NOT url|version.
     const healthcareServiceInput: HealthcareService = {

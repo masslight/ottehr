@@ -1,33 +1,23 @@
 /**
- * Paperwork flow integration test — custom, test-isolated FHIR-backed service category.
+ * Tests that Questionnaire.derivedFrom renders as expected for a custom service category.
  *
- * Goal: assert that when a paperwork flow is configured for a (service category × mode), the flow's
- * assembled paperwork renders as expected. Everything is owned by the test — a custom FHIR-backed service
- * category, a flow, and the ≥2 custom forms the flow is assembled from — so nothing global/ottehr-managed
- * is touched and the test is fully isolated per worker.
+ * Goal: assert that when a paperwork flow is configured for a service category × mode, the flow's
+ * assembled paperwork renders as expected.
  *
  * How the pieces fit:
  *  - TestServiceCategoryFlowManager deploys two single-page custom forms, a flow Questionnaire whose
  *    `derivedFrom` lists both, and a service-category HealthcareService with the flow assigned for the
- *    in-person mode (a per-mode extension on that HealthcareService). The flow's assignment lives on the
- *    HealthcareService itself, hence isolatable (unlike ottehr-managed categories' global tag).
+ *    in-person mode (a per-mode extension on that HealthcareService).
  *  - The bookable owner is the existing prebook in-person group. Its `type[]` allow-list is empty, so
  *    get-schedule accepts any serviceCategory code and its Location-owned schedule vends slots stamped with
  *    the resolved custom-category coding (get-schedule fetches all active service-category
  *    HealthcareServices unconditionally). Same path the urgent-care group booking uses.
  *  - Booking is driven via the group deeplink with `serviceCategory=<customCode>` (bypassing homepage +
- *    picker). At create-slot the flow wins over the baseline questionnaire and its canonical is stamped on
+ *    picker). At create-slot the flow wins over the baseline a and its canonical is stamped on
  *    the Slot — the test asserts that stamp to prove the flow (not the baseline) rendered.
  *  - The test then enters paperwork and fills the flow's two custom pages through to completion, asserting
  *    the rendered page sequence equals the flow's assembled pages (in derivedFrom order).
  *
- * NOTE: like the other specs in this directory, this test requires a live Oystehr environment (it creates
- * FHIR resources and drives the real intake app); it cannot run offline. Runtime assumptions worth noting
- * for maintenance: (1) the intake paperwork QR is recognized via INTAKE_PAPERWORK_QR_TAG (stamped by
- * create-appointment), so the flow renders regardless of its url; (2) the booking form's reason-for-visit
- * options for a FHIR-backed category come from the category config, so the category is created with a
- * reasonsForVisit entry the test then fills; (3) the custom forms' fields are optional, so the review page
- * reports "complete" and its submit button reads "Finish" (with a "Continue" fallback in the driver).
  */
 
 import { expect, test } from '@playwright/test';
@@ -56,15 +46,15 @@ import { ResourceHandler } from '../utils/resource-handler';
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Paperwork flow — custom FHIR-backed service category', () => {
+test.describe('Complete paperwork rendered via Questionnaire.derivedFrom', () => {
   let testLocationManager: TestLocationManager;
   let flowManager: TestServiceCategoryFlowManager;
   let resourceHandler: ResourceHandler;
   let group: CreatedGroupBookingResources;
   let flow: CreatedServiceCategoryFlow;
 
+  // Setup: Create test locations, questionnaires, and HealthcareService resources
   test.beforeAll(async () => {
-    // Short unique worker id, matching the pattern used by the generated booking spec.
     const shortTimestamp = Date.now().toString(36).slice(-6);
     const randomSuffix = Math.random().toString(36).slice(2, 8);
     const workerUniqueId = `${shortTimestamp}${randomSuffix}`;
@@ -75,17 +65,14 @@ test.describe('Paperwork flow — custom FHIR-backed service category', () => {
     resourceHandler = new ResourceHandler();
     await Promise.all([testLocationManager.init(), flowManager.init(), resourceHandler.initApi()]);
 
-    // Bookable owner: reuse the prebook in-person group. Its Location-owned schedule vends slots for any
-    // serviceCategory code (its `type[]` allow-list is empty), so no dedicated bookable owner is needed.
     group = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
     console.log(`✓ Using prebook in-person group: ${group.name} (slug: ${group.slug})`);
 
-    // Stand up the custom service category + in-person flow assembled from two test-managed custom forms.
     flow = await flowManager.createInPersonFlowForCustomService();
   });
 
+  // Cleanup: Remove test resources after all tests
   test.afterAll(async () => {
-    // Delete the custom forms + flow + service HS (no global sweep for those types), then the group.
     if (flowManager) {
       await flowManager.cleanup();
     }
@@ -95,7 +82,7 @@ test.describe('Paperwork flow — custom FHIR-backed service category', () => {
     }
   });
 
-  test('books the custom service in-person and renders its assigned paperwork flow', async ({ page }) => {
+  test('books a custom service in-person and renders its assigned paperwork flow', async ({ page }) => {
     const serviceMode = 'in-person' as const;
     const fillingStrategy = { checkValidation: false, fillAllFields: true };
 

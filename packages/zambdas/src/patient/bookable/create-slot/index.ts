@@ -473,7 +473,9 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
 
   // this should be an interim solution while booking questionnaires are still ottehr-managed,
   // allowing us to continue to definitively test ottehr managed services x ottehr managed questionnaires
-  const byPassPracticeManagedPaperworkFlow = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
+  const runningIne2e = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
+  const serviceLivesInBookingConfig = isBookingConfigServiceCategoryCode(effectiveServiceCategoryCode);
+  const byPassPracticeManagedPaperworkFlow = runningIne2e && serviceLivesInBookingConfig;
 
   if (byPassPracticeManagedPaperworkFlow) {
     console.log(
