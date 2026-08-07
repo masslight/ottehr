@@ -1,9 +1,28 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
-import { invoiceTaskSourceTag, PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils';
+import {
+  getStripeAccountForAppointmentOrEncounter,
+  getStripeCustomerIdFromAccount,
+  invoiceTaskSourceTag,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  RcmTaskCodings,
+} from 'utils';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { produceOutreachTasks } from '../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  getStripeClient,
+  resolveTemplatePlaceholders,
+  resolveTimezone,
+  sendSmsForPatient,
+} from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { index } from '../../src/subscriptions/task/sub-send-invoice-to-patient/index';
+
+// Shared modules (src/shared, utils, produce-outreach-tasks) are mocked suite-wide in
+// vitest.unit-mocks.setup.ts; non-delegating defaults are re-established in beforeEach below.
 
 const mockClinicalClient = {
   fhir: {
@@ -24,38 +43,10 @@ const mockStripe = {
     create: vi.fn(),
   },
 };
-const mockSendSmsForPatient = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockClinicalClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-    getStripeClient: () => mockStripe,
-    sendSmsForPatient: (...args: unknown[]) => mockSendSmsForPatient(...args),
-    resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),
-    resolveTimezone: () => 'America/New_York',
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getStripeCustomerIdFromAccount: () => 'cus_1',
-    getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue(undefined),
-  };
-});
-
-vi.mock('../../src/rcm/scheduled-outreach/producers/shared', () => ({
-  produceOutreachTasks: vi.fn().mockResolvedValue(undefined),
-}));
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
 
 const invoiceInput = (): TaskInput[] =>
   ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
@@ -143,9 +134,17 @@ const runHandler = (invoiceTask: Task): Promise<APIGatewayProxyResult> =>
   });
 
 describe('sub-send-invoice-to-patient source guard', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockClinicalClient as never);
+    vi.mocked(getStripeClient).mockReturnValue(mockStripe as never);
+    vi.mocked(sendSmsForPatient).mockResolvedValue(undefined as never);
+    vi.mocked(resolveTemplatePlaceholders).mockResolvedValue({} as never);
+    vi.mocked(resolveTimezone).mockReturnValue('America/New_York');
+    vi.mocked(getStripeCustomerIdFromAccount).mockReturnValue('cus_1');
+    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue(undefined as never);
+    vi.mocked(produceOutreachTasks).mockResolvedValue(undefined as never);
     mockClinicalClient.fhir.search.mockResolvedValue({
       unbundle: () => [encounter, patient, account, appointment],
     });
@@ -169,11 +168,6 @@ describe('sub-send-invoice-to-patient source guard', () => {
       status: 'open',
       hosted_invoice_url: 'https://invoice.example.com',
     });
-    ({ index: handler } = (await import(
-      '../../src/subscriptions/task/sub-send-invoice-to-patient/index'
-    )) as unknown as {
-      index: ZambdaHandler;
-    });
   });
 
   it('sends a billing-sourced task through Stripe without a Candid encounter id', async () => {
@@ -186,11 +180,15 @@ describe('sub-send-invoice-to-patient source guard', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).message).toContain('sent successfully');
     expect(mockStripe.invoices.sendInvoice).toHaveBeenCalledWith('inv_1', { stripeAccount: undefined });
-    expect(mockSendSmsForPatient).toHaveBeenCalled();
+    expect(sendSmsForPatient).toHaveBeenCalled();
   });
 
   it('still rejects candid and legacy untagged tasks without a Candid encounter id', async () => {
-    await expect(runHandler(task())).rejects.toThrow('CandidEncounterId is not found');
+    // The real wrapHandler turns the thrown "CandidEncounterId is not found" error into an
+    // internal-error envelope rather than rejecting.
+    const result = await runHandler(task());
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
 
     expect(mockStripe.invoices.create).not.toHaveBeenCalled();
     const patchCall = mockClinicalClient.fhir.patch.mock.calls[0][0] as {

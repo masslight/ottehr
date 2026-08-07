@@ -18,25 +18,13 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+// checkOrCreateM2MClientToken, createClinicalOystehrClient, and wrapTaskHandler are canonical
+// suite-wide mocks (vitest.unit-mocks.setup.ts); behavior is installed per-test in beforeEach.
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
+import { wrapTaskHandler } from '../../src/subscriptions/task/helpers';
 
-// The subscription uses wrapTaskHandler; mock it to extract the inner handler
+// The subscription uses wrapTaskHandler at import time; capture the inner handler.
 let capturedHandler: (input: { task: FhirTask; secrets: Record<string, string> }, oystehr: unknown) => Promise<unknown>;
-
-vi.mock('../../src/subscriptions/task/helpers', () => ({
-  wrapTaskHandler: (_name: string, fn: typeof capturedHandler) => {
-    capturedHandler = fn;
-    return fn;
-  },
-}));
 
 // Helper to build a FHIR search result bundle
 function makeFhirBundle(
@@ -158,8 +146,15 @@ describe('sub-export-invoices-csv', () => {
     vi.clearAllMocks();
     vi.resetModules();
     mockOystehrClient.z3.uploadFile.mockResolvedValue(undefined);
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
+    vi.mocked(wrapTaskHandler).mockImplementation(((_name: string, fn: typeof capturedHandler) => {
+      capturedHandler = fn;
+      return fn;
+    }) as never);
 
-    // Import to trigger wrapTaskHandler and capture the handler
+    // Import to trigger wrapTaskHandler and capture the handler (vi.resetModules above
+    // makes the module re-execute for every test)
     await import('../../src/subscriptions/sub-export-invoices-csv/index');
   });
 

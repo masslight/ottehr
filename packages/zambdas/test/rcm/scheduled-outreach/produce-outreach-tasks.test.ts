@@ -1,6 +1,7 @@
 import { PlanDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FEATURE_FLAGS_CONFIG } from 'utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildOutreachTaskIdentityQuery,
   buildTaskInput,
@@ -8,6 +9,10 @@ import {
   produceOutreachTasks,
 } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
+import { getPatchBinary } from '../../../src/shared/helpers';
+
+// FEATURE_FLAGS_CONFIG and getPatchBinary are canonical suite-wide mocks
+// (vitest.unit-mocks.setup.ts); per-file defaults are installed in beforeEach below.
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -34,39 +39,6 @@ const mockPatientWithValidContacts = {
     { system: 'email', value: 'test@example.com' },
   ],
 };
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    FEATURE_FLAGS_CONFIG: {
-      automatedPatientOutreachEnabled: true,
-      mailingPaperStatementsEnabled: true,
-    },
-  };
-});
-
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../../src/shared/helpers', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getPatchBinary: vi.fn(({ resourceId, resourceType, patchOperations }) => ({
-      method: 'PATCH',
-      url: `/${resourceType}/${resourceId}`,
-      resource: { resourceType: 'Binary', data: JSON.stringify(patchOperations) },
-    })),
-  };
-});
 
 function makePlanDefinition(actions: OutreachAction[]): PlanDefinition {
   return {
@@ -168,7 +140,24 @@ describe('produce-outreach-tasks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    Object.assign(FEATURE_FLAGS_CONFIG, {
+      automatedPatientOutreachEnabled: true,
+      mailingPaperStatementsEnabled: true,
+    });
+    vi.mocked(getPatchBinary).mockImplementation(
+      ({ resourceId, resourceType, patchOperations }) =>
+        ({
+          method: 'PATCH',
+          url: `/${resourceType}/${resourceId}`,
+          resource: { resourceType: 'Binary', data: JSON.stringify(patchOperations) },
+        }) as any
+    );
     mockGet.mockResolvedValue(mockPatientWithValidContacts);
+  });
+
+  afterEach(() => {
+    // Do not let a stubbed global fetch leak into other files under --no-isolate
+    vi.unstubAllGlobals();
   });
 
   describe('buildTaskInput', () => {

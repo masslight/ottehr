@@ -1,7 +1,16 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index as cancelOutreachTaskIndex } from '../../../src/rcm/scheduled-outreach/cancel-outreach-task/index';
+import { index as listOutreachTasksIndex } from '../../../src/rcm/scheduled-outreach/list-outreach-tasks/index';
+import { index as retryOutreachTaskIndex } from '../../../src/rcm/scheduled-outreach/retry-outreach-task/index';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../../src/shared';
 import type { ZambdaInput } from '../../../src/shared/types/common';
+
+// checkOrCreateM2MClientToken and createClinicalOystehrClient are canonical suite-wide mocks
+// (vitest.unit-mocks.setup.ts); per-file defaults are installed in beforeEach below.
+// The REAL wrapHandler now wraps the handlers, so thrown API errors surface as an
+// error envelope (statusCode + JSON body) instead of a rejected promise.
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -20,19 +29,15 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as any);
 });
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const testSecrets = { test: 'secret' };
+const testSecrets = { test: 'secret', ENVIRONMENT: 'local' };
 
 function makeInput(body: Record<string, unknown>): ZambdaInput {
   return { headers: null, body: JSON.stringify(body), secrets: testSecrets };
@@ -41,13 +46,7 @@ function makeInput(body: Record<string, unknown>): ZambdaInput {
 // ── cancel-outreach-task ──────────────────────────────────────────────────
 
 describe('cancel-outreach-task', () => {
-  let handler: ZambdaHandler;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    const mod = await import('../../../src/rcm/scheduled-outreach/cancel-outreach-task/index');
-    handler = mod.index as ZambdaHandler;
-  });
+  const handler = cancelOutreachTaskIndex as unknown as ZambdaHandler;
 
   it('cancels a draft task', async () => {
     const task: Task = {
@@ -129,11 +128,16 @@ describe('cancel-outreach-task', () => {
     expect(result.statusCode).toBe(400);
   });
 
-  it('throws when taskId is missing', async () => {
-    await expect(handler(makeInput({}))).rejects.toThrow();
+  it('returns a 400 error envelope when taskId is missing', async () => {
+    // MISSING_REQUIRED_PARAMETERS is an API error; the real wrapHandler turns it into a 400 response
+    const result = await handler(makeInput({}));
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toContain('taskId');
   });
 
   it('throws when secrets are missing', async () => {
+    // configSentry reads the ENVIRONMENT secret before the top-level catch,
+    // so a null-secrets invocation still rejects.
     await expect(handler({ headers: null, body: JSON.stringify({ taskId: 'x' }), secrets: null })).rejects.toThrow();
   });
 });
@@ -141,13 +145,7 @@ describe('cancel-outreach-task', () => {
 // ── retry-outreach-task ──────────────────────────────────────────────────
 
 describe('retry-outreach-task', () => {
-  let handler: ZambdaHandler;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    const mod = await import('../../../src/rcm/scheduled-outreach/retry-outreach-task/index');
-    handler = mod.index as ZambdaHandler;
-  });
+  const handler = retryOutreachTaskIndex as unknown as ZambdaHandler;
 
   const outreachTag = { system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task', code: 'invoice-due' };
 
@@ -258,21 +256,20 @@ describe('retry-outreach-task', () => {
     expect(result.statusCode).toBe(400);
   });
 
-  it('throws when taskId is missing', async () => {
-    await expect(handler(makeInput({}))).rejects.toThrow();
+  it('returns a 400 error envelope when taskId is missing', async () => {
+    const result = await handler(makeInput({}));
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toContain('taskId');
   });
 });
 
 // ── list-outreach-tasks ──────────────────────────────────────────────────
 
 describe('list-outreach-tasks', () => {
-  let handler: ZambdaHandler;
+  const handler = listOutreachTasksIndex as unknown as ZambdaHandler;
 
-  beforeEach(async () => {
-    vi.clearAllMocks();
+  beforeEach(() => {
     mockSearch.mockReset();
-    const mod = await import('../../../src/rcm/scheduled-outreach/list-outreach-tasks/index');
-    handler = mod.index as ZambdaHandler;
   });
 
   function mockBundle(resources: any[], total?: number): { unbundle: () => any[]; total: number; link: never[] } {

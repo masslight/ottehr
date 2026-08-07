@@ -1,21 +1,17 @@
 import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, PaymentVariant, SERVICE_CATEGORY_SYSTEM } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// ── Mocks (hoisted before imports) ─────────────────────────────────────────────
-
-const mockGetAccountAndCoverageResourcesForPatient = vi.fn();
-
-vi.mock('../../src/ehr/shared/harvest', () => ({
-  getAccountAndCoverageResourcesForPatient: (...args: any[]) => mockGetAccountAndCoverageResourcesForPatient(...args),
-}));
-
-vi.mock('../../src/shared/chart-data', () => ({
-  chartDataResourceHasMetaTagByCode: vi.fn(),
-}));
-
 // ── Imports ────────────────────────────────────────────────────────────────────
-
+// src/ehr/shared/harvest (and src/shared/chart-data) are mocked suite-wide in
+// vitest.unit-mocks.setup.ts; performCandidPreEncounterSync delegates to the real
+// implementation, which is what this file tests.
 import { performCandidPreEncounterSync } from '../../src/shared/candid';
+
+// IMPORTANT: harvest must be imported AFTER candid. The real harvest module imports the
+// src/shared barrel (which re-exports candid), so if the harvest mock factory executes
+// first, vitest's mock-cycle guard hands the real candid module the RAW harvest module and
+// the vi.mocked(getAccountAndCoverageResourcesForPatient) overrides below go dead. A
+// dynamic import keeps this ordering safe from lint import sorting.
+const { getAccountAndCoverageResourcesForPatient } = await import('../../src/ehr/shared/harvest');
 
 // ── Mock helpers ───────────────────────────────────────────────────────────────
 
@@ -142,11 +138,11 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
     mockOystehr = makeMockOystehr();
     mockCandidApiClient = makeMockCandidApiClient();
 
-    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+    vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({
       coverages: {},
       insuranceOrgs: [],
       occupationalMedicineAccount: undefined,
-    });
+    } as any);
   });
 
   it('calls patientPayments.v4.create when amountCents > 0', async () => {
@@ -227,7 +223,7 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
 
   it('creates only one Cash Pay coverage for self-pay encounters even when insurance coverages are present', async () => {
     mockOystehr = makeMockOystehr({ paymentVariant: PaymentVariant.selfPay });
-    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+    vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({
       coverages: {
         primary: {
           payor: [{ reference: 'Organization/org-1' }],
@@ -251,7 +247,7 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
         },
       ],
       occupationalMedicineAccount: undefined,
-    });
+    } as any);
 
     await performCandidPreEncounterSync({
       encounterId: ENCOUNTER_ID,
@@ -272,7 +268,7 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
 
   it('syncs WC insurance (not Cash Pay) for workers-comp visit even when payment variant is selfPay', async () => {
     mockOystehr = makeMockOystehr({ paymentVariant: PaymentVariant.selfPay, serviceCategory: 'workers-comp' });
-    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+    vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({
       coverages: {
         workersComp: {
           payor: [{ reference: 'Organization/wc-org-1' }],
@@ -295,7 +291,7 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
         },
       ],
       occupationalMedicineAccount: undefined,
-    });
+    } as any);
 
     await performCandidPreEncounterSync({
       encounterId: ENCOUNTER_ID,

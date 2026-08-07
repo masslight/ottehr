@@ -2,6 +2,7 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Operation } from 'fast-json-patch';
 import { Task, TaskInput } from 'fhir/r4b';
 import {
+  getOrCreateCandidApiClient,
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
   invoiceTaskSourceTag,
   RcmTaskCodings,
@@ -9,7 +10,11 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { index } from '../../src/subscriptions/task/sub-refresh-invoice-task/index';
+
+// src/shared and utils are mocked suite-wide in vitest.unit-mocks.setup.ts.
 
 const mockZambdaExecute = vi.fn();
 const mockClinicalClient = {
@@ -22,29 +27,10 @@ const mockClinicalClient = {
     execute: (...args: unknown[]) => mockZambdaExecute(...args),
   },
 };
-const mockGetOrCreateCandidApiClient = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockClinicalClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOrCreateCandidApiClient: (...args: unknown[]) => mockGetOrCreateCandidApiClient(...args),
-  };
-});
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
 
 const billingTask = (overrides: Partial<Task> = {}): Task =>
   ({
@@ -105,6 +91,7 @@ const runHandler = (task: Task, stored: Task | Task[] = task): Promise<APIGatewa
     body: JSON.stringify(task),
     secrets: {
       PROJECT_ID: 'test-project',
+      ENVIRONMENT: 'local',
     },
   });
 };
@@ -129,13 +116,11 @@ const nonZeroBalanceAr = (): void => {
 };
 
 describe('sub-refresh-invoice-task', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockClinicalClient as never);
     mockClinicalClient.fhir.patch.mockResolvedValue({});
-    ({ index: handler } = (await import('../../src/subscriptions/task/sub-refresh-invoice-task/index')) as unknown as {
-      index: ZambdaHandler;
-    });
   });
 
   it('refreshes a billing-sourced task from patient AR without touching Candid', async () => {
@@ -151,7 +136,7 @@ describe('sub-refresh-invoice-task', () => {
     const result = await runHandler(billingTask());
 
     expect(JSON.parse(result.body).message).toContain('successfully updated');
-    expect(mockGetOrCreateCandidApiClient).not.toHaveBeenCalled();
+    expect(getOrCreateCandidApiClient).not.toHaveBeenCalled();
     expect(mockZambdaExecute).toHaveBeenCalledWith({
       id: 'search-billing-patient-ar-claims',
       claimIds: ['claim-1'],
@@ -291,7 +276,10 @@ describe('sub-refresh-invoice-task', () => {
     nonZeroBalanceAr();
     mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('bad path'), { code: 422 }));
 
-    await expect(runHandler(billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }))).rejects.toThrow('bad path');
+    // The real wrapHandler converts the propagated error into an internal-error envelope.
+    const result = await runHandler(billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }));
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
     expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(1);
   });
 
@@ -299,7 +287,10 @@ describe('sub-refresh-invoice-task', () => {
     nonZeroBalanceAr();
     mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
 
-    await expect(runHandler(billingTask())).rejects.toThrow('conflict');
+    // The real wrapHandler converts the propagated conflict into an internal-error envelope.
+    const result = await runHandler(billingTask());
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
     expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(3);
   });
 
@@ -317,13 +308,13 @@ describe('sub-refresh-invoice-task', () => {
   });
 
   it('routes candid and legacy untagged tasks through Candid, not patient AR', async () => {
-    mockGetOrCreateCandidApiClient.mockResolvedValue({
+    vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({
       patientAr: {
         v1: {
           itemize: vi.fn(),
         },
       },
-    });
+    } as never);
     mockClinicalClient.fhir.search.mockResolvedValue({
       unbundle: () => [],
     });
@@ -334,7 +325,7 @@ describe('sub-refresh-invoice-task', () => {
     });
     const result = await runHandler(untaggedTask);
 
-    expect(mockGetOrCreateCandidApiClient).toHaveBeenCalled();
+    expect(getOrCreateCandidApiClient).toHaveBeenCalled();
     expect(mockZambdaExecute).not.toHaveBeenCalled();
     expect(JSON.parse(result.body).message).toContain('no Candid inventory record');
   });

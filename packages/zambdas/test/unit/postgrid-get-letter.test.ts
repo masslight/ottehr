@@ -1,3 +1,4 @@
+import { getSecret } from 'utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPostGridLetter } from '../../src/shared/postgrid';
 
@@ -7,23 +8,14 @@ import { getPostGridLetter } from '../../src/shared/postgrid';
 
 const mockFetch = vi.fn<typeof fetch>();
 
-// ---------------------------------------------------------------------------
-// Mock getSecret — returns a fixed API key
-// ---------------------------------------------------------------------------
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getSecret: () => 'test-postgrid-api-key',
-  };
-});
-
 const secrets = { POSTGRID_API_KEY: 'test-postgrid-api-key' } as any;
 
+// getSecret is a canonical suite-wide mock (vitest.unit-mocks.setup.ts) — stub it to return
+// a fixed API key.
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('fetch', mockFetch);
+  vi.mocked(getSecret).mockReturnValue('test-postgrid-api-key');
 });
 
 afterEach(() => {

@@ -18,6 +18,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     silent: true,
+    // Restore vi.stubGlobal stubs after every test. Several unit tests stub global fetch
+    // per-test without unstubbing; under --no-isolate a leaked stub would replace the
+    // no-network guard's fetch for every later file in the worker.
+    unstubGlobals: true,
     // Root-only in vitest 3 (not a ProjectConfig option). Generous so the integration globalSetup
     // teardown — two 5s settle waits + the leak-gate sweep across many resource types + deletes —
     // never times out.
@@ -29,6 +33,11 @@ export default defineConfig({
     // flight are the only concurrency axis), so CI raises its cap — but that only pays off when the
     // CPU-bound co-suites are worker-capped too; uncapped, the extra forks just thrash the runner
     // (measured: 10 workers ≈ 6 workers under oversubscription, plus co-suite timeouts).
+    //
+    // NOTE for --no-isolate runs (the unit CI script): pin --minWorkers equal to --maxWorkers.
+    // With minWorkers below maxWorkers, tinypool's idle-worker recycling races pool destruction
+    // at the end of the run and surfaces as an unhandled "Terminating worker thread" rejection
+    // (exit 1 with every test green). Reproduced reliably with minWorkers=1; pinning fixes it.
     maxWorkers: 6,
     minWorkers: 1,
     // Root-only, applies to every forked test worker (unit and integration). The CI job's
@@ -72,7 +81,9 @@ export default defineConfig({
           // hook default under heavy transform load across the ~450 test files.
           hookTimeout: 30000,
           // no globalSetup and no retry: unit tests must be deterministic and run offline.
-          setupFiles: ['../test-utils/lib/no-network.setup.ts', './vitest.setup.ts'],
+          // vitest.unit-mocks.setup.ts registers the canonical suite-wide mocks — required
+          // for --no-isolate (shared module registry), see the header comment in that file.
+          setupFiles: ['../test-utils/lib/no-network.setup.ts', './vitest.setup.ts', './vitest.unit-mocks.setup.ts'],
         },
       },
       {

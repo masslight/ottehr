@@ -2,10 +2,15 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task as FhirTask } from 'fhir/r4b';
 import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index } from '../../src/ehr/export-invoices/index';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { createPresignedUrl } from '../../src/shared/z3Utils';
+
+// src/shared and src/shared/z3Utils are mocked suite-wide in vitest.unit-mocks.setup.ts.
 
 function makeInput(body: Record<string, unknown>): ZambdaInput {
-  return { headers: null, body: JSON.stringify(body), secrets: { PROJECT_ID: 'test-project' } };
+  return { headers: null, body: JSON.stringify(body), secrets: { PROJECT_ID: 'test-project', ENVIRONMENT: 'local' } };
 }
 
 const mockOystehrClient = {
@@ -15,30 +20,15 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-const mockCreatePresignedUrl = vi.fn();
-vi.mock('../../src/shared/z3Utils', () => ({
-  createPresignedUrl: (...args: unknown[]) => mockCreatePresignedUrl(...args),
-}));
-
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
 
 describe('export-invoices', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
-    ({ index: handler } = (await import('../../src/ehr/export-invoices/index')) as { index: ZambdaHandler });
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
   });
 
   describe('kick-off mode', () => {
@@ -148,7 +138,7 @@ describe('export-invoices', () => {
           },
         ],
       } as FhirTask);
-      mockCreatePresignedUrl.mockResolvedValue('https://presigned-download-url.com');
+      vi.mocked(createPresignedUrl).mockResolvedValue('https://presigned-download-url.com');
 
       const result = await handler(makeInput({ taskId: 'task-123' }));
 
@@ -156,7 +146,7 @@ describe('export-invoices', () => {
       const body = JSON.parse(result.body);
       expect(body.status).toBe('completed');
       expect(body.downloadUrl).toBe('https://presigned-download-url.com');
-      expect(mockCreatePresignedUrl).toHaveBeenCalledWith('mock-token', z3Url, 'download');
+      expect(createPresignedUrl).toHaveBeenCalledWith('mock-token', z3Url, 'download');
     });
 
     it('returns in-progress status', async () => {

@@ -1,37 +1,19 @@
 import { Communication, Extension } from 'fhir/r4b';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PostGridLetter, PostGridLetterStatus } from '../../src/shared/postgrid';
+import {
+  getPostGridLetter,
+  MAIL_VENDOR_EXTENSION_URL,
+  type PostGridLetter,
+  type PostGridLetterStatus,
+} from '../../src/shared/postgrid';
+import { syncMailedStatementStatuses } from '../../src/shared/sync-mailed-statement-statuses';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockGetPostGridLetter = vi.fn<(id: string, secrets: unknown) => Promise<PostGridLetter>>();
-
-vi.mock('../../src/shared/postgrid', () => ({
-  getPostGridLetter: (...args: unknown[]) => mockGetPostGridLetter(args[0] as string, args[1]),
-  MAIL_VENDOR_EXTENSION_URL: 'https://extensions.fhir.ottehr.com/mail-vendor',
-}));
-
-// We also need to mock luxon DateTime.now() for deterministic timestamps
-vi.mock('luxon', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    DateTime: {
-      ...(actual.DateTime as Record<string, unknown>),
-      now: () => ({
-        toUTC: () => ({
-          toISO: () => '2025-06-01T00:00:00.000Z',
-        }),
-      }),
-    },
-  };
-});
-
-import { syncMailedStatementStatuses } from '../../src/shared/sync-mailed-statement-statuses';
-
-const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
+// getPostGridLetter is a canonical suite-wide mock (vitest.unit-mocks.setup.ts).
+const mockGetPostGridLetter = vi.mocked(getPostGridLetter);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,10 +72,16 @@ const secrets = { POSTGRID_API_KEY: 'test-key' } as any;
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Deterministic DateTime.now() timestamps. Only Date is faked so the real setTimeout
+  // stays in place for the spy below (replacing the old whole-module luxon mock, which
+  // is unsafe under --no-isolate).
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2025-06-01T00:00:00.000Z'));
   // Speed up tests by eliminating the rate-limit delay
   vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: TimerHandler) => {
     if (typeof fn === 'function') fn();

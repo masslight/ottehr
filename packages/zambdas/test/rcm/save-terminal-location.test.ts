@@ -1,12 +1,14 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Device } from 'fhir/r4b';
 import {
+  findTerminalDeviceForLocation,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
   STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/payments/save-terminal-location/validateRequestParameters';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
@@ -16,7 +18,12 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
-  return { headers: null, body: body ? JSON.stringify(body) : (null as unknown as string), secrets: null };
+  // ENVIRONMENT is required by the real wrapHandler (configSentry) that now wraps the handler.
+  return {
+    headers: null,
+    body: body ? JSON.stringify(body) : (null as unknown as string),
+    secrets: { ENVIRONMENT: 'local' },
+  };
 }
 
 describe('save-terminal-location validateRequestParameters', () => {
@@ -82,28 +89,9 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    findTerminalDeviceForLocation: vi.fn(async () => {
-      const searchResult = await mockOystehrClient.fhir.search();
-      return searchResult;
-    }),
-  };
-});
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-const { findTerminalDeviceForLocation } = await import('utils');
+// findTerminalDeviceForLocation, checkOrCreateM2MClientToken, and createClinicalOystehrClient
+// are canonical suite-wide mocks (vitest.unit-mocks.setup.ts); defaults are installed in
+// the beforeEach below.
 const mockedFindDevice = vi.mocked(findTerminalDeviceForLocation);
 
 const { index: handler } = (await import('../../src/rcm/payments/save-terminal-location/index')) as unknown as {
@@ -139,6 +127,14 @@ function makeDevice(terminalLocationId: string): Device {
 describe('save-terminal-location handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(
+      mockOystehrClient as unknown as ReturnType<typeof createClinicalOystehrClient>
+    );
+    mockedFindDevice.mockImplementation(async () => {
+      const searchResult = await mockOystehrClient.fhir.search();
+      return searchResult;
+    });
   });
 
   it('creates a new Device when no existing device and terminalLocationId is provided', async () => {

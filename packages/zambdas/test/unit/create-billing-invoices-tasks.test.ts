@@ -1,7 +1,13 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { PatientArClaimItem } from 'utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchAllActivePatientArClaims } from '../../src/billing/search-billing-patient-ar-claims/handler';
+import { createBillingClient } from '../../src/billing/shared';
+import { index } from '../../src/cron/create-billing-invoices-tasks/index';
+import { checkOrCreateM2MClientToken } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
+
+// Shared modules (src/shared, src/billing/*) are mocked suite-wide in vitest.unit-mocks.setup.ts.
 
 const mockZambdaExecute = vi.fn();
 const mockBillingClient = {
@@ -9,28 +15,11 @@ const mockBillingClient = {
     execute: (...args: unknown[]) => mockZambdaExecute(...args),
   },
 };
-const mockFetchAllActivePatientArClaims = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../src/billing/shared', () => ({
-  createBillingClient: () => mockBillingClient,
-}));
-
-vi.mock('../../src/billing/search-billing-patient-ar-claims/handler', () => ({
-  fetchAllActivePatientArClaims: (...args: unknown[]) => mockFetchAllActivePatientArClaims(...args),
-}));
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
+
 let warnSpy!: ReturnType<typeof vi.spyOn>;
 
 const arItem = (overrides: Partial<PatientArClaimItem> = {}): PatientArClaimItem => ({
@@ -52,7 +41,7 @@ const arItem = (overrides: Partial<PatientArClaimItem> = {}): PatientArClaimItem
   ...overrides,
 });
 
-const secrets = { BILLING_INTEGRATION: 'ottehr' };
+const secrets = { BILLING_INTEGRATION: 'ottehr', ENVIRONMENT: 'local' };
 
 const runHandler = (): Promise<APIGatewayProxyResult> =>
   handler({
@@ -62,13 +51,11 @@ const runHandler = (): Promise<APIGatewayProxyResult> =>
   });
 
 describe('create-billing-invoices-tasks', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    ({ index: handler } = (await import('../../src/cron/create-billing-invoices-tasks/index')) as unknown as {
-      index: ZambdaHandler;
-    });
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createBillingClient).mockReturnValue(mockBillingClient as never);
   });
 
   afterEach(() => {
@@ -81,17 +68,18 @@ describe('create-billing-invoices-tasks', () => {
       body: null,
       secrets: {
         BILLING_INTEGRATION: 'candid',
+        ENVIRONMENT: 'local',
       },
     });
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).message).toContain('disabled');
-    expect(mockFetchAllActivePatientArClaims).not.toHaveBeenCalled();
+    expect(fetchAllActivePatientArClaims).not.toHaveBeenCalled();
     expect(mockZambdaExecute).not.toHaveBeenCalled();
   });
 
   it('forwards linked active AR claims to the clinical endpoint', async () => {
-    mockFetchAllActivePatientArClaims.mockResolvedValue([arItem()]);
+    vi.mocked(fetchAllActivePatientArClaims).mockResolvedValue([arItem()]);
     mockZambdaExecute.mockResolvedValue({
       output: {
         created: 1,
@@ -102,7 +90,7 @@ describe('create-billing-invoices-tasks', () => {
     const result = await runHandler();
     expect(result.statusCode).toBe(200);
 
-    expect(mockFetchAllActivePatientArClaims).toHaveBeenCalledWith(mockBillingClient);
+    expect(fetchAllActivePatientArClaims).toHaveBeenCalledWith(mockBillingClient);
     expect(mockZambdaExecute).toHaveBeenCalledWith({
       id: 'create-invoice-tasks-for-billing-claims',
       claims: [
@@ -121,7 +109,7 @@ describe('create-billing-invoices-tasks', () => {
   });
 
   it('drops claims without encounter linkage and does not call the endpoint when none remain', async () => {
-    mockFetchAllActivePatientArClaims.mockResolvedValue([
+    vi.mocked(fetchAllActivePatientArClaims).mockResolvedValue([
       arItem({
         claimId: 'claim-unlinked',
         encounterId: null,
@@ -136,7 +124,7 @@ describe('create-billing-invoices-tasks', () => {
   });
 
   it('forwards every linked claim from a single fetch', async () => {
-    mockFetchAllActivePatientArClaims.mockResolvedValue([
+    vi.mocked(fetchAllActivePatientArClaims).mockResolvedValue([
       arItem({
         claimId: 'claim-1',
         encounterId: 'enc-1',
@@ -155,7 +143,7 @@ describe('create-billing-invoices-tasks', () => {
 
     await runHandler();
 
-    expect(mockFetchAllActivePatientArClaims).toHaveBeenCalledTimes(1);
+    expect(fetchAllActivePatientArClaims).toHaveBeenCalledTimes(1);
     expect(mockZambdaExecute).toHaveBeenCalledTimes(1);
     const call = mockZambdaExecute.mock.calls[0][0] as { claims: { claimId: string }[] };
     expect(call.claims.map((c) => c.claimId)).toEqual(['claim-1', 'claim-2']);

@@ -1,30 +1,18 @@
 import { Address, Organization } from 'fhir/r4b';
-import { MISSING_REQUEST_SECRETS } from 'utils';
+import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// hoisted to avoid dependency issues
-const { mockGetOrCreateCandidApiClient } = vi.hoisted(() => ({
-  mockGetOrCreateCandidApiClient: vi.fn(),
-}));
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOrCreateCandidApiClient: mockGetOrCreateCandidApiClient,
-  };
-});
-
-const {
+// This file tests the REAL candid-sync implementations: the canonical suite-wide mocks
+// (vitest.unit-mocks.setup.ts) wrap them with delegate-to-real defaults, so calling them
+// exercises the real code while getOrCreateCandidApiClient (also canonical) is stubbed below.
+import {
   createCandidClientIfConfigured,
   createCandidEmployerPayer,
-  updateCandidEmployerPayer,
   toggleCandidEmployerPayer,
-} = await import('../../src/rcm/employers/candid-sync');
-
-const {
-  EMPLOYER_NOTES_EXTENSION_URL,
+  updateCandidEmployerPayer,
+} from '../../src/rcm/employers/candid-sync';
+import {
   buildEmployerType,
+  EMPLOYER_NOTES_EXTENSION_URL,
   getCandidPayerIdFromOrganization,
   isEmployerOrganization,
   normalizeAddress,
@@ -32,7 +20,9 @@ const {
   normalizeIdentifier,
   normalizeTelecom,
   setOrUpdateCandidIdentifier,
-} = await import('../../src/rcm/employers/helpers');
+} from '../../src/rcm/employers/helpers';
+
+const mockGetOrCreateCandidApiClient = vi.mocked(getOrCreateCandidApiClient);
 
 describe('RCM employer helpers', () => {
   it('detects employer organizations by type code', () => {

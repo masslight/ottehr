@@ -1,69 +1,36 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, List, Task } from 'fhir/r4b';
+import {
+  APIErrorCode,
+  createOystehrClient,
+  FAX_TASK,
+  getUiTaskCategoryForCode,
+  OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ZambdaInput } from '../../src/shared';
-
-// The exported `index` is typed as an AWS 3-arg Handler, but `wrapHandler` is mocked to
-// return the single-arg inner function; cast the imports to reflect the runtime shape.
-type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
-
-const { mockOystehr, mockDeleteZ3Object, mockCaptureException } = vi.hoisted(() => ({
-  mockOystehr: {
-    fhir: {
-      get: vi.fn(),
-      search: vi.fn(),
-      create: vi.fn(),
-      patch: vi.fn(),
-      transaction: vi.fn(),
-    },
-  },
-  mockDeleteZ3Object: vi.fn(),
-  mockCaptureException: vi.fn(),
-}));
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    createOystehrClient: vi.fn(() => mockOystehr),
-  };
-});
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    getAuth0Token: vi.fn().mockResolvedValue('mock-token'),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../src/shared/z3Utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    deleteZ3Object: mockDeleteZ3Object,
-  };
-});
-
-vi.mock('@sentry/aws-serverless', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    captureException: mockCaptureException,
-  };
-});
-
-import { APIErrorCode, FAX_TASK, getUiTaskCategoryForCode, OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils';
 import { index as deleteInboundFaxRaw } from '../../src/ehr/delete-inbound-fax/index';
 import { index as fileInboundFaxRaw } from '../../src/ehr/file-inbound-fax/index';
-import { Z3Error } from '../../src/shared/z3Utils';
+import { checkOrCreateM2MClientToken, getAuth0Token, type ZambdaInput } from '../../src/shared';
+import { deleteZ3Object, Z3Error } from '../../src/shared/z3Utils';
 import { index as handleInboundFaxRaw } from '../../src/subscriptions/communication/handle-inbound-fax/index';
+
+// utils, src/shared, src/shared/z3Utils, and @sentry/aws-serverless are mocked suite-wide in
+// vitest.unit-mocks.setup.ts; per-test behavior is installed in beforeEach via vi.mocked(...).
+
+// The exported `index` is typed as an AWS 3-arg Handler, but the (mocked) Sentry wrapper
+// returns the single-arg inner function; cast the imports to reflect the runtime shape.
+type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+
+const mockOystehr = {
+  fhir: {
+    get: vi.fn(),
+    search: vi.fn(),
+    create: vi.fn(),
+    patch: vi.fn(),
+    transaction: vi.fn(),
+  },
+};
 
 const fileInboundFax = fileInboundFaxRaw as unknown as ZambdaHandler;
 const deleteInboundFax = deleteInboundFaxRaw as unknown as ZambdaHandler;
@@ -146,6 +113,9 @@ const deleteBody = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(createOystehrClient).mockReturnValue(mockOystehr as never);
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(getAuth0Token).mockResolvedValue('mock-token');
 });
 
 // ---------------------------------------------------------------------------
@@ -361,14 +331,14 @@ describe('delete-inbound-fax handler', () => {
 
   it('SECURITY: ignores a client-supplied pdfUrl and deletes the Z3 object stored on the verified Task', async () => {
     mockTaskRead();
-    mockDeleteZ3Object.mockResolvedValue(undefined);
+    vi.mocked(deleteZ3Object).mockResolvedValue(undefined);
 
     const result = await deleteInboundFax(makeInput(deleteBody));
 
     expect(result.statusCode).toBe(200);
-    expect(mockDeleteZ3Object).toHaveBeenCalledTimes(1);
-    expect(mockDeleteZ3Object).toHaveBeenCalledWith(TASK_PDF_URL, 'mock-token');
-    expect(mockDeleteZ3Object).not.toHaveBeenCalledWith(CLIENT_SUPPLIED_PDF_URL, expect.anything());
+    expect(deleteZ3Object).toHaveBeenCalledTimes(1);
+    expect(deleteZ3Object).toHaveBeenCalledWith(TASK_PDF_URL, 'mock-token');
+    expect(deleteZ3Object).not.toHaveBeenCalledWith(CLIENT_SUPPLIED_PDF_URL, expect.anything());
 
     // Communication delete + Task cancel are one transaction
     const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
@@ -383,7 +353,7 @@ describe('delete-inbound-fax handler', () => {
 
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).message).toContain('is not an inbound-fax task');
-    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(deleteZ3Object).not.toHaveBeenCalled();
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
@@ -393,7 +363,7 @@ describe('delete-inbound-fax handler', () => {
     const result = await deleteInboundFax(makeInput(deleteBody));
 
     expect(result.statusCode).toBe(400);
-    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(deleteZ3Object).not.toHaveBeenCalled();
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
@@ -404,25 +374,25 @@ describe('delete-inbound-fax handler', () => {
 
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
-    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(deleteZ3Object).not.toHaveBeenCalled();
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('fails the operation (without touching FHIR) when the Z3 delete fails, and reports it', async () => {
     mockTaskRead();
-    mockDeleteZ3Object.mockRejectedValue(new Z3Error('delete failed', 500));
+    vi.mocked(deleteZ3Object).mockRejectedValue(new Z3Error('delete failed', 500));
 
     const result = await deleteInboundFax(makeInput(deleteBody));
 
     expect(result.statusCode).toBe(500);
-    expect(mockCaptureException).toHaveBeenCalled();
+    expect(captureException).toHaveBeenCalled();
     // Nothing else deleted: the operation stays retryable and the PDF is never orphaned
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('continues when the Z3 object is already gone (404)', async () => {
     mockTaskRead();
-    mockDeleteZ3Object.mockRejectedValue(new Z3Error('not found', 404));
+    vi.mocked(deleteZ3Object).mockRejectedValue(new Z3Error('not found', 404));
 
     const result = await deleteInboundFax(makeInput(deleteBody));
 
@@ -608,7 +578,7 @@ describe('handle-inbound-fax handler', () => {
       // 200 keeps the subscription from retrying forever; Sentry carries the signal instead.
       expect(result.statusCode).toBe(200);
       expect(JSON.parse(result.body)).toEqual({ alreadyProcessed: true });
-      expect(mockCaptureException).toHaveBeenCalled();
+      expect(captureException).toHaveBeenCalled();
       expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
     });
   });

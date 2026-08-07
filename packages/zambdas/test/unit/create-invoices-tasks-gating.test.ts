@@ -1,30 +1,20 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index } from '../../src/cron/create-invoices-tasks/index';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
-const mockCreateClinicalOystehrClient = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: (...args: unknown[]) => mockCreateClinicalOystehrClient(...args),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+// src/shared is mocked suite-wide in vitest.unit-mocks.setup.ts.
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
 
 describe('create-invoices-tasks gating', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
-    ({ index: handler } = (await import('../../src/cron/create-invoices-tasks/index')) as unknown as {
-      index: ZambdaHandler;
-    });
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockImplementation(() => undefined as never);
   });
 
   it('skips without touching FHIR or Candid when the env is ottehr-only', async () => {
@@ -33,11 +23,12 @@ describe('create-invoices-tasks gating', () => {
       body: null,
       secrets: {
         BILLING_INTEGRATION: 'ottehr',
+        ENVIRONMENT: 'local',
       },
     });
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).message).toContain('disabled');
-    expect(mockCreateClinicalOystehrClient).not.toHaveBeenCalled();
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
   });
 });

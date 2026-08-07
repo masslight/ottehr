@@ -3,12 +3,15 @@ import { Task as FhirTask } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index } from '../../src/cron/cleanup-invoice-exports/index';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 function makeInput(): ZambdaInput {
-  return { headers: null, body: null, secrets: { PROJECT_ID: 'test-project' } };
+  return { headers: null, body: null, secrets: { PROJECT_ID: 'test-project', ENVIRONMENT: 'local' } };
 }
 
+// src/shared is mocked suite-wide in vitest.unit-mocks.setup.ts.
 const mockOystehrClient = {
   fhir: {
     search: vi.fn(),
@@ -19,19 +22,9 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
 
 const BUCKET_NAME = 'test-project-invoiceable-patients-reports';
 const Z3_BASE_URL = `https://api.example.com/z3/${BUCKET_NAME}`;
@@ -60,12 +53,10 @@ function makeCompletedTask(id: string, lastUpdated: string, objectPath?: string)
 }
 
 describe('cleanup-invoice-exports', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
-    ({ index: handler } = (await import('../../src/cron/cleanup-invoice-exports/index')) as {
-      index: ZambdaHandler;
-    });
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
   });
 
   it('deletes Z3 files and Tasks older than 10 minutes', async () => {

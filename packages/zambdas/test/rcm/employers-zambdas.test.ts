@@ -1,10 +1,18 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createCandidClientIfConfigured,
+  createCandidEmployerPayer,
+  toggleCandidEmployerPayer,
+  updateCandidEmployerPayer,
+} from '../../src/rcm/employers/candid-sync';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 function makeInput(body: Record<string, unknown>): ZambdaInput {
-  return { headers: null, body: JSON.stringify(body), secrets: null };
+  // ENVIRONMENT is required by the real wrapHandler (configSentry) that now wraps the handlers.
+  return { headers: null, body: JSON.stringify(body), secrets: { ENVIRONMENT: 'local' } };
 }
 
 const mockOystehrClient = {
@@ -16,27 +24,12 @@ const mockOystehrClient = {
   },
 };
 
-const mockCreateCandidClientIfConfigured = vi.fn();
-const mockCreateCandidEmployerPayer = vi.fn();
-const mockUpdateCandidEmployerPayer = vi.fn();
-const mockToggleCandidEmployerPayer = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../src/rcm/employers/candid-sync', () => ({
-  createCandidClientIfConfigured: mockCreateCandidClientIfConfigured,
-  createCandidEmployerPayer: mockCreateCandidEmployerPayer,
-  updateCandidEmployerPayer: mockUpdateCandidEmployerPayer,
-  toggleCandidEmployerPayer: mockToggleCandidEmployerPayer,
-}));
+// The candid-sync module and the shared auth/client helpers are canonical suite-wide
+// mocks (vitest.unit-mocks.setup.ts); this file's defaults are installed in beforeEach.
+const mockCreateCandidClientIfConfigured = vi.mocked(createCandidClientIfConfigured);
+const mockCreateCandidEmployerPayer = vi.mocked(createCandidEmployerPayer);
+const mockUpdateCandidEmployerPayer = vi.mocked(updateCandidEmployerPayer);
+const mockToggleCandidEmployerPayer = vi.mocked(toggleCandidEmployerPayer);
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
@@ -89,7 +82,15 @@ describe('RCM employer zambdas', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateCandidClientIfConfigured.mockReturnValue(null);
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(
+      mockOystehrClient as unknown as ReturnType<typeof createClinicalOystehrClient>
+    );
+    mockCreateCandidClientIfConfigured.mockResolvedValue(null);
+    // Inert defaults: the real implementations must never run in these tests.
+    mockCreateCandidEmployerPayer.mockResolvedValue(undefined);
+    mockUpdateCandidEmployerPayer.mockResolvedValue(undefined);
+    mockToggleCandidEmployerPayer.mockResolvedValue(undefined);
   });
 
   it('create-employer creates org and persists Candid payer id when Candid sync succeeds', async () => {
@@ -105,7 +106,9 @@ describe('RCM employer zambdas', () => {
 
     mockOystehrClient.fhir.create.mockResolvedValue(created);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
-    mockCreateCandidClientIfConfigured.mockReturnValue({});
+    mockCreateCandidClientIfConfigured.mockResolvedValue(
+      {} as unknown as Awaited<ReturnType<typeof createCandidClientIfConfigured>>
+    );
     mockCreateCandidEmployerPayer.mockResolvedValue('candid-payer-1');
 
     const result = await createEmployerHandler(makeInput({ name: 'Wayne Enterprises' }));
@@ -151,7 +154,9 @@ describe('RCM employer zambdas', () => {
 
     mockOystehrClient.fhir.get.mockResolvedValue(existing);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
-    mockCreateCandidClientIfConfigured.mockReturnValue({});
+    mockCreateCandidClientIfConfigured.mockResolvedValue(
+      {} as unknown as Awaited<ReturnType<typeof createCandidClientIfConfigured>>
+    );
 
     const result = await updateEmployerHandler(
       makeInput({ employerId: EMPLOYER_ID, name: 'Wayne Ent', category: 'Occupational Medicine' })
@@ -186,7 +191,9 @@ describe('RCM employer zambdas', () => {
 
     mockOystehrClient.fhir.get.mockResolvedValue(existing);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
-    mockCreateCandidClientIfConfigured.mockReturnValue({});
+    mockCreateCandidClientIfConfigured.mockResolvedValue(
+      {} as unknown as Awaited<ReturnType<typeof createCandidClientIfConfigured>>
+    );
 
     const result = await updateEmployerHandler(makeInput({ employerId: EMPLOYER_ID, active: true }));
 
@@ -216,7 +223,9 @@ describe('RCM employer zambdas', () => {
 
     mockOystehrClient.fhir.get.mockResolvedValue(existing);
     mockOystehrClient.fhir.update.mockResolvedValue(updated);
-    mockCreateCandidClientIfConfigured.mockReturnValue({});
+    mockCreateCandidClientIfConfigured.mockResolvedValue(
+      {} as unknown as Awaited<ReturnType<typeof createCandidClientIfConfigured>>
+    );
 
     const result = await updateEmployerHandler(makeInput({ employerId: EMPLOYER_ID, active: false }));
 
@@ -233,7 +242,7 @@ describe('RCM employer zambdas', () => {
       unbundle: () => [makeEmployer()],
     });
 
-    const result = await listEmployersHandler({ headers: null, body: JSON.stringify({}), secrets: null });
+    const result = await listEmployersHandler(makeInput({}));
     expect(result.statusCode).toBe(200);
 
     const body = JSON.parse(result.body);

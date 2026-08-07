@@ -1,15 +1,24 @@
-import { MISSING_REQUEST_SECRETS, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils';
+import { captureException, captureMessage } from '@sentry/aws-serverless';
+import { DiagnosisTypeCode } from 'candidhealth/api';
+import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
+  getOrCreateCandidApiClient,
+  MISSING_REQUEST_SECRETS,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createClinicalOystehrClient, createEncounterFromAppointment, getAuth0Token } from '../../src/shared';
+import { buildRelatedCausesInformation, createCandidDiagnoses } from '../../src/shared/candid';
+import { getAppointmentAndRelatedResources } from '../../src/shared/pdf/visit-details-pdf/get-video-resources';
+import { index as _index } from '../../src/subscriptions/task/sub-send-claim/index';
+import { validateRequestParameters } from '../../src/subscriptions/task/validateRequestParameters';
 
-// ── Mocks ──────────────────────────────────────────────────────────────────────
+// All shared-module mocks (src/shared, utils, @sentry/aws-serverless, validateRequestParameters,
+// get-video-resources) are registered suite-wide in vitest.unit-mocks.setup.ts; per-test behavior
+// is installed below via vi.mocked(...).
 
-const mockCreateEncounterFromAppointment = vi.fn();
-const mockGetAuth0Token = vi.fn().mockResolvedValue('test-token');
-const mockCreateOystehrClient = vi.fn();
-// hoisted to avoid dependency issues
-const { mockGetOrCreateCandidApiClient } = vi.hoisted(() => ({
-  mockGetOrCreateCandidApiClient: vi.fn(),
-}));
+const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
 
 const mockFhirPatch = vi.fn();
 const mockFhirSearch = vi.fn();
@@ -22,57 +31,6 @@ const mockOystehrClient = {
     create: vi.fn(),
   },
 };
-
-const mockGetAppointmentAndRelatedResources = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    createEncounterFromAppointment: mockCreateEncounterFromAppointment,
-    getAuth0Token: mockGetAuth0Token,
-    createClinicalOystehrClient: mockCreateOystehrClient,
-    wrapHandler: (_name: string, handler: any) => handler,
-    CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOrCreateCandidApiClient: mockGetOrCreateCandidApiClient,
-  };
-});
-
-vi.mock('../../src/subscriptions/task/validateRequestParameters', () => ({
-  validateRequestParameters: vi.fn(),
-}));
-
-vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
-  getAppointmentAndRelatedResources: (...args: any[]) => mockGetAppointmentAndRelatedResources(...args),
-}));
-
-const { mockCaptureException, mockCaptureMessage } = vi.hoisted(() => ({
-  mockCaptureException: vi.fn(),
-  mockCaptureMessage: vi.fn(),
-}));
-
-vi.mock('@sentry/aws-serverless', () => ({
-  captureException: mockCaptureException,
-  captureMessage: mockCaptureMessage,
-}));
-
-// ── Imports (after mocks) ──────────────────────────────────────────────────────
-
-const { validateRequestParameters } = await import('../../src/subscriptions/task/validateRequestParameters');
-
-const { index: _index } = await import('../../src/subscriptions/task/sub-send-claim/index');
-const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
-
-const { createCandidDiagnoses, buildRelatedCausesInformation } = await import('../../src/shared/candid');
-const { DiagnosisTypeCode } = await import('candidhealth/api');
-const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils');
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -131,22 +89,27 @@ function makeVisitResources(opts: {
   };
 }
 
+// The real wrapHandler applies suite-wide: it reads the ENVIRONMENT secret from the invocation
+// input. 'testing' (not 'local') so sendWarning still reaches captureMessage.
+const zambdaInput = { headers: {}, body: '{}', secrets: { ENVIRONMENT: 'testing' } };
+
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('sub-send-claim', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateOystehrClient.mockReturnValue(mockOystehrClient);
+    vi.mocked(getAuth0Token).mockResolvedValue('test-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as any);
     mockFhirPatch.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'completed' });
     // candid is configured by default, tests override to skip when needed
-    mockGetOrCreateCandidApiClient.mockResolvedValue({} as any);
+    vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({} as any);
   });
 
   it('creates a Candid encounter and patches FHIR Encounter with the Candid ID', async () => {
     setupValidatedParams('task-1', 'appt-1');
     const visitResources = makeVisitResources({ encounterId: 'enc-1' });
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
-    mockCreateEncounterFromAppointment.mockResolvedValue('candid-enc-abc');
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
+    vi.mocked(createEncounterFromAppointment).mockResolvedValue('candid-enc-abc');
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-1',
@@ -154,10 +117,10 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ code: 'claim sent successfully' }] },
     });
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
-    expect(mockCreateEncounterFromAppointment).toHaveBeenCalledTimes(1);
+    expect(createEncounterFromAppointment).toHaveBeenCalledTimes(1);
 
     // Verify FHIR patch was called to add Candid encounter ID to the Encounter
     expect(mockFhirPatch).toHaveBeenCalledWith(
@@ -183,7 +146,7 @@ describe('sub-send-claim', () => {
       encounterId: 'enc-2',
       existingCandidEncounterId: 'candid-enc-already-exists',
     });
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-2',
@@ -191,19 +154,19 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ code: 'claim sent successfully' }] },
     });
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
     // createEncounterFromAppointment should NOT be called
-    expect(mockCreateEncounterFromAppointment).not.toHaveBeenCalled();
+    expect(createEncounterFromAppointment).not.toHaveBeenCalled();
   });
 
   it('skips Candid when getOrCreateCandidApiClient rejects with MISSING_REQUEST_SECRETS', async () => {
-    mockGetOrCreateCandidApiClient.mockRejectedValueOnce(MISSING_REQUEST_SECRETS);
+    vi.mocked(getOrCreateCandidApiClient).mockRejectedValueOnce(MISSING_REQUEST_SECRETS);
 
     setupValidatedParams('task-3', 'appt-3');
     const visitResources = makeVisitResources({ encounterId: 'enc-3' });
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-3',
@@ -211,17 +174,17 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ code: 'claim sent successfully' }] },
     });
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
-    expect(mockCreateEncounterFromAppointment).not.toHaveBeenCalled();
+    expect(createEncounterFromAppointment).not.toHaveBeenCalled();
   });
 
   it('uses /identifier (array) when encounter has no existing identifiers', async () => {
     setupValidatedParams('task-4', 'appt-4');
     const visitResources = makeVisitResources({ encounterId: 'enc-4', hasIdentifiers: false });
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
-    mockCreateEncounterFromAppointment.mockResolvedValue('candid-enc-new');
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
+    vi.mocked(createEncounterFromAppointment).mockResolvedValue('candid-enc-new');
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-4',
@@ -229,7 +192,7 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ code: 'claim sent successfully' }] },
     });
 
-    await index({ headers: {}, body: '{}', secrets: {} });
+    await index(zambdaInput);
 
     // When encounter.identifier is undefined, patch uses /identifier with array value
     expect(mockFhirPatch).toHaveBeenCalledWith(
@@ -256,8 +219,8 @@ describe('sub-send-claim', () => {
     setupValidatedParams('task-5', 'appt-5');
     const visitResources = makeVisitResources({ encounterId: 'enc-5' });
     // encounter.identifier = [] (defined but empty)
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
-    mockCreateEncounterFromAppointment.mockResolvedValue('candid-enc-append');
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
+    vi.mocked(createEncounterFromAppointment).mockResolvedValue('candid-enc-append');
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-5',
@@ -265,7 +228,7 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ code: 'claim sent successfully' }] },
     });
 
-    await index({ headers: {}, body: '{}', secrets: {} });
+    await index(zambdaInput);
 
     // When encounter.identifier exists (even empty array), patch uses /identifier/-
     expect(mockFhirPatch).toHaveBeenCalledWith(
@@ -288,7 +251,7 @@ describe('sub-send-claim', () => {
       encounterId: 'enc-6',
       existingCandidEncounterId: 'already-done',
     });
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-6',
@@ -296,7 +259,7 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ system: 'status-reason', code: 'claim sent successfully' }] },
     });
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
     // Task patch for status update to 'completed'
@@ -315,7 +278,7 @@ describe('sub-send-claim', () => {
     );
   });
 
-  it('throws when no appointment ID is found on task focus', async () => {
+  it('returns the error envelope when no appointment ID is found on task focus', async () => {
     vi.mocked(validateRequestParameters).mockReturnValue({
       task: {
         id: 'task-7',
@@ -330,35 +293,41 @@ describe('sub-send-claim', () => {
       secrets: {} as any,
     } as any);
 
-    await expect(index({ headers: {}, body: '{}', secrets: {} })).rejects.toThrow(
-      'no appointment ID found on task focus'
-    );
+    // The real wrapHandler turns the thrown "no appointment ID found on task focus" error into a
+    // structured 500 response instead of rejecting.
+    const result = await index(zambdaInput);
+
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
   });
 
-  it('throws when visit resources are not found', async () => {
+  it('returns the error envelope when visit resources are not found', async () => {
     setupValidatedParams('task-8', 'appt-8');
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(undefined);
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(undefined);
 
-    await expect(index({ headers: {}, body: '{}', secrets: {} })).rejects.toThrow(
-      'Visit resources are not properly defined'
-    );
+    // The real wrapHandler turns the thrown "Visit resources are not properly defined" error into a
+    // structured 500 response instead of rejecting.
+    const result = await index(zambdaInput);
+
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
   });
 
   it('fails the task without throwing when the claim can not be created (e.g. provider has no NPI)', async () => {
     // Missing data is not a bug, so the handler must not throw: throwing reports it to Sentry as an
     // exception. It goes out as a warning instead.
     setupValidatedParams('task-10', 'appt-10');
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(makeVisitResources({ encounterId: 'enc-10' }));
-    mockCreateEncounterFromAppointment.mockRejectedValue(
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(makeVisitResources({ encounterId: 'enc-10' }));
+    vi.mocked(createEncounterFromAppointment).mockRejectedValue(
       RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Practitioner pract-1 has no NPI identifier, so a claim can't be created")
     );
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).message).toContain('has no NPI identifier');
-    expect(mockCaptureException).not.toHaveBeenCalled();
-    expect(mockCaptureMessage).toHaveBeenCalledWith(
+    expect(captureException).not.toHaveBeenCalled();
+    expect(captureMessage).toHaveBeenCalledWith(
       'Claim could not be created because required data is missing',
       expect.objectContaining({
         level: 'warning',
@@ -380,11 +349,11 @@ describe('sub-send-claim', () => {
     );
   });
 
-  it('handles null candidEncounterId from createEncounterFromAppointment (no patch ops)', async () => {
+  it('handles a nullish candidEncounterId from createEncounterFromAppointment (no patch ops)', async () => {
     setupValidatedParams('task-9', 'appt-9');
     const visitResources = makeVisitResources({ encounterId: 'enc-9' });
-    mockGetAppointmentAndRelatedResources.mockResolvedValue(visitResources);
-    mockCreateEncounterFromAppointment.mockResolvedValue(null);
+    vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
+    vi.mocked(createEncounterFromAppointment).mockResolvedValue(undefined);
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-9',
@@ -392,7 +361,7 @@ describe('sub-send-claim', () => {
       statusReason: { coding: [{ code: 'claim sent successfully' }] },
     });
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
     // The Encounter patch should still happen but with empty operations array

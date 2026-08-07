@@ -6,13 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTaskForEncounter } from '../../src/cron/create-invoices-tasks/index';
 import type { ParsedInvoicingConfig } from '../../src/rcm/invoice-config/helpers';
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+// src/shared (incl. wrapHandler) is mocked suite-wide in vitest.unit-mocks.setup.ts.
 
 const config: ParsedInvoicingConfig = {
   dueDaysFromGeneration: 30,

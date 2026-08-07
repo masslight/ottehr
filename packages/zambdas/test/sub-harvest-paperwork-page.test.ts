@@ -1,6 +1,18 @@
 import { Task } from 'fhir/r4b';
-import { pageHarvestStrategy, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
-import { describe, expect, it, vi } from 'vitest';
+import { getRelatedPersonForPatient, pageHarvestStrategy, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createConsentResources,
+  createDocumentResources,
+  createErxContactOperation,
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
+  getAccountAndCoverageResourcesForPatient,
+  makeEncounterAccountPatchOp,
+  mergeEncounterAccounts,
+  updatePatientAccountFromQuestionnaire,
+} from '../src/ehr/shared/harvest';
+import { getAuth0Token } from '../src/shared';
 import { extractPatchIndex, extractQrId } from '../src/subscriptions/task/sub-harvest-paperwork/index';
 import {
   executePageHarvest,
@@ -8,35 +20,25 @@ import {
   strategyHandlers,
 } from '../src/subscriptions/task/sub-harvest-paperwork/page-handlers';
 
-// Mock the harvest module so strategy handlers don't make real FHIR calls
-vi.mock('../src/ehr/shared/harvest', () => ({
-  createMasterRecordPatchOperations: vi.fn(() => ({
+// The harvest module, getRelatedPersonForPatient, and getAuth0Token are canonical suite-wide
+// mocks (vitest.unit-mocks.setup.ts); stub them so strategy handlers make no real FHIR calls.
+beforeEach(() => {
+  vi.mocked(createMasterRecordPatchOperations).mockReturnValue({
     patient: { patchOpsForDirectUpdate: [] },
-  })),
-  createUpdatePharmacyPatchOps: vi.fn(() => []),
-  updatePatientAccountFromQuestionnaire: vi.fn(async () => {}),
-  getAccountAndCoverageResourcesForPatient: vi.fn(async () => ({ account: undefined, workersCompAccount: undefined })),
-  createDocumentResources: vi.fn(async () => {}),
-  createConsentResources: vi.fn(async () => {}),
-  createErxContactOperation: vi.fn(() => null),
-  mergeEncounterAccounts: vi.fn(() => ({ accounts: undefined, changed: false })),
-  makeEncounterAccountPatchOp: vi.fn(() => []),
-}));
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    getRelatedPersonForPatient: vi.fn(async () => null),
-  };
-});
-
-vi.mock('../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/shared')>();
-  return {
-    ...actual,
-    getAuth0Token: vi.fn(async () => 'mock-token'),
-  };
+  } as never);
+  vi.mocked(createUpdatePharmacyPatchOps).mockReturnValue([] as never);
+  vi.mocked(updatePatientAccountFromQuestionnaire).mockResolvedValue(undefined as never);
+  vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({
+    account: undefined,
+    workersCompAccount: undefined,
+  } as never);
+  vi.mocked(createDocumentResources).mockResolvedValue(undefined as never);
+  vi.mocked(createConsentResources).mockResolvedValue(undefined as never);
+  vi.mocked(createErxContactOperation).mockReturnValue(null as never);
+  vi.mocked(mergeEncounterAccounts).mockReturnValue({ accounts: undefined, changed: false } as never);
+  vi.mocked(makeEncounterAccountPatchOp).mockReturnValue([] as never);
+  vi.mocked(getRelatedPersonForPatient).mockResolvedValue(null as never);
+  vi.mocked(getAuth0Token).mockResolvedValue('mock-token');
 });
 
 // ── Helper: build a well-formed Task ──────────────────────────────────────

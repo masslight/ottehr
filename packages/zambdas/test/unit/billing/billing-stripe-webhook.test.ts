@@ -4,20 +4,8 @@ import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, Secrets } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
-
-vi.mock('../../../src/shared', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  wrapHandler: (_name: string, handler: unknown) => handler,
-  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
-  getStripeClient: vi.fn(),
-}));
-
-vi.mock('../../../src/billing/shared', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  createBillingClient: vi.fn(),
-}));
-
+import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+// src/shared and src/billing/shared are mocked suite-wide in vitest.unit-mocks.setup.ts.
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient } from '../../../src/billing/shared';
@@ -33,6 +21,7 @@ const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const stripe = new Stripe('sk_test_123');
 
 const secrets: Secrets = {
+  ENVIRONMENT: 'local',
   BILLING_INTEGRATION: 'all',
   STRIPE_SECRET_KEY: 'sk_test_123',
   STRIPE_PUBLIC_KEY: 'pk_test_123',
@@ -93,6 +82,10 @@ const signedInput = (event: Stripe.Event): ZambdaInput => {
   const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: WEBHOOK_SECRET });
   return { body: payload, headers: { 'Stripe-Signature': signature }, secrets };
 };
+
+beforeEach(() => {
+  (checkOrCreateM2MClientToken as Mock).mockResolvedValue('m2m-token');
+});
 
 afterEach(() => {
   vi.clearAllMocks();

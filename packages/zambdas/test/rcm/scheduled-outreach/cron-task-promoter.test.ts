@@ -1,12 +1,22 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { FEATURE_FLAGS_CONFIG, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dedupeOutreachTasks } from '../../../src/cron/rcm/outreach-task-promoter/dedupe-outreach-tasks';
 import { index } from '../../../src/cron/rcm/outreach-task-promoter/index';
-import { parseNotificationsTimeRestriction } from '../../../src/rcm/scheduled-outreach-config/helpers';
+import {
+  getOrCreateOutreachConfig,
+  parseNotificationsTimeRestriction,
+} from '../../../src/rcm/scheduled-outreach-config/helpers';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../../src/shared';
 import type { ZambdaInput } from '../../../src/shared/types/common';
+
+// FEATURE_FLAGS_CONFIG, checkOrCreateM2MClientToken, createClinicalOystehrClient,
+// getOrCreateOutreachConfig, and parseNotificationsTimeRestriction are canonical suite-wide
+// mocks (vitest.unit-mocks.setup.ts); per-file defaults are installed in beforeEach below.
+// The REAL wrapHandler now wraps the handler, so thrown errors surface as an error envelope
+// (statusCode + JSON body) unless they occur before the top-level catch (e.g. missing secrets).
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -24,49 +34,30 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    FEATURE_FLAGS_CONFIG: {
-      automatedPatientOutreachEnabled: true,
-      mailingPaperStatementsEnabled: true,
-    },
-  };
-});
-
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-// Mock the config helpers to return a plan with no time restriction
-vi.mock('../../../src/rcm/scheduled-outreach-config/helpers', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOrCreateOutreachConfig: vi.fn().mockResolvedValue({
-      resourceType: 'PlanDefinition',
-      id: 'plan-1',
-      status: 'active',
-    } as PlanDefinition),
-    parseNotificationsTimeRestriction: vi.fn().mockReturnValue({
-      enabled: false,
-      windowStart: '09:00',
-      windowEnd: '21:00',
-      timezone: 'America/New_York',
-    }),
-  };
-});
-
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const testSecrets = { test: 'secret' };
+const testSecrets = { test: 'secret', ENVIRONMENT: 'local' };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  Object.assign(FEATURE_FLAGS_CONFIG, {
+    automatedPatientOutreachEnabled: true,
+    mailingPaperStatementsEnabled: true,
+  });
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as any);
+  vi.mocked(getOrCreateOutreachConfig).mockResolvedValue({
+    resourceType: 'PlanDefinition',
+    id: 'plan-1',
+    status: 'active',
+  } as PlanDefinition);
+  vi.mocked(parseNotificationsTimeRestriction).mockReturnValue({
+    enabled: false,
+    windowStart: '09:00',
+    windowEnd: '21:00',
+    timezone: 'America/New_York',
+  });
+});
 
 function mockBundle(resources: any[]): { unbundle: () => any[] } {
   return { unbundle: () => resources };
@@ -85,10 +76,6 @@ function makeDraftTask(id: string, overrides?: Partial<Task>): Task {
 
 describe('cron-outreach-task-promoter', () => {
   const handler = index as ZambdaHandler;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
 
   it('promotes draft tasks to requested status', async () => {
     const draftTask = makeDraftTask('task-1');
@@ -179,43 +166,46 @@ describe('cron-outreach-task-promoter', () => {
   });
 
   it('throws when secrets are not defined', async () => {
-    await expect(handler({ headers: null, body: null, secrets: null })).rejects.toThrow('Secrets are not defined');
+    // With the real wrapHandler, configSentry reads the ENVIRONMENT secret before the
+    // top-level catch, so a null-secrets invocation still rejects (with the missing-secret error).
+    await expect(handler({ headers: null, body: null, secrets: null })).rejects.toThrow();
   });
 });
 
 describe('cron-outreach-task-promoter with SMS time restriction', () => {
   const handler = index as ZambdaHandler;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('blocks SMS tasks when outside notification window', async () => {
     // Mock DateTime.now() to a fixed time outside the narrow window to avoid flakiness
     const realNow = DateTime.now;
-    vi.spyOn(DateTime, 'now').mockImplementation(() =>
-      realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
-    );
+    const nowSpy = vi
+      .spyOn(DateTime, 'now')
+      .mockImplementation(() => realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 }));
 
-    // Enable restriction with a very narrow window that won't match the mocked time (12:00 UTC)
-    (parseNotificationsTimeRestriction as any).mockReturnValue({
-      enabled: true,
-      windowStart: '03:00',
-      windowEnd: '03:01',
-      timezone: 'UTC',
-    });
+    try {
+      // Enable restriction with a very narrow window that won't match the mocked time (12:00 UTC)
+      vi.mocked(parseNotificationsTimeRestriction).mockReturnValue({
+        enabled: true,
+        windowStart: '03:00',
+        windowEnd: '03:01',
+        timezone: 'UTC',
+      });
 
-    const smsTask = makeDraftTask('task-sms', {
-      input: [{ type: { text: 'mediums' }, valueString: 'sms' }],
-    });
-    mockSearch.mockResolvedValueOnce(mockBundle([smsTask]));
+      const smsTask = makeDraftTask('task-sms', {
+        input: [{ type: { text: 'mediums' }, valueString: 'sms' }],
+      });
+      mockSearch.mockResolvedValueOnce(mockBundle([smsTask]));
 
-    const result = await handler({ headers: null, body: null, secrets: testSecrets });
+      const result = await handler({ headers: null, body: null, secrets: testSecrets });
 
-    const body = JSON.parse(result.body);
-    expect(body.blocked).toBe(1);
-    expect(body.promoted).toBe(0);
-    expect(mockPatch).not.toHaveBeenCalled();
+      const body = JSON.parse(result.body);
+      expect(body.blocked).toBe(1);
+      expect(body.promoted).toBe(0);
+      expect(mockPatch).not.toHaveBeenCalled();
+    } finally {
+      // Restore DateTime.now so the spy cannot leak into other files under --no-isolate
+      nowSpy.mockRestore();
+    }
   });
 });
 
@@ -223,10 +213,6 @@ describe('cron-outreach-task-promoter with SMS time restriction', () => {
 
 describe('dedupeOutreachTasks', () => {
   const TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
 
   function makeKeyedTask(
     id: string,

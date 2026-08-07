@@ -3,13 +3,7 @@ import { NOT_AUTHORIZED, RoleType, Secrets, SecretsKeys, userMe } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getUser, requireAdminUser, requireUserWithRole } from '../../src/shared';
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    userMe: vi.fn(),
-  };
-});
+// userMe is a canonical suite-wide mock (vitest.unit-mocks.setup.ts); each test installs its behavior.
 
 const secrets: Secrets = {
   [SecretsKeys.FHIR_API]: 'http://fhir',

@@ -1,12 +1,17 @@
 import { captureException } from '@sentry/aws-serverless';
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { UserActivationZambdaOutput } from 'utils';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createFetchClientWithOystehrAuth, UserActivationZambdaOutput } from 'utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index as userActivationIndex } from '../../src/ehr/user-activation/index';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 // Deactivating an Oystehr user doesn't touch their enrollment with the upstream eRx provider, so
 // user-activation unenrolls the linked Practitioner as part of deactivation. These tests cover that
 // side effect: when it runs, when it's skipped, and that it can never fail the deactivation itself.
+//
+// src/shared, utils, and @sentry/aws-serverless are mocked suite-wide in
+// vitest.unit-mocks.setup.ts; per-test behavior is installed in beforeEach via vi.mocked(...).
 
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const PRACTITIONER_ID = 'practitioner-abc';
@@ -28,27 +33,9 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    createFetchClientWithOystehrAuth: vi.fn(() => ({ oystehrFetch: mockOystehrFetch })),
-  };
-});
-
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = userActivationIndex as unknown as ZambdaHandler;
 
 const makeInput = (mode: 'activate' | 'deactivate'): ZambdaInput => ({
   headers: { Authorization: 'Bearer test-token' },
@@ -74,12 +61,11 @@ const givenUser = (overrides?: { roles?: (typeof PROVIDER_ROLE)[]; profile?: str
 const parseBody = (result: APIGatewayProxyResult): UserActivationZambdaOutput => JSON.parse(result.body);
 
 describe('user-activation eRx unenrollment', () => {
-  beforeAll(async () => {
-    ({ index: handler } = (await import('../../src/ehr/user-activation/index')) as { index: ZambdaHandler });
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
+    vi.mocked(createFetchClientWithOystehrAuth).mockReturnValue({ oystehrFetch: mockOystehrFetch } as never);
     // The role lookup (`GET /iam/role`) is the only oystehrFetch call whose response is read.
     mockOystehrFetch.mockResolvedValue([PROVIDER_ROLE, INACTIVE_ROLE]);
     mockFhirPatch.mockResolvedValue({});
