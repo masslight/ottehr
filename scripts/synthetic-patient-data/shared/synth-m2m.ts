@@ -143,23 +143,21 @@ export async function ensureSynthM2MInProcess(opts: {
 
   const clients = (await admin.m2m.list()) as any[];
   const practitionerId = await ensureProfilePractitioner(admin, opts.name, opts.practitionerId);
+  // Recreate (delete-then-create) rather than update: an m2m.update({ roles })
+  // leaves any inline accessPolicy from a prior (pre-roles) run in place, which can
+  // override the roles and cause 403s ("Forbidden"). A fresh create guarantees a
+  // clean roles-only client. Nothing external references the old client (we mint
+  // its secret fresh each run anyway), so deleting it is safe.
   const existing = clients.find((c) => c.name === opts.name);
-  let id: string;
-  let clientId: string;
-  if (existing) {
-    await admin.m2m.update({ id: existing.id, profile: `Practitioner/${practitionerId}`, roles: roleIds });
-    id = existing.id;
-    clientId = existing.clientId;
-  } else {
-    const created = (await admin.m2m.create({
-      name: opts.name,
-      description: 'Synth pipeline client (Practitioner profile + staff roles) — provisioned in-process.',
-      profile: `Practitioner/${practitionerId}`,
-      roles: roleIds,
-    })) as any;
-    id = created.id;
-    clientId = created.clientId;
-  }
+  if (existing) await admin.m2m.delete({ id: existing.id });
+  const created = (await admin.m2m.create({
+    name: opts.name,
+    description: 'Synth pipeline client (Practitioner profile + staff roles) — provisioned in-process.',
+    profile: `Practitioner/${practitionerId}`,
+    roles: roleIds,
+  })) as any;
+  const id: string = created.id;
+  const clientId: string = created.clientId;
 
   const { secret } = await admin.m2m.rotateSecret({ id });
   if (process.env.GITHUB_ACTIONS) {

@@ -796,12 +796,15 @@ async function runGeneratePool(visits: Visit[], harness: HarnessCommand, today: 
               if (tagProblem) untagged++;
               console.log(`  ✓ ${v.targetStatus.padEnd(20)} ${v.label}${tagProblem ? '  (⚠ untagged)' : ''}`);
             } else {
-              const err =
-                out
-                  .split('\n')
-                  .filter((l) => /error|aborted|failed/i.test(l))
-                  .slice(-1)[0] ?? `exit ${code}`;
-              console.log(`  ✗ FAILED ${v.label}: ${err.trim().slice(0, 120)}`);
+              const lines = out.split('\n');
+              const errLine = lines.filter((l) => /error|aborted|failed/i.test(l)).slice(-1)[0] ?? `exit ${code}`;
+              console.log(`  ✗ FAILED ${v.label}: ${errLine.trim().slice(0, 120)}`);
+              // Dump the harness error context (from "Pipeline aborted"/"Fatal error"
+              // onward — includes the zambda/SDK error body) so a failure is
+              // diagnosable from the census log directly.
+              const from = lines.findIndex((l) => /Pipeline aborted|Fatal error/i.test(l));
+              const errCtx = (from >= 0 ? lines.slice(from) : lines.slice(-25)).slice(0, 40);
+              for (const l of errCtx) console.log(`      │ ${l}`);
             }
           } catch (e: any) {
             // Defensive: nothing above should reach here, but if it does the
