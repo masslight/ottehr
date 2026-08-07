@@ -1,4 +1,5 @@
 import { convert } from 'html-to-text';
+import type { RadiologyDTO } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, RadiologyData } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
@@ -21,19 +22,21 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
     return result;
   };
 
-  const radiology = chartDataRadiologyOrders
-    .filter((order) => !!order.finalReport)
-    .map((order) => ({
-      name: order.studyType,
-      performedBy: order.performedBy?.name,
-      result: handleFinalReport(order.finalReport),
-    }));
+  // External orders have no DiagnosticReport; a reviewed upload is their result.
+  const isResulted = (order: RadiologyDTO): boolean =>
+    !!order.finalReport || !!(order.external && order.externalResultReviewed);
 
-  const pendingOrderNames = chartDataRadiologyOrders
-    .filter((order) => !order.finalReport)
+  const radiology = chartDataRadiologyOrders.filter(isResulted).map((order) => ({
+    name: order.studyType,
+    performedBy: order.performedBy?.name,
+    result: handleFinalReport(order.finalReport),
+  }));
+
+  const pendingRadiologyOrders = chartDataRadiologyOrders
+    .filter((order) => !isResulted(order))
     .map((order) => order.studyType);
 
-  return { radiology, radiologyOrders: pendingOrderNames };
+  return { radiology, pendingRadiologyOrders };
 };
 
 export const createRadiologySection = <TData extends { radiology?: RadiologyData }>(): PdfSection<

@@ -12,7 +12,7 @@ const styles = {
 
 const drawnLines = (sectionData: RadiologyData): string[] => {
   const drawText = vi.fn();
-  const client = { drawText, drawSeparatedLine: vi.fn() } as unknown as PdfClient;
+  const client = { drawText, drawSeparatedLine: vi.fn(), newLine: vi.fn() } as unknown as PdfClient;
   createRadiologySection<{ radiology?: RadiologyData }>().render(client, sectionData, styles, {} as never);
   return drawText.mock.calls.map((call) => call[0] as string);
 };
@@ -52,5 +52,36 @@ describe('radiology PDF section', () => {
       '71045 — X-Ray Chest',
       'Final Read: No acute findings',
     ]);
+  });
+
+  test('treats a reviewed external order as a result, with no read line', () => {
+    const composed = composeRadiology({
+      allChartData: {
+        additionalChartData: {
+          radiologyOrders: [
+            { studyType: '71045 — X-Ray Chest', external: true, externalResultReviewed: true },
+            { studyType: '73030 — X-Ray Shoulder', external: true },
+          ],
+        },
+      },
+    } as never);
+
+    expect(composed.radiology).toEqual([{ name: '71045 — X-Ray Chest', performedBy: undefined, result: '' }]);
+    expect(composed.pendingRadiologyOrders).toEqual(['73030 — X-Ray Shoulder']);
+    expect(drawnLines(composed)).toEqual([
+      'Pending Results:',
+      '73030 — X-Ray Shoulder',
+      'Results:',
+      '71045 — X-Ray Chest',
+    ]);
+  });
+
+  test('exposes pending orders under the key the section renders from', () => {
+    const composed = composeRadiology({
+      allChartData: { additionalChartData: { radiologyOrders: [{ studyType: '71045 — X-Ray Chest' }] } },
+    } as never);
+
+    expect(composed.pendingRadiologyOrders).toEqual(['71045 — X-Ray Chest']);
+    expect(drawnLines(composed)).toEqual(['Pending Results:', '71045 — X-Ray Chest']);
   });
 });
