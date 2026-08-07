@@ -112,8 +112,6 @@ jobs:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
           NODE_OPTIONS: "--max-old-space-size=8192"
-          # Scratch branch for measuring the pre-barrel-removal baseline. Not for merge.
-          TURBO_FORCE: true
 
       - name: Test run summary
         if: ${{ !cancelled() }}
