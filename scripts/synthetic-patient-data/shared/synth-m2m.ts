@@ -17,6 +17,22 @@ import { createOystehrFromToken, mintAccessTokenForClient } from './oystehr-clie
 // Marker tag + identifier for the DEDICATED Practitioner used as the M2M profile.
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
 const PROFILE_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synth-m2m-profile';
+
+// Grant the synth M2M full staff roles — same as the integration-test provider
+// client (integration-global-setup.ts) — so role/policy-gated zambdas like
+// sign-appointment authorize it. Names include both spaced and unspaced variants
+// so it matches whatever the project defines; only existing roles are applied.
+const STAFF_ROLE_NAMES = new Set([
+  'Provider',
+  'Administrator',
+  'Manager',
+  'Staff',
+  'Billing',
+  'Customer Support',
+  'CustomerSupport',
+  'Front Desk',
+  'FrontDesk',
+]);
 const slug = (s: string): string =>
   s
     .toLowerCase()
@@ -92,38 +108,33 @@ export async function ensureSynthM2MInProcess(opts: {
   }
   const admin = createOystehrFromToken(token);
 
-  // The current pipeline client (from the env) is the reference whose access
-  // policy we copy — it can already do everything the pipeline needs; only its
-  // profile is wrong. Capture it BEFORE we overwrite the env below.
-  const referenceClientId = process.env.AUTH0_CLIENT;
-  const clients = (await admin.m2m.list()) as any[];
-  const reference = referenceClientId ? clients.find((c) => c.clientId === referenceClientId) : undefined;
-  if (!reference?.accessPolicy) {
+  // Grant the synth M2M the project's staff roles (Provider + admin/manager/etc.).
+  // Roles carry the comprehensive access policies a staff USER has — needed for
+  // role/policy-gated zambdas like sign-appointment (a narrow copied policy 401s
+  // "not authorized"). Only roles the project actually defines are applied.
+  const allRoles = (await admin.role.list()) as Array<{ id: string; name: string }>;
+  const roleIds = allRoles.filter((r) => STAFF_ROLE_NAMES.has(r.name)).map((r) => r.id);
+  if (roleIds.length === 0) {
     throw new Error(
-      `[synth-m2m] reference M2M (clientId ${
-        referenceClientId ?? '<unset>'
-      }) not found or has no inline accessPolicy to copy.`
+      `[synth-m2m] no staff roles found on the project (looked for: ${[...STAFF_ROLE_NAMES].join(', ')}).`
     );
   }
 
+  const clients = (await admin.m2m.list()) as any[];
   const practitionerId = await ensureProfilePractitioner(admin, opts.name, opts.practitionerId);
   const existing = clients.find((c) => c.name === opts.name);
   let id: string;
   let clientId: string;
   if (existing) {
-    await admin.m2m.update({
-      id: existing.id,
-      profile: `Practitioner/${practitionerId}`,
-      accessPolicy: reference.accessPolicy,
-    });
+    await admin.m2m.update({ id: existing.id, profile: `Practitioner/${practitionerId}`, roles: roleIds });
     id = existing.id;
     clientId = existing.clientId;
   } else {
     const created = (await admin.m2m.create({
       name: opts.name,
-      description: 'Synth pipeline client (Practitioner profile) — provisioned in-process by ensureSynthM2MInProcess.',
+      description: 'Synth pipeline client (Practitioner profile + staff roles) — provisioned in-process.',
       profile: `Practitioner/${practitionerId}`,
-      accessPolicy: reference.accessPolicy,
+      roles: roleIds,
     })) as any;
     id = created.id;
     clientId = created.clientId;
