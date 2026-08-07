@@ -5,7 +5,7 @@ import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeRadiology: DataComposer<{ allChartData: AllChartData }, RadiologyData> = ({ allChartData }) => {
   const { additionalChartData } = allChartData;
-  const radiologyOrders = additionalChartData?.radiologyOrders;
+  const chartDataRadiologyOrders = additionalChartData?.radiologyOrders ?? [];
 
   const handleFinalReport = (finalReport: string | undefined): string => {
     let result = '';
@@ -21,12 +21,19 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
     return result;
   };
 
-  const radiology = radiologyOrders?.map((order) => ({
-    name: order.studyType,
-    result: handleFinalReport(order.finalReport),
-  }));
+  const radiology = chartDataRadiologyOrders
+    .filter((order) => !!order.finalReport)
+    .map((order) => ({
+      name: order.studyType,
+      performedBy: order.performedBy?.name,
+      result: handleFinalReport(order.finalReport),
+    }));
 
-  return { radiology };
+  const pendingOrderNames = chartDataRadiologyOrders
+    .filter((order) => !order.finalReport)
+    .map((order) => order.studyType);
+
+  return { radiology, radiologyOrders: pendingOrderNames };
 };
 
 export const createRadiologySection = <TData extends { radiology?: RadiologyData }>(): PdfSection<
@@ -36,12 +43,24 @@ export const createRadiologySection = <TData extends { radiology?: RadiologyData
   return createConfiguredSection(null, () => ({
     title: 'Radiology',
     dataSelector: (data) => data.radiology,
-    shouldRender: (sectionData) => !!sectionData.radiology?.length,
+    shouldRender: (sectionData) => !!sectionData.radiology?.length || !!sectionData.pendingRadiologyOrders?.length,
     render: (client, data, styles) => {
-      data.radiology?.forEach((radiology) => {
-        client.drawText(radiology.name, styles.textStyles.regularText);
-        if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regularText);
-      });
+      if (data.pendingRadiologyOrders?.length) {
+        client.drawText('Pending Results:', styles.textStyles.subHeader);
+        data.pendingRadiologyOrders.forEach((name) => client.drawText(name, styles.textStyles.regularText));
+        if (data.radiology?.length) {
+          client.newLine(8);
+        }
+      }
+      if (data.radiology?.length) {
+        client.drawText('Results:', styles.textStyles.subHeader);
+        data.radiology.forEach((radiology) => {
+          client.drawText(radiology.name, styles.textStyles.regularText);
+          if (radiology.performedBy)
+            client.drawText(`Performed by: ${radiology.performedBy}`, styles.textStyles.regularText);
+          if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regularText);
+        });
+      }
       client.drawSeparatedLine(styles.lineStyles.separator);
     },
   }));

@@ -72,6 +72,7 @@ import {
   getTaxID,
   INVALID_INPUT_ERROR,
   isPayerUrl,
+  isSystemManagedTagName,
   isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -79,6 +80,8 @@ import {
   Secrets,
   SecretsKeys,
   setCoveragePlanType,
+  SYSTEM_MANAGED_TAGS,
+  SystemManagedTag,
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
@@ -276,8 +279,35 @@ export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
+// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
+// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
+// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
+// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
+// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
+// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
-  return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+  return isSystemManagedTagName(tag.code?.text);
+}
+
+// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
+export function systemTagBasic(def: SystemManagedTag): Basic {
+  return {
+    resourceType: 'Basic',
+    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+    extension: [
+      { url: TAG_DESCRIPTION_URL, valueString: def.description },
+      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+    ],
+  };
+}
+
+// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
+// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
+// whether or not their Basics exist).
+export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
+  const defined = await fetchDefinedTagNames(oystehr);
+  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
+  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
 }
 
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
@@ -319,9 +349,6 @@ export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Refere
     careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
   }));
 }
-
-export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
-export const AUTO_ACCIDENT_TAG_DESCRIPTION = 'Claim is for a clinical encounter resulting from an auto accident';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 

@@ -93,6 +93,7 @@ import {
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   Secrets,
   TIMEZONES,
 } from 'utils';
@@ -1357,7 +1358,15 @@ async function candidCreateEncounterFromAppointmentRequest(
     accident,
     emCodes,
   } = input;
-  const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
+  // Candid requires an NPI for the rendering provider, so a practitioner without one simply can't
+  // have a claim created. That's a missing-data condition rather than a code defect, so raise a
+  // typed API error callers can surface without reporting it as a bug.
+  const practitionerNpi = getNpi(practitioner.identifier);
+  if (!practitionerNpi) {
+    throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(
+      `Practitioner ${practitioner.id} has no NPI identifier, so a claim can't be created`
+    );
+  }
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
     ? await fetchBillingProviderData(
@@ -1485,7 +1494,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     renderingProvider: {
       firstName: assertDefined(practitionerName.given?.[0], 'Practitioner first name'),
       lastName: assertDefined(practitionerName.family, 'Practitioner last name'),
-      npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
+      npi: practitionerNpi,
     },
     serviceFacility: {
       organizationName: location?.name ?? assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),

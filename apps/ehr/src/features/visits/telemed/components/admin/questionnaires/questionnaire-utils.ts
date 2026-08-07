@@ -80,6 +80,8 @@ export function stubPaperworkContext(
     paperworkComponentHelpers: {
       handleSearchPlaces: undefined,
       createZ3Object: undefined,
+      getInsuranceCardSuggestions: undefined,
+      getPhotoIdSuggestions: undefined,
       aIInterviewStart: undefined,
       aIInterviewHandleAnswer: undefined,
       setDefaultPaymentMethod: undefined,

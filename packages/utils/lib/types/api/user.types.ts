@@ -19,6 +19,9 @@ export enum RoleType {
   BillingAdmin = 'BillingAdmin',
   Billing = 'Billing',
   CallCentre = 'CallCentre',
+  // Clinical staff without an NPI (e.g. nurses, medical assistants). Provider-level EHR access
+  // except NPI-gated actions (sign notes, e-prescribe, external labs & imaging, claims, in-house meds).
+  Clinician = 'Clinician',
   CustomerSupport = 'Customer Support',
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
@@ -75,6 +78,11 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     value: RoleType.Provider,
     label: 'Provider',
     hint: `A clinician, such as a doctor, a PA or an NP`,
+  },
+  {
+    value: RoleType.Clinician,
+    label: 'Clinician',
+    hint: `Clinical staff without an NPI, such as a nurse or medical assistant. Provider access except NPI-gated actions.`,
   },
   {
     value: RoleType.CustomerSupport,

@@ -34,6 +34,7 @@ export const dataTestIds = {
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     dateFilter: 'tracking-board-date-filter',
+    datePickerPopover: 'date-picker-popover',
     dateRangeModeCheckbox: 'date-picker-range-mode-checkbox',
     datePickerTodayButton: 'date-picker-today-button',
     datePickerDay: (isoDate: string) => `date-picker-day-${isoDate}`,
@@ -106,6 +107,24 @@ export const dataTestIds = {
 
   slots: {
     slot: 'slot',
+  },
+  faxDialog: {
+    root: 'fax-dialog',
+    menuItem: 'fax-documents-menu-item',
+    recipientName: 'fax-dialog-recipient-name',
+    organization: 'fax-dialog-recipient-organization',
+    faxNumber: 'fax-dialog-recipient-fax-number',
+    phoneNumber: 'fax-dialog-recipient-phone-number',
+    saveAsPcp: 'fax-dialog-save-as-pcp',
+    addRecipient: 'fax-dialog-add-recipient',
+    removeRecipient: 'fax-dialog-remove-recipient',
+    sendButton: 'fax-dialog-send-button',
+    cancelButton: 'fax-dialog-cancel-button',
+  },
+  faxResultDialog: {
+    root: 'fax-result-dialog',
+    failedRecipient: 'fax-result-failed-recipient',
+    closeButton: 'fax-result-close-button',
   },
   dialog: {
     closeButton: 'dialog-close-button',
@@ -700,6 +719,10 @@ export const dataTestIds = {
     pencilIconButton: 'EditOutlinedIcon',
   },
 
+  updateMedicationPage: {
+    medicationDatabaseAlert: 'medication-database-alert',
+  },
+
   editNoteDialog: {
     cancelButton: 'edit-note-dialog-cancel-button',
     proceedButton: 'edit-note-dialog-proceed-button',
@@ -713,6 +736,8 @@ export const dataTestIds = {
     orderMenuButton: 'radiology-order-menu-button',
     externalOrderMenuItem: 'radiology-external-order-menu-item',
     submitOrderButton: 'radiology-submit-order-button',
+    performedBySelect: 'radiology-performed-by-select',
+    performedByValue: 'radiology-performed-by-value',
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     externalOrderLabel: (serviceRequestId: string) => `radiology-external-order-label-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,

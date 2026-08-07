@@ -7,14 +7,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail from '../../src/pages/ClaimDetail';
 
-const { getBillingClaimDetailMock, runBillingRulesEngineMock } = vi.hoisted(() => ({
+const {
+  getBillingClaimDetailMock,
+  runBillingRulesEngineMock,
+  getBillingClaimHistoryMock,
+  addBillingClaimNoteMock,
+  oystehrZambdaStub,
+} = vi.hoisted(() => ({
   getBillingClaimDetailMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
+  getBillingClaimHistoryMock: vi.fn(),
+  addBillingClaimNoteMock: vi.fn(),
+  oystehrZambdaStub: {},
 }));
 
 vi.mock('../../src/api/api', () => ({
   getBillingClaimDetail: getBillingClaimDetailMock,
   runBillingRulesEngine: runBillingRulesEngineMock,
+  getBillingClaimHistory: getBillingClaimHistoryMock,
+  addBillingClaimNote: addBillingClaimNoteMock,
   getPatientCoverages: vi.fn(),
   searchBillingLocations: vi.fn(),
   searchBillingPayers: vi.fn(),
@@ -26,7 +37,7 @@ vi.mock('../../src/api/api', () => ({
 
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
-    oystehrZambda: {},
+    oystehrZambda: oystehrZambdaStub,
   }),
 }));
 
@@ -452,5 +463,95 @@ describe('ClaimDetail — header copy buttons', () => {
 
     expect(await screen.findByRole('button', { name: 'Copy Claim ID' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy PCN' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail: notes drawer', () => {
+  const noteMessage = 'Called payer, on hold pending medical records';
+  const noteEntry = {
+    id: 'prov-note',
+    recorded: '2026-06-01T12:00:00Z',
+    activity: 'Note',
+    actor: {
+      display: 'Jane Doe',
+      type: 'user' as const,
+    },
+    changes: [],
+    message: noteMessage,
+  };
+
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
+    getBillingClaimHistoryMock.mockReset();
+    getBillingClaimHistoryMock.mockResolvedValue({ entries: [] });
+    addBillingClaimNoteMock.mockReset();
+    addBillingClaimNoteMock.mockResolvedValue({ ok: true });
+  });
+
+  it('opens the notes drawer from the header button', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    const notesButton = await screen.findByRole('button', { name: 'Notes' });
+    await user.click(notesButton);
+
+    expect(await screen.findByLabelText('Add a note')).toBeInTheDocument();
+  });
+
+  it('drops an unsent draft when the user moves to another claim', async () => {
+    const otherClaim = {
+      id: 'claim-2',
+      status: '',
+      arStage: AR_STAGE.patient,
+      serviceDate: '2026-01-02',
+      payerName: 'Acme Health',
+      billed: 100,
+      cptCodes: ['99213'],
+    };
+    getBillingClaimDetailMock.mockImplementation((_client: unknown, { claimId }: { claimId: string }) =>
+      Promise.resolve({
+        ...makeClaim(AR_STAGE.patient),
+        id: claimId,
+        otherClaims: claimId === 'claim-1' ? [otherClaim] : [],
+      })
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Notes' }));
+    const draft = await screen.findByLabelText('Add a note');
+    fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    await user.click(screen.getByRole('tab', { name: 'Other claims' }));
+    await user.click(await screen.findByText('claim-2'));
+
+    await user.click(await screen.findByRole('button', { name: 'Notes' }));
+    expect(await screen.findByLabelText('Add a note')).toHaveValue('');
+  });
+
+  it('shows a note posted from the drawer on the already-open History tab', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    const historyTab = await screen.findByRole('tab', { name: 'History' });
+    await user.click(historyTab);
+    await waitFor(() => expect(getBillingClaimHistoryMock).toHaveBeenCalled());
+    expect(screen.getByText('No history recorded for this claim yet.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Notes' }));
+    const input = await screen.findByLabelText('Add a note');
+    fireEvent.change(input, { target: { value: noteMessage } });
+
+    getBillingClaimHistoryMock.mockResolvedValue({ entries: [noteEntry] });
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(addBillingClaimNoteMock).toHaveBeenCalled());
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    const historyTable = await screen.findByRole('table');
+    expect(within(historyTable).getByText(noteMessage)).toBeInTheDocument();
+    expect(within(historyTable).getByText('Note')).toBeInTheDocument();
   });
 });

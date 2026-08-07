@@ -35,7 +35,10 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const [pendingReviewOpen, setPendingReviewOpen] = useState<boolean>(false);
   const user = useEvolveUser();
-  const userIsProvider = user?.hasRole([RoleType.Provider]);
+  // eRX enrollment/notifications require an NPI (DoseSpot). The provider notifications bell is a
+  // general, visit-linked inbox — not NPI-gated — so keep it on a role check.
+  const userHasNPI = user?.hasNPI;
+  const showProviderNotifications = user?.hasRole([RoleType.Provider, RoleType.Clinician]);
 
   const practitioner = user?.profileResource;
 
@@ -104,7 +107,7 @@ export const UserMenu: FC = () => {
     <>
       <CommandPaletteSearchButton sx={{ mr: 2 }} />
       <UnsolicitedResultsIcon />
-      {userIsProvider && <ProviderNotifications />}
+      {showProviderNotifications && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>
           <ListItemAvatar sx={{ minWidth: 'auto', mr: { xs: '0', sm: 2 } }}>
@@ -131,7 +134,7 @@ export const UserMenu: FC = () => {
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
+        {isPractitionerEnrollmentChecked && userHasNPI && !practitionerEnrollmentStatus?.identityVerified && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>

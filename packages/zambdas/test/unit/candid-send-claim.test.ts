@@ -1,4 +1,4 @@
-import { MISSING_REQUEST_SECRETS } from 'utils';
+import { MISSING_REQUEST_SECRETS, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -53,8 +53,14 @@ vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
   getAppointmentAndRelatedResources: (...args: any[]) => mockGetAppointmentAndRelatedResources(...args),
 }));
 
+const { mockCaptureException, mockCaptureMessage } = vi.hoisted(() => ({
+  mockCaptureException: vi.fn(),
+  mockCaptureMessage: vi.fn(),
+}));
+
 vi.mock('@sentry/aws-serverless', () => ({
-  captureException: vi.fn(),
+  captureException: mockCaptureException,
+  captureMessage: mockCaptureMessage,
 }));
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────────
@@ -335,6 +341,42 @@ describe('sub-send-claim', () => {
 
     await expect(index({ headers: {}, body: '{}', secrets: {} })).rejects.toThrow(
       'Visit resources are not properly defined'
+    );
+  });
+
+  it('fails the task without throwing when the claim can not be created (e.g. provider has no NPI)', async () => {
+    // Missing data is not a bug, so the handler must not throw: throwing reports it to Sentry as an
+    // exception. It goes out as a warning instead.
+    setupValidatedParams('task-10', 'appt-10');
+    mockGetAppointmentAndRelatedResources.mockResolvedValue(makeVisitResources({ encounterId: 'enc-10' }));
+    mockCreateEncounterFromAppointment.mockRejectedValue(
+      RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Practitioner pract-1 has no NPI identifier, so a claim can't be created")
+    );
+
+    const result = await index({ headers: {}, body: '{}', secrets: {} });
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toContain('has no NPI identifier');
+    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'Claim could not be created because required data is missing',
+      expect.objectContaining({
+        level: 'warning',
+        extra: expect.objectContaining({ taskId: 'task-10', reason: expect.stringContaining('has no NPI identifier') }),
+      })
+    );
+    expect(mockFhirPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        id: 'task-10',
+        operations: expect.arrayContaining([
+          expect.objectContaining({
+            op: 'replace',
+            path: '/status',
+            value: 'failed',
+          }),
+        ]),
+      })
     );
   });
 

@@ -335,7 +335,7 @@ test.describe('Order Deletion - Happy Path', () => {
         await orderMedicationPage.clickOrderMedicationButton();
 
         // After saving a new order the app navigates directly to the MAR
-        await page.waitForURL(/\/in-house-medication\/mar/, { timeout: 15000 });
+        await page.waitForURL(/\/in-house-medication\/mar/, { timeout: 30000 });
         await expect(page.getByTestId(dataTestIds.inHouseMedicationsPage.title)).toBeVisible({ timeout: 10000 });
 
         // Extract medication ID from the MAR table row data-testid

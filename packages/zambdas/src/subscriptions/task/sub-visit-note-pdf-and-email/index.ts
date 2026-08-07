@@ -10,16 +10,11 @@ import {
   getPatientContactEmail,
   isFollowupEncounter,
   OTTEHR_MODULE,
-  progressNoteChartDataRequestedFields,
   removePrefix,
   Secrets,
   TASK_INPUT_TYPE_CODES,
   TASK_INPUT_TYPE_SYSTEM,
-  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-import { getChartData } from '../../../ehr/get-chart-data';
-import { getMedicationOrders } from '../../../ehr/get-medication-orders';
-import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { performEffect as generateVisitDetailsPdf } from '../../../ehr/visit-details/visit-details-to-pdf';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
@@ -34,9 +29,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { fetchErxPharmacies } from '../../../shared/erx';
-import { getEncounterSignatures } from '../../../shared/pdf/get-encounter-signatures';
-import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-ups';
+import { assembleProgressNoteInput } from '../../../shared/pdf/assemble-progress-note-input';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
@@ -112,82 +105,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Follow-up visits get a differently-titled visit note and no completion email.
     const isFollowupTask = isFollowupEncounter(encounter);
 
-    const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
-    const additionalChartDataPromise = getChartData(
-      oystehr,
-      oystehrToken,
-      visitResources.encounter.id!,
-      isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
-    );
-
-    const medicationOrdersPromise = getMedicationOrders(oystehr, {
-      searchBy: {
-        field: 'encounterId',
-        value: visitResources.encounter.id!,
-      },
-    });
-
-    // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
-    const followUpParentEncounterId = removePrefix('Encounter/', encounter.partOf?.reference ?? '') ?? encounter.id!;
-    const upcomingFollowUpsPromise = getUpcomingFollowUps(
-      oystehr,
-      followUpParentEncounterId,
-      visitResources.timezone,
-      encounter.id
-    );
-
-    // Signature/approval lines for the bottom of the visit note. Supplementary, so a failure here
-    // must not block PDF generation or the completion email.
-    const signaturesPromise = getEncounterSignatures(oystehr, visitResources.encounter.id!).catch((error) => {
-      console.error(`Failed to resolve encounter signatures for encounter ${visitResources.encounter.id}:`, error);
-      return { signedBy: undefined, approvedBy: undefined };
-    });
-
-    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps, signatures] =
-      await Promise.all([
-        chartDataPromise,
-        additionalChartDataPromise,
-        medicationOrdersPromise,
-        upcomingFollowUpsPromise,
-        signaturesPromise,
-      ]);
-    const immunizationOrders = (
-      await getImmunizationOrders(oystehr, {
-        encounterIds: [visitResources.encounter.id!],
-      })
-    ).orders;
-    const chartData = chartDataResult.response;
-    const additionalChartData = additionalChartDataResult.response;
-    const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
-
+    // Assembled the same way as the outbound-fax copy, so the two can never diverge.
+    const progressNoteInput = await assembleProgressNoteInput(oystehr, oystehrToken, visitResources);
     console.log('Chart data received');
 
     try {
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
-      const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
-
       // Always create the PDF
-      const { pdfInfo } = await createProgressNotePdf(
-        {
-          patient,
-          encounter,
-          allChartData: {
-            chartData,
-            additionalChartData,
-            medicationOrders,
-            immunizationOrders,
-          },
-          appointmentPackage: visitResources,
-          questionnaireResponse: visitResources.questionnaireResponse,
-          upcomingFollowUps,
-          erxPharmacies,
-          signatures,
-        },
-        secrets,
-        oystehrToken
-      );
+      const { pdfInfo } = await createProgressNotePdf(progressNoteInput, secrets, oystehrToken);
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
       if (isFollowupTask) {
         pdfInfo.title = 'Patient Follow-up Note';

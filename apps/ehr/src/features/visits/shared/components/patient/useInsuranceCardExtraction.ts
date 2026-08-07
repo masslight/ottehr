@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DocumentReference, Reference } from 'fhir/r4b';
+import { useEffect, useRef } from 'react';
+import { extractInsuranceCard } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   DocumentType,
@@ -129,17 +131,22 @@ export const mergeCardExtractions = (docRefsNewestFirst: DocumentReference[]): M
 };
 
 /**
- * Reads the OCR extraction the extract-insurance-card zambda stored on the patient's
- * current insurance-card DocumentReferences. Read-only: OCR is never invoked here — a
- * card either has the extension (suggestions render), has a notACard marker, or has no
- * extension yet (extraction in flight / failed), in which case nothing renders.
+ * Reads the OCR extraction the extract-insurance-card zambda stored on the patient's current
+ * insurance-card DocumentReferences: a card either has the extension (suggestions render), has a
+ * notACard marker, or has no extension yet. That last case is backfilled below rather than left
+ * to render nothing forever — cards that arrive via intake's paperwork harvest (as opposed to a
+ * staff upload through the EHR's own upload button, which already runs extraction as part of that
+ * mutation) would otherwise never get OCR'd, since nothing else ever calls extract-insurance-card
+ * for them.
  */
 export const useInsuranceCardExtraction = (patientId: string | undefined): UseInsuranceCardExtractionResult => {
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
   const enabled = Boolean(oystehr && patientId);
+  const queryKey = ['insurance-card-extraction', patientId];
   const { data, isLoading } = useQuery({
-    queryKey: ['insurance-card-extraction', patientId],
-    queryFn: async (): Promise<MergedCardExtractions> => {
+    queryKey,
+    queryFn: async (): Promise<{ docRefs: DocumentReference[]; merged: MergedCardExtractions }> => {
       const bundle = await oystehr!.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',
         params: [
@@ -149,14 +156,40 @@ export const useInsuranceCardExtraction = (patientId: string | undefined): UseIn
           { name: '_sort', value: '-_lastUpdated' },
         ],
       });
-      return mergeCardExtractions(bundle.unbundle());
+      const docRefs = bundle.unbundle();
+      return { docRefs, merged: mergeCardExtractions(docRefs) };
     },
     enabled,
   });
+
+  // Try each not-yet-extracted card image once per mount; a persistent failure (bad image,
+  // transient outage) won't be hammered on every re-render, but a fresh chart visit gets another
+  // attempt.
+  const attemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!data?.docRefs || !oystehrZambda) return;
+    const pending = data.docRefs.filter((docRef) => {
+      const title = docRef.content?.[0]?.attachment?.title;
+      if (!docRef.id || !title || !CARD_SLOT_BY_TITLE[title]) return false;
+      if (readStoredExtraction(docRef) != null) return false;
+      if (attemptedRef.current.has(docRef.id)) return false;
+      return true;
+    });
+    if (pending.length === 0) return;
+    pending.forEach((docRef) => attemptedRef.current.add(docRef.id!));
+    void Promise.all(
+      pending.map((docRef) =>
+        extractInsuranceCard(oystehrZambda, { documentReferenceId: docRef.id! }).catch((error) =>
+          console.error(`Failed to backfill insurance-card extraction for DocumentReference/${docRef.id}:`, error)
+        )
+      )
+    ).then(() => queryClient.invalidateQueries({ queryKey: ['insurance-card-extraction', patientId] }));
+  }, [data?.docRefs, oystehrZambda, queryClient, patientId]);
+
   return {
-    primary: data?.primary ?? null,
-    secondary: data?.secondary ?? null,
-    orientation: data?.orientation ?? {
+    primary: data?.merged.primary ?? null,
+    secondary: data?.merged.secondary ?? null,
+    orientation: data?.merged.orientation ?? {
       primary: { front: null, back: null },
       secondary: { front: null, back: null },
     },

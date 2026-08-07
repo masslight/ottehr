@@ -891,8 +891,11 @@ export interface PatientInfoForDischargeSummary extends PdfData {
 }
 
 export interface RadiologyData extends PdfData {
+  /** Study names for orders that have no final report yet — rendered under "Pending Results" in the PDF. */
+  pendingRadiologyOrders?: string[];
   radiology?: {
     name: string;
+    performedBy?: string;
     result?: string;
   }[];
 }
@@ -1112,6 +1115,37 @@ export interface DischargeSummaryData extends PdfData {
   upcomingVisits: UpcomingVisitsData;
   documentsAttached?: boolean;
 }
+/**
+ * Data for the generated first page of an outbound fax packet.
+ */
+export interface FaxCoverSheetData extends PdfData {
+  recipient: { name?: string; organization?: string; faxNumber: string; phoneNumber?: string };
+  sender: {
+    practitionerName: string;
+    npi?: string;
+    organizationName: string;
+    addressText: string;
+    phoneNumber?: string;
+    faxNumber?: string;
+  };
+  subject: {
+    /** "Black, Oliver" */
+    patientName: string;
+    /** MRN or patient uuid — printed as PID. */
+    patientId: string;
+    /** Appointment id — printed as VID. */
+    visitId: string;
+    /** Already formatted MM/DD/YYYY. */
+    dateOfService: string;
+    /** e.g. "Urgent Care Visit" / "Follow-Up Visit". */
+    visitTypeLabel: string;
+  };
+  /** Total pages of the merged packet, cover sheet included. */
+  totalPages: number;
+  /** Already formatted "MM/DD/YYYY  hh:mm A". */
+  generatedAt: string;
+}
+
 export interface MedicationHistoryInput extends PdfData {
   patient: PatientInfoForDischargeSummary; // all this is pretty generic actually
   visit: VisitInfo;
