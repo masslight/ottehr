@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MISSING_REQUEST_SECRETS } from '../types/errors';
 
 type CandidApiHelper = typeof import('./candidApi');
 let helper: CandidApiHelper;
@@ -243,7 +244,6 @@ describe('getOrCreateCandidApiClient — error tolerance', () => {
 describe('getOrCreateCandidApiClient', () => {
   it('throws when any CANDID_* secret is missing', async () => {
     const { getOptionalSecret } = await import('../secrets');
-    const { MISSING_REQUEST_SECRETS } = await import('../types/errors');
     vi.mocked(getOptionalSecret).mockReturnValueOnce(undefined);
 
     const oystehr = makeMockOystehr();
