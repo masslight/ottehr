@@ -28,7 +28,6 @@ import {
   ProvenanceAgent,
   Reference,
   RelatedPerson,
-  Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -489,7 +488,7 @@ export async function performEffect(
 
   console.log('all claim requests', JSON.stringify(requests, undefined, 2));
   const txResult = await billingOystehr.fhir.transaction<BillingFhirResource | Provenance>({ requests });
-  const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
+  const entries = (txResult.entry ?? []).map((e) => e.resource);
 
   if (entries.length !== order.length) {
     console.log(
@@ -503,28 +502,7 @@ export async function performEffect(
     throw InternalError;
   }
 
-  const copies: Partial<ClinicalResources> = {};
-  for (let i = 0; i < order.length; i++) {
-    // const expected = requests[i].url.replace('/', '');
-    // Remove leading slash and anything after second slash
-    const secondSlash = requests[i].url.indexOf('/', 1);
-    const expected = requests[i].url.slice(1, secondSlash > 0 ? secondSlash : undefined);
-    if (entries[i].resourceType !== expected) {
-      console.log(requests[i].url, secondSlash, expected);
-      console.log(
-        'Tx results out of order',
-        entries.length,
-        txResult.entry?.length,
-        order.length,
-        requests.length,
-        JSON.stringify(order),
-        expected
-      );
-      throw InternalError;
-    }
-    copies[order[i] as keyof ClinicalResources] = entries[i] as any;
-  }
-  const createdClaim = entries.find((e): e is Claim => e.resourceType === 'Claim');
+  const createdClaim = entries.find((e): e is Claim => e?.resourceType === 'Claim');
   if (!createdClaim || !createdClaim.id) {
     console.log('Claim not created');
     throw InternalError;
@@ -533,7 +511,9 @@ export async function performEffect(
   try {
     await addClinicalPatientIdentifiers({
       oystehr: billingOystehr,
-      patient: mainPatientRequestIndex === undefined ? mainPatient : (entries[mainPatientRequestIndex] as Patient),
+      patient:
+        (mainPatientRequestIndex === undefined ? undefined : (entries[mainPatientRequestIndex] as Patient)) ??
+        mainPatient,
       clinicalPatientId: clinicalResources.patient.id!,
     });
   } catch (err) {

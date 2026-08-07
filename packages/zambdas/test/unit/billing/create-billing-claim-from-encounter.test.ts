@@ -3294,6 +3294,62 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
+  describe('performEffect, transaction entries without a resource', () => {
+    it('still resolves the claim when an entry carries no resource', async () => {
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { response: { status: '200' } },
+          { resource: { resourceType: 'Practitioner', id: 'claim-rendering-provider' } },
+          { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
+          { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn, patch: vi.fn().mockResolvedValue({}) },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+
+      const result = await performEffect(
+        billingOystehr,
+        {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [...clinicalResources.conditions],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [billingResources.account],
+            billingProvider: billingResources.billingProvider,
+            coverages: [billingResources.coverage],
+            mainPatient: billingResources.patient,
+            person: billingResources.person,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
+            serviceFacility: billingResources.location,
+            subscribers: [billingResources.relatedPerson],
+            billingService: billingResources.billingService,
+          },
+        },
+        TEST_PROVENANCE_AGENT
+      );
+
+      expect(result.claimId).toEqual('claim');
+    });
+  });
+
   describe('performEffect, billing account not on this encounter', () => {
     it('leaves a billing account alone when no clinical account on this encounter matches it', async () => {
       const unrelatedAccount = {
