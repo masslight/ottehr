@@ -128,7 +128,7 @@ export const Tasks: React.FC = () => {
             id: searchParams.get('location'),
           }
         : null,
-      status: searchParams.get('status'),
+      status: searchParams.get('status')?.split(','),
     };
     methods.reset(filtersValues);
   }, [searchParams, methods]);
@@ -140,12 +140,17 @@ export const Tasks: React.FC = () => {
       },
       callback: ({ values }) => {
         const queryParams = new URLSearchParams();
-        const filtersToPersist: Record<string, string> = {};
+        const filtersToPersist: Record<string, string | string[]> = {};
         for (const key in values) {
           const value = values[key]?.id ?? values[key];
           if (value) {
-            queryParams.set(key, value);
-            filtersToPersist[key] = value;
+            if (!Array.isArray(value)) {
+              queryParams.set(key, value);
+              filtersToPersist[key] = value;
+            } else if (value.length > 0) {
+              queryParams.set(key, value.join(','));
+              filtersToPersist[key] = value;
+            }
           }
         }
         setSearchParams(queryParams);
@@ -165,7 +170,8 @@ export const Tasks: React.FC = () => {
       const filters = JSON.parse(persistedFilters);
       const queryParams = new URLSearchParams();
       for (const key in filters) {
-        queryParams.set(key, filters[key]);
+        const value = filters[key];
+        queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
       }
       setSearchParams(queryParams);
     }
@@ -228,6 +234,7 @@ export const Tasks: React.FC = () => {
               <SelectInput
                 name="status"
                 label="Status"
+                multiple={true}
                 options={Object.keys(TASK_STATUS_LABEL)}
                 getOptionLabel={(option) => TASK_STATUS_LABEL[option]}
               />
