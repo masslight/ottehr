@@ -1,12 +1,9 @@
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  PaperworkFlowDeleteInput,
-  PaperworkFlowDeleteInputSchema,
-  Secrets,
-} from 'utils';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { PaperworkFlowDeleteInputSchema } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.schema';
+import { PaperworkFlowDeleteInput } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 type BaseContext = {
   secrets: Secrets | null;

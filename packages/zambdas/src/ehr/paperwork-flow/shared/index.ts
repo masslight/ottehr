@@ -2,31 +2,26 @@ import Oystehr, { BatchInputPatchRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
 import {
-  CanonicalUrl,
-  FlowForm,
-  FlowService,
-  getAllFhirSearchPages,
-  getCoding,
-  getSecret,
-  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
-  isBookingConfigServiceCategoryCode,
-  makeOptimisticLockIfMatchHeader,
-  PAPERWORK_FLOW_ERROR,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
   parseQuestionnaireCanonicalExtension,
-  Secrets,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-  ServiceMode,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
-  VIRTUAL_INTAKE_PAPERWORK_CANONICAL,
-} from 'utils';
-import { sendErrors } from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
+import { FlowForm, FlowService } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { PAPERWORK_FLOW_ERROR } from 'utils/lib/types/errors';
+import { sendErrors } from '../../../shared/errors';
 
 export const healthcareServiceExtensionUrlMap = {
   [ServiceMode['in-person']]: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,

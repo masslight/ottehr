@@ -1,8 +1,11 @@
 import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Questionnaire } from 'fhir/r4b';
-import { makeOptimisticLockIfMatchHeader } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getFlowModes, healthcareServiceExtensionUrlMap, searchServiceCategoryHealthcareServices } from '../shared';
 import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 

@@ -1,13 +1,12 @@
 import { Extension, Questionnaire } from 'fhir/r4b';
 import {
-  FlowForm,
-  FlowService,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
-  ServiceMode,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { ServiceMode } from 'utils/lib/types/common';
+import { FlowForm, FlowService } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import { describe, expect, it } from 'vitest';
 import {
   buildFlowQuestionnaire,

@@ -2,16 +2,15 @@ import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Coding, HealthcareService, Questionnaire } from 'fhir/r4b';
-import {
-  FlowService,
-  getAllFhirSearchPages,
-  PAPERWORK_FLOW_TAG,
-  PaperworkFlowBase,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  ServiceMode,
-  slugify,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { slugify } from 'utils/lib/helpers/slugify';
+import { ServiceMode } from 'utils/lib/types/common';
+import { FlowService, PaperworkFlowBase } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   buildFlowQuestionnaire,
   BuildFlowQuestionnaireInput,
