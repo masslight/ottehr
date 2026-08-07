@@ -1,11 +1,8 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import {
-  MANAGED_QUESTIONNAIRE_ERROR,
-  PAPERWORK_FLOW_TAG,
-  PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-} from 'utils';
+import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
 import {
   getCanonicalUrlFromQ,
   PAPERWORK_FLOW_BASE_VERSION,

@@ -1,11 +1,8 @@
-import {
-  AddClaimNoteInput,
-  AddClaimNoteInputSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  NOT_AUTHORIZED,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
+import { AddClaimNoteInput, AddClaimNoteInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 export interface AddClaimNoteParams extends AddClaimNoteInput {
   secrets: ZambdaInput['secrets'];

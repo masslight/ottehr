@@ -8,10 +8,10 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getTaxID } from '../fhir/helpers';
-import type { PrePopulationFromPatientRecordInput } from '../helpers';
-import { makeAnswer, makePrepopulatedItemsFromPatientRecord } from '../helpers';
+import type { PrePopulationFromPatientRecordInput } from '../helpers/paperwork/prePopulation';
+import { makeAnswer, makePrepopulatedItemsFromPatientRecord } from '../helpers/paperwork/prePopulation';
 import { PATIENT_RECORD_CONFIG } from '../ottehr-config/patient-record';
-import type { ServiceMode } from '../types';
+import type { ServiceMode } from '../types/common';
 
 export interface AppointmentContext {
   appointmentServiceCategory?: string;

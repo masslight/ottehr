@@ -1,6 +1,11 @@
 import { Operation } from 'fast-json-patch';
 import { Extension } from 'fhir/r4b';
-import { PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction, PhotoIdExtractionFields, Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  PHOTO_ID_EXTRACTION_EXTENSION_URL,
+  PhotoIdExtraction,
+  PhotoIdExtractionFields,
+} from 'utils/lib/types/data/documents';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import {
   assertBooleanClassifier,

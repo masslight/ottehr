@@ -1,5 +1,6 @@
 import { Appointment, Encounter, Flag, Patient } from 'fhir/r4b';
-import { StandaloneFormDTO, Timezone } from '..';
+import { Timezone } from '../common';
+import { StandaloneFormDTO } from './practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 export interface EHRVisitDetails {
   appointment: Appointment;

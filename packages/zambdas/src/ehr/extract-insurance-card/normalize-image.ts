@@ -1,5 +1,5 @@
 import { Jimp, JimpMime } from 'jimp';
-import { InsuranceCardRotationDegrees } from 'utils';
+import { InsuranceCardRotationDegrees } from 'utils/lib/types/data/documents';
 
 /** JPEG quality used when the image has to be re-encoded. */
 export const JPEG_QUALITY = 85;

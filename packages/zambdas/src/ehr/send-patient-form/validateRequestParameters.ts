@@ -1,11 +1,8 @@
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  Secrets,
-  SendPatientFormInput,
-  sendPatientFormInputSchema,
-} from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { SendPatientFormInput, sendPatientFormInputSchema } from 'utils/lib/types/data/send-patient-form';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 type BaseContext = {
   secrets: Secrets | null;

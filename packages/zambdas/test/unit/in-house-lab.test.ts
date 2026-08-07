@@ -1,5 +1,5 @@
 import { ActivityDefinition } from 'fhir/r4b';
-import { AdminInHouseLabItemDefinition } from 'utils';
+import { AdminInHouseLabItemDefinition } from 'utils/lib/types/data/in-house/in-house.types';
 import {
   convertAdminInHouseLabItemDefinitionToActivityDefinition,
   getInHouseLabTestUrlAndVersion,

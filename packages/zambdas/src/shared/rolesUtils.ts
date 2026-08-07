@@ -1,5 +1,5 @@
 import Oystehr, { Role, RoleListItem } from '@oystehr/sdk';
-import { AccessPolicy, RoleType } from 'utils';
+import { AccessPolicy, RoleType } from 'utils/lib/types/api/user.types';
 import {
   ADMINISTRATOR_RULES,
   CLINICIAN_RULES,
@@ -9,7 +9,7 @@ import {
   MANAGER_RULES,
   PROVIDER_RULES,
   STAFF_RULES,
-} from '../shared/';
+} from './accessPolicies';
 
 export async function getRoleId(roleName: string, token: string, projectApiUrl: string): Promise<string> {
   const headers = {

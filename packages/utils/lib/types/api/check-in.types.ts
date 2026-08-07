@@ -1,4 +1,5 @@
-import { AvailableLocationInformation, VisitType } from '..';
+import { AvailableLocationInformation } from '../common';
+import { VisitType } from '../data/telemed/appointments/create-appointment.types';
 
 export interface CheckInInput {
   appointmentId: string;

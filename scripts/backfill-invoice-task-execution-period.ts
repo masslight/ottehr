@@ -20,7 +20,8 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
-import { createClinicalOystehrClient, getCandidEncounterIdFromEncounter } from 'zambdas/src/shared';
+import { getCandidEncounterIdFromEncounter } from 'zambdas/src/shared/candid';
+import { createClinicalOystehrClient } from 'zambdas/src/shared/helpers';
 
 const PAGE_SIZE = 100;
 

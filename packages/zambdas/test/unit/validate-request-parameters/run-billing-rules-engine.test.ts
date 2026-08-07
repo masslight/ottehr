@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/billing/run-billing-rules-engine/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';

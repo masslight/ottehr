@@ -1,6 +1,8 @@
-import { GetPatientMedicalRecordInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { GetPatientMedicalRecordInput } from 'utils/lib/types/data/get-patient-medical-record.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 const GetPatientMedicalRecordSchema = z.object({
   patientId: z.string().uuid(),

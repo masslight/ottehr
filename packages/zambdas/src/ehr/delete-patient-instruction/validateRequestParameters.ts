@@ -1,6 +1,8 @@
-import { DeletePatientInstructionInput, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils';
+import { DeletePatientInstructionInput } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const DeletePatientInstructionBodySchema = z.object({
   instructionId: z.string().uuid(),

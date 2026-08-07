@@ -2,7 +2,7 @@ import { Organization } from 'fhir/r4b';
 import {
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
   RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
 import { describe, expect, test } from 'vitest';
 import { buildRadiologyOrderContent, RadiologyOrderContentInput } from '../../src/ehr/radiology/create-order';
 

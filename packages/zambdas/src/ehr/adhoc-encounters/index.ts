@@ -21,42 +21,42 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
+import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
+import { getMedicationFromMA, getMedicationName } from 'utils/lib/fhir/medication-administration';
+import {
+  getEmailForIndividual,
+  getPatientFirstName,
+  getPatientLastName,
+  getPhoneNumberForIndividual,
+  mapGenderToLabel,
+} from 'utils/lib/fhir/patient';
+import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import {
   AdHocEncounterRow,
   AdHocEncountersInput,
   AdHocEncountersOutputSchema,
-  appointmentTypeForAppointment,
-  CREATED_BY_SYSTEM,
-  dispositionCheckboxOptions,
-  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
-  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  getEmailForIndividual,
-  getMedicationFromMA,
-  getMedicationName,
-  getPatientFirstName,
-  getPatientLastName,
-  getPhoneNumberForIndividual,
-  getTimezone,
-  getVisitStatusHistory,
-  isInHouseLabServiceRequest,
-  mapGenderToLabel,
+} from 'utils/lib/types/adhoc/datasets/encounters';
+import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
-  PATIENT_POINT_OF_DISCOVERY_URL,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  followUpTypeFromPerformerType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
+import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../../shared/adhoc-report';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { followUpTypeFromPerformerType } from '../../shared/chart-data';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 

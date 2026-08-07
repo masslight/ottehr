@@ -1,5 +1,6 @@
 import { Encounter, PaymentNotice, Task } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL, Secrets } from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPerformCandidPreEncounterSync = vi.fn();
@@ -13,13 +14,33 @@ const mockFhirSearch = vi.fn();
 const mockOystehrClient = { fhir: { search: mockFhirSearch } };
 const mockStripeClient = { paymentIntents: { retrieve: vi.fn() } };
 
-vi.mock('../../../src/shared', async (importOriginal) => ({
+vi.mock('../../../src/shared/candid', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   performCandidPreEncounterSync: mockPerformCandidPreEncounterSync,
+}));
+
+vi.mock('../../../src/shared/pdf/patient-payment-receipt-pdf', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   createPatientPaymentReceiptPdf: mockCreatePatientPaymentReceiptPdf,
+}));
+
+vi.mock('../../../src/shared/getAuth0Token', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   getAuth0Token: vi.fn().mockResolvedValue('test-token'),
+}));
+
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   createClinicalOystehrClient: mockCreateClinicalOystehrClient,
+}));
+
+vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   getStripeClient: mockGetStripeClient,
+}));
+
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   wrapHandler: (_name: string, handler: unknown) => handler,
 }));
 
@@ -33,9 +54,13 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn().mockReturnValue({}),
 }));
 
-vi.mock('utils', async (importOriginal) => ({
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_test'),
+}));
+
+vi.mock('utils/lib/helpers/candidApi', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   getOrCreateCandidApiClient: vi.fn().mockResolvedValue({}),
 }));
 

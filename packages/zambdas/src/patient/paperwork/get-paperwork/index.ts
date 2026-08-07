@@ -10,22 +10,28 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  DOB_UNCONFIRMED_ERROR,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
+} from 'utils/lib/fhir/helpers';
+import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import {
   getQuestionnaireAndValueSets,
-  HealthcareServiceWithLocationContext,
   isNonPaperworkQuestionnaireResponse,
   mapQuestionnaireAndValueSetsToItemsList,
+} from 'utils/lib/helpers/paperwork/paperwork';
+import { Secrets } from 'utils/lib/secrets';
+import { HealthcareServiceWithLocationContext } from 'utils/lib/types/data/paperwork.types';
+import { PaperworkSupportingInfo, UCGetPaperworkResponse } from 'utils/lib/types/data/paperwork/paperwork.types';
+import {
+  APPOINTMENT_NOT_FOUND_ERROR,
+  DOB_UNCONFIRMED_ERROR,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
-  PaperworkSupportingInfo,
-  resolveEffectiveQuestionnaire,
-  Secrets,
-  UCGetPaperworkResponse,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/errors';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { formatPatientSexForPaperwork, getPaperworkSupportingInfoForUserWithAccess } from '../sharedHelpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

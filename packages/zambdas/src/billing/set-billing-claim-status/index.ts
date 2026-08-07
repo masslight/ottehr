@@ -1,8 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import { CLAIM_STATUS_FIELDS_BY_KEY, CLAIM_TAG_SYSTEM, getClaimStatusFieldValue, HOLD_TAG_NAME } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils/lib/types/data/billing/claim-status';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { applyClaimStatusField, commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
 import { assertValidClaimStatusField, buildUpdatedClaimStatusTags, createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';

@@ -1,7 +1,8 @@
 import { QuestionnaireResponse, Task } from 'fhir/r4b';
-import { Secrets, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
 import { performMerge } from '../../../ehr/merge-patients/perform';
-import { checkOrCreateM2MClientToken } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
 
 let cachedM2MToken: string | undefined;

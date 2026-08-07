@@ -1,4 +1,4 @@
-import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/progress-note-config/admin-update-progress-note-config/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';

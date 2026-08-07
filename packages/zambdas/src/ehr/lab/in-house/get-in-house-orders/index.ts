@@ -1,6 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { compareDates, EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
+import { compareDates } from 'utils/lib/utils/dateUtils';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { getInHouseResources, mapResourcesToInHouseOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

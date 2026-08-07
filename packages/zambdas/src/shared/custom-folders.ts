@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { List } from 'fhir/r4b';
-import { CUSTOM_FOLDER_KIND_SYSTEM, CUSTOM_FOLDERS_CATALOG_IDENTIFIER, FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils';
+import { CUSTOM_FOLDER_KIND_SYSTEM, CUSTOM_FOLDERS_CATALOG_IDENTIFIER } from 'utils/lib/fhir/list';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 
 const CATALOG_CODE = 'custom-folders-catalog';
 const CATALOG_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/r4/identifier';

@@ -1,17 +1,12 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import {
-  getNPIIdentifier,
-  getPatientsForUser,
-  getSecret,
-  NOT_AUTHORIZED,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  TEST_USER_ID,
-  userMe,
-} from 'utils';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {

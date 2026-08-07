@@ -15,7 +15,7 @@
 import * as readline from 'node:readline';
 import Oystehr from '@oystehr/sdk';
 import { Bundle, PlanDefinition } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 const ACTION_ID_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-action-id`;

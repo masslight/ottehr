@@ -8,26 +8,25 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
-  BUCKET_NAMES,
-  CODE_SYSTEM_ICD_10,
-  getSecret,
-  normalizePatientEducationLanguage,
+  SaveApprovedPatientEducationInput,
+  SaveApprovedPatientEducationOutput,
+} from 'utils/lib/types/api/approved-patient-education.types';
+import {
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
-  SaveApprovedPatientEducationInput,
-  SaveApprovedPatientEducationOutput,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
-import { makeZ3FileUrl } from '../../shared/presigned-file-urls';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { normalizePatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { extractApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
 import { validateRequestParameters } from './validateRequestParameters';

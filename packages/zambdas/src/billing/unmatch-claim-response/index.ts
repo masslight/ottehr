@@ -1,16 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
+import { codeableConcept } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CLAIM_TYPE,
-  codeableConcept,
-  getPatchBinary,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
   UnmatchClaimResponseInput,
   UnmatchClaimResponseInputSchema,
-} from 'utils';
-import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { validateJsonBody } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 import { createBillingClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {

@@ -1,18 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, Patient, Task as FhirTask } from 'fhir/r4b';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { createInvoiceTaskInput, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
-  createInvoiceTaskInput,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
   GetInvoicesTasksResponse,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
-  mapDisplayToInvoiceTaskStatus,
-  RcmTaskCodings,
   ZERO_BALANCE_BUSINESS_STATUS,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 
 const { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = SECRETS;

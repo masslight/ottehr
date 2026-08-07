@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Basic } from 'fhir/r4b';
-import { M2MClientMockType, SUPPORT_DIALOG_BASIC_TAG } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { SUPPORT_DIALOG_BASIC_TAG } from 'utils/lib/utils/support-dialog';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

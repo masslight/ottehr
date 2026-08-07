@@ -1,5 +1,5 @@
 import { Task } from 'fhir/r4b';
-import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
 import { describe, expect, it } from 'vitest';
 import {
   resolveSkipEmail,

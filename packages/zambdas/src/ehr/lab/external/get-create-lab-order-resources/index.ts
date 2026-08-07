@@ -1,28 +1,31 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Coverage, Encounter, List, Location, Organization } from 'fhir/r4b';
+import { isAppointmentWorkersComp } from 'utils/lib/fhir/appointments';
+import { flattenBundleResources } from 'utils/lib/fhir/helpers';
+import { isLocationInPerson } from 'utils/lib/fhir/location';
+import { CODE_SYSTEM_COVERAGE_CLASS } from 'utils/lib/helpers/rcm/constants';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { CPTCodeOption } from 'utils/lib/types/common';
 import {
-  CODE_SYSTEM_COVERAGE_CLASS,
-  CPTCodeOption,
-  CreateLabCoverageInfo,
-  EXTERNAL_LAB_ERROR,
-  ExternalLabOrderingLocations,
-  flattenBundleResources,
-  isAppointmentWorkersComp,
-  isLocationInPerson,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_LIST_CODE_CODING,
   LAB_ORG_TYPE_CODING,
+  OYSTEHR_LAB_GUID_SYSTEM,
+  STATIC_COMPENDIUM_LAB_GUID,
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CreateLabCoverageInfo,
+  ExternalLabOrderingLocations,
   LabOrderResourcesRes,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
-  OYSTEHR_LAB_GUID_SYSTEM,
-  STATIC_COMPENDIUM_LAB_GUID,
-  VALUE_SETS,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler } from '../../../../shared';
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { ZambdaInput } from '../../../../shared/types';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { getOrderableItems } from '../../shared/orderable-items';

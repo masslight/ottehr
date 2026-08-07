@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 import {
   cleanAppointmentGraph,
   cleanupE2ELocations,
@@ -6,9 +7,11 @@ import {
   cleanupIntegrationTestHealthcareServices,
   cleanupIntegrationTestLocations,
   cleanupIntegrationTestPatients,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/utils/e2eCleanup';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 let oystehrToken: string;
 export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

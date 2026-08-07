@@ -10,27 +10,32 @@ import {
   Reference,
 } from 'fhir/r4b';
 import {
-  ExtendedMedicationDataForResponse,
   getCptCodesFromMA,
   getCurrentOrderedByProviderId,
   getDosageUnitsAndRouteOfMedication,
-  getFullestAvailableName,
   getLocationFromMedicationAdministration,
   getMedicationFromMA,
   getMedicationInteractions,
   getMedicationName,
-  GetMedicationOrdersInput,
-  GetMedicationOrdersResponse,
   getNdcCodeFromMedication,
   getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
-  isDeletedMedicationOrder,
   mapFhirToOrderStatus,
-  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+} from 'utils/lib/fhir/medication-administration';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
+import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  ExtendedMedicationDataForResponse,
+  GetMedicationOrdersInput,
+  GetMedicationOrdersResponse,
   OrderPackage,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/medication-administration.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

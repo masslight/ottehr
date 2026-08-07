@@ -3,13 +3,16 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  getPatchOperationToUpdateExtension,
-  Secrets,
-  SendForFinalReadZambdaOutput,
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
+import { Secrets } from 'utils/lib/secrets';
+import { SendForFinalReadZambdaOutput } from 'utils/lib/types/api/radiology';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

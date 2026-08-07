@@ -2,18 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  BRANDING_CONFIG,
-  buildInvoicePlaceholders,
-  checkForStripeCustomerDeletedError,
-  getFullName,
-  getSecret,
-  InvoicePlaceholderInput,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  replaceTemplateVariablesHandlebars,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
+import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils/lib/helpers/rcm/invoice-config';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
 import { getStripeClient } from './stripeIntegration';
 
 // ---------------------------------------------------------------------------

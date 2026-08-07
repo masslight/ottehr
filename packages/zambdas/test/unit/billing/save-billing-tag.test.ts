@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME } from 'utils';
+import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/save-billing-tag';
 import { SaveBillingTagParams } from '../../../src/billing/save-billing-tag/validateRequestParameters';

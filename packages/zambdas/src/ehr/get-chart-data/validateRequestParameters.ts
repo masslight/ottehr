@@ -1,6 +1,8 @@
-import { GetChartDataRequest, MISSING_REQUEST_BODY } from 'utils';
+import { GetChartDataRequest } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const GetChartDataSchema = z.object({
   encounterId: z.string().uuid(),

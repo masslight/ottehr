@@ -1,5 +1,5 @@
 import { Patient, Practitioner } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { describe, expect, it } from 'vitest';
 import { getPcpPatchOpsFromDetails } from '../../src/ehr/shared/harvest';
 

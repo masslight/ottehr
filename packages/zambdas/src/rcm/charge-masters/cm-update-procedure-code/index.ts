@@ -1,7 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, Extension } from 'fhir/r4b';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

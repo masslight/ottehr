@@ -1,7 +1,7 @@
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { NonInsurancePayerId } from 'candidhealth/api/resources/nonInsurancePayers/resources/v1';
 import * as fs from 'fs';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 
 function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
   const candidApiClient: CandidApiClient = new CandidApiClient({

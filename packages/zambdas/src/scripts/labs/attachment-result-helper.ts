@@ -1,7 +1,8 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
-import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { EXAMPLE_ENVS } from './lab-script-consts';
 import { createResultAttachmentDocRef } from './lab-script-helpers';
 

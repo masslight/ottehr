@@ -3,18 +3,23 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
-  BLANK_SCHEDULE_JSON_TEMPLATE,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
-  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
-  SCHEDULE_EXTENSION_URL,
-  Secrets,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/errors';
+import { BLANK_SCHEDULE_JSON_TEMPLATE } from 'utils/lib/utils/scheduleUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminCreatePractitionerRoleInput {

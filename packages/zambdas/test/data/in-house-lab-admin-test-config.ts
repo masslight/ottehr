@@ -1,4 +1,4 @@
-import { AdminInHouseLabItemDefinition } from 'utils';
+import { AdminInHouseLabItemDefinition } from 'utils/lib/types/data/in-house/in-house.types';
 
 export const adminTestItemConfigs: Record<string, AdminInHouseLabItemDefinition> = {
   urinalysis: {

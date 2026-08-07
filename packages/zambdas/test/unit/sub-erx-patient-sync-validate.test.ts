@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
 import { describe, expect, test } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 import { validateRequestParameters } from '../../src/subscriptions/appointment/sub-erx-patient-sync/validateRequestParameters';
