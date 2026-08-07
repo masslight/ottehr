@@ -43,7 +43,7 @@ const firstSystem = Object.values(InPersonRosConfig)[0];
 const SYSTEM_LABEL = firstSystem.label;
 const [FINDING_A, FINDING_B] = Object.values(firstSystem.items).map((item) => item.label);
 
-test.describe('Review of Systems page', () => {
+test.describe('Review of Systems page', { tag: '@pr-ci' }, () => {
   test('ROS-1 Tab is present, can be clicked, and the Review of Systems page loads', async () => {
     const rosPage = await sideMenu.clickReviewOfSystems();
 

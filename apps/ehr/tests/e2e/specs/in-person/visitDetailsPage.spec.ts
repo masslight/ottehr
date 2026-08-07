@@ -5,7 +5,7 @@ import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 const PROCESS_ID = `visitDetailsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
-test.describe('Visit details page', { tag: '@smoke' }, async () => {
+test.describe('Visit details page', { tag: ['@smoke', '@pr-ci'] }, async () => {
   let page: Page;
   let context: BrowserContext;
   // let visitDetailsPage: VisitDetailsPage;

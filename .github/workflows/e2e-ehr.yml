@@ -32,6 +32,7 @@ on:
         options:
           - normal
           - smoke
+          - pr-ci
         default: "normal"
   workflow_call:
     inputs:
@@ -177,6 +178,15 @@ jobs:
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"
           MODE="${{ inputs.mode }}"
+          IS_PR="${{ github.event_name == 'pull_request' }}"
+          RUN_FULL_SUITE="${{ contains(github.event.pull_request.body || '', '/run-full-ehr-e2e') }}"
+
+          # Pull request runs execute only the whitelisted tests tagged @pr-ci
+          if [ "$MODE" == "pr-ci" ] || { [ "$IS_PR" == "true" ] && [ "$RUN_FULL_SUITE" != "true" ]; }; then
+            echo "PR CI mode: running only tests tagged @pr-ci (add /run-full-ehr-e2e to the PR description to run the full suite)"
+            export PR_CI_TEST=true
+          fi
+
           if [ "$MODE" == "smoke" ]; then
             npm run ehr:e2e:$ENV:smoke
           else

@@ -5,6 +5,8 @@ import path from 'path';
 const isCI = Boolean(process.env.CI);
 const ENV = process.env.ENV?.trim?.() || 'local';
 const SMOKE_TEST = process.env.SMOKE_TEST || 'false';
+// PR CI mode: run only the whitelisted subset of e2e tests tagged @pr-ci (the nightly run covers the full suites)
+const PR_CI_TEST = process.env.PR_CI_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
@@ -218,9 +220,15 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
     // Tests run headless by default. Pass --headed manually if you want to see browser windows
 
     console.log('SMOKE_TEST value:', SMOKE_TEST);
+    console.log('PR_CI_TEST value:', PR_CI_TEST);
 
     if (SMOKE_TEST === 'true') {
       playwrightArgs.push('--grep', '@smoke');
+    }
+
+    if (PR_CI_TEST === 'true') {
+      // --pass-with-no-tests: a suite with no @pr-ci-tagged tests (e.g. a downstream repo) should pass, not fail
+      playwrightArgs.push('--grep', '@pr-ci', '--pass-with-no-tests');
     }
 
     if (grepPattern) {
@@ -239,6 +247,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
         ...process.env,
         ENV,
         SMOKE_TEST,
+        PR_CI_TEST,
       },
     });
   }
@@ -256,6 +265,13 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
 
   if (SMOKE_TEST === 'true' && testType !== 'login') {
     extraArgs.push('--grep', '@smoke');
+  }
+
+  // Login is never filtered — it produces the auth state (user.json) the whitelisted specs need
+  if (PR_CI_TEST === 'true' && testType !== 'login') {
+    console.log('PR CI mode: running only specs tagged @pr-ci (zero matches still pass via --pass-with-no-tests)');
+    // --pass-with-no-tests: a suite with no @pr-ci-tagged tests (e.g. a downstream repo) should pass, not fail
+    extraArgs.push('--grep', '@pr-ci', '--pass-with-no-tests');
   }
 
   if (grepPattern && testType !== 'login') {
@@ -278,6 +294,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       PLAYWRIGHT_REPORT_SUFFIX: testType === 'login' ? '-login' : '',
       IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
       SMOKE_TEST,
+      PR_CI_TEST,
       PLAYWRIGHT_EXTRA_ARGS: playwrightArgs,
     },
   });

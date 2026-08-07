@@ -224,6 +224,7 @@ export class ResourceHandler {
 - **ENV**: Determines configuration set (`local`, `demo`, `staging`, `testing`) and cascades through entire system, including seed data generation
 - **INTEGRATION_TEST**: Controls resource creation method (batch with seed data vs application endpoints)
 - **SMOKE TEST**: Controls picking the right patient and avoid cleanup (for production environments)
+- **PR_CI_TEST**: Runs only the tests tagged `@pr-ci` (the pull-request CI whitelist) by passing `--grep @pr-ci --pass-with-no-tests` to Playwright; the login stage is never filtered
 - **CI**: Auto-detected, affects retry logic, worker count, and artifact capture settings
 - **UI Flag**: Enables headed mode for debugging instead of headless execution
 - **Auth Credentials**: System automatically uses enhanced test credentials when available
@@ -650,6 +651,33 @@ The EHR and Intake workflows use different job structures due to their authentic
 
 This architecture solves the problem where multiple PR workflows would request SMS codes simultaneously, causing all but the last to fail. The token caching also reduces load on the SMS service and speeds up test execution when authentication isn't needed.
 
+### PR CI Test Whitelist (`@pr-ci`)
+
+Pull requests do not run the full E2E suites — the complete suites run in the nightly job instead. On `pull_request` events, the `e2e-ehr.yml` and `e2e-intake.yml` workflows set `PR_CI_TEST=true`, which makes `run-e2e.ts` pass `--grep @pr-ci --pass-with-no-tests` to Playwright so that only whitelisted tests run. All other trigger types (nightly, `workflow_dispatch`, push to `main`) run the full suites.
+
+To whitelist a test into the PR CI run, tag it with `@pr-ci`:
+
+```typescript
+test('my critical flow', { tag: '@pr-ci' }, async ({ page }) => {
+  // ...
+});
+
+// or tag a whole describe block:
+test.describe('critical flows', { tag: '@pr-ci' }, () => {
+  // ...
+});
+```
+
+Notes:
+
+- A test can carry multiple tags, e.g. `{ tag: ['@smoke', '@pr-ci'] }`.
+- The generated intake booking-flow tests (`booking-flows-generated.spec.ts`) are whitelisted per scenario, not per test declaration: edit `PR_CI_SCENARIOS` in `apps/intake/tests/utils/booking/BookingTestFactory.ts`, which matches scenarios by visit type + service mode + service category and tags the matching generated tests.
+- The login stage is never filtered — it produces the authentication state the whitelisted specs need.
+- Because of `--pass-with-no-tests`, a suite with no `@pr-ci` tags (e.g. a downstream repo that hasn't tagged anything) passes rather than failing with "no tests found".
+- To run the full suite on a specific PR anyway, add `/run-full-ehr-e2e` and/or `/run-full-intake-e2e` to the PR description (see [PR Commands](#pr-commands)).
+- To reproduce the PR CI selection locally: `npm run ehr:e2e:local:pr-ci` or `npm run intake:e2e:local:pr-ci`.
+- To run the whitelist against a deployed environment manually, dispatch the E2E workflow with mode `pr-ci`.
+
 ### Caching Strategy
 
 - **Node modules**: `node_modules`
@@ -685,10 +713,12 @@ You can use special commands in pull request descriptions to control CI pipeline
 
 ### Force Run Commands
 
-| Command           | Description                                                         | Workflow         |
-| :---------------- | :------------------------------------------------------------------ | :--------------- |
-| `/run-intake-e2e` | Forces Intake E2E tests to run even if no relevant changes detected | `e2e-intake.yml` |
-| `/run-ehr-e2e`    | Forces EHR E2E tests to run even if no relevant changes detected    | `e2e-ehr.yml`    |
+| Command                | Description                                                                     | Workflow         |
+| :--------------------- | :------------------------------------------------------------------------------ | :--------------- |
+| `/run-intake-e2e`      | Forces Intake E2E tests to run even if no relevant changes detected             | `e2e-intake.yml` |
+| `/run-ehr-e2e`         | Forces EHR E2E tests to run even if no relevant changes detected                | `e2e-ehr.yml`    |
+| `/run-full-intake-e2e` | Runs the full Intake E2E suite instead of the `@pr-ci` whitelist (PR runs only) | `e2e-intake.yml` |
+| `/run-full-ehr-e2e`    | Runs the full EHR E2E suite instead of the `@pr-ci` whitelist (PR runs only)    | `e2e-ehr.yml`    |
 
 **Important**: Skip commands are not allowed for merging to ensure code quality. They are only for debugging and development purposes.
 

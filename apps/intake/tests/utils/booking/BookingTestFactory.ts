@@ -57,6 +57,8 @@ export interface BookingTestScenario {
   bookableEntityType?: BookableEntityType;
   /** Slug for Group booking (HealthcareService). Used to construct bookingOn URL param. */
   groupBookingSlug?: string;
+  /** Whitelists this scenario into the pull-request CI run via the @pr-ci tag (see E2E_README.md "PR CI Test Whitelist") */
+  prCi?: boolean;
 }
 
 export interface QuestionnaireFieldAddress {
@@ -97,6 +99,23 @@ function getFillingStrategyForScenario(
     fillAllFields: true,
   };
 }
+
+/**
+ * Scenarios whitelisted into the pull-request CI run via the @pr-ci tag
+ * (see E2E_README.md "PR CI Test Whitelist"); the nightly run covers the full suite.
+ *
+ * Matched on the scenario's intrinsic identity (visit type + service mode + service
+ * category) rather than description text, because descriptions are config-derived and
+ * the extension annotations ([+ modify], [+ cancel], ...) are assigned positionally.
+ * A config with no matching scenario (e.g. telemed disabled) simply whitelists fewer tests.
+ */
+const PR_CI_SCENARIOS: Array<Pick<BookingTestScenario, 'visitType' | 'serviceMode' | 'serviceCategory'>> = [
+  { visitType: 'walk-in', serviceMode: 'in-person', serviceCategory: 'urgent-care' },
+  { visitType: 'prebook', serviceMode: 'in-person', serviceCategory: 'urgent-care' },
+  { visitType: 'prebook', serviceMode: 'in-person', serviceCategory: 'occupational-medicine' },
+  { visitType: 'prebook', serviceMode: 'in-person', serviceCategory: 'workers-comp' },
+  { visitType: 'prebook', serviceMode: 'virtual', serviceCategory: 'urgent-care' },
+];
 
 /**
  * Generate all valid booking test scenarios from the instance's BOOKING_CONFIG
@@ -176,6 +195,17 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
 
   // Annotate scenario descriptions with their extended flow coverage
   annotateScenarioDescriptions(scenarios);
+
+  // Mark the scenarios whitelisted into the pull-request CI run (runs after
+  // ensureExtensionCoverage so extension-only duplicates are matched too)
+  for (const scenario of scenarios) {
+    scenario.prCi = PR_CI_SCENARIOS.some(
+      (whitelisted) =>
+        whitelisted.visitType === scenario.visitType &&
+        whitelisted.serviceMode === scenario.serviceMode &&
+        whitelisted.serviceCategory === scenario.serviceCategory
+    );
+  }
 
   return scenarios;
 }
