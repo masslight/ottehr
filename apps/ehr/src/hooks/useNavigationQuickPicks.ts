@@ -39,6 +39,7 @@ const VISIT_CREATION_ROLES = [
   RoleType.CustomerSupport,
   RoleType.Staff,
   RoleType.Provider,
+  RoleType.Clinician,
 ];
 
 const NAVIGATION_DESTINATIONS: NavigationDestination[] = [

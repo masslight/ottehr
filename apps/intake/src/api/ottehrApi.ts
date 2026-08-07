@@ -14,6 +14,10 @@ import {
   GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
+  GetInsuranceCardSuggestionsInput,
+  GetInsuranceCardSuggestionsResponse,
+  GetPhotoIdSuggestionsInput,
+  GetPhotoIdSuggestionsResponse,
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -60,6 +64,8 @@ const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
 const IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID = 'intake-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
+const GET_INSURANCE_CARD_SUGGESTIONS = 'get-insurance-card-suggestions';
+const GET_PHOTO_ID_SUGGESTIONS = 'get-photo-id-suggestions';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
 const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
 const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
@@ -389,6 +395,40 @@ class API {
       });
       const jsonToUse = chooseJson(response);
       return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getInsuranceCardSuggestions(
+    params: GetInsuranceCardSuggestionsInput,
+    zambdaClient: ZambdaClient
+  ): Promise<GetInsuranceCardSuggestionsResponse> {
+    try {
+      const { appointmentID, fileURL, fileContentType } = params;
+
+      const response = await zambdaClient.executePublic(GET_INSURANCE_CARD_SUGGESTIONS, {
+        appointmentID,
+        fileURL,
+        fileContentType,
+      });
+      return chooseJson(response);
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getPhotoIdSuggestions(
+    params: GetPhotoIdSuggestionsInput,
+    zambdaClient: ZambdaClient
+  ): Promise<GetPhotoIdSuggestionsResponse> {
+    try {
+      const { appointmentID, fileURL, fileContentType } = params;
+
+      const response = await zambdaClient.executePublic(GET_PHOTO_ID_SUGGESTIONS, {
+        appointmentID,
+        fileURL,
+        fileContentType,
+      });
+      return chooseJson(response);
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

@@ -7,6 +7,14 @@ import { DateTime } from 'luxon';
 export const DEFAULT_BATCH_DAYS = 1;
 
 /**
+ * Batch size for the ad-hoc reporting datasets. Their zambdas (adhoc-encounters / -patients /
+ * -billing) paginate internally and pull heavy layers in their own chunked sub-queries, so they
+ * handle a multi-day window in one call comfortably. Using 1-day batches here meant a 4-month report
+ * fired ~120 requests; 7-day batches cut that ~7x while staying well under the response-size cap.
+ */
+export const ADHOC_BATCH_DAYS = 7;
+
+/**
  * Splits a date range into batches of maximum days each.
  * This is useful for preventing backend API responses from exceeding size limits
  * by breaking large date ranges into smaller chunks.
@@ -33,7 +41,6 @@ export function splitDateRangeIntoBatches(
   let currentStart = startDate;
 
   while (currentStart < endDate) {
-    // Calculate the end of the current batch (maxDays from start, or the final end date)
     const currentEnd = DateTime.min(currentStart.plus({ days: maxDays }).minus({ milliseconds: 1 }), endDate);
 
     batches.push({
@@ -41,7 +48,6 @@ export function splitDateRangeIntoBatches(
       end: currentEnd.toISO() ?? '',
     });
 
-    // Move to the next batch
     currentStart = currentEnd.plus({ milliseconds: 1 });
   }
 

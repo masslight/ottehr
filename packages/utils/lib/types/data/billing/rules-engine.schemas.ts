@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
+import { RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
+import { HOLD_TAG_NAME } from './system-tags';
 
 // ---------------------------------------------------------------------------
 // Rule structure

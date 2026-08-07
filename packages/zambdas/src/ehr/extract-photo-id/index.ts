@@ -5,15 +5,9 @@ import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createOystehrClient, DocumentType, getSecret, PhotoIdExtraction, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { VERTEX_AI_MODEL } from '../../shared/ai';
 import { downloadOcrSourceImage } from '../card-extraction-shared/extraction-helpers';
-import {
-  buildExtractionPatchOperation,
-  EXTRACTION_PROMPT,
-  getExistingExtraction,
-  parseModelResponse,
-  photoIdResponseSchema,
-} from './helpers';
+import { buildExtractionPatchOperation, extractPhotoIdFieldsFromImage, getExistingExtraction } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Only the FRONT image is extracted. Other titles sharing the 55188-7 type code (the
@@ -107,7 +101,18 @@ export async function runPhotoIdExtraction(
 
   console.log(`[${ZAMBDA_NAME}] DocumentReference/${docRefId} mimeType=${mimeType} bytes=${bytes.length}`);
 
-  if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
+  let modelResult;
+  try {
+    modelResult = await extractPhotoIdFieldsFromImage(bytes, mimeType, secrets);
+  } catch (error) {
+    // Malformed JSON after the helper's own retries is a transient model-quality failure —
+    // re-throw so a caller that retries on error gets another attempt.
+    console.error(`[${ZAMBDA_NAME}] failed to parse model response for DocumentReference/${docRefId}`);
+    captureException(error);
+    throw error;
+  }
+
+  if (modelResult.unsupportedContentType) {
     // unprocessable content is a permanent condition — write the marker so retries stop
     console.log(`[${ZAMBDA_NAME}] unsupported content type '${mimeType}'; writing notAPhotoId marker`);
     await writeExtraction(oystehr, current, extensionIndex, {
@@ -123,28 +128,11 @@ export async function runPhotoIdExtraction(
     return { documentReferenceId: docRefId, skipped: true, notAPhotoId: true };
   }
 
-  const rawModelResponse = await invokeChatbotVertexAI(
-    [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
-    secrets,
-    photoIdResponseSchema
-  );
-
-  let parsed;
-  try {
-    parsed = parseModelResponse(rawModelResponse);
-  } catch (error) {
-    // Malformed JSON after the helper's own retries is a transient model-quality failure —
-    // re-throw so a caller that retries on error gets another attempt.
-    console.error(`[${ZAMBDA_NAME}] failed to parse model response for DocumentReference/${docRefId}`);
-    captureException(error);
-    throw error;
-  }
-
-  const notAPhotoId = !parsed.isPhotoId || parsed.fields === null;
+  const notAPhotoId = !modelResult.isPhotoId || modelResult.fields === null;
   const extraction: PhotoIdExtraction = {
     version: 1,
-    isPhotoId: parsed.isPhotoId,
-    fields: notAPhotoId ? null : parsed.fields,
+    isPhotoId: modelResult.isPhotoId,
+    fields: notAPhotoId ? null : modelResult.fields,
     ...(notAPhotoId ? { notAPhotoId: true } : {}),
     sourceDocRefId: docRefId,
     sourceAttachmentUrl: attachmentUrl,

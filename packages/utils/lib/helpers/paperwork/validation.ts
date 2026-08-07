@@ -35,6 +35,7 @@ export const PHONE_NUMBER_FIELDS = [
   'responsible-party-number',
   'pharmacy-phone',
   'pcp-number',
+  'pcp-fax',
 ];
 export const EMAIL_FIELDS = ['patient-email', 'guardian-email'];
 export const ZIP_CODE_FIELDS = ['patient-zip'];

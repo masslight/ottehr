@@ -500,7 +500,7 @@ export default function ClaimsList(): ReactElement {
           >
             <MenuItem value="">All</MenuItem>
             {tagOptions.map((t) => (
-              <MenuItem key={t.id} value={t.name}>
+              <MenuItem key={t.id || t.name} value={t.name}>
                 {t.name}
               </MenuItem>
             ))}

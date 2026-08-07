@@ -9,7 +9,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import AppointmentsFilters from 'src/components/AppointmentsFilters';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
-import { useStopAmbientScribeOnLeave } from 'src/features/visits/shared/stores/audioRecording.store';
+import { useStopAmbientScribeOnLeave } from 'src/features/visits/shared/hooks/useStopAmbientScribeOnLeave';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { APIErrorCode, InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';

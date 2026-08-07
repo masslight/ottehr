@@ -1,10 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import {
-  audioRecordingActions,
-  useStopAmbientScribeOnLeave,
-} from 'src/features/visits/shared/stores/audioRecording.store';
+import { useStopAmbientScribeOnLeave } from 'src/features/visits/shared/hooks/useStopAmbientScribeOnLeave';
+import { audioRecordingActions } from 'src/features/visits/shared/stores/audioRecording.store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Fake encounter ids standing in for the recorder identity the in-person layout passes as `hostKey`.

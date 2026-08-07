@@ -6,6 +6,12 @@ export function formatDate(iso: string): string {
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
 }
 
+export function formatDateTime(iso: string): string {
+  if (!iso) return '-';
+  const dateTime = DateTime.fromISO(iso);
+  return dateTime.isValid ? dateTime.toLocaleString(DateTime.DATETIME_MED) : iso;
+}
+
 const POS_LABEL_BY_CODE = new Map(CMS_PLACE_OF_SERVICE_CODES.map((pos) => [pos.code, pos.display]));
 
 export function placeOfServiceLabel(code?: string): string {

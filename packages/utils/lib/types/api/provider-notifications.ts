@@ -1,6 +1,6 @@
 import { IN_HOUSE_LAB_TASK } from '../data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from '../data/labs/labs.constants';
-import { ERX_TASK, MANUAL_TASK, RADIOLOGY_TASK } from '../data/tasks/types';
+import { ERX_TASK, FAX_TASK, MANUAL_TASK, RADIOLOGY_TASK } from '../data/tasks/types';
 import { ProviderNotificationMethod } from './practitioner.types';
 
 /**
@@ -34,6 +34,7 @@ export const UI_TASK_CATEGORY_IDS = [
   'charting',
   'coding',
   'billing',
+  'inboundFax',
   'other',
 ] as const;
 export type UiTaskCategoryId = (typeof UI_TASK_CATEGORY_IDS)[number];
@@ -50,6 +51,7 @@ export const UI_TASK_CATEGORY_LABELS: Record<UiTaskCategoryId, string> = {
   charting: 'Charting',
   coding: 'Coding',
   billing: 'Billing',
+  inboundFax: 'Inbound Fax',
   other: 'Other',
 };
 
@@ -73,6 +75,7 @@ export const TASK_CODE_TO_UI_CATEGORY: Record<string, UiTaskCategoryId> = {
   [MANUAL_TASK.category.charting]: 'charting',
   [MANUAL_TASK.category.coding]: 'coding',
   [MANUAL_TASK.category.billing]: 'billing',
+  [FAX_TASK.category]: 'inboundFax',
   [MANUAL_TASK.category.other]: 'other',
 };
 

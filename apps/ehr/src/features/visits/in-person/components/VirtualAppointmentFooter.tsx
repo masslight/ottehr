@@ -2,10 +2,8 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
 import { AppBar, Box, darken, Divider, Link, Stack, styled, Typography, useTheme } from '@mui/material';
 import { DateTime, Duration } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -27,6 +25,7 @@ import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { useGetMeetingData } from '../../shared/stores/appointment/appointment.queries';
 import { useInitTelemedSessionMutation } from '../../shared/stores/tracking-board/tracking-board.queries';
 import InviteParticipant from '../../telemed/components/appointment/InviteParticipant';
+import { PreCallSettingsDialog } from '../../telemed/components/appointment/PreCallSettingsDialog';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
@@ -47,12 +46,18 @@ const FooterButton = styled(LoadingButton)(({ theme }) => ({
 export const VirtualAppointmentFooter: FC = () => {
   const theme = useTheme();
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
-  // True while onConnect is provisioning/joining the room, so the confirmation dialog's proceed button
-  // (and the footer button) can show a loader until the video call is ready.
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isPreCallSettingsOpen, setIsPreCallSettingsOpen] = useState(false);
+
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { appointment, encounter, mappedData, questionnaireResponse, appointmentRefetch } = useAppointmentData();
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
+
+  // Close the pre-call dialog as soon as a call connects so that when the call ends
+  // and the footer section reappears, the dialog does not auto-open with a live preview.
+  useEffect(() => {
+    if (meetingData) setIsPreCallSettingsOpen(false);
+  }, [meetingData]);
+
   const appointmentStatus = (appointment && getInPersonVisitStatus(appointment, encounter)) ?? 'unknown';
   const isActiveVisitStatus = ['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(
     appointmentStatus
@@ -131,30 +136,22 @@ export const VirtualAppointmentFooter: FC = () => {
       (ext) => ext.url === 'addressString' && typeof ext.valueString === 'string' && ext.valueString.length > 0
     );
 
-    setIsConnecting(true);
-    try {
-      // If a room already exists, first try to reuse it (e.g. the provider reloaded mid-call and the
-      // Chime meeting is still alive). If the meeting is gone — the previous call was ended, or the room
-      // auto-destroyed after ~15 min idle — join returns "not found or expired"; re-provision a new one.
-      if (appointmentStatus === 'provider' && hasRoom) {
-        try {
-          const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
-          useVideoCallStore.setState({ meetingData: meetingDataResponse.data });
-          return;
-        } catch (error) {
-          if (!isMeetingNotFoundOrExpired(error)) {
-            throw error;
-          }
-          // meeting no longer exists — fall through to re-provision a fresh room
+    // If a room already exists, first try to reuse it (e.g. the provider reloaded mid-call and the
+    // Chime meeting is still alive). If the meeting is gone — the previous call was ended, or the room
+    // auto-destroyed after ~15 min idle — join returns "not found or expired"; re-provision a new one.
+    if (appointmentStatus === 'provider' && hasRoom) {
+      try {
+        const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
+        useVideoCallStore.setState({ meetingData: meetingDataResponse.data });
+        return;
+      } catch (error) {
+        if (!isMeetingNotFoundOrExpired(error)) {
+          throw error;
         }
+        // meeting no longer exists — fall through to re-provision a fresh room
       }
-      await reprovisionRoomAndConnect();
-    } catch (error) {
-      console.error('Error connecting to patient video call:', error);
-      enqueueSnackbar('Error trying to connect to a patient.', { variant: 'error' });
-    } finally {
-      setIsConnecting(false);
     }
+    await reprovisionRoomAndConnect();
   }, [appointmentStatus, encounter, getMeetingData, reprovisionRoomAndConnect]);
 
   const providerAllowedToConnect =
@@ -221,29 +218,18 @@ export const VirtualAppointmentFooter: FC = () => {
           )}
           {isActiveVisitStatus && providerAllowedToConnect && !meetingData && (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <ConfirmationDialog
-                title="Do you want to connect to the patient?"
-                description="This action will start the video call."
-                response={onConnect}
-                actionButtons={{
-                  proceed: {
-                    text: 'Connect to Patient',
-                    loading: isConnecting,
-                  },
-                  back: { text: 'Cancel' },
-                }}
+              <PreCallSettingsDialog
+                open={isPreCallSettingsOpen}
+                onClose={() => setIsPreCallSettingsOpen(false)}
+                onConnect={onConnect}
+              />
+              <FooterButton
+                onClick={() => setIsPreCallSettingsOpen(true)}
+                variant="contained"
+                data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
               >
-                {(showDialog) => (
-                  <FooterButton
-                    loading={isConnecting}
-                    onClick={showDialog}
-                    variant="contained"
-                    data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
-                  >
-                    Connect to Patient
-                  </FooterButton>
-                )}
-              </ConfirmationDialog>
+                Connect to Patient
+              </FooterButton>
             </Box>
           )}
           {['discharged', 'awaiting supervisor approval', 'completed'].includes(appointmentStatus) && (

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Basic, List, Resource } from 'fhir/r4b';
+import { List, Resource } from 'fhir/r4b';
 import {
   BillingRule,
   BillingRulesResponse,
@@ -10,24 +10,21 @@ import {
   getResourcesFromBatchInlineRequests,
   getRuleFieldDef,
   getSecret,
-  HOLD_TAG_NAME,
   INVALID_INPUT_ERROR,
+  isSystemManagedTagName,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { HOLD_TAG_DESCRIPTION } from '../rules-engine/constants';
 import { rulesToList } from '../rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
+  ensureSystemManagedTags,
   fetchDefinedTagNames,
   findRulesEngineList,
   hasTag,
   listToRulesReportingMalformed,
   PROVIDER_ROLE_TAG,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 import { SaveBillingRulesParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -57,14 +54,15 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingRul
 }
 
 // Every tag a rule applies must exist in the tags feature, so the rule builder's tag dropdown and
-// API-created rules obey the same contract. Hold is exempt: it is built into the engine and may not
-// be seeded as a stored tag yet (that only happens when an engine's first rules List is created).
-// Runs at most one Basic search, and none when no rule applies a non-Hold tag.
+// API-created rules obey the same contract. System-managed tags (Hold, Auto Accident, …) are
+// exempt: they are built into the system and may not be seeded as stored tags yet (that only
+// happens when an engine's first rules List is created). Runs at most one Basic search, and none
+// when no rule applies a non-system tag.
 async function validateAppliedTagsExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
   const perRule = rules
     .map((rule) => ({
       name: rule.name,
-      tags: collectApplyTagNames(rule).filter((tag) => tag !== HOLD_TAG_NAME),
+      tags: collectApplyTagNames(rule).filter((tag) => !isSystemManagedTagName(tag)),
     }))
     .filter((entry) => entry.tags.length > 0);
   if (perRule.length === 0) return;
@@ -138,35 +136,12 @@ export async function performEffect(
     );
   } else {
     saved = await oystehr.fhir.create<List>(newList);
-    // Seed the Hold system tag definition the first time rules are configured.
-    await ensureHoldTag(oystehr);
+    try {
+      await ensureSystemManagedTags(oystehr);
+    } catch (error) {
+      console.error('Failed to ensure system-managed tags exist:', error);
+    }
   }
 
   return { rules: await listToRulesReportingMalformed(saved, env), versionId: saved.meta?.versionId };
-}
-
-// Best-effort: create the Hold system tag definition if it doesn't already exist. Never fails the save.
-async function ensureHoldTag(oystehr: Oystehr): Promise<void> {
-  try {
-    const result = await oystehr.fhir.search<Basic>({
-      resourceType: 'Basic',
-      params: [
-        { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
-        { name: '_count', value: '200' },
-      ],
-    });
-    if (result.unbundle().some((b) => b.code?.text === HOLD_TAG_NAME)) return;
-
-    const tag: Basic = {
-      resourceType: 'Basic',
-      code: { text: HOLD_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-      extension: [
-        { url: TAG_DESCRIPTION_URL, valueString: HOLD_TAG_DESCRIPTION },
-        { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-      ],
-    };
-    await oystehr.fhir.create<Basic>(tag);
-  } catch (error) {
-    console.error('Failed to ensure Hold system tag exists:', error);
-  }
 }
