@@ -228,7 +228,6 @@ export async function performEffect(
   // Sync accounts, coverages, and subscriber between clinical and billing
   const mainPatientCoverages: Coverage[] = [];
   const mainPatientSubscribers: RelatedPerson[] = [];
-  const seenBillingAccountIds = new Set<string>();
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
       (bac) =>
@@ -269,7 +268,6 @@ export async function performEffect(
       // Update billing copy if changed
       let accountCopy = copyAccount(a, mainPatient.id!, billingResources.coverages);
       accountCopy.id = existingBillingAccount.id;
-      seenBillingAccountIds.add(existingBillingAccount.id!);
       if (billingCopyMatches(existingBillingAccount, accountCopy)) {
         const accountCoverages = coveragesForAccount(existingBillingAccount, billingResources.coverages);
         mainPatientCoverages.push(...accountCoverages);
@@ -304,12 +302,6 @@ export async function performEffect(
       return accountCopy;
     }
   });
-  billingResources.accounts
-    .filter((bac) => !seenBillingAccountIds.has(bac.id!))
-    .forEach((bac) => {
-      requests.push({ method: 'DELETE', url: `/Account/${bac.id}` });
-      order.push('account');
-    });
 
   // Create coverage copies for working copy patient
   const claimCoverages = mainPatientCoverages
