@@ -228,14 +228,37 @@ const handleDiagnosticReport = async (
   const { diagnosticReports, ...additionalResources } = parseRadiologyResourcesForTask(drSearchResults);
 
   if (diagnosticReports.length > 1) {
-    throw new Error('Multiple DiagnosticReports found with the given ID');
+    console.log(
+      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacsDiagnosticReport.id; updating the most recent and retiring the rest`
+    );
+
+    const [drToUpdate, ...drsToRetire] = [...diagnosticReports].sort((a, b) => {
+      const aLastUpdated = a.meta?.lastUpdated ? DateTime.fromISO(a.meta.lastUpdated).toMillis() : 0;
+      const bLastUpdated = b.meta?.lastUpdated ? DateTime.fromISO(b.meta.lastUpdated).toMillis() : 0;
+      return bLastUpdated - aLastUpdated;
+    });
+
+    if (drToUpdate.id == null) throw new Error('DiagnosticReport ID is required');
+
+    const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
+    const requests: BatchInputRequest<FhirResource>[] = [
+      ...buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask),
+      ...drsToRetire.map(buildRetireDiagnosticReportRequest),
+    ];
+
+    console.log('making transaction request to update DiagnosticReport and retire its duplicate(s)');
+    await oystehr.fhir.transaction({ requests });
   } else if (diagnosticReports.length === 1) {
     const drToUpdate = diagnosticReports[0];
     if (drToUpdate.id == null) {
       throw new Error('DiagnosticReport ID is required');
     }
+
     const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
-    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, resourcesForTask, oystehr);
+    const requests = buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask);
+
+    console.log('making transaction request for handleUpdateDiagnosticReport');
+    await oystehr.fhir.transaction({ requests });
   } else if (drSearchResults.length === 0) {
     await handleCreateDiagnosticReport(advaPacsDiagnosticReport, oystehr, secrets);
   }
@@ -273,12 +296,11 @@ const handleCreateDiagnosticReport = async (
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
-const handleUpdateDiagnosticReport = async (
+const buildUpdateDiagnosticReportRequests = (
   advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
-  resourcesForTask: ResourcesForTask,
-  oystehr: Oystehr
-): Promise<void> => {
+  resourcesForTask: ResourcesForTask
+): BatchInputRequest<FhirResource>[] => {
   console.log('processing DiagnosticReport update');
 
   console.log('Updating our DiagnosticReport with ID: ', ourDiagnosticReport.id);
@@ -339,8 +361,25 @@ const handleUpdateDiagnosticReport = async (
     operations: diagnosticReportPathOps,
   });
 
-  console.log(`making transaction request for handleUpdateDiagnosticReport`);
-  await oystehr.fhir.transaction({ requests });
+  return requests;
+};
+
+const buildRetireDiagnosticReportRequest = (diagnosticReport: DiagnosticReport): BatchInputRequest<FhirResource> => {
+  if (diagnosticReport.id == null) {
+    throw new Error('DiagnosticReport ID is required');
+  }
+  console.log('Retiring duplicate DiagnosticReport with ID: ', diagnosticReport.id);
+  return {
+    method: 'PATCH',
+    url: `DiagnosticReport/${diagnosticReport.id}`,
+    operations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'entered-in-error',
+      },
+    ],
+  };
 };
 
 const handleImagingStudy = async (
