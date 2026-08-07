@@ -12,7 +12,11 @@ import {
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetUnsolicitedResultsForPatientList } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { LabsTableColumn, UnsolicitedLabListPageDTO, UnsolicitedResultsRequestType } from 'utils';
+import {
+  LabsTableColumn,
+  UnsolicitedLabListPageDTO,
+  UnsolicitedResultsRequestType,
+} from 'utils/lib/types/data/labs/labs.types';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableRow } from './LabsTableRow';
 

@@ -13,20 +13,21 @@ import {
 } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormSelect } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
-import { Row, Section } from 'src/components/layout';
+import { FormSelect } from 'src/components/form/FormSelect';
+import { Row } from 'src/components/layout/Row';
+import { Section } from 'src/components/layout/Section';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { usePatientStore } from 'src/state/patient.store';
+import { patientFieldPaths } from 'utils/lib/fhir/patientMasterRecord';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import {
-  createLocalDateTime,
   PATIENT_DECEASED_NOTE_URL,
   PATIENT_RELEASE_OF_INFO_URL,
   PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
-  patientFieldPaths,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/types/constants';
+import { createLocalDateTime } from 'utils/lib/utils/date';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 export const SettingsContainer: FC = () => {
   const { patient } = usePatientStore();

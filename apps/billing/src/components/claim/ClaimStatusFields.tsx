@@ -10,7 +10,7 @@ import {
   ClaimStatusValues,
   formatClaimStatusValue,
   getActiveStatusGroup,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
 import { otherColors } from '../../themes/ottehr/colors';
 
 interface ClaimStatusFieldsProps {

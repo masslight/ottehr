@@ -26,20 +26,14 @@ import { Location, Practitioner, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  APIError,
-  buildPrebookModeLinks,
-  CreateScheduleParams,
-  getAllFhirSearchPages,
-  isApiError,
-  isValidSlug,
-  isValidUUID,
-  ScheduleDTO,
-  SLUG_VALIDATION_MESSAGE,
-  TIMEZONES,
-  UpdateScheduleParams,
-} from 'utils';
+import { isValidSlug, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { CreateScheduleParams, UpdateScheduleParams } from 'utils/lib/types/api/schedules';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { buildPrebookModeLinks, ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { createSchedule, getSchedule, listServiceCategories, updatePractitionerRole, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';

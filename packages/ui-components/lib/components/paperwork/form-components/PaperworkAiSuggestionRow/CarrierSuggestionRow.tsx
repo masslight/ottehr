@@ -3,7 +3,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Box, IconButton, List, ListItemButton, ListItemText, Popover, Typography } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { pickFirstValueFromAnswerItem } from 'utils';
+import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
 import { CarrierCandidate, normalizeForComparison } from './carrierMatching';
 import { useCarrierSuggestion } from './useCarrierSuggestion';
 

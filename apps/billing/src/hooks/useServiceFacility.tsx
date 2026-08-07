@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getApiError, ServiceFacilityItem } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { getBillingServiceFacility } from '../api/api';
 import { useApiClients } from './useAppClients';
 

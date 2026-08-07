@@ -1,4 +1,7 @@
-import { medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
+import {
+  medicationApplianceLocations,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
 
 export const ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
   .map(([_, value]) => ({

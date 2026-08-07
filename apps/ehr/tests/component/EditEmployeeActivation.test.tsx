@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { UserActivationZambdaOutput } from 'utils';
+import { UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Deactivating a user also unenrolls their Practitioner from eRx, and that step is allowed to fail

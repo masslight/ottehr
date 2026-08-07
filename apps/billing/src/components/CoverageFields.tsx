@@ -12,13 +12,10 @@ import {
 import { Box } from '@mui/system';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import {
-  BILLING_INSURANCE_TYPE_OPTIONS,
-  BillingInsuranceType,
-  BillingPayerOption,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  VALUE_SETS,
-} from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { BILLING_INSURANCE_TYPE_OPTIONS, BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { searchBillingPayers } from '../api/api';
 import { CoverageForm } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';

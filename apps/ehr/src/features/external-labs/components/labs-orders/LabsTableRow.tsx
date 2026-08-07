@@ -7,14 +7,14 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { PSC_LOCALE } from 'utils/lib/types/data/labs/labs.constants';
 import {
-  formatDateForLabs,
   LabOrderListPageDTO,
   LabsTableColumn,
-  PSC_LOCALE,
   ReflexLabDTO,
   UnsolicitedLabListPageDTO,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { configBundleRowTestId } from '../../utils/test-ids';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 

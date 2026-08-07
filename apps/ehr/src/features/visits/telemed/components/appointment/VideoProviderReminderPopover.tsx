@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { ReminderIcon } from '../../assets/icons/Reminder';
 import { InnerStatePopover } from '../InnerStatePopover';
 

@@ -2,9 +2,10 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { t } from 'i18next';
 import { useEffect } from 'react';
 import { Navigate, Outlet, useBeforeUnload, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { getSelectors, PROJECT_WEBSITE } from 'utils';
-import { useIntakeCommonStore } from '../features/common';
-import { getRedirectPath } from '../helpers';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { getRedirectPath } from 'src/helpers/redirects';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { getSelectors } from 'utils/lib/store';
 import { ErrorDialog, UnexpectedErrorDescription } from './ErrorDialog';
 
 function IntakeFlow(): JSX.Element {

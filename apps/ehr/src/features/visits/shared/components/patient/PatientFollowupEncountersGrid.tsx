@@ -9,7 +9,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import styled from 'styled-components';
-import { FOLLOWUP_SYSTEMS } from 'utils';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 
 type PatientEncountersGridProps = {
   patient?: Patient;

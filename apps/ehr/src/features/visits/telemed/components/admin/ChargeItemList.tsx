@@ -38,7 +38,7 @@ import {
   useCreateFeeScheduleMutation,
   useListFeeSchedulesQuery,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CASE_RATE_CODE, RCM_TAG_SYSTEM } from 'utils';
+import { CASE_RATE_CODE, RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
 
 export type ChargeItemMode = 'fee-schedule' | 'charge-master';
 

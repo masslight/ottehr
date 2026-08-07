@@ -15,7 +15,9 @@ import {
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { ClaimDetailResponse, getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { getBillingClaimDetail, matchClaimResponseToClaim } from '../api/api';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';

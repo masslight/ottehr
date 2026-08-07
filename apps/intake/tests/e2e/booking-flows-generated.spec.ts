@@ -15,7 +15,7 @@
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
 import { isTelemedEnabled } from 'test-utils';
-import { CanonicalUrl, ServiceMode } from 'utils';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys

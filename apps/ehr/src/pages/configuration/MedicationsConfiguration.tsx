@@ -30,7 +30,8 @@ import Loading from 'src/components/Loading';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM, RoleType } from 'utils';
+import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
 
 export default function MedicationsConfigurationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();

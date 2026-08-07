@@ -52,6 +52,19 @@ const ROOT = resolve(REPO, args.find((a) => !a.startsWith('--')) ?? 'packages/za
 
 const EXTS = ['.ts', '.tsx'];
 
+/** The workspace package that owns ROOT — its directory is the baseUrl for bare specifiers. */
+function packageRootOf(dir: string): string {
+  for (let d = dir; d.startsWith(REPO); d = resolve(d, '..')) {
+    if (ts.sys.fileExists(resolve(d, 'package.json'))) return d;
+  }
+  return REPO;
+}
+const PKG_ROOT = packageRootOf(ROOT);
+// The apps set `baseUrl: '.'`, so `import { X } from 'src/features/…'` is idiomatic there and is
+// how most app-internal barrels are reached. Resolving and emitting that form keeps the rewrite
+// consistent with the surrounding code instead of producing ../../../.. chains.
+const APP_ABSOLUTE = PKG_ROOT.startsWith(resolve(REPO, 'apps') + '/');
+
 const program = ts.createProgram({
   rootNames: [...PACKAGES.map((p) => p.barrel), ...ts.sys.readDirectory(ROOT, EXTS)].filter((f) =>
     ts.sys.fileExists(f)
@@ -64,14 +77,36 @@ const program = ts.createProgram({
     allowJs: false,
     noEmit: true,
     skipLibCheck: true,
-    baseUrl: REPO,
+    baseUrl: PKG_ROOT,
   },
 });
 const checker = program.getTypeChecker();
 
-/** symbolName -> absolute path of the file that DECLARES it (following re-export aliases). */
-function buildSymbolMap(barrelPath: string): Map<string, string> {
-  const map = new Map<string, string>();
+/** Where a barrel symbol really lives, and the name the declaring module exports it under. */
+type Origin = { file: string; exportName: string };
+
+/**
+ * The name a barrel exposes is not necessarily the name the declaring module exports:
+ * `export { default as GroupContainer } from './GroupContainer'` means the target exports it as
+ * `default`, and `export { CptCodesInput as MedicationCptCodes }` means it exports `CptCodesInput`.
+ * Rewriting to the declaring module has to use *that* name, or the import resolves to nothing.
+ */
+function exportNameIn(file: string, target: ts.Symbol): string {
+  const sf = program.getSourceFile(file);
+  const mod = sf && checker.getSymbolAtLocation(sf);
+  const decl = target.declarations?.[0];
+  if (mod) {
+    for (const e of checker.getExportsOfModule(mod)) {
+      const resolved = e.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(e) : e;
+      if (resolved === target || (decl && resolved.declarations?.[0] === decl)) return e.getName();
+    }
+  }
+  return target.getName();
+}
+
+/** symbolName -> where it is declared (following re-export aliases). */
+function buildSymbolMap(barrelPath: string): Map<string, Origin> {
+  const map = new Map<string, Origin>();
   const sf = program.getSourceFile(barrelPath);
   if (!sf) throw new Error(`cannot load barrel ${barrelPath}`);
   const moduleSymbol = checker.getSymbolAtLocation(sf);
@@ -82,7 +117,7 @@ function buildSymbolMap(barrelPath: string): Map<string, string> {
     const file = decl?.getSourceFile().fileName;
     // Skip symbols that resolve back into the barrel itself or into node_modules typings.
     if (!file || file === barrelPath || file.includes('/node_modules/')) continue;
-    map.set(exp.getName(), resolve(file));
+    map.set(exp.getName(), { file: resolve(file), exportName: exportNameIn(file, target) });
   }
   return map;
 }
@@ -96,6 +131,9 @@ function specifierFor(targetFile: string, fromFile: string): string {
   // creates the self-referential cycles — so stay relative when both sides live in one package.
   if (owner && !fromFile.startsWith(owner.root + '/')) {
     return `${owner.name}/lib/${stripExt(relative(owner.root, targetFile))}`;
+  }
+  if (APP_ABSOLUTE && targetFile.startsWith(PKG_ROOT + '/') && fromFile.startsWith(PKG_ROOT + '/')) {
+    return stripExt(relative(PKG_ROOT, targetFile));
   }
   let rel = stripExt(relative(resolve(fromFile, '..'), targetFile));
   if (!rel.startsWith('.')) rel = `./${rel}`;
@@ -129,8 +167,8 @@ for (const sf of program.getSourceFiles()) {
 function resolveSpecifier(spec: string, fromFile: string): string | null {
   const pkg = PACKAGES.find((p) => p.name === spec);
   if (pkg) return pkg.barrel;
-  if (!spec.startsWith('.')) return null;
-  const base = resolve(resolve(fromFile, '..'), spec);
+  if (!spec.startsWith('.') && !(APP_ABSOLUTE && spec.startsWith('src/'))) return null;
+  const base = spec.startsWith('.') ? resolve(resolve(fromFile, '..'), spec) : resolve(PKG_ROOT, spec);
   for (const cand of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`, base]) {
     if (BARRELS.has(cand)) return cand;
   }
@@ -162,13 +200,13 @@ for (const sf of program.getSourceFiles()) {
     const map = BARRELS.get(barrelPath)!;
     const isTypeOnlyClause = clause.isTypeOnly;
 
-    // group: target specifier -> list of binding texts
-    const groups = new Map<string, { names: string[]; typeOnly: boolean }>();
+    // Default imports cannot be merged with named ones, so they key separately.
+    const groups = new Map<string, { spec: string; names: string[]; typeOnly: boolean; isDefault: boolean }>();
     let allResolved = true;
     for (const el of clause.namedBindings.elements) {
       const name = (el.propertyName ?? el.name).text;
-      const target = map.get(name);
-      if (!target) {
+      const origin = map.get(name);
+      if (!origin) {
         allResolved = false;
         unresolved.set(
           `${relative(REPO, barrelPath)}:${name}`,
@@ -176,19 +214,23 @@ for (const sf of program.getSourceFiles()) {
         );
         break;
       }
-      const targetSpec = specifierFor(target, file);
+      const spec = specifierFor(origin.file, file);
       const typeOnly = isTypeOnlyClause || el.isTypeOnly;
-      const key = `${targetSpec} ${typeOnly}`;
-      const bucket = groups.get(key) ?? { names: [], typeOnly };
-      bucket.names.push(el.propertyName ? `${el.propertyName.text} as ${el.name.text}` : el.name.text);
+      const isDefault = origin.exportName === 'default';
+      const local = el.name.text;
+      // A default import has no binding list, so give each one its own group.
+      const key = isDefault ? `${spec} default ${local} ${typeOnly}` : `${spec} ${typeOnly}`;
+      const bucket = groups.get(key) ?? { spec, names: [], typeOnly, isDefault };
+      bucket.names.push(origin.exportName === local ? local : `${origin.exportName} as ${local}`);
       groups.set(key, bucket);
     }
     if (!allResolved) continue; // leave the whole statement alone; reported below
 
-    const lines = [...groups.entries()]
-      .map(([key, { names, typeOnly }]) => {
-        const targetSpec = key.split(' ')[0];
-        return `import ${typeOnly ? 'type ' : ''}{ ${names.join(', ')} } from '${targetSpec}';`;
+    const lines = [...groups.values()]
+      .map(({ spec, names, typeOnly, isDefault }) => {
+        const t = typeOnly ? 'type ' : '';
+        if (isDefault) return `import ${t}${names[0].split(' as ').pop()} from '${spec}';`;
+        return `import ${t}{ ${names.join(', ')} } from '${spec}';`;
       })
       .sort();
     edits.push({ start: stmt.getStart(sf), end: stmt.getEnd(), text: lines.join('\n') });

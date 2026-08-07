@@ -1,7 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, Modal, Typography } from '@mui/material';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
-import { REASON_FOR_VISIT_SEPARATOR } from 'utils';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
 import { FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';

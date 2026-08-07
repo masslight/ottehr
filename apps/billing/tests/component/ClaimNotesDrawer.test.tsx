@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { ClaimHistoryEntry } from 'utils';
+import { ClaimHistoryEntry } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClaimNotesDrawer } from '../../src/components/claim/ClaimNotesDrawer';
 

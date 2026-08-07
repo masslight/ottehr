@@ -1,8 +1,9 @@
 import { test } from '@playwright/test';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { createReference } from 'utils/lib/fhir/helpers';
+import { hasAttorneyInformationPage, hasEmployerInformationPage } from 'utils/lib/helpers/create-demo-visits';
 import {
-  createReference,
   getAttorneyInformationStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
@@ -12,13 +13,10 @@ import {
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
-  hasAttorneyInformationPage,
-  hasEmployerInformationPage,
   isoToDateObject,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-  PATIENT_RECORD_CONFIG,
-} from 'utils';
+} from 'utils/lib/helpers/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,

@@ -1,11 +1,11 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BRANDING_CONFIG } from 'utils';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { intakeFlowPageRoute } from '../../App';
 import { primaryIcon } from '../../branding/assets';
 import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../../branding/primaryIconVisibility';
-import { CustomContainer } from '../features/common';
 
 const CallEndedPage = (): JSX.Element => {
   const navigate = useNavigate();

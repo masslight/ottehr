@@ -1,4 +1,4 @@
-import { FEATURE_FLAGS_CONFIG } from 'utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 
 // todo: use FEATURE_FLAGS_CONFIG directly instead of re-exporting it
 export const FEATURE_FLAGS = {

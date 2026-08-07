@@ -17,16 +17,18 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
-import { ProviderNotifications } from 'src/features';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
+import { ProviderNotifications } from 'src/features/notifications/ProviderNotifications';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
   useEnrollPractitionerToERX,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { getPractitionerMissingFields } from 'src/shared/utils';
-import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
+import { getPractitionerMissingFields } from 'src/shared/utils/practitioner.helper';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { PendingErxEnrollmentDialog } from '../dialogs/PendingErxEnrollmentDialog';

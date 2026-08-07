@@ -1,4 +1,4 @@
-import { VALUE_SETS } from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 
 /**
  * Test data template factories

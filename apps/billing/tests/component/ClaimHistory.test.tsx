@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ClaimHistoryEntry } from 'utils';
+import { ClaimHistoryEntry } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClaimHistory } from '../../src/components/claim/ClaimHistory';
 

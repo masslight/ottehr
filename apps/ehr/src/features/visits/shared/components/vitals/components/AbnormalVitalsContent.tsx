@@ -1,7 +1,8 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
-import { VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetAbnormalVitals } from '../hooks/useGetVitals';
 import VitalHistoryElement from './VitalsHistoryEntry';
 

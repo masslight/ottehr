@@ -1,7 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DocumentReference } from 'fhir/r4b';
-import { RECEIPT_CODE } from 'utils';
+import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { useApiClients } from './useAppClients';
 
 export interface useGetEncounterInput {

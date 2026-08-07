@@ -4,9 +4,9 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getPractitionerMissingFields } from 'src/shared/utils';
-import { RoleType } from 'utils';
+import { getPractitionerMissingFields } from 'src/shared/utils/practitioner.helper';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { getErxPatientSyncErrorMessage, useErxPatientVitals } from '../hooks/useErxPatientVitals';
 import {
   useCheckPractitionerEnrollment,

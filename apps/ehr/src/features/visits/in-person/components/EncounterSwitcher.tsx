@@ -11,7 +11,7 @@ import {
   getEncounterDateTime,
   getEncounterDisplayName,
   getInteractionModeForEncounter,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../shared/stores/appointment/reset-exam-observations';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';

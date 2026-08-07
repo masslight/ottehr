@@ -25,33 +25,32 @@ import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { groupExamFindingsBySection } from 'utils/lib/config-helpers/exam-observations';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { RosFindingState, RosFindingStateLabel } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import {
   AdminGetTemplateDetailOutput,
-  CreateLabCoverageInfo,
-  CreateLabPaymentMethod,
-  groupExamFindingsBySection,
   isTemplateCptCodeInfo,
-  LAB_PAYMENT_METHOD_DISPLAY,
-  LabPaymentMethod,
-  nameLabTest,
-  RosFindingState,
-  RosFindingStateLabel,
-  TEMPLATE_SECTION_DEFAULT_ACTIONS,
-  TEMPLATE_SECTIONS_IN_ORDER,
-  TEMPLATE_SECTIONS_NO_APPEND,
-  TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCodeInfo,
   TemplateCptCodeInfo,
   TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
   TemplateInHouseMedicationDetail,
-  TemplatePreviewApplyOptions,
   TemplateProcedurePlan,
+} from 'utils/lib/types/data/admin-template.types';
+import {
+  TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  TEMPLATE_SECTIONS_IN_ORDER,
+  TEMPLATE_SECTIONS_NO_APPEND,
+  TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplatePreviewApplyOptions,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
   TemplateSectionKey,
-} from 'utils';
+} from 'utils/lib/types/data/apply-template.types';
+import { LAB_PAYMENT_METHOD_DISPLAY } from 'utils/lib/types/data/labs/labs.constants';
+import { CreateLabCoverageInfo, CreateLabPaymentMethod, LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
 import { useGetCreateExternalLabResources } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 

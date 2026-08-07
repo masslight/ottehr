@@ -4,14 +4,9 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentStatusChip';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import {
-  getAdmitterPractitionerId,
-  getAttendingPractitionerId,
-  getInPersonVisitStatus,
-  visitStatusArray,
-  VisitStatusLabel,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { visitStatusArray, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../../hooks/useAppClients';

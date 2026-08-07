@@ -5,11 +5,9 @@ import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import {
-  GetVitalsForListOfEncountersResponseData,
-  InPersonAppointmentInformation,
-  OrdersForTrackingBoardTable,
-} from 'utils';
+import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
 import { dataTestIds } from '../constants/data-test-ids';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';

@@ -1,4 +1,4 @@
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { intakeLogo } from '../../../branding/assets';
 import { CustomContainerFactory } from '../../../components/CustomContainerFactory';
 import Footer from '../../components/Footer';

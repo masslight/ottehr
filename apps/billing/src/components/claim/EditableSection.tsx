@@ -3,7 +3,7 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, Collapse, Typo
 import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import { DefaultValues, FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 
 interface EditableSectionProps<T> {
   title: string | ReactElement;

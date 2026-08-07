@@ -1,12 +1,12 @@
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CancelRadiologyOrderZambdaInput,
-  EMPTY_PAGINATION,
-  getApiError,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
-} from 'utils';
+} from 'utils/lib/types/api/radiology';
+import { EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
 import {
   cancelRadiologyOrder,
   getRadiologyOrders,

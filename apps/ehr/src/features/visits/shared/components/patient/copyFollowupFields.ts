@@ -1,10 +1,10 @@
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  AllChartValues,
   ChartDataRequestedFields,
-  CopyableFollowupField,
   GetChartDataRequest,
   GetChartDataResponse,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { CopyableFollowupField } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 
 export interface CopyableFieldConfig {
   key: CopyableFollowupField;

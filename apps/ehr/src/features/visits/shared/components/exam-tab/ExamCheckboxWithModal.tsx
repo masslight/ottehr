@@ -22,7 +22,7 @@ import {
 import { ExamCardCheckboxWithModalComponent } from 'config-types/config/examination';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { ExamObservationComponentDTO } from 'utils';
+import { ExamObservationComponentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { buildAbnormalMap, buildAllOptionsNew, buildColumnMap, buildDescriptionMap } from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 

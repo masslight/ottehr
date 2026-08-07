@@ -3,8 +3,9 @@ import { Box, Chip, MenuItem, Popover, Stack, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import styled from 'styled-components';
-import { MedicationOrderStatusesType, medicationStatusDisplayLabelMap } from 'utils';
-import { ExtendedMedicationDataForResponse } from 'utils';
+import { medicationStatusDisplayLabelMap } from 'utils/lib/fhir/medication-administration';
+import { MedicationOrderStatusesType } from 'utils/lib/types/api/medication-administration.types';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { formatMedicationAdministrationReason } from '../util';
 

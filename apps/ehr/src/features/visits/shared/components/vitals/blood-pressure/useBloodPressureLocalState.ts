@@ -1,5 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { toVitalBloodPressureObservationMethod, VitalFieldNames, VitalsBloodPressureObservationDTO } from 'utils';
+import { toVitalBloodPressureObservationMethod } from 'utils/lib/fhir/vitals';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsBloodPressureObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { BloodPressureLocalState } from '../types';
 import { textToBloodPressureNumber } from './helpers';
 

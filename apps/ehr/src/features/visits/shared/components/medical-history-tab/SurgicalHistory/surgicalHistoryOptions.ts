@@ -1,4 +1,4 @@
-import { CPTCodeDTO } from 'utils';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const SURGICAL_HISTORY_OPTIONS: CPTCodeDTO[] = [
   { display: 'Adenoidectomy', code: '42830' },

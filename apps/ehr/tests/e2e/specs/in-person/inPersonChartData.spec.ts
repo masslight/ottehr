@@ -27,14 +27,11 @@ import {
   testTextComponent,
   waitForFieldSave,
 } from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
-import {
-  chooseJson,
-  DEFAULT_PROGRESS_NOTE_CONFIG,
-  getFirstName,
-  getLastName,
-  ProgressNoteConfig,
-  PROVIDER_CONFIG,
-} from 'utils';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
+import { ProgressNoteConfig } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { AllergiesPage, expectAllergiesPage } from '../../page/in-person/AllergiesPage';
 

@@ -3,14 +3,14 @@ import { DocumentReference } from 'fhir/r4b';
 import { useEffect, useRef } from 'react';
 import { extractPhotoId } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import {
   DocumentType,
-  LOINC_SYSTEM,
-  PHOTO_ID_CARD_CODE,
   PHOTO_ID_EXTRACTION_EXTENSION_URL,
   PhotoIdExtraction,
   PhotoIdExtractionFields,
-} from 'utils';
+} from 'utils/lib/types/data/documents';
+import { PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { CardFieldSuggestion, normalizeForComparison, readStoredExtension } from './useInsuranceCardExtraction';
 
 export interface UsePhotoIdExtractionResult {

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
-import { chooseJson } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 
 export const CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id';

@@ -2,7 +2,7 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { Box, IconButton, Link } from '@mui/material';
 import { FC, useContext } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { IntakeThemeContext } from '../../contexts';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 
 interface NonImageCardComponentProps {
   name: string;

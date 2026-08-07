@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { VitalFieldNames, VitalsVisionObservationDTO, VitalsVisionOption } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsVisionObservationDTO, VitalsVisionOption } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { VisionLocalState } from '../types';
 
 export function useVisionLocalState(): VisionLocalState {

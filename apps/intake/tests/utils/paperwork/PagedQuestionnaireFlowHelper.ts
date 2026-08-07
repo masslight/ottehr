@@ -2,18 +2,14 @@ import { expect, Locator, Page } from '@playwright/test';
 import type { QuestionnaireConfigType, ValueSetsConfig } from 'config-types';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  buildEnableWhenContext,
-  checkFieldHidden,
-  createQuestionnaireFromConfig,
-  evalEnableWhen,
-  evalRequired,
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  IntakeQuestionnaireItem,
-  mapQuestionnaireAndValueSetsToItemsList,
-  VALUE_SETS,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from 'utils';
+import { checkFieldHidden } from 'utils/lib/config-helpers/intake-paperwork';
+import { createQuestionnaireFromConfig } from 'utils/lib/config-helpers/shared-questionnaire';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { buildEnableWhenContext, evalEnableWhen, evalRequired } from 'utils/lib/helpers/paperwork/validation';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../locators';
 import {

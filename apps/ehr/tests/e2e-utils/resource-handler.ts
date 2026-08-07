@@ -17,21 +17,22 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
-  cleanAppointmentGraph,
-  CreateAppointmentResponse,
-  createFetchClientWithOystehrAuth,
-  createSampleAppointments,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
-  formatPhoneNumber,
-  genderMap,
+} from 'utils/lib/fhir/constants';
+import { genderMap } from 'utils/lib/fhir/helpers';
+import { RelationshipOption } from 'utils/lib/fhir/patientMasterRecord';
+import {
+  createSampleAppointments,
   GetPaperworkAnswers,
-  RelationshipOption,
   SampleAppointmentResponse,
-  ServiceMode,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/helpers/create-demo-visits';
+import { createFetchClientWithOystehrAuth, formatPhoneNumber } from 'utils/lib/helpers/helpers';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
+import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { createE2eTestOystehrClient } from './helpers/tests-utils';

@@ -1,6 +1,12 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE, ReflexLabDTO, UnsolicitedLabDTO } from 'utils';
+import { PSC_LOCALE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  LabOrderDetailedPageDTO,
+  LabOrderResultDetails,
+  ReflexLabDTO,
+  UnsolicitedLabDTO,
+} from 'utils/lib/types/data/labs/labs.types';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
