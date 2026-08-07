@@ -267,7 +267,10 @@ export type DeleteRadiologyResultZambdaOutput = Record<string, never>;
 export const UploadRadiologyResultZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
   /** Z3 URL of the already-uploaded file (browser PUTs the bytes first via a presigned URL). */
-  z3URL: z.string().min(1, 'z3URL is required and must be a string'),
+  z3URL: z
+    .string()
+    .min(1, 'z3URL is required and must be a string')
+    .refine((url) => url.toLowerCase().endsWith('.pdf'), 'Only PDF files are supported'),
   // nullish: an explicit null is treated as absent (preserves previous behavior).
   title: z.string().nullish(),
 });

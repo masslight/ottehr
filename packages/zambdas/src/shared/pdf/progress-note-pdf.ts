@@ -1,6 +1,6 @@
 import { BUCKET_NAMES, Secrets } from 'utils';
 import { createClinicalOystehrClient } from '../helpers';
-import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
+import { DataComposer, PdfRenderConfig, renderPdf, StyleFactory, uploadPdfToStorage } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
   composeAdditionalQuestions,
@@ -374,16 +374,44 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
   ],
 };
 
+/**
+ * Single render path for the visit/progress note: resolves the service category catalog, composes the
+ * note data and renders it. Both the uploading (`createProgressNotePdf`) and the bytes-only
+ * (`createProgressNotePdfBytes`) entry points go through here so the note can never drift between the
+ * document stored on the visit and the copy merged into an outbound fax packet.
+ */
+const renderProgressNote = async (
+  input: ProgressNoteInput,
+  secrets: Secrets | null,
+  token: string
+): Promise<{ bytes: Uint8Array; data: ProgressNoteData }> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
+  const data = composeProgressNoteData({ ...input, serviceCategories });
+  return { bytes: await renderPdf(data, progressNoteRenderConfig, token), data };
+};
+
+/**
+ * Renders the visit/progress note and returns the raw PDF bytes without uploading anything or
+ * touching any DocumentReference. Used when the note has to be regenerated on the fly (e.g. for an
+ * outbound fax packet of an unsigned visit) and must not become the canonical visit note.
+ */
+export const createProgressNotePdfBytes = async (
+  input: ProgressNoteInput,
+  secrets: Secrets | null,
+  token: string
+): Promise<Uint8Array> => {
+  return (await renderProgressNote(input, secrets, token)).bytes;
+};
+
 export const createProgressNotePdf = async (
   input: ProgressNoteInput,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
-  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
-  return generatePdf(
-    { ...input, serviceCategories },
-    composeProgressNoteData,
-    progressNoteRenderConfig,
+  const { bytes, data } = await renderProgressNote(input, secrets, token);
+
+  const pdfInfo = await uploadPdfToStorage(
+    bytes,
     {
       patientId: input.patient.id!,
       fileName: 'VisitNote.pdf',
@@ -392,4 +420,6 @@ export const createProgressNotePdf = async (
     secrets,
     token
   );
+
+  return { pdfInfo, attached: data.attachmentDocRefs };
 };

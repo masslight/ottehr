@@ -1,9 +1,3 @@
-// The well-known tag whose application by a rule terminates a rules-engine run and holds the claim.
-// It lives in utils because the rule schemas canonicalize free-text tag input against it and the
-// billing app's rule builder displays it; everything else about the engines (FHIR storage,
-// evaluation) is backend-only and lives in packages/zambdas/src/billing/rules-engine/.
-export const HOLD_TAG_NAME = 'Hold';
-
 // ---------------------------------------------------------------------------
 // Rules engines
 //

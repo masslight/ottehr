@@ -39,8 +39,8 @@ export class ClaudeClient {
       anthropicApiKey,
       temperature: 0,
       clientOptions: {
-        timeout: 5000, // 5 seconds (in milliseconds)
-        maxRetries: 5, // Number of retries on failure
+        timeout: 5000,
+        maxRetries: 5,
       },
     });
   }
@@ -51,7 +51,6 @@ export class ClaudeClient {
 }
 
 let chatbot: ChatAnthropic;
-// let chatbotVertexAI: ChatVertexAI;
 
 export function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient.
@@ -129,9 +128,9 @@ export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  responseSchema?: object
+  responseSchema?: object,
+  model: string = VERTEX_AI_MODEL
 ): Promise<string> {
-  // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
@@ -151,14 +150,16 @@ export async function invokeChatbotVertexAI(
   );
 
   let resolved = false;
+  let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
   const requests = backoffTimes.map(async (backoffTime) => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
-    if (resolved) return null; // Skip if already resolved
+    // Reject rather than resolve, so a skipped attempt can never become Promise.any's winning value.
+    if (resolved || terminal) throw new Error('Vertex AI attempt superseded');
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${VERTEX_AI_MODEL}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${model}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -180,11 +181,14 @@ export async function invokeChatbotVertexAI(
       );
 
       if (!response.ok && shouldRetry(response.status)) {
-        throw new Error(`Retryable error: ${response.status}`);
+        // Carry Vertex's own message: if every attempt fails this is all the caller gets to go on.
+        throw new Error(`Retryable error: ${response.status} ${(await response.text()).slice(0, 500)}`);
       }
 
       if (response.ok) {
         resolved = true;
+      } else {
+        terminal = true;
       }
       return response;
     } catch (error) {
@@ -194,10 +198,47 @@ export async function invokeChatbotVertexAI(
     }
   });
 
-  const response = await (await Promise.any(requests))?.json();
+  let settled: Response;
+  try {
+    settled = await Promise.any(requests);
+  } catch (error) {
+    // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
+    // the most common failure mode stays as opaque as the TypeError this used to throw.
+    const reasons =
+      error instanceof AggregateError
+        ? error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)))
+        : [error instanceof Error ? error.message : String(error)];
+    throw new Error(`Vertex AI request failed after ${requests.length} attempts: ${reasons.join('; ')}`);
+  }
 
-  console.log(JSON.stringify(response));
-  return response.candidates[0].content.parts[0].text;
+  const body = await settled.text();
+  // Unchecked, an error body fell through to `candidates[0]` and every Vertex failure surfaced as
+  // `TypeError: Cannot read properties of undefined` with an empty stack.
+  if (!settled.ok) {
+    throw new Error(`Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`);
+  }
+
+  // Size only: on a transcription call the body is the transcript, which is PHI.
+  console.log(`Vertex AI responded with ${body.length} bytes`);
+  let response: any;
+  try {
+    response = JSON.parse(body);
+  } catch {
+    // A proxy's HTML error page or a truncated response would otherwise throw a bare SyntaxError.
+    throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
+  }
+  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS finishReason).
+    // Report the reason, not the body — a cut-off candidate can still carry partial transcript.
+    const reason = JSON.stringify({
+      finishReason: response?.candidates?.[0]?.finishReason,
+      promptFeedback: response?.promptFeedback,
+      usageMetadata: response?.usageMetadata,
+    });
+    throw new Error(`Vertex AI returned no text: ${reason}`);
+  }
+  return text;
 }
 
 /**
@@ -257,8 +298,8 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
       clientOptions: {
-        timeout: 10000, // 5 seconds (in milliseconds)
-        maxRetries: 1, // Number of retries on failure
+        timeout: 10000,
+        maxRetries: 1,
       },
     });
   }

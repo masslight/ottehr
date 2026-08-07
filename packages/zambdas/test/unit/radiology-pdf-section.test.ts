@@ -43,11 +43,12 @@ describe('radiology PDF section', () => {
       drawnLines({
         radiology: [{ name: '71045 — X-Ray Chest', performedBy: 'Dr. Performer', result: 'No acute findings' }],
       })
-    ).toEqual(['71045 — X-Ray Chest', 'Performed by: Dr. Performer', 'Final Read: No acute findings']);
+    ).toEqual(['Results:', '71045 — X-Ray Chest', 'Performed by: Dr. Performer', 'Final Read: No acute findings']);
   });
 
   test('omits the line when no performer was recorded', () => {
     expect(drawnLines({ radiology: [{ name: '71045 — X-Ray Chest', result: 'No acute findings' }] })).toEqual([
+      'Results:',
       '71045 — X-Ray Chest',
       'Final Read: No acute findings',
     ]);

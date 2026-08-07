@@ -23,6 +23,8 @@
             "Zambda:Function:get-standalone-paperwork",
             "Zambda:Function:update-paperwork-in-progress",
             "Zambda:Function:get-presigned-file-url",
+            "Zambda:Function:get-insurance-card-suggestions",
+            "Zambda:Function:get-photo-id-suggestions",
             "Zambda:Function:get-appointment-details",
             "Zambda:Function:patch-paperwork",
             "Zambda:Function:submit-paperwork",

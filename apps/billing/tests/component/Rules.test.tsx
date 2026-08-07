@@ -216,7 +216,7 @@ describe('ConditionalEditor', () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 
-  it('offers only existing tags (plus the built-in Hold) in the apply-tag picker', async () => {
+  it('offers only existing tags (plus the built-in system-managed tags) in the apply-tag picker', async () => {
     searchBillingTagsMock.mockReset();
     searchBillingTagsMock.mockResolvedValue({ tags: [{ name: 'VIP', description: 'White-glove payers' }] });
     const conditional: RuleConditional = {
@@ -231,6 +231,7 @@ describe('ConditionalEditor', () => {
 
     expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Auto Accident/ })).toBeInTheDocument();
     expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
   });
 

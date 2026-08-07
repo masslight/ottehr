@@ -1223,7 +1223,7 @@ const resolveTelecomIntents = (
   return [{ op: 'replace', path: telecomPath, value: target }];
 };
 
-const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
+export const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
   const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
   const firstName = flattenedItems.find((field) => field.linkId === 'pcp-first')?.answer?.[0]?.valueString;
   const lastName = flattenedItems.find((field) => field.linkId === 'pcp-last')?.answer?.[0]?.valueString;
@@ -1347,6 +1347,54 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
   }
   return operations;
+};
+
+export interface PcpContactDetails {
+  firstName?: string;
+  lastName?: string;
+  practiceName?: string;
+  phone?: string;
+  fax?: string;
+  active: boolean;
+}
+
+export const getPcpPatchOpsFromDetails = (details: PcpContactDetails, patient: Patient): Operation[] => {
+  const currentPcpRef = patient.generalPractitioner?.[0]?.reference;
+
+  const existingPcp = currentPcpRef
+    ? patient.contained?.find(
+        (resource): resource is Practitioner =>
+          resource.resourceType === 'Practitioner' && `#${resource.id}` === currentPcpRef
+      )
+    : undefined;
+
+  const existingFirstName = existingPcp?.name?.[0]?.given?.[0];
+  const existingLastName = existingPcp?.name?.[0]?.family;
+
+  const existingPractice = existingPcp?.extension?.find(
+    (extension) => extension.url === `${PRIVATE_EXTENSION_BASE_URL}/practice-name`
+  )?.valueString;
+
+  const existingAddress = existingPcp?.address?.[0]?.text;
+  const existingPhone = existingPcp?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  const existingFax = existingPcp?.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+
+  const firstName = details.firstName ?? existingFirstName;
+  const lastName = details.lastName ?? existingLastName;
+  const practiceName = details.practiceName ?? existingPractice;
+  const phone = details.phone ?? existingPhone;
+  const fax = details.fax ?? existingFax;
+
+  const items: QuestionnaireResponseItem[] = [
+    { linkId: 'pcp-first', answer: firstName ? [{ valueString: firstName }] : undefined },
+    { linkId: 'pcp-last', answer: lastName ? [{ valueString: lastName }] : undefined },
+    { linkId: 'pcp-practice', answer: practiceName ? [{ valueString: practiceName }] : undefined },
+    { linkId: 'pcp-address', answer: existingAddress ? [{ valueString: existingAddress }] : undefined },
+    { linkId: 'pcp-number', answer: phone ? [{ valueString: phone }] : undefined },
+    { linkId: 'pcp-fax', answer: fax ? [{ valueString: fax }] : undefined },
+    { linkId: 'pcp-active', answer: [{ valueBoolean: details.active }] },
+  ];
+  return getPCPPatchOps(items, patient);
 };
 
 export const createUpdatePharmacyPatchOps = (

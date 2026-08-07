@@ -79,7 +79,11 @@ export interface OutboundDeliveryAttemptData {
   appointmentId?: string;
   recipientAddress: string;
   recipientName?: string;
+  recipientOrganization?: string;
+  recipientPhone?: string;
   documentReferenceId?: string;
+  faxPacketPageCount?: number;
+  faxPacketParts?: string[];
   communicationReference?: string;
   requesterReference?: string;
   senderOrganizationReference?: string;

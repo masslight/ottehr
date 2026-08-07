@@ -27,11 +27,15 @@ export const BILLING_INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string>
 };
 
 export interface BillingTag {
+  // Empty for a system-managed tag whose Basic definition hasn't been created yet.
   id: string;
   name: string;
   description: string;
   usage: number;
   updatedAt: string;
+  // System-managed tags (see ./system-tags.ts) are always returned by search-billing-tags and
+  // cannot be edited or deleted.
+  isSystemTag: boolean;
 }
 
 // Search/autocomplete option shapes — shared by the search-billing-* zambdas and the billing UI.
