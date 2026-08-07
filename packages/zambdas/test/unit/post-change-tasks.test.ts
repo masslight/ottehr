@@ -1,12 +1,7 @@
 import { Encounter } from 'fhir/r4b';
-import {
-  CODE_SYSTEM_ACT_CODE_V3,
-  NOTE_TYPE,
-  NoteDTO,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-  TaskIndicator,
-} from 'utils';
+import { CODE_SYSTEM_ACT_CODE_V3 } from 'utils/lib/helpers/rcm/constants';
+import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
 import { describe, expect, it } from 'vitest';
 import { getChartDataPostChangeTasks } from '../../src/shared/chart-data/post-change-tasks';
 

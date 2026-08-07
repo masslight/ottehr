@@ -8,15 +8,12 @@ import {
   Organization,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  ELIGIBILITY_BENEFIT_CODES,
-  findOrgMatchingReference,
-  getPayerUrl,
-  InsuranceCheckStatusWithDate,
-  InsuranceEligibilityCheckStatus,
-  parseCoverageEligibilityResponse,
-  removeTimeFromDate,
-} from 'utils';
+import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
+import { findOrgMatchingReference, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { ELIGIBILITY_BENEFIT_CODES } from 'utils/lib/telemed/constants';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
+import { removeTimeFromDate } from 'utils/lib/utils/date';
 
 interface InsuranceIds {
   primary: string;

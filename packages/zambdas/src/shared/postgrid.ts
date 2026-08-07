@@ -1,4 +1,4 @@
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 
 // PostGrid Print & Mail API
 // Docs: https://docs.postgrid.com

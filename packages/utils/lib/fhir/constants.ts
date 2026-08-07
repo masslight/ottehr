@@ -10,7 +10,8 @@ import {
   PractitionerRole,
   Schedule,
 } from 'fhir/r4b';
-import type { AppointmentType, CanonicalUrl } from '../types';
+import type { AppointmentType } from '../types/api/appointment.types';
+import type { CanonicalUrl } from '../types/common';
 import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   DISCHARGE_SUMMARY_CODE,

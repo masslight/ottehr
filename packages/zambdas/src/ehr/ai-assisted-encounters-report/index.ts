@@ -1,22 +1,21 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { Secrets } from 'utils/lib/secrets';
 import {
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
-  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
-  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  getAttendingPractitionerId,
-  getInPersonVisitStatus,
-  getPatientFirstName,
-  getPatientLastName,
-  getProviderNameWithProfession,
-  isInPersonAppointment,
-  isTelemedAppointment,
-  OTTEHR_MODULE,
-  Secrets,
-  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/ai-assisted-encounters-report.types';
+import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

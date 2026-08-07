@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
 import { backfillOutboundFaxAttempts } from './backfill-outbound-fax-attempts.helpers';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 

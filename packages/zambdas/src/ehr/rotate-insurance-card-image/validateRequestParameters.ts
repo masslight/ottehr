@@ -1,6 +1,8 @@
-import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY, RotateInsuranceCardImageInput } from 'utils';
+import { RotateInsuranceCardImageInput } from 'utils/lib/types/data/documents';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const RotateInsuranceCardImageBodySchema = z.object({
   documentReferenceId: z.string().uuid(),

@@ -1,5 +1,7 @@
-import { DeleteAdHocReportInput, DeleteAdHocReportInputSchema, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { DeleteAdHocReportInput, DeleteAdHocReportInputSchema } from 'utils/lib/types/adhoc/saved/saved.types';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validate-zod';
 
 export function validateRequestParameters(input: ZambdaInput): DeleteAdHocReportInput & { secrets: Secrets } {

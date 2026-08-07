@@ -1,13 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
-import {
-  AUTO_ACCIDENT_TAG_NAME,
-  BillingRuleInput,
-  DEFAULT_RULES_ENGINE,
-  HOLD_TAG_NAME,
-  RulesEngineType,
-  SYSTEM_MANAGED_TAGS,
-} from 'utils';
+import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME, SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';

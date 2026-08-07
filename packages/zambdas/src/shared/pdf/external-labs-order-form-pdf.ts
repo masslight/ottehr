@@ -2,26 +2,21 @@ import Oystehr from '@oystehr/sdk';
 import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { getPatientIdForLabOrder } from 'utils/lib/helpers/labs/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  APIError,
-  BRANDING_CONFIG,
-  BUCKET_NAMES,
-  CoverageOrgRank,
-  EXTERNAL_LAB_ERROR,
-  FHIR_IDENTIFIER_NPI,
-  formatPhoneNumberDisplay,
-  formatZipcodeForDisplay,
-  getFullestAvailableName,
-  getPatientIdForLabOrder,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
-  LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
-  PaymentResources,
-  Secrets,
   STATIC_COMPENDIUM_ACCOUNT_NUMBER,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { CoverageOrgRank, LabPaymentMethod, PaymentResources } from 'utils/lib/types/data/labs/labs.types';
+import { APIError, EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
 import { getLabFileName } from './labs-results-form-pdf';

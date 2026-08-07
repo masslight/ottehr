@@ -2,29 +2,27 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Questionnaire } from 'fhir/r4b';
 import {
-  FlowForm,
-  FlowService,
-  getSecret,
-  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
+  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+  SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  FlowForm,
+  FlowService,
   PaperworkFlow,
   PaperworkFlowListOutput,
   PaperworkFlowQuestionnaire,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  Secrets,
-  SecretsKeys,
-  SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
-  VIRTUAL_INTAKE_PAPERWORK_CANONICAL,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendErrors,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   CONSENT_ONLY_QUESTIONNAIRE_URL,
   getCanonicalUrlFromQ,

@@ -17,20 +17,20 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
 import {
   AllergyDTO,
   CommunicationDTO,
   CPTCodeDTO,
-  createCancellationTagOperations,
   ExamObservationDTO,
-  FHIR_RESOURCE_IS_GONE,
-  getPatchBinary,
   MedicalConditionDTO,
   MedicationDTO,
-  ObservationDTO,
   ProcedureDTO,
-} from 'utils';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
+import { FHIR_RESOURCE_IS_GONE } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -39,6 +39,9 @@ import {
 } from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';

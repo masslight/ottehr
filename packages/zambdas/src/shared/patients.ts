@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import { convertFhirNameToDisplayName } from 'utils';
+import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 
 export async function getPatientResourceById(patientId: string, oystehr: Oystehr): Promise<Patient> {
   return oystehr.fhir.get<Patient>({

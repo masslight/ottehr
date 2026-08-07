@@ -2,7 +2,7 @@ import { HealthcareService, Location, Practitioner, PractitionerRole } from 'fhi
 import { describe, expect, it } from 'vitest';
 import { PUBLIC_EXTENSION_BASE_URL } from '../fhir/constants';
 import { LOCATION_IN_PERSON_CODE, LOCATION_PHYSICAL_TYPE_SYSTEM } from '../fhir/location';
-import { ServiceMode } from '../types';
+import { ServiceMode } from '../types/common';
 import { scheduleOwnerSupportsServiceMode } from './scheduleUtils';
 
 const LOCATION_FORM_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`;

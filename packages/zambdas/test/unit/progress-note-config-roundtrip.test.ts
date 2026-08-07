@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
+import { ProgressNoteConfig } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import {
   DEFAULT_PROGRESS_NOTE_CONFIG,
   PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
-  ProgressNoteConfig,
-} from 'utils';
+} from 'utils/lib/utils/progress-note-config';
 import { describe, expect, test, vi } from 'vitest';
 import { getProgressNoteConfigPayload, saveProgressNoteConfig } from '../../src/shared/progress-note-config';
 

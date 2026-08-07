@@ -1,6 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { reconcileDraftTasksWithConfig } from '../../scheduled-outreach/producers/shared/produce-outreach-tasks';
 import {
   buildPlanDefinitionFromActions,

@@ -38,44 +38,27 @@ import {
   TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  createPatientDocumentList,
-  docRefIsLabGeneratedResult,
-  docRefIsOgHl7Transmission,
-  findExistingListByDocumentTypeCode,
-  getMimeType,
-  getPatchOperationsForNewMetaTags,
-  getPatchOperationToRemoveMetaTags,
-  getPayerId,
-  getPayerUrl,
-  isValidUUID,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  PatientMasterRecordResourceType,
-  replaceOperation,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-  TaskCoding,
-  TELEMED_VIDEO_ROOM_CODE,
-  User,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { getPayerId, getPayerUrl } from '../helpers/helpers';
+import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../helpers/labs/helpers';
+import { addOperation, replaceOperation } from '../helpers/operations';
+import { CODE_SYSTEM_COVERAGE_CLASS } from '../helpers/rcm/constants';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BookableResource,
-  CPTCodeDTO,
-  EncounterVirtualServiceExtension,
-  FHIR_CODE_REGEX,
-  HealthcareServiceWithLocationContext,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  VisitType,
-} from '../types';
+import { VisitStatusWithoutUnknown } from '../types/api/appointment.types';
+import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
+import { PractitionerLicense, PractitionerQualificationCode } from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { User } from '../types/api/user.types';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskCoding } from '../types/common';
+import { BookableResource, ServiceMode } from '../types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { FHIR_CODE_REGEX } from '../types/constants';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from '../types/data/labs/labs.constants';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { HealthcareServiceWithLocationContext } from '../types/data/paperwork.types';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from '../types/errors';
+import { getMimeType } from '../utils/file';
+import { isValidUUID } from '../validation/helper';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
@@ -105,6 +88,9 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from './constants';
+import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
+import { PatientMasterRecordResourceType } from './patientMasterRecord';
+import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';

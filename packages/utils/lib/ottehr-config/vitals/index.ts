@@ -1,5 +1,9 @@
 import * as z from 'zod';
-import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
+import {
+  VitalAlertCriticality,
+  VitalBloodPressureComponents,
+  VitalVisionComponents,
+} from '../../types/api/chart-data/chart-data.constants';
 
 export const VitalsConfigData = {
   'vital-temperature': {

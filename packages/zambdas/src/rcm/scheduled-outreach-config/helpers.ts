@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { PlanDefinition } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { rcmMeta } from '../../shared';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { rcmMeta } from '../../shared/helpers';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 

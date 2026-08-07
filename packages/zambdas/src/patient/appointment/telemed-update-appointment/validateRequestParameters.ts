@@ -1,7 +1,11 @@
 import { DateTime } from 'luxon';
-import { PersonSex, RequiredProps, Secrets, UpdateAppointmentRequestParams } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { PersonSex } from 'utils/lib/types/common';
+import { UpdateAppointmentRequestParams } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { RequiredProps } from 'utils/lib/types/typescript-helpers';
 import { z } from 'zod';
-import { phoneRegex, safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { phoneRegex, safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const PatientSchema = z.object({
   firstName: z.string().min(1),

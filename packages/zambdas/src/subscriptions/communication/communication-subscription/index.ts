@@ -3,10 +3,15 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, getEmailClient, sendSlackNotification, wrapHandler } from '../../../shared';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils/lib/types/common';
+import { getEmailClient } from '../../../shared/communication';
+import { sendSlackNotification } from '../../../shared/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { ZambdaInput } from '../../../shared/types';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

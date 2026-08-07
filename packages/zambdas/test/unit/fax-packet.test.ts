@@ -2,16 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import {
-  DISCHARGE_SUMMARY_CODE,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
-  LAB_RESULT_DOC_REF_CODING_CODE,
+} from 'utils/lib/types/api/fax.types';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreatePresignedUrl = vi.fn();

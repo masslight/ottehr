@@ -1,6 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
+import { STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR } from 'utils/lib/types/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 

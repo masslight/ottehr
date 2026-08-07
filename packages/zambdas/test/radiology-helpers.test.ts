@@ -5,7 +5,7 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
 import { describe, expect, test } from 'vitest';
 import {
   getMostRecentReport,

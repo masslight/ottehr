@@ -1,5 +1,5 @@
-import { makeCptCodeDisplay } from 'utils';
-import { drawRegularText } from '../../helpers/render';
+import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { CptCodes, EncounterInfo, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

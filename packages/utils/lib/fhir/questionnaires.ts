@@ -5,11 +5,13 @@ import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtua
 import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   IN_PERSON_INTAKE_PAPERWORK_URL,
-  PATIENT_RECORD_QUESTIONNAIRE,
+} from '../ottehr-config/intake-paperwork';
+import {
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
   VIRTUAL_INTAKE_PAPERWORK_URL,
-} from '../ottehr-config';
-import { CanonicalUrl } from '../types';
+} from '../ottehr-config/intake-paperwork-virtual';
+import { PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config/patient-record';
+import { CanonicalUrl } from '../types/common';
 import { INTAKE_PAPERWORK_QR_TAG } from './constants';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)

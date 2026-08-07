@@ -1,6 +1,7 @@
 import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, Location } from 'fhir/r4b';
-import { isLocationVirtual, OTTEHR_MODULE } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 
 /**
  * Retrieves all appointments that:

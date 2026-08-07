@@ -1,6 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EmCodeOutput, getEmCodes } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
+import { EmCodeOutput } from 'utils/lib/types/api/config/em-codes';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;

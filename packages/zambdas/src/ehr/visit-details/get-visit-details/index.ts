@@ -14,46 +14,43 @@ import {
   Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
+import { getEmailForIndividual, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
-  ConsentDetails,
   deconstructCanonicalUrl,
-  DISPLAY_DATE_FORMAT,
-  EHRVisitDetails,
-  FHIR_RESOURCE_NOT_FOUND,
-  flattenQuestionnaireAnswers,
-  getAttestedConsentFromEncounter,
   getCanonicalQuestionnaire,
-  getConsentAndRelatedDocRefsForAppointment,
-  getEmailForIndividual,
-  getFullestAvailableName,
-  getNameFromScheduleResource,
   getQuestionnaireForQR,
-  getSecret,
-  getTimezone,
-  INVALID_RESOURCE_ID_ERROR,
-  isAnnotationFollowupEncounter,
+  selectIntakeQuestionnaireResponse,
+} from 'utils/lib/fhir/questionnaires';
+import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import {
   isPracticeManagedQ,
-  isValidUUID,
   makeStandaloneFormDTO,
+  qrSentManually,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { PersistedFhirResource, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { ConsentDetails, EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_RESOURCE_ID_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  PersistedFhirResource,
-  qrSentManually,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  SecretsKeys,
-  selectIntakeQuestionnaireResponse,
-  StandaloneFormDTO,
-  Timezone,
-  TIMEZONES,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendErrors,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';

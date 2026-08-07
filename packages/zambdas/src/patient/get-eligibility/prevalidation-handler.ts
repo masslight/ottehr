@@ -11,19 +11,20 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BillingProviderDataObject } from 'utils/lib/fhir/billing';
+import { createFhirHumanName } from 'utils/lib/fhir/helpers';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { INSURANCE_COVERAGE_CODING } from 'utils/lib/telemed/constants';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
-  BillingProviderDataObject,
-  createFhirHumanName,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   GetEligibilityResponse,
-  getPayerUrl,
-  INSURANCE_COVERAGE_CODING,
-  InsuranceEligibilityCheckStatus,
-  InsurancePlanDTO,
-  Secrets,
-} from 'utils';
-import { createInsurancePlanDto, CreateRelatedPersonObject } from '../../shared';
+} from 'utils/lib/types/data/telemed/eligibility.types';
+import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
+import { CreateRelatedPersonObject } from '../../shared/coverage';
+import { createInsurancePlanDto } from '../../shared/insurances';
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,

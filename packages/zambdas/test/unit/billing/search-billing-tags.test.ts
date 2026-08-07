@@ -1,6 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { AUTO_ACCIDENT_SYSTEM_TAG, AUTO_ACCIDENT_TAG_NAME, HOLD_SYSTEM_TAG, HOLD_TAG_NAME } from 'utils';
+import {
+  AUTO_ACCIDENT_SYSTEM_TAG,
+  AUTO_ACCIDENT_TAG_NAME,
+  HOLD_SYSTEM_TAG,
+  HOLD_TAG_NAME,
+} from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-tags';
 import { systemTagBasic, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../../../src/billing/shared';

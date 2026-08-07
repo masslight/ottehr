@@ -1,6 +1,6 @@
 import { type QuestionnaireConfigType, type ServiceCategoryConfig } from 'config-types';
 import { describe, expect, it } from 'vitest';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS, SERVICE_CATEGORY_SYSTEM } from '../fhir';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS, SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../helpers/paperwork/paperwork';
 import { buildReasonForVisitFromConfig, createQuestionnaireFromConfig } from './shared-questionnaire';
 

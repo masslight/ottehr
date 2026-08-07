@@ -1,8 +1,11 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { practiceManagedQuestionnaireToFhir } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { practiceManagedQuestionnaireToFhir } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { handleFormInFlows, patchQuestionnaireVersion, validateFormIsExcludedFromFlows } from '../helpers';
 import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
