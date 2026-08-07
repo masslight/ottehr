@@ -157,7 +157,7 @@ export const Tasks: React.FC = () => {
         if (Object.keys(filtersToPersist).length > 0) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
         } else {
-          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({}));
         }
       },
     });
@@ -173,6 +173,11 @@ export const Tasks: React.FC = () => {
         const value = filters[key];
         queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
       }
+      setSearchParams(queryParams);
+    }
+    if (searchParams.size === 0 && persistedFilters == null) {
+      const queryParams = new URLSearchParams();
+      queryParams.set('status', 'ready,in-progress');
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
