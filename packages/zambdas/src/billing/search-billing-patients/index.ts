@@ -10,7 +10,7 @@ import {
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
   formatAddress,
-  searchOnClinicalIDs,
+  searchPatientsByClinicalIds,
 } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -44,16 +44,15 @@ async function performEffect(
 
   let results: Patient[] = [];
   let total: number = 0;
-  // These two parameters are searches on extension, not currently supported by Oystehr FHIR server
   if (params.uuid || params.identifier) {
-    const searchAll = await searchOnClinicalIDs(
+    const searchAll = await searchPatientsByClinicalIds({
       oystehr,
-      searchParams,
-      params.offset ?? DEFAULT_OFFSET,
-      params.pageSize ?? DEFAULT_PAGE_SIZE,
-      params.uuid,
-      params.identifier
-    );
+      baseSearchParams: searchParams,
+      offset,
+      pageSize,
+      uuid: params.uuid,
+      friendlyId: params.identifier,
+    });
     total = searchAll.total;
     results = searchAll.results;
   } else {

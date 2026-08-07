@@ -61,11 +61,12 @@ import {
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
-  addClinicalPatientIdentifier,
+  addClinicalPatientIdentifiers,
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
+  clinicalFriendlyIdIdentifier,
   clinicalPatientIdentifier,
   CURRENT_STATUS_TAG_SYSTEM,
   EXCLUDE_WORKING_COPIES_PARAMS,
@@ -3421,10 +3422,75 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
-  describe('addClinicalPatientIdentifier', () => {
+  describe('addClinicalPatientIdentifiers', () => {
+    it('adds the friendly id alongside the clinical patient id in one patch', async () => {
+      const patch = vi.fn().mockResolvedValue({});
+      await addClinicalPatientIdentifiers({
+        oystehr: {
+          fhir: {
+            patch,
+          },
+        } as unknown as Oystehr,
+        patient: {
+          ...billingResources.patient,
+          extension: [
+            ...(billingResources.patient.extension ?? []),
+            { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '1015' },
+          ],
+        },
+        clinicalPatientId: 'patient-123',
+      });
+
+      expect(patch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operations: [
+            {
+              op: 'add',
+              path: '/identifier',
+              value: [clinicalPatientIdentifier('patient-123'), clinicalFriendlyIdIdentifier('1015')],
+            },
+          ],
+        }),
+        expect.anything()
+      );
+    });
+
+    it('adds only the identifier that is missing', async () => {
+      const patch = vi.fn().mockResolvedValue({});
+      await addClinicalPatientIdentifiers({
+        oystehr: {
+          fhir: {
+            patch,
+          },
+        } as unknown as Oystehr,
+        patient: {
+          ...billingResources.patient,
+          identifier: [clinicalPatientIdentifier('patient-123')],
+          extension: [
+            ...(billingResources.patient.extension ?? []),
+            { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '1015' },
+          ],
+        },
+        clinicalPatientId: 'patient-123',
+      });
+
+      expect(patch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operations: [
+            {
+              op: 'add',
+              path: '/identifier/-',
+              value: clinicalFriendlyIdIdentifier('1015'),
+            },
+          ],
+        }),
+        expect.anything()
+      );
+    });
+
     it('adds the identifier to a patient that has none', async () => {
       const patch = vi.fn().mockResolvedValue({});
-      await addClinicalPatientIdentifier({
+      await addClinicalPatientIdentifiers({
         oystehr: {
           fhir: {
             patch,
@@ -3454,7 +3520,7 @@ describe('create-billing-claim-from-encounter', () => {
 
     it('appends rather than replacing when the patient carries other identifiers', async () => {
       const patch = vi.fn().mockResolvedValue({});
-      await addClinicalPatientIdentifier({
+      await addClinicalPatientIdentifiers({
         oystehr: {
           fhir: {
             patch,
@@ -3490,7 +3556,7 @@ describe('create-billing-claim-from-encounter', () => {
 
     it('writes nothing when the identifier is already there', async () => {
       const patch = vi.fn();
-      await addClinicalPatientIdentifier({
+      await addClinicalPatientIdentifiers({
         oystehr: {
           fhir: {
             patch,
@@ -3512,7 +3578,7 @@ describe('create-billing-claim-from-encounter', () => {
         ...billingResources.patient,
         identifier: [clinicalPatientIdentifier('patient-123')],
       });
-      await addClinicalPatientIdentifier({
+      await addClinicalPatientIdentifiers({
         oystehr: {
           fhir: {
             patch,

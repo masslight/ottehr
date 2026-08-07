@@ -81,12 +81,11 @@ import {
 } from '../../shared';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
-  addClinicalPatientIdentifier,
+  addClinicalPatientIdentifiers,
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   billingCopyMatches,
   BillingFhirResource,
-  clinicalPatientIdentifier,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -102,7 +101,7 @@ import {
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
-  searchOnClinicalIDs,
+  searchPatientsByClinicalIds,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
@@ -540,7 +539,7 @@ export async function performEffect(
   }
 
   try {
-    await addClinicalPatientIdentifier({
+    await addClinicalPatientIdentifiers({
       oystehr: billingOystehr,
       patient: mainPatientRequestIndex === undefined ? mainPatient : (entries[mainPatientRequestIndex] as Patient),
       clinicalPatientId: clinicalResources.patient.id!,
@@ -963,40 +962,26 @@ export async function findMainBillingPatient(
   billingOystehr: Oystehr,
   clinicalPatientId: string
 ): Promise<{ total: number; patient?: Patient }> {
-  const identifier = clinicalPatientIdentifier(clinicalPatientId);
-  const byIdentifier = (
-    await billingOystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        {
-          name: 'identifier',
-          value: `${identifier.system}|${identifier.value}`,
-        },
-        {
-          name: '_sort',
-          value: '-_lastUpdated',
-        },
-        ...EXCLUDE_WORKING_COPIES_PARAMS,
-      ],
-    })
-  ).unbundle();
-  if (byIdentifier.length > 0) {
-    return {
-      total: byIdentifier.length,
-      patient: byIdentifier[0],
-    };
-  }
-
-  const scan = await searchOnClinicalIDs(
-    billingOystehr,
-    [{ name: '_sort', value: '-_lastUpdated' }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-    0,
-    1,
-    clinicalPatientId
-  );
+  const { total, results } = await searchPatientsByClinicalIds({
+    oystehr: billingOystehr,
+    baseSearchParams: [
+      {
+        name: '_sort',
+        value: '-_lastUpdated',
+      },
+      {
+        name: '_total',
+        value: 'accurate',
+      },
+      ...EXCLUDE_WORKING_COPIES_PARAMS,
+    ],
+    offset: 0,
+    pageSize: 1,
+    uuid: clinicalPatientId,
+  });
   return {
-    total: scan.total,
-    patient: scan.results[0],
+    total,
+    patient: results[0],
   };
 }
 

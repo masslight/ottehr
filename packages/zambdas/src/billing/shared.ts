@@ -232,6 +232,7 @@ const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
+export const SOURCE_FRIENDLY_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
@@ -262,12 +263,74 @@ export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier
   };
 }
 
-export function hasClinicalPatientIdentifier(patient: Patient, clinicalPatientId: string): boolean {
-  const identifier = clinicalPatientIdentifier(clinicalPatientId);
+export function clinicalFriendlyIdIdentifier(friendlyId: string): Identifier {
+  return {
+    system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+    value: friendlyId,
+  };
+}
+
+export function identifierSearchToken(identifier: Identifier): string {
+  return `${identifier.system}|${identifier.value}`;
+}
+
+export async function searchPatientsByClinicalIds({
+  oystehr,
+  baseSearchParams,
+  offset,
+  pageSize,
+  uuid,
+  friendlyId,
+}: {
+  oystehr: Oystehr;
+  baseSearchParams: SearchParam[];
+  offset: number;
+  pageSize: number;
+  uuid?: string;
+  friendlyId?: string;
+}): Promise<{ total: number; results: Patient[] }> {
+  // creates an OR search
+  const identifierTokens = [
+    ...(uuid ? [identifierSearchToken(clinicalPatientIdentifier(uuid))] : []),
+    ...(friendlyId ? [identifierSearchToken(clinicalFriendlyIdIdentifier(friendlyId))] : []),
+  ];
+
+  if (identifierTokens.length > 0) {
+    const indexed = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: 'identifier',
+          value: identifierTokens.join(','),
+        },
+        {
+          name: '_count',
+          value: String(pageSize),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    const results = indexed.unbundle();
+    if (results.length > 0) {
+      return {
+        total: indexed.total ?? results.length,
+        results,
+      };
+    }
+  }
+
+  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+}
+
+export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
   return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
 }
 
-export async function addClinicalPatientIdentifier({
+export async function addClinicalPatientIdentifiers({
   oystehr,
   patient,
   clinicalPatientId,
@@ -276,22 +339,26 @@ export async function addClinicalPatientIdentifier({
   patient: Patient;
   clinicalPatientId: string;
 }): Promise<void> {
+  const friendlyId = clinicalFriendlyIdOfCopy(patient);
+  const wanted = [
+    clinicalPatientIdentifier(clinicalPatientId),
+    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
+  ];
+
   await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    if (hasClinicalPatientIdentifier(current, clinicalPatientId)) return [];
-    const identifier = clinicalPatientIdentifier(clinicalPatientId);
+    const missing = wanted.filter((identifier) => !hasIdentifier(current, identifier));
+    if (missing.length === 0) return [];
     return current.identifier?.length
-      ? [
-          {
-            op: 'add',
-            path: '/identifier/-',
-            value: identifier,
-          },
-        ]
+      ? missing.map((identifier) => ({
+          op: 'add' as const,
+          path: '/identifier/-',
+          value: identifier,
+        }))
       : [
           {
-            op: 'add',
+            op: 'add' as const,
             path: '/identifier',
-            value: [identifier],
+            value: missing,
           },
         ];
   });
@@ -324,10 +391,12 @@ export async function searchOnClinicalIDs(
     results.push(...(await response).unbundle());
     return response;
   }, CLINICAL_ID_SCAN_PAGE_SIZE);
-  // Filter by clinical patient MRN
-  if (uuid) results = results.filter((p) => clinicalPatientIdOfCopy(p) === uuid);
-  // Filter by clinical patient friendly ID
-  if (friendlyId) results = results.filter((p) => clinicalFriendlyIdOfCopy(p) === friendlyId);
+  if (uuid || friendlyId) {
+    results = results.filter(
+      (p) =>
+        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+    );
+  }
   const total = results.length;
   results = results.slice(baseOffset, baseOffset + basePageSize);
   return { total, results };
