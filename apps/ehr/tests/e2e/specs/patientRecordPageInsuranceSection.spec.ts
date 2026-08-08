@@ -86,6 +86,11 @@ const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
 test.describe('Insurance Information Section non-mutating tests', () => {
+  // Serial so the shared appointment is created once. Without it, fullyParallel spreads these tests
+  // across workers and beforeAll — an appointment creation plus the harvest wait — runs once per
+  // worker. These tests only read, so serializing them costs far less than the extra setups.
+  test.describe.configure({ mode: 'serial' });
+
   let resourceHandler: ResourceHandler;
   let primaryInsuranceCarrier: string;
   let secondaryInsuranceCarrier: string;
@@ -254,26 +259,11 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].city.key);
     await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].zip.key);
   });
-});
 
-test.describe('Insurance Information Section mutating tests', () => {
-  let resourceHandler: ResourceHandler;
-
-  test.beforeAll(async () => {
-    const [createdResourceHandler, _createdPrimaryInsuranceCarrier, _createdSecondaryInsuranceCarrier] =
-      await createResourceHandler();
-    resourceHandler = createdResourceHandler;
-  });
-
-  test.beforeEach(async () => {
-    await resourceHandler.setResources();
-    await waitForAppointmentReady(resourceHandler);
-  });
-
-  test.afterEach(async () => {
-    await resourceHandler.cleanupResources();
-  });
-
+  // Kept with the read-only tests: every save here is rejected by field validation, so nothing is
+  // persisted and the shared appointment survives it — the same reasoning as the required-field
+  // test above. Declared last so that even if a save ever did get through, it cannot affect the
+  // tests that read the seeded values.
   test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
@@ -294,6 +284,26 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].zip.key, '11223344');
     await patientInformationPage.clickSaveChangesButton();
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+  });
+});
+
+test.describe('Insurance Information Section mutating tests', () => {
+  let resourceHandler: ResourceHandler;
+
+  test.beforeAll(async () => {
+    // No appointment here — beforeEach creates a fresh one for every test in this describe, so one
+    // made here would be immediately replaced and paid for once per worker.
+    const [createdResourceHandler] = await buildResourceHandler();
+    resourceHandler = createdResourceHandler;
+  });
+
+  test.beforeEach(async () => {
+    await resourceHandler.setResources();
+    await waitForAppointmentReady(resourceHandler);
+  });
+
+  test.afterEach(async () => {
+    await resourceHandler.cleanupResources();
   });
 
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
@@ -635,7 +645,10 @@ function waitForAppointmentReady(resourceHandler: ResourceHandler): Promise<unkn
   ]);
 }
 
-async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
+// Builds the handler and resolves the payer names its paperwork answers use. Deliberately does not
+// create an appointment: a describe whose every test creates its own in beforeEach would otherwise
+// pay for an extra unused one in beforeAll — once per worker that picks up any of its tests.
+async function buildResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
   const PROCESS_ID = `patientRecordInsuranceSection-${DateTime.now().toMillis()}`;
@@ -731,7 +744,13 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   const insuranceCarrier2ForResult = `${ic2?.name} (historical)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
-  await resourceHandler.setResources();
-  await waitForAppointmentReady(resourceHandler);
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
+}
+
+// For the describes that share one appointment across their tests.
+async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
+  const built = await buildResourceHandler();
+  await built[0].setResources();
+  await waitForAppointmentReady(built[0]);
+  return built;
 }
