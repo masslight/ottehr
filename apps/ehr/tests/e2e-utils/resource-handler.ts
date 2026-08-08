@@ -264,6 +264,7 @@ export class ResourceHandler {
       console.log(formatPhoneNumber(PATIENT_PHONE_NUMBER)!, phoneNumber);
 
       // Create appointment and related resources using zambda
+      const createStartedAt = Date.now();
       const appointmentData = await createSampleAppointments({
         oystehr: await this.apiClient,
         authToken: getAccessTokenFromUserJson(),
@@ -280,6 +281,12 @@ export class ResourceHandler {
         skipPaperwork: inputParams?.skipPaperwork,
         serviceCategory: inputParams?.serviceCategory,
       });
+      // Hooks are the largest single category in the EHR profile, and the readiness polls inside them
+      // turned out to cost almost nothing — nearly every one succeeds on its first attempt. That
+      // leaves the create-appointment call itself as the candidate, so time it explicitly rather than
+      // inferring it from what is left over.
+      console.log(`⏱ create-appointment took ${((Date.now() - createStartedAt) / 1000).toFixed(1)}s`);
+
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -333,10 +340,14 @@ export class ResourceHandler {
     console.log('Starting resource cleanup');
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
+    const cleanupStartedAt = Date.now();
     const metaTagCoding = getProcessMetaTag(this.#processId!);
     if (metaTagCoding?.tag?.[0]) {
       await cleanAppointmentGraph(metaTagCoding.tag[0], await this.apiClient);
     }
+    // Teardown is hook time too, and it is paid on exactly the same schedule as setup. If it turns
+    // out to rival creation, moving work off the critical path is as valuable as making it faster.
+    console.log(`⏱ cleanup took ${((Date.now() - cleanupStartedAt) / 1000).toFixed(1)}s`);
   }
 
   async waitTillAppointmentPreprocessed(id: string): Promise<void> {

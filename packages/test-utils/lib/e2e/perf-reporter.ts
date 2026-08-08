@@ -48,6 +48,7 @@ interface StepStat {
 const SLOWEST_TESTS_TO_PRINT = 20;
 const SLOWEST_FILES_TO_PRINT = 20;
 const SLOWEST_OPERATIONS_TO_PRINT = 15;
+const SLOWEST_HOOKS_TO_PRINT = 15;
 // Categories worth grouping call-by-call. `hook` and `fixture` titles name the specific hook, which
 // the per-file breakdown already localizes; `pw:api` and `expect` are where a run-over-run
 // regression actually shows up.
@@ -97,6 +98,10 @@ export default class PerfReporter implements Reporter {
   #workerBusy = new Map<number, number>();
   #categories = new Map<string, StepStat>();
   #operations = new Map<string, StepStat>();
+  // Hook time keyed by file and hook, because "hooks are 27% of the suite" is not yet an action. A
+  // hook that is expensive once per file is a different problem from one that is cheap but paid by
+  // every worker, and only the per-file split tells them apart.
+  #hooks = new Map<string, StepStat>();
   // Time inside a test that no step accounts for: test-body JavaScript, direct FHIR calls, hand
   // written waits. Accumulated per test and clamped there, because a single test can carry more step
   // time than its own duration (see #attributed below) and one such test would otherwise wipe out
@@ -134,6 +139,14 @@ export default class PerfReporter implements Reporter {
       category.count += 1;
       category.exclusive += exclusive;
       this.#categories.set(step.category, category);
+
+      if (step.category === 'hook') {
+        const hookKey = `${file} › ${step.title}`;
+        const hook = this.#hooks.get(hookKey) ?? { count: 0, exclusive: 0 };
+        hook.count += 1;
+        hook.exclusive += exclusive;
+        this.#hooks.set(hookKey, hook);
+      }
 
       if (!OPERATION_CATEGORIES.has(step.category)) return;
       const key = `${step.category}  ${operationName(step.title)}`;
@@ -218,6 +231,18 @@ export default class PerfReporter implements Reporter {
       for (const [key, stat] of operations.slice(0, SLOWEST_OPERATIONS_TO_PRINT)) {
         lines.push(
           `    ${seconds(stat.exclusive).padStart(9)}  ${String(stat.count).padStart(6)} calls  ` +
+            `avg ${seconds(stat.exclusive / stat.count).padStart(7)}  ${key}`
+        );
+      }
+      lines.push('');
+    }
+
+    if (this.#hooks.size > 0) {
+      lines.push(`  Slowest hooks (of ${this.#hooks.size}), by total exclusive time:`);
+      const hooks = [...this.#hooks.entries()].sort((a, b) => b[1].exclusive - a[1].exclusive);
+      for (const [key, stat] of hooks.slice(0, SLOWEST_HOOKS_TO_PRINT)) {
+        lines.push(
+          `    ${seconds(stat.exclusive).padStart(9)}  ${String(stat.count).padStart(4)} runs  ` +
             `avg ${seconds(stat.exclusive / stat.count).padStart(7)}  ${key}`
         );
       }
