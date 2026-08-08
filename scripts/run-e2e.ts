@@ -139,7 +139,7 @@ const recordServeMode = (mode: string): void => {
 const buildApp = (app: (typeof supportedApps)[number]): void => {
   const appEnv = envMapping[app][ENV];
   if (prebuiltBundleExists(app)) {
-    recordServeMode(`a ${app} production bundle built earlier in this run`);
+    recordServeMode(`the ${app} production bundle built earlier in this run`);
     return;
   }
   console.log(`Building ${app} (${appEnv}) to serve as a production build...`);
@@ -167,7 +167,7 @@ const buildApp = (app: (typeof supportedApps)[number]): void => {
   });
   const buildSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log(`Built ${app} in ${buildSeconds}s`);
-  recordServeMode(`a ${app} production bundle built in this job (${buildSeconds}s)`);
+  recordServeMode(`an ${app} production bundle built in this job (${buildSeconds}s)`);
 };
 
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
