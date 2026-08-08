@@ -21,7 +21,6 @@ import {
   fillRadioChoice,
   fillStringField,
   ValidationErrorResult,
-  waitForSubmitSettled,
 } from '../shared/field-filling-utils';
 import { UploadDocs } from '../UploadDocs';
 
@@ -629,18 +628,14 @@ export class PagedQuestionnaireFlowHelper {
     await searchInput.click();
     await searchInput.fill(pharmacyName);
 
-    // The debounce (300ms) and the Places call behind it both end in something visible: either the
-    // dropdown lists options or it says there are none. Waiting for whichever arrives costs what the
-    // search actually took instead of a flat 1500ms, and no longer races when Places is slow.
-    const noResults = this.page.getByText('No results');
-    await this.page
-      .getByRole('option')
-      .first()
-      .or(noResults)
-      .waitFor({ state: 'visible', timeout: 20_000 })
-      .catch(() => undefined);
+    // Wait for debounced search (300ms) + API call
+    await this.page.waitForTimeout(1500);
 
-    const hasNoResults = await noResults.isVisible().catch(() => false);
+    // Check if we have results or "No results"
+    const hasNoResults = await this.page
+      .getByText('No results')
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
 
     if (hasNoResults) {
       await searchInput.clear();
@@ -650,10 +645,7 @@ export class PagedQuestionnaireFlowHelper {
     // Select first matching option from dropdown (Playwright will wait for it)
     await this.page.getByRole('option').first().click();
 
-    // Deliberately still a sleep. Selecting an option kicks off a Places details call that populates
-    // hidden fields, and the thing that must finish — those fields holding values — has no rendering
-    // to wait on. Waiting for the dropdown to close would return before the details land and submit
-    // a half-populated pharmacy, so the constant stays until the form exposes the state to wait for.
+    // Wait for selection to process (Places API call for details + form population)
     await this.page.waitForTimeout(1000);
   }
 
@@ -1008,9 +1000,8 @@ export class PagedQuestionnaireFlowHelper {
       // Update testable list to only include fields that were successfully cleared
       const effectiveTestableFields = clearedFields;
       if (effectiveTestableFields.length > 0) {
-        const urlBeforeSubmit = this.page.url();
         await this.clickContinue();
-        await waitForSubmitSettled(this.page, urlBeforeSubmit);
+        await this.page.waitForTimeout(500);
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
@@ -1124,9 +1115,8 @@ export class PagedQuestionnaireFlowHelper {
           await this.clearField(fieldLinkId, item?.type);
         }
 
-        const urlBeforeSubmit = this.page.url();
         await this.clickContinue();
-        await waitForSubmitSettled(this.page, urlBeforeSubmit);
+        await this.page.waitForTimeout(500);
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
@@ -1202,9 +1192,8 @@ export class PagedQuestionnaireFlowHelper {
       if (effectiveInvalidFields.length === 0) {
         console.log(`[Phase 3] No clearable invalid fields to test`);
       } else {
-        const urlBeforeSubmit = this.page.url();
         await this.clickContinue();
-        await waitForSubmitSettled(this.page, urlBeforeSubmit);
+        await this.page.waitForTimeout(500);
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {

@@ -1,4 +1,4 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 /**
  * Shared utilities for filling form fields in tests.
@@ -181,30 +181,6 @@ export async function collectValidationErrors(page: Page): Promise<string[]> {
  * Collect detailed validation error information from the page
  * Returns structured object with field-specific errors, aggregate error, and all errors
  */
-/**
- * Wait for a form to answer a submit attempt, rather than sleeping through it.
- *
- * A submit resolves one of two ways: validation blocks it and helper text appears under the
- * offending fields, or it succeeds and the router moves on. Both are observable, so waiting for
- * "either has happened" costs whatever the app actually took. A fixed sleep paid its full duration
- * even when the answer arrived in a fraction of it, and still raced whenever the app was slower than
- * the constant someone picked — the worst of both.
- *
- * Resolves rather than throws when neither happens. Every caller already branches on which outcome
- * it got, and their own assertions describe a stuck form far better than a timeout here could.
- */
-export async function waitForSubmitSettled(page: Page, urlBeforeSubmit: string, timeout = 15_000): Promise<void> {
-  await expect
-    .poll(async () => page.url() !== urlBeforeSubmit || (await page.locator('[id$="-helper-text"]').count()) > 0, {
-      timeout,
-      intervals: [50, 100, 150, 250, 500],
-    })
-    .toBe(true)
-    .catch(() => {
-      console.log(`Submit at ${urlBeforeSubmit} produced neither navigation nor a validation error in ${timeout}ms`);
-    });
-}
-
 export async function collectValidationErrorsDetailed(page: Page): Promise<ValidationErrorResult> {
   const allErrors: string[] = [];
   const fieldErrors = new Map<string, string>();
