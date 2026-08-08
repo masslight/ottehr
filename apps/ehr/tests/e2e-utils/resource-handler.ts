@@ -283,8 +283,12 @@ export class ResourceHandler {
         throw new Error('Appointment not created');
       }
 
+      // Tag the log line with the suite process id and worker so a run's appointment creations can be
+      // attributed to a spec and a worker — that is what shows whether a describe's beforeAll is being
+      // re-run once per worker rather than once per file.
+      const creationContext = `[${this.#processId} worker=${process.env.TEST_WORKER_INDEX ?? '?'}]`;
       Object.values(appointmentData.resources).forEach((resource) => {
-        console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
+        console.log(`✅ created ${resource.resourceType}: ${resource.id} ${creationContext}`);
       });
 
       if (appointmentData.relatedPersonId) {

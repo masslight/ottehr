@@ -43,7 +43,10 @@ export default defineConfig({
   ],
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  workers: process.env.CI ? 6 : undefined,
+  // The runner has 8 cores. Workers spend most of their time waiting on the local zambda server and
+  // the dev server rather than burning CPU — the perf reporter puts per-worker utilization around
+  // 67-70% — so the extra two workers fill idle time rather than contend for cores.
+  workers: process.env.CI ? 8 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
 });
