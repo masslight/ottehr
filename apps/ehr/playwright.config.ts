@@ -43,15 +43,14 @@ export default defineConfig({
   ],
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  // Worker count is measured, and the measurement moved once the app stopped being served by a Vite
-  // dev server. With the dev server, 8 workers made every test slower — total test time ~1940s to
-  // ~2520s with wall clock flat. Against a static production build, 8 workers cost nothing per test
-  // (total test time +0.4%) and took 17% off wall clock, so the contention was the dev server rather
-  // than the runner's cores. 12 pushes past the core count deliberately: these tests spend most of
-  // their time waiting on the zambda server and FHIR rather than burning CPU. The thing to watch is
-  // total test time — if it climbs, workers are contending again, and the next suspect is the
-  // single-process zambda emulator.
-  workers: process.env.CI ? 12 : undefined,
+  // Worker count is measured, and 8 is the knee. Against the Vite dev server 8 workers made every
+  // test slower; against the production build they cost nothing per test (total test time +0.4%) and
+  // took 17% off wall clock, which is what this is set to. 12 overshoots: total test time rose 23.6%
+  // for only 8% off wall clock, buying parallelism by making every test slower and eating timeout
+  // headroom. Worker utilization at 12 spread to 33-74%, so the ceiling is the suite's own structure
+  // — ~31 files and several serial groups — rather than the runner. More workers need more
+  // independent work, not more cores.
+  workers: process.env.CI ? 8 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
 });
