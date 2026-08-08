@@ -340,7 +340,12 @@ jobs:
       environment: ${{ inputs.environment }}
 
   ehr-e2e-tests:
-    needs: deploy
+    # Depends on build-ehr-bundle only for ordering: without it this job can reach its download step
+    # before the bundle is uploaded, silently fall back to building in-job, and quietly lose the
+    # saving. The if: below deliberately doesn't gate on that job's result — it is
+    # continue-on-error, and a failed or skipped build must still let the tests run and build
+    # for themselves.
+    needs: [deploy, build-ehr-bundle]
     if: |
       always() && !cancelled() &&
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
@@ -352,7 +357,12 @@ jobs:
       aws_deploy_role: ${{ inputs.aws_deploy_role }}
 
   intake-e2e-tests:
-    needs: deploy
+    # Depends on build-intake-bundle only for ordering: without it this job can reach its download step
+    # before the bundle is uploaded, silently fall back to building in-job, and quietly lose the
+    # saving. The if: below deliberately doesn't gate on that job's result — it is
+    # continue-on-error, and a failed or skipped build must still let the tests run and build
+    # for themselves.
+    needs: [deploy, build-intake-bundle]
     if: |
       always() && !cancelled() &&
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&

@@ -519,10 +519,15 @@ export class ResourceHandler {
   // only fetches on mount. Poll what the read path actually reads.
   async waitTillAccountCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
     const apiClient = await this.apiClient;
+    // 150s, matching waitTillHarvestingDone. Harvest attaches these entries, so this step cannot
+    // finish before harvesting does — giving it a shorter ceiling than harvesting's own only produces
+    // spurious failures while the work is still legitimately in flight. It first shipped at 60s and
+    // timed out on a loaded runner for exactly that reason.
     const maxAttempts = 30;
-    const delayMs = 2_000;
+    const delayMs = 5_000;
     const startTime = Date.now();
     let count = 0;
+    let accountCount = 0;
     for (let i = 0; i < maxAttempts; i++) {
       const accounts = (
         await apiClient.fhir.search<Account>({
@@ -535,6 +540,7 @@ export class ResourceHandler {
       ).unbundle();
       // Concurrent harvest Tasks can briefly leave more than one active Account, one populated and the
       // rest empty, so take the best-populated one rather than assuming a single Account.
+      accountCount = accounts.length;
       count = accounts.reduce((max, account) => Math.max(max, account.coverage?.length ?? 0), 0);
       if (count >= expectedCount) {
         console.log(
@@ -547,9 +553,13 @@ export class ResourceHandler {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
     throw new Error(
-      `Patient ${patientId} account only listed ${count}/${expectedCount} coverages after ${
-        (maxAttempts * delayMs) / 1000
-      }s — harvest did not attach the expected Coverages to the billing Account`
+      accountCount === 0
+        ? `Patient ${patientId} had no active billing Account after ${
+            (maxAttempts * delayMs) / 1000
+          }s — harvest never created one`
+        : `Patient ${patientId} had ${accountCount} active billing Account(s), the best listing ${count}/${expectedCount} coverages after ${
+            (maxAttempts * delayMs) / 1000
+          }s — harvest created the Account but did not attach the expected Coverages`
     );
   }
 
