@@ -18,7 +18,7 @@ export default defineConfig({
     ['html'],
     ['list'],
     ['junit', { outputFile: 'test-results/results.xml' }],
-    ['./tests/e2e-utils/perf-reporter.ts'],
+    ['../../packages/test-utils/lib/e2e/perf-reporter.ts'],
   ],
   use: {
     baseURL: process.env.WEBSITE_URL,
