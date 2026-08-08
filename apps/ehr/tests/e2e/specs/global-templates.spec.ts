@@ -181,7 +181,13 @@ test.describe('Global Templates E2E', () => {
     await test.step('Verify MDM content', async () => {
       await sideMenu.clickAssessment();
       const assessmentPage = new InPersonAssessmentPage(page);
-      await assessmentPage.expectMdmField({ text: MDM_TEXT });
+      // Containment, not equality: apply-template's append action concatenates the template's MDM
+      // onto the chart's existing MDM (apply-template/index.ts, the 'For MDM on append' branch), and
+      // the second visit's MDM is not reliably empty when the template lands — CI has logged it
+      // already holding an unrelated global template's summary before the apply. Asserting equality
+      // made that a flake that re-ran this whole serial group; the template's contribution is what
+      // this test is actually about.
+      await assessmentPage.expectMdmField({ containsText: MDM_TEXT });
     });
 
     await test.step('Verify diagnosis is present', async () => {
