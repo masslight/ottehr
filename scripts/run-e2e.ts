@@ -110,17 +110,62 @@ const startZambdas = (): void => {
   });
 };
 
+// In CI the app is served to a fixed set of tests and never edited, so the dev server buys nothing
+// and costs a lot: it serves first-party source as unbundled ESM, transforming each of the EHR's
+// ~1,500 modules on demand. Playwright gives every test a fresh browser context with a cold HTTP
+// cache, so that request volume is re-paid per test rather than amortized, all through one Node
+// process shared by every worker. A production build is a handful of static chunks instead, and it
+// is also the artifact that actually ships. Local runs keep the dev server for HMR.
+// Only the EHR for now — intake has no preview script.
+const shouldServeProductionBuild = (app: (typeof supportedApps)[number]): boolean => isCI && app === 'ehr';
+
+const buildApp = (app: (typeof supportedApps)[number]): void => {
+  const appEnv = envMapping[app][ENV];
+  console.log(`Building ${app} (${appEnv}) to serve as a production build...`);
+  const startedAt = Date.now();
+  // The dev server resolves workspace packages without building them (turbo's start:iac task has no
+  // dependsOn), but a production build needs their build output and type declarations. Build the
+  // app's dependencies first; `<pkg>^...` selects dependencies only, not the app itself.
+  execSync(`npx turbo run build --filter=${app}-ui^...`, {
+    stdio: 'inherit',
+    env: { ...process.env, ENV: appEnv },
+  });
+  execSync(`npm run build:${appEnv}`, {
+    stdio: 'inherit',
+    cwd: path.join(process.cwd(), `apps/${app}`),
+    env: {
+      ...process.env,
+      ENV: appEnv,
+      // The build is memory hungry on this module count; the e2e4/e2e5 build scripts already raise
+      // the heap for the same reason.
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=8192`.trim(),
+    },
+  });
+  console.log(`Built ${app} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+};
+
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
+  if (shouldServeProductionBuild(app)) {
+    buildApp(app);
+  }
   return new Promise((resolve, reject) => {
-    const childProcess = spawn(
-      'cross-env',
-      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start:iac`, '--', '--verbosity=2'],
-      {
-        shell: true,
-        stdio: 'inherit',
-        env: { ...process.env, ENV: envMapping[app][ENV] },
-      }
-    );
+    const childProcess = shouldServeProductionBuild(app)
+      ? // --strictPort so a busy port fails loudly instead of serving somewhere wait-on isn't looking.
+        spawn('npm', ['run', 'preview', '--', '--strictPort'], {
+          shell: true,
+          stdio: 'inherit',
+          cwd: path.join(process.cwd(), `apps/${app}`),
+          env: { ...process.env, ENV: envMapping[app][ENV] },
+        })
+      : spawn(
+          'cross-env',
+          [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start:iac`, '--', '--verbosity=2'],
+          {
+            shell: true,
+            stdio: 'inherit',
+            env: { ...process.env, ENV: envMapping[app][ENV] },
+          }
+        );
 
     childProcess.on('error', (err) => {
       console.error(`App start error for ${app}:`, err);
