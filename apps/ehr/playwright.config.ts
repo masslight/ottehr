@@ -43,12 +43,14 @@ export default defineConfig({
   ],
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  // Measured, not guessed: eight workers on the eight-core runner made every test slower rather than
-  // filling idle time. Total test time went from ~1940s to ~2520s while wall clock stayed flat, because
-  // the workers contend with each other, the Vite dev server and the single-process zambda server that
-  // this job runs on the same machine. The idle third the perf reporter reports is that contention plus
-  // per-worker startup, and it is not recoverable by adding workers.
-  workers: process.env.CI ? 6 : undefined,
+  // Re-testing 8 after the earlier measurement was invalidated. Eight workers previously made every
+  // test slower — total test time ~1940s to ~2520s with wall clock flat — but that contention was
+  // mostly the Vite dev server transforming modules for six browsers at once. The job now serves a
+  // static production build, so per-request cost is far lower and the earlier result no longer
+  // applies. There is headroom on paper: the perfect-packing floor is ~172s against a ~284s wall
+  // clock. The risk is the other direction now — tests are ~2x faster, so per-worker startup and
+  // spec imports are a bigger share, and two more workers add two more of those.
+  workers: process.env.CI ? 8 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
 });
