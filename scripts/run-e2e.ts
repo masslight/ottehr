@@ -136,8 +136,13 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   });
 };
 
+// A run targets exactly one app, so only that app's dependencies, config and dev server are needed.
+// Setting up and serving the other one costs ~30s of startup and then leaves a Vite dev server
+// competing with the workers and the zambda server for the runner's cores for the whole run.
+const appsToPrepare = [appName] as const;
+
 const setupTestDeps = async (): Promise<void> => {
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     try {
       execSync(`node --experimental-vm-modules setup-test-deps.js`, {
         stdio: 'inherit',
@@ -153,7 +158,7 @@ const setupTestDeps = async (): Promise<void> => {
     }
   }
 
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
@@ -202,7 +207,7 @@ const startApps = async (): Promise<void> => {
     console.log('Zambdas are ready');
   }
 
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
   }
