@@ -148,6 +148,10 @@ jobs:
     if: |
       always() && !cancelled() && inputs.run_ehr_e2e &&
       (github.event_name != 'pull_request' || !contains(inputs.pr_body, '/skip-ehr-e2e'))
+    # Purely an optimization, so it must never fail the pipeline. It reads terraform state while the
+    # apply is writing it, which can fail transiently; if it does, no artifact is produced, the E2E
+    # job's download is a no-op and it builds in-job exactly as it did before this job existed.
+    continue-on-error: true
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 20
     permissions:
