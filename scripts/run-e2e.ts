@@ -112,16 +112,16 @@ const startZambdas = (): void => {
 };
 
 // In CI the app is served to a fixed set of tests and never edited, so the dev server buys nothing
-// and costs a lot: it serves first-party source as unbundled ESM, transforming each of the EHR's
-// ~1,500 modules on demand. Playwright gives every test a fresh browser context with a cold HTTP
+// and costs a lot: it serves first-party source as unbundled ESM, transforming each module on demand
+// (~1,500 of them for the EHR). Playwright gives every test a fresh browser context with a cold HTTP
 // cache, so that request volume is re-paid per test rather than amortized, all through one Node
-// process shared by every worker. A production build is a handful of static chunks instead, and it
-// is also the artifact that actually ships. Local runs keep the dev server for HMR.
-// Only the EHR for now — intake has no preview script.
-const shouldServeProductionBuild = (app: (typeof supportedApps)[number]): boolean => isCI && app === 'ehr';
+// process shared by every worker. Measured on the EHR suite, switching to a production build halved
+// total test time, with the gain on each spec proportional to how page-load-dominated it was. A
+// production build is also the artifact that actually ships. Local runs keep the dev server for HMR.
+const shouldServeProductionBuild = (_app: (typeof supportedApps)[number]): boolean => isCI;
 
-// A CI job can hand us a bundle built elsewhere — see the build-ehr-bundle job, which builds
-// alongside the terraform apply so this job doesn't wait for it. Anything already in the app's build
+// A CI job can hand us a bundle built elsewhere — see the build-<app>-bundle jobs, which build
+// alongside the terraform apply so this job doesn't wait for them. Anything already in the app's build
 // directory is used as-is; that job is responsible for only leaving one there when it is valid for
 // this environment.
 const prebuiltBundleExists = (app: (typeof supportedApps)[number]): boolean =>
