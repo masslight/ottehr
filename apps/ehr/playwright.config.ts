@@ -14,7 +14,12 @@ export default defineConfig({
   testIgnore: ['**/component/**', '**/unit/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  reporter: [['html'], ['list'], ['junit', { outputFile: 'test-results/results.xml' }]],
+  reporter: [
+    ['html'],
+    ['list'],
+    ['junit', { outputFile: 'test-results/results.xml' }],
+    ['./tests/e2e-utils/perf-reporter.ts'],
+  ],
   use: {
     baseURL: process.env.WEBSITE_URL,
     trace: process.env.CI ? 'on-first-retry' : 'on',
