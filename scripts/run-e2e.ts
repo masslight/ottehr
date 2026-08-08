@@ -321,9 +321,14 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
     });
   }
 
+  // --log-order=stream: turbo's default in CI is "grouped", which withholds a task's output until it
+  // exits. That made every line of a five-minute Playwright run carry the same timestamp — the flush
+  // — so the job log could say what happened but never when, and a slow phase was indistinguishable
+  // from a slow run. Only one task produces output here, so there is no interleaving to avoid.
+  const logOrder = '--log-order=stream';
   const commands = {
-    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2'],
-    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2'],
+    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2', logOrder],
+    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2', logOrder],
   };
 
   const baseArgs = commands[testType];
