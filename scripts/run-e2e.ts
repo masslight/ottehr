@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 
@@ -119,8 +120,19 @@ const startZambdas = (): void => {
 // Only the EHR for now — intake has no preview script.
 const shouldServeProductionBuild = (app: (typeof supportedApps)[number]): boolean => isCI && app === 'ehr';
 
+// A CI job can hand us a bundle built elsewhere — see the build-ehr-bundle job, which builds
+// alongside the terraform apply so this job doesn't wait for it. Anything already in the app's build
+// directory is used as-is; that job is responsible for only leaving one there when it is valid for
+// this environment.
+const prebuiltBundleExists = (app: (typeof supportedApps)[number]): boolean =>
+  fs.existsSync(path.join(process.cwd(), 'apps', app, 'build', 'index.html'));
+
 const buildApp = (app: (typeof supportedApps)[number]): void => {
   const appEnv = envMapping[app][ENV];
+  if (prebuiltBundleExists(app)) {
+    console.log(`Using the ${app} bundle built earlier in this run; skipping the build.`);
+    return;
+  }
   console.log(`Building ${app} (${appEnv}) to serve as a production build...`);
   const startedAt = Date.now();
   // The dev server resolves workspace packages without building them (turbo's start:iac task has no
