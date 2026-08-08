@@ -112,6 +112,9 @@ jobs:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
           NODE_OPTIONS: "--max-old-space-size=8192"
+          # TEMPORARY (measurement branch): force every suite to really execute so the run
+          # summary reports true timings instead of restored-from-cache ones.
+          TURBO_FORCE: true
 
       - name: Test run summary
         if: ${{ !cancelled() }}
