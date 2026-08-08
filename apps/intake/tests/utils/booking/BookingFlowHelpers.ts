@@ -17,6 +17,7 @@ import {
   fillChoiceDropdown,
   fillDateField,
   fillStringField,
+  waitForSubmitSettled,
 } from '../shared/field-filling-utils';
 
 /**
@@ -42,7 +43,19 @@ export class BookingFlowHelpers {
       await continueButton.click();
       const logContext = context ? ` ${context}` : '';
       console.log(`Continue button clicked${logContext}`);
-      await page.waitForTimeout(500);
+      // These are MUI LoadingButtons: they disable themselves while the submit is in flight, so the
+      // click has settled once the button is either gone (the flow navigated) or enabled again. That
+      // is what the flat 500ms was standing in for, and it is usually far less than 500ms.
+      // Caveat: if React has not yet rendered the loading state when this first polls, it can return
+      // early. That is tolerable here because every caller's next step is a Playwright action or
+      // assertion, all of which auto-wait; the sleep was never the thing holding those together.
+      await expect
+        .poll(async () => (await continueButton.count()) === 0 || (await continueButton.first().isEnabled()), {
+          timeout: 20_000,
+          intervals: [50, 100, 200, 400],
+        })
+        .toBe(true)
+        .catch(() => undefined);
       return true;
     } catch {
       const logContext = context ? ` ${context}` : '';
@@ -304,8 +317,10 @@ export class BookingFlowHelpers {
     // Navigate to homepage
     await page.goto('/home', { waitUntil: 'networkidle' });
 
-    // Wait for any redirects to settle
-    await page.waitForTimeout(1000);
+    // The sleep here guarded against a client-side redirect landing after networkidle. Waiting for
+    // the URL to be /home expresses that directly and returns immediately when no redirect happens,
+    // which is the common case; the catch leaves the diagnostic below to report where we ended up.
+    await page.waitForURL(/\/home/, { timeout: 10_000 }).catch(() => undefined);
     console.log('Current URL after navigation:', page.url());
 
     // If we got redirected away from /home, something is wrong
@@ -313,7 +328,7 @@ export class BookingFlowHelpers {
       console.error('Unexpected redirect away from /home to:', page.url());
       // Try navigating back
       await page.goto('/home', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(500);
+      await page.waitForURL(/\/home/, { timeout: 10_000 }).catch(() => undefined);
       console.log('URL after second navigation attempt:', page.url());
     }
 
@@ -322,10 +337,12 @@ export class BookingFlowHelpers {
 
     // Click the booking option - Playwright auto-waits for element to be visible and stable
     const bookingButton = page.getByRole('button', { name: optionLabel });
+    const urlBeforeClick = page.url();
     await bookingButton.click();
 
-    // Debug: check URL after click
-    await page.waitForTimeout(1000);
+    // The click routes somewhere; wait for that rather than for a second. If it never navigates, the
+    // checks below still run and report the URL we were left on.
+    await page.waitForURL((url) => url.href !== urlBeforeClick, { timeout: 20_000 }).catch(() => undefined);
     const url = page.url();
     console.log('URL after click:', url);
 
@@ -417,10 +434,12 @@ export class BookingFlowHelpers {
     await this.fillPatientInfo(page, config, mergedData, context);
 
     // Try to click Continue - this should trigger validation and NOT navigate
+    const urlBeforeSubmit = page.url();
     await this.clickContinueButtonIfPresent(page, 'to trigger validation');
 
-    // Wait for validation errors to appear
-    await page.waitForTimeout(1000);
+    // Wait for the form to answer the submit — an error under a field, or navigation if validation
+    // unexpectedly let it through. Both outcomes are checked below, so neither needs a fixed delay.
+    await waitForSubmitSettled(page, urlBeforeSubmit);
 
     // Check if we're still on the patient info form (validation failed as expected)
     const firstNameField = page.locator('#patient-first-name');
