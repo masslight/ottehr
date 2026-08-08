@@ -127,10 +127,19 @@ const shouldServeProductionBuild = (_app: (typeof supportedApps)[number]): boole
 const prebuiltBundleExists = (app: (typeof supportedApps)[number]): boolean =>
   fs.existsSync(path.join(process.cwd(), 'apps', app, 'build', 'index.html'));
 
+// How the app under test is being served, surfaced to the perf reporter so it prints alongside the
+// timings it explains. That placement is the point: the handoff happens minutes before the tests
+// start, and a chatty suite pushes those early log lines out of reach of a tail-limited log fetch —
+// which is exactly how a run once left it unknowable whether the prebuilt bundle had been used.
+const recordServeMode = (mode: string): void => {
+  process.env.E2E_SERVE_MODE = mode;
+  console.log(`Serving the app under test from: ${mode}`);
+};
+
 const buildApp = (app: (typeof supportedApps)[number]): void => {
   const appEnv = envMapping[app][ENV];
   if (prebuiltBundleExists(app)) {
-    console.log(`Using the ${app} bundle built earlier in this run; skipping the build.`);
+    recordServeMode(`a ${app} production bundle built earlier in this run`);
     return;
   }
   console.log(`Building ${app} (${appEnv}) to serve as a production build...`);
@@ -156,12 +165,16 @@ const buildApp = (app: (typeof supportedApps)[number]): void => {
       NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=8192`.trim(),
     },
   });
-  console.log(`Built ${app} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+  const buildSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(`Built ${app} in ${buildSeconds}s`);
+  recordServeMode(`a ${app} production bundle built in this job (${buildSeconds}s)`);
 };
 
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   if (shouldServeProductionBuild(app)) {
     buildApp(app);
+  } else {
+    recordServeMode('the vite dev server');
   }
   return new Promise((resolve, reject) => {
     const childProcess = shouldServeProductionBuild(app)

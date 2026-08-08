@@ -88,6 +88,10 @@ export default class PerfReporter implements Reporter {
     lines.push('');
     lines.push('──────────────── E2E performance profile ────────────────');
     lines.push(`  workers:            ${this.#workers}`);
+    // Set by scripts/run-e2e.ts. How the app was served is the single biggest lever on these numbers
+    // — a dev server roughly doubles total test time versus a production bundle — so it belongs next
+    // to them rather than thousands of log lines earlier where it may not survive a truncated fetch.
+    lines.push(`  served from:        ${process.env.E2E_SERVE_MODE ?? 'unknown'}`);
     lines.push(`  tests run:          ${this.#tests.length}`);
     lines.push(`  total test time:    ${seconds(totalWork)} (${minutes(totalWork)})`);
     lines.push(`  wall clock:         ${seconds(wallClock)} (${minutes(wallClock)})`);
