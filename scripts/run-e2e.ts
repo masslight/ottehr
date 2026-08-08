@@ -130,7 +130,10 @@ const buildApp = (app: (typeof supportedApps)[number]): void => {
     stdio: 'inherit',
     env: { ...process.env, ENV: appEnv },
   });
-  execSync(`npm run build:${appEnv}`, {
+  // build-bundle, not build:<env>: the latter goes through build-skeleton, which typechecks first.
+  // That typecheck took ~54s of a 135s build here and is redundant — the lint-and-build job
+  // typechecks the same code in parallel, and serving the app doesn't depend on it.
+  execSync('npm run build-bundle', {
     stdio: 'inherit',
     cwd: path.join(process.cwd(), `apps/${app}`),
     env: {
