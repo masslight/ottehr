@@ -627,6 +627,11 @@ function waitForAppointmentReady(resourceHandler: ResourceHandler): Promise<unkn
     resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
     resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
     resourceHandler.waitTillCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
+    // The Coverages existing is not enough: the insurance cards read the billing Account's coverage
+    // array, which harvest populates separately. Waiting only on the Coverages let the page load with
+    // the secondary card missing, and since it only fetches on mount the card never arrived — the
+    // "#insurance-carrier-2 element(s) not found" flake.
+    resourceHandler.waitTillAccountCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
   ]);
 }
 

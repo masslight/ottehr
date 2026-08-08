@@ -151,6 +151,22 @@ test.describe('Global Templates E2E', () => {
     await openVisit(page, resourceHandler2);
     sideMenu = new SideMenu(page);
 
+    // Settle the second visit's chart before applying anything to it. This has flaked with the MDM
+    // field ending up holding an unrelated global template's summary concatenated with this
+    // template's text, and the failure log showed the MDM textarea still disabled (i.e. the chart
+    // was mid-load) shortly before. Applying a template on top of a half-loaded chart is the
+    // suspected cause, but it is not confirmed, so the logged value below records what the field
+    // held *before* the apply — if it is ever non-empty here, the contamination predates the apply
+    // and the bug is upstream of this test.
+    await sideMenu.clickAssessment();
+    const assessmentPage = new InPersonAssessmentPage(page);
+    await assessmentPage.expectMdmField();
+    const mdmBeforeApply = await page
+      .getByTestId(dataTestIds.assessmentCard.medicalDecisionField)
+      .locator('textarea:visible')
+      .inputValue();
+    console.log(`MDM on the second visit before applying the template: ${JSON.stringify(mdmBeforeApply)}`);
+
     const hpiPage = await sideMenu.clickHpiAndTemplates();
     await hpiPage.applyTemplate(RENAMED_TEMPLATE_NAME);
   });

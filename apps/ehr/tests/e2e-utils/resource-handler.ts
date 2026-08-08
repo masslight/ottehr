@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Page } from '@playwright/test';
 import {
+  Account,
   Address,
   Appointment,
   ContactPoint,
@@ -507,6 +508,48 @@ export class ResourceHandler {
       `Patient ${patientId} only had ${count}/${expectedCount} active coverages after ${
         (maxAttempts * delayMs) / 1000
       }s — harvest did not create the expected Coverage resources`
+    );
+  }
+
+  // The patient record's insurance cards are rendered from the billing Account's coverage array —
+  // priority 1 is primary, priority 2 is secondary (see getCoverageUpdateResourcesFromUnbundled) —
+  // not from a Coverage search. Harvest writes the Coverage resources and the Account's entries
+  // separately, so the Coverages can be queryable while the Account still lists none; the page then
+  // renders fewer cards than the test expects, and the missing card never appears because the page
+  // only fetches on mount. Poll what the read path actually reads.
+  async waitTillAccountCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
+    const apiClient = await this.apiClient;
+    const maxAttempts = 30;
+    const delayMs = 2_000;
+    const startTime = Date.now();
+    let count = 0;
+    for (let i = 0; i < maxAttempts; i++) {
+      const accounts = (
+        await apiClient.fhir.search<Account>({
+          resourceType: 'Account',
+          params: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'status', value: 'active' },
+          ],
+        })
+      ).unbundle();
+      // Concurrent harvest Tasks can briefly leave more than one active Account, one populated and the
+      // rest empty, so take the best-populated one rather than assuming a single Account.
+      count = accounts.reduce((max, account) => Math.max(max, account.coverage?.length ?? 0), 0);
+      if (count >= expectedCount) {
+        console.log(
+          `Patient ${patientId} account lists ${count} coverage(s) after ${((Date.now() - startTime) / 1000).toFixed(
+            1
+          )}s`
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    throw new Error(
+      `Patient ${patientId} account only listed ${count}/${expectedCount} coverages after ${
+        (maxAttempts * delayMs) / 1000
+      }s — harvest did not attach the expected Coverages to the billing Account`
     );
   }
 
