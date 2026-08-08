@@ -43,10 +43,12 @@ export default defineConfig({
   ],
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  // The runner has 8 cores. Workers spend most of their time waiting on the local zambda server and
-  // the dev server rather than burning CPU — the perf reporter puts per-worker utilization around
-  // 67-70% — so the extra two workers fill idle time rather than contend for cores.
-  workers: process.env.CI ? 8 : undefined,
+  // Measured, not guessed: eight workers on the eight-core runner made every test slower rather than
+  // filling idle time. Total test time went from ~1940s to ~2520s while wall clock stayed flat, because
+  // the workers contend with each other, the Vite dev server and the single-process zambda server that
+  // this job runs on the same machine. The idle third the perf reporter reports is that contention plus
+  // per-worker startup, and it is not recoverable by adding workers.
+  workers: process.env.CI ? 6 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
 });
