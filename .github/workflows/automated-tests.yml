@@ -27,15 +27,26 @@ env:
 
 jobs:
   automated-tests:
-    runs-on: ubuntu-latest-8-cores
+    # EXPERIMENT (do not merge): measure the 16-core runner and sweep turbo concurrency x
+    # vitest workers in one run. `sweep` legs are independent runners, so they do not contend.
+    name: automated-tests (${{ matrix.sweep.name }})
+    runs-on: ubuntu-latest-16-cores
     timeout-minutes: 40
     permissions:
       id-token: write # Required for OIDC
       contents: read
     strategy:
+      fail-fast: false
       matrix:
         node-version:
           - "22"
+        sweep:
+          # workers: "" leaves each suite's existing default, i.e. today's settings on new hardware
+          - { name: "c6-wdefault", concurrency: 6, workers: "" }
+          - { name: "c6-w4", concurrency: 6, workers: "4" }
+          - { name: "c4-w8", concurrency: 4, workers: "8" }
+          - { name: "c10-w3", concurrency: 10, workers: "3" }
+          - { name: "c16-w1", concurrency: 16, workers: "1" }
     steps:
       - name: Install SSH Client
         uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
@@ -107,11 +118,17 @@ jobs:
           fi
 
       - name: Spec tests with coverage
-        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=6 --output-logs=errors-only --continue=always --summarize
+        run: |
+          nproc
+          npx turbo run test:ci test:unit:ci test:component:ci \
+            --concurrency=${{ matrix.sweep.concurrency }} --output-logs=errors-only --continue=always --summarize
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
           NODE_OPTIONS: "--max-old-space-size=8192"
+          VITEST_WORKERS: ${{ matrix.sweep.workers }}
+          # Cache-free so every leg really executes and the timings are comparable.
+          TURBO_FORCE: true
 
       - name: Test run summary
         if: ${{ !cancelled() }}

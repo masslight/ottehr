@@ -39,8 +39,8 @@
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
-    "test:unit:ci": "vitest run --config ./vitest.config.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
-    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --maxWorkers=3 --coverage --passWithNoTests --reporter=dot --reporter=github-actions"
+    "test:unit:ci": "vitest run ${VITEST_WORKERS:+--maxWorkers=$VITEST_WORKERS} --config ./vitest.config.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --maxWorkers=${VITEST_WORKERS:-3} --coverage --passWithNoTests --reporter=dot --reporter=github-actions"
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.9",
