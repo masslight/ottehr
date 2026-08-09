@@ -289,3 +289,32 @@ terraform import -var-file="staging.tfvars" 'module.infra[0].aws_cloudfront_dist
 ```
 
 Then include either `aws_profile` or `gcp_project` in your `tfvars` file as discussed [above](#terraform-variables).
+
+## Profiling a deploy
+
+`apply.sh` is instrumented but silent by default. Point `TF_PROFILE_DIR` at a
+writable directory and it records where the deploy spends its time:
+
+```bash
+TF_PROFILE_DIR=/tmp/tf-profile ./apply.sh local
+TF_PROFILE_DIR=/tmp/tf-profile npm run profile-report
+```
+
+`profile-report` prints (and, in CI, appends to the job summary) a per-phase
+breakdown — bundling, generation, init, apply — plus how the single
+`terraform apply` splits into refresh / plan / apply and which resources
+dominated the apply. The CI deploy job sets `TF_PROFILE_DIR` on every run and
+uploads the raw artifacts as `tf-deploy-profile-*`.
+
+`profile-zambda-drift` (run automatically when `TF_PROFILE_DIR` is set) hashes
+every built zip and diffs it against the `source_checksum` Terraform has in
+state, so you can see how many Zambdas an apply is about to re-upload. Setting
+`ZAMBDA_DETERMINISM_CHECK=1` additionally rebuilds every Zambda a second time
+from the same commit and reports which zips are not byte-reproducible — this
+separates "the deployed code really is different" from "our build is not
+deterministic". In CI, trigger it with the `check_zambda_determinism`
+`workflow_dispatch` input or by putting `/check-zambda-determinism` in the PR
+description.
+
+`TF_PARALLELISM` (default 20) overrides Terraform's `-parallelism` for both the
+plan and apply walks.
