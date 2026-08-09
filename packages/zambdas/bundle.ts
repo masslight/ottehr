@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
+import { assetsRequiredBy, listAssetFiles } from './bundle-assets';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
@@ -112,6 +113,10 @@ const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEn
   }
 };
 
+const ZIP_ENTRY_DATE = new Date('2025-01-01');
+
+const formatMB = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 const copyAssets = async (from: string, to: string): Promise<void> => {
   if (!fs.existsSync(from)) {
     console.warn(`Assets directory ${from} does not exist, skipping copy`);
@@ -203,6 +208,7 @@ const zipZambda = async (
   sourceFilePath: string,
   assetsDir: string,
   assetsPath: string,
+  assetFiles: string[],
   outPath: string
 ): Promise<void> => {
   const archive = archiver('zip', { zlib: { level: 1 } });
@@ -210,8 +216,10 @@ const zipZambda = async (
 
   return new Promise((resolve, reject) => {
     let result = archive;
-    result = result.file(sourceFilePath, { name: 'index.js', date: new Date('2025-01-01') });
-    result = result.directory(assetsDir, assetsPath, { date: new Date('2025-01-01') });
+    result = result.file(sourceFilePath, { name: 'index.js', date: ZIP_ENTRY_DATE });
+    for (const file of assetFiles) {
+      result = result.file(path.join(assetsDir, file), { name: `${assetsPath}/${file}`, date: ZIP_ENTRY_DATE });
+    }
     result.on('error', (err) => reject(err)).pipe(stream);
 
     stream.on('close', () => resolve());
@@ -223,16 +231,34 @@ const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath:
   const chunks = chunkArray(zambdas, ZIP_CHUNK_SIZE);
   console.log(`Zipping ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${ZIP_CHUNK_SIZE}...`);
 
+  const allAssets = listAssetFiles(assetsDir);
+  const assetBytes = Object.fromEntries(allAssets.map((file) => [file, fs.statSync(path.join(assetsDir, file)).size]));
+  const fullTreeBytes = allAssets.reduce((sum, file) => sum + assetBytes[file], 0);
+  let includedBytes = 0;
+  let zambdasWithoutAssets = 0;
+  let zambdasWithFullTree = 0;
+
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`Zipping chunk ${i + 1}/${chunks.length} (${chunk.length} zambdas)...`);
     await Promise.all(
       chunk.map((zambda) => {
         const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
-        return zipZambda(sourceDir, assetsDir, assetsPath, zambda.zip);
+        const required = assetsRequiredBy(fs.readFileSync(sourceDir, 'utf-8'), allAssets);
+        includedBytes += required.reduce((sum, file) => sum + assetBytes[file], 0);
+        if (required.length === 0) zambdasWithoutAssets++;
+        if (required.length === allAssets.length) zambdasWithFullTree++;
+        return zipZambda(sourceDir, assetsDir, assetsPath, required, zambda.zip);
       })
     );
   }
+
+  const wouldHaveBeen = fullTreeBytes * zambdas.length;
+  console.log(
+    `Assets: ${formatMB(includedBytes)} shipped across ${zambdas.length} zips, down from ${formatMB(wouldHaveBeen)} ` +
+      `if every zip carried the whole ${formatMB(fullTreeBytes)} tree ` +
+      `(${zambdasWithoutAssets} need none, ${zambdasWithFullTree} need all).`
+  );
 };
 
 const main = async (): Promise<void> => {
