@@ -211,6 +211,21 @@ export class PatientInformationPage {
     await expect(cancelButton).toBeHidden();
   }
 
+  /**
+   * Wait until exactly this many insurances are saved on the account.
+   *
+   * Each persisted coverage renders a Remove button while the inline new-insurance form renders
+   * Cancel instead, so counting Remove buttons counts only what is actually saved. This exists
+   * because the "Coverage removed from patient account" toast is not a sound signal for a second
+   * removal in a row: the first toast can still be on screen, so the assertion passes without the
+   * second removal having happened, and the failure only surfaces later as a confusing mismatch
+   * somewhere else. Removal is also asynchronous, so this doubles as the settle point before
+   * touching another card.
+   */
+  async verifySavedInsuranceCount(expected: number): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.removeButton)).toHaveCount(expected);
+  }
+
   async verifyCoverageAddedSuccessfullyMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Coverage added to patient account successfully.')).toBeVisible();
   }

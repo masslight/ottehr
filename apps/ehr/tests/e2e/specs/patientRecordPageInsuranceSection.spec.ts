@@ -618,17 +618,19 @@ test.describe('Insurance Information Section mutating tests', () => {
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    await patientInformationPage.verifySavedInsuranceCount(1);
     const secondaryGapCard = await patientInformationPage.clickAddInsuranceButton();
     await secondaryGapCard.verifyInsuranceType('Secondary');
     await patientInformationPage.clickCancelAddInsuranceButton();
+    await patientInformationPage.verifySavedInsuranceCount(1);
 
-    // Now remove the primary as well: with no primary on the account the gap is Primary. The removal
-    // toast may still be the first one, so the type assertion below is what actually proves the
-    // second removal took effect — it would read 'Secondary' if the primary were still there.
+    // Now remove the primary as well: with no primary on the account the gap is Primary. Both
+    // removals are confirmed by the saved count rather than the toast, which the first attempt at
+    // this test relied on -- the first toast was still on screen, so it reported success while the
+    // primary was in fact still there, and the run failed further down with a pre-filled 'Secondary'.
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    await patientInformationPage.verifySavedInsuranceCount(0);
     const primaryGapCard = await patientInformationPage.clickAddInsuranceButton();
     await primaryGapCard.verifyInsuranceType('Primary');
   });
