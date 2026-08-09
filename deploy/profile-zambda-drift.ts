@@ -26,6 +26,7 @@ const zambdasDir = path.resolve(__dirname, '../packages/zambdas');
 
 interface ZambdaSpec {
   name: string;
+  src: string;
   zip: string;
 }
 
@@ -90,16 +91,35 @@ const readStateChecksums = (): Map<string, string> => {
   return checksums;
 };
 
+interface DeterminismResult {
+  /** Zambdas whose zip hashed differently on a rebuild of the same commit. */
+  differing: string[];
+  /** Of those, the ones whose bundled index.js itself differed. */
+  bundleDiffering: string[];
+}
+
+/** Path of the bundled entry point a spec's zip wraps. */
+const bundlePathOf = (spec: ZambdaSpec): string =>
+  path.join(zambdasDir, '.dist', `${spec.src.substring('src/'.length)}.js`);
+
 /**
  * Rebuilds every Zambda a second time and reports which zips hash differently
  * than the first build. Anything listed here is non-reproducible output — it
  * would be re-uploaded on every apply even with zero source changes.
+ *
+ * The zip wraps two things, so it hashes index.js separately: a zip that
+ * changed because its bundle changed points at esbuild, while a zip that
+ * changed with an identical bundle points at which assets were selected or how
+ * they were packed.
  */
-const runDeterminismCheck = async (specs: Record<string, ZambdaSpec>): Promise<string[]> => {
-  const firstBuild = new Map<string, string>();
+const runDeterminismCheck = async (specs: Record<string, ZambdaSpec>): Promise<DeterminismResult> => {
+  const firstZips = new Map<string, string>();
+  const firstBundles = new Map<string, string>();
   for (const [key, spec] of Object.entries(specs)) {
-    const hash = sha256File(path.join(zambdasDir, spec.zip));
-    if (hash) firstBuild.set(key, hash);
+    const zipHash = sha256File(path.join(zambdasDir, spec.zip));
+    if (zipHash) firstZips.set(key, zipHash);
+    const bundleHash = sha256File(bundlePathOf(spec));
+    if (bundleHash) firstBundles.set(key, bundleHash);
   }
 
   const stash = path.join(zambdasDir, '.dist-determinism-check');
@@ -108,11 +128,15 @@ const runDeterminismCheck = async (specs: Record<string, ZambdaSpec>): Promise<s
   try {
     execFileSync('npm', ['run', 'bundle'], { cwd: zambdasDir, stdio: 'inherit' });
     const differing: string[] = [];
+    const bundleDiffering: string[] = [];
     for (const [key, spec] of Object.entries(specs)) {
-      const rebuilt = sha256File(path.join(zambdasDir, spec.zip));
-      if (rebuilt && firstBuild.get(key) !== rebuilt) differing.push(key);
+      const rebuiltZip = sha256File(path.join(zambdasDir, spec.zip));
+      if (!rebuiltZip || firstZips.get(key) === rebuiltZip) continue;
+      differing.push(key);
+      const rebuiltBundle = sha256File(bundlePathOf(spec));
+      if (rebuiltBundle && firstBundles.get(key) !== rebuiltBundle) bundleDiffering.push(key);
     }
-    return differing;
+    return { differing, bundleDiffering };
   } finally {
     // Restore the build the plan was made against, so the apply uploads exactly
     // the artifacts Terraform hashed.
@@ -157,14 +181,21 @@ const main = async (): Promise<void> => {
   ];
 
   if (process.env.ZAMBDA_DETERMINISM_CHECK === '1') {
-    const nonReproducible = await runDeterminismCheck(specs);
+    const { differing, bundleDiffering } = await runDeterminismCheck(specs);
     lines.push(
       '',
-      `Rebuilt all ${total} Zambdas from the same commit: **${nonReproducible.length}** produced a different zip.`,
-      nonReproducible.length
-        ? `Non-reproducible: ${nonReproducible.slice(0, 20).join(', ')}${nonReproducible.length > 20 ? ', …' : ''}`
-        : 'The build is byte-for-byte reproducible, so re-uploads are driven by real source differences.'
+      `Rebuilt all ${total} Zambdas from the same commit: **${differing.length}** produced a different zip.`
     );
+    if (differing.length) {
+      const assetOnly = differing.filter((key) => !bundleDiffering.includes(key));
+      lines.push(
+        `- **${bundleDiffering.length}** also had a different bundled \`index.js\` — esbuild output is not reproducible.`,
+        `- **${assetOnly.length}** had an identical \`index.js\`, so only the assets selected or how they were packed changed.`,
+        `Non-reproducible: ${differing.join(', ')}`
+      );
+    } else {
+      lines.push('The build is byte-for-byte reproducible, so re-uploads are driven by real source differences.');
+    }
   }
 
   const report = lines.join('\n');
