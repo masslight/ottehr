@@ -76,17 +76,19 @@ const main = (): void => {
     const planLine = first(log, (t) => t.trimStart().startsWith('Plan:'));
     const mutations = log.filter((l) => MUTATION_START.test(l.text));
     const completions = log.filter((l) => MUTATION_END.test(l.text));
+    const lastCompletion = completions[completions.length - 1];
     const applyComplete = first(log, (t) => t.includes('Apply complete!'));
+    const refreshCount = log.filter((l) => l.text.includes('Refreshing state...')).length;
 
     out.push(
       '### Inside `terraform apply`',
       '',
       '| Sub-phase | Duration |',
       '| --- | ---: |',
-      `| refresh (${log.filter((l) => l.text.includes('Refreshing state...')).length} resources) | ${secs(refreshStart, refreshEnd)} |`,
+      `| refresh (${refreshCount} resources) | ${secs(refreshStart, refreshEnd)} |`,
       `| plan (refresh end → plan printed) | ${secs(refreshEnd, planLine)} |`,
-      `| apply (first mutation → last completion) | ${secs(mutations[0], completions[completions.length - 1])} |`,
-      `| tail (last completion → apply complete) | ${secs(completions[completions.length - 1], applyComplete)} |`,
+      `| apply (first mutation → last completion) | ${secs(mutations[0], lastCompletion)} |`,
+      `| tail (last completion → apply complete) | ${secs(lastCompletion, applyComplete)} |`,
       ''
     );
 
@@ -112,9 +114,12 @@ const main = (): void => {
     if (durations.length) {
       const sum = durations.reduce((acc, d) => acc + d.seconds, 0);
       const median = durations[Math.floor(durations.length / 2)].seconds;
+      const slowest = durations[0].seconds;
+      const summary =
+        `Per-resource apply: n=${durations.length}, median ${median.toFixed(1)}s, ` +
+        `max ${slowest.toFixed(1)}s, serial-equivalent ${sum.toFixed(0)}s.`;
       out.push(
-        `Per-resource apply: n=${durations.length}, median ${median.toFixed(1)}s, max ${durations[0].seconds.toFixed(1)}s, ` +
-          `serial-equivalent ${sum.toFixed(0)}s.`,
+        summary,
         '',
         '<details><summary>10 slowest resources</summary>',
         '',
