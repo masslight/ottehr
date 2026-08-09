@@ -41,6 +41,11 @@ on:
         required: false
         type: boolean
         default: false
+      parallelism_sweep:
+        description: "Comma-separated -parallelism values to time back to back with read-only plans after the deploy, e.g. 20,60,120,20"
+        required: false
+        type: string
+        default: ""
   push:
     branches: [main, develop, "release/**"]
     paths:
@@ -348,3 +353,4 @@ jobs:
       github_ref: ${{ github.ref }}
       is_pull_request: ${{ github.event_name == 'pull_request' }}
       check_zambda_determinism: ${{ inputs.check_zambda_determinism == true }}
+      parallelism_sweep: ${{ inputs.parallelism_sweep || '' }}

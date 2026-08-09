@@ -133,6 +133,25 @@ const main = (): void => {
     }
   }
 
+  const sweepFile = path.join(profileDir, 'parallelism-sweep.tsv');
+  if (fs.existsSync(sweepFile)) {
+    const rows = fs
+      .readFileSync(sweepFile, 'utf-8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => line.split('\t'));
+    out.push(
+      '### `-parallelism` sweep',
+      '',
+      'Read-only `terraform plan` runs, back to back in this job, so runner and state are held constant.',
+      '',
+      '| Sample | -parallelism | Total | Refresh | Status |',
+      '| ---: | ---: | ---: | ---: | --- |',
+      ...rows.map((r, i) => `| ${i + 1} | ${r[0]} | ${r[1]}s | ${r[2]}s | ${r[3]} |`),
+      ''
+    );
+  }
+
   const driftFile = path.join(profileDir, 'zambda-drift.md');
   if (fs.existsSync(driftFile)) out.push(fs.readFileSync(driftFile, 'utf-8'));
 

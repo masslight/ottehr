@@ -318,3 +318,22 @@ description.
 
 `TF_PARALLELISM` (default 20) overrides Terraform's `-parallelism` for both the
 plan and apply walks.
+
+### `-parallelism` sweep
+
+Refresh dominates the apply (613 resources, ~29s at `-parallelism=20`) and is
+almost entirely request latency, so widening the graph walk should shorten it.
+`parallelism-sweep.sh` measures that:
+
+```bash
+TF_PROFILE_DIR=/tmp/tf-profile ./parallelism-sweep.sh e2e 20,60,120,20
+```
+
+It runs `terraform plan` — read-only, so it never mutates the environment —
+once per value, back to back, and records the total and the refresh window for
+each. Running the whole sweep inside one job is the point: runner, network,
+workspace and state size are identical across the samples, which comparing
+separately queued CI runs cannot give you. Repeating a value at both ends of
+the sweep (as the default does) shows how much drift there was during the
+measurement. In CI, trigger it with the `parallelism_sweep` `workflow_dispatch`
+input or by putting `/parallelism-sweep` in the PR description.

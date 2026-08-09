@@ -37,22 +37,8 @@ phase() {
   _phase_start=${now}
 }
 
-# Streams stdin through unchanged while saving a wall-clock-stamped copy, so the
-# refresh / plan / apply phases inside a single `terraform apply` can be
-# separated after the fact. Terraform's own output is untouched.
-export TF_PROFILE_TERRAFORM_LOG
-tee_timestamped() {
-  if [ -n "${TF_PROFILE_TERRAFORM_LOG}" ]; then
-    perl -MTime::HiRes=time -e '
-      $| = 1;
-      open(my $fh, ">>", $ENV{TF_PROFILE_TERRAFORM_LOG}) or die "$!";
-      select((select($fh), $| = 1)[0]);
-      while (my $line = <STDIN>) { print $line; printf $fh "%.3f\t%s", time, $line; }
-    '
-  else
-    cat
-  fi
-}
+# shellcheck source=./profile-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/profile-lib.sh"
 
 # Enable auto-approve for CI deployments
 AUTO_APPROVE=""
@@ -104,10 +90,10 @@ fi
 if [ "${action}" = "apply" ]; then
   phase terraform-apply
   terraform apply -no-color -parallelism="${PARALLELISM}" -var-file="${ENV}.tfvars" "${AUTO_APPROVE}" ${TARGET} \
-    | tee_timestamped
+    | stamp_stdin "${TF_PROFILE_TERRAFORM_LOG}"
 else
   phase terraform-plan
   terraform plan -no-color -parallelism="${PARALLELISM}" -var-file="${ENV}.tfvars" ${TARGET} \
-    | tee_timestamped
+    | stamp_stdin "${TF_PROFILE_TERRAFORM_LOG}"
 fi
 phase ""
