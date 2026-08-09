@@ -65,6 +65,11 @@ jobs:
         with:
           node-version: ${{ inputs.node_version }}
 
+      # This job applies terraform before any test job pulls config out of the state, so it is the one
+      # that seeds the provider cache for the rest of the run.
+      - name: Cache Terraform providers
+        uses: ./.github/actions/terraform-plugin-cache
+
       - name: HashiCorp - Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
