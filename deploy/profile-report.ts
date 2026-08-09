@@ -133,6 +133,11 @@ const main = (): void => {
     }
   }
 
+  const assetsFile = path.join(profileDir, 'assets-summary.txt');
+  if (fs.existsSync(assetsFile)) {
+    out.push('### Zambda assets', '', fs.readFileSync(assetsFile, 'utf-8').trim(), '');
+  }
+
   const sweepFile = path.join(profileDir, 'parallelism-sweep.tsv');
   if (fs.existsSync(sweepFile)) {
     const rows = fs

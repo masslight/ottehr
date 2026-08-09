@@ -254,11 +254,20 @@ const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath:
   }
 
   const wouldHaveBeen = fullTreeBytes * zambdas.length;
-  console.log(
+  const summary =
     `Assets: ${formatMB(includedBytes)} shipped across ${zambdas.length} zips, down from ${formatMB(wouldHaveBeen)} ` +
-      `if every zip carried the whole ${formatMB(fullTreeBytes)} tree ` +
-      `(${zambdasWithoutAssets} need none, ${zambdasWithFullTree} need all).`
-  );
+    `if every zip carried the whole ${formatMB(fullTreeBytes)} tree ` +
+    `(${zambdasWithoutAssets} need none, ${zambdasWithFullTree} need all).`;
+  console.log(summary);
+
+  // Bundling happens thousands of log lines before the end of the deploy step,
+  // where the job log's tail gets truncated. Hand it to the profile report so the
+  // number survives in the run summary.
+  const profileDir = process.env.TF_PROFILE_DIR;
+  if (profileDir) {
+    fs.mkdirSync(profileDir, { recursive: true });
+    fs.writeFileSync(path.join(profileDir, 'assets-summary.txt'), `${summary}\n`, 'utf-8');
+  }
 };
 
 const main = async (): Promise<void> => {
