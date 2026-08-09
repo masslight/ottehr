@@ -59,9 +59,12 @@ const readZambdaSpecs = (): Record<string, ZambdaSpec> => {
   return specs;
 };
 
+// Read as latin1 rather than a Buffer: latin1 maps bytes 1:1 to code points, so
+// the digest is identical, and the string overload of `update` sidesteps the
+// `Buffer` type conflict between the repo's root @types/node and deploy's.
 const sha256File = (file: string): string | undefined => {
   if (!fs.existsSync(file)) return undefined;
-  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  return crypto.createHash('sha256').update(fs.readFileSync(file, 'latin1'), 'latin1').digest('hex');
 };
 
 const collectResources = (mod: StateModule | undefined, out: StateResource[] = []): StateResource[] => {
