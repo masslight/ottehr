@@ -200,6 +200,17 @@ export class PatientInformationPage {
     await expect(this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton)).toBeHidden();
   }
 
+  /**
+   * Dismiss the inline new-insurance form without saving it. Waiting for the button to go away
+   * matters: the form's presence changes how many insurance containers are rendered, so acting on a
+   * card before it unmounts addresses the wrong one.
+   */
+  async clickCancelAddInsuranceButton(): Promise<void> {
+    const cancelButton = this.#page.getByRole('button', { name: 'Cancel' });
+    await cancelButton.click();
+    await expect(cancelButton).toBeHidden();
+  }
+
   async verifyCoverageAddedSuccessfullyMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Coverage added to patient account successfully.')).toBeVisible();
   }

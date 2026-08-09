@@ -599,28 +599,38 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
   });
 
-  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
+  // Both removals in one test, on one appointment. They were two tests, and each paid its own
+  // ~14.4s beforeEach appointment to assert one line about the same screen. Merging is safe rather
+  // than merely cheaper because the app derives the pre-filled type from a single predicate:
+  //   const newInsuranceOrdinal = coverages.some((c) => c.startingPriority === 1) ? 2 : 1;
+  // Only the presence of a primary matters, not how many coverages remain, so removing primary last
+  // (leaving none) exercises the same branch the old test reached by removing it first (leaving the
+  // secondary). No case is lost.
+  test('[Add insurance] is hidden while both insurances are present, and the new insurance Type is pre-filled with whichever priority is missing', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyAddInsuranceButtonIsHidden();
-    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
-    await inlineInsuranceCard.verifyInsuranceType('Primary');
-  });
 
-  test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
-    page,
-  }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    // Nothing to add while both priorities are filled.
+    await patientInformationPage.verifyAddInsuranceButtonIsHidden();
+
+    // Remove the secondary while the primary stays: the gap is Secondary.
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
-    await inlineInsuranceCard.verifyInsuranceType('Secondary');
+    const secondaryGapCard = await patientInformationPage.clickAddInsuranceButton();
+    await secondaryGapCard.verifyInsuranceType('Secondary');
+    await patientInformationPage.clickCancelAddInsuranceButton();
+
+    // Now remove the primary as well: with no primary on the account the gap is Primary. The removal
+    // toast may still be the first one, so the type assertion below is what actually proves the
+    // second removal took effect — it would read 'Secondary' if the primary were still there.
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    const primaryGapCard = await patientInformationPage.clickAddInsuranceButton();
+    await primaryGapCard.verifyInsuranceType('Primary');
   });
 });
 
