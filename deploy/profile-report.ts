@@ -98,15 +98,10 @@ const renderPlanProbes = (file: string): string[] => {
   const refreshCost = baseline && fullMedian !== undefined ? fullMedian - baseline.total : undefined;
 
   // The target pair runs the same pruned graph and differs only in refreshing,
-  // so the difference is the reads and nothing else.
+  // so the difference is everything refreshing costs on a single resource.
   const targetWith = median(totalsOf('target'));
   const targetWithout = median(totalsOf('target-norefresh'));
   const targetReads = at('target')[0]?.reads ?? 0;
-  const readLatency =
-    targetWith !== undefined && targetWithout !== undefined && targetReads > 0
-      ? (targetWith - targetWithout) / targetReads
-      : undefined;
-
   const fullReads = fullAtBaseline[0]?.reads ?? 0;
 
   // Turning refresh on costs a fixed amount (Terraform starts and configures the
