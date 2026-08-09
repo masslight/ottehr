@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared profiling helpers, sourced by apply.sh and parallelism-sweep.sh.
+# Shared profiling helpers, sourced by apply.sh and plan-probes.sh.
 
 # Streams stdin through unchanged while appending a wall-clock-stamped copy to
 # the file named by $1, so phases inside a single Terraform run (refresh, plan,
@@ -29,4 +29,13 @@ refresh_seconds_from() {
     /Refreshing state\.\.\./ { if (first == "") first = $1; last = $1 }
     END { if (first != "") printf "%.1f", last - first }
   ' "${stamped_log}"
+}
+
+# Prints how many resources a stamped log refreshed. Ground truth for probes
+# that mean to refresh exactly one resource — `-target` also pulls in whatever
+# the target depends on, and the arithmetic needs the real count.
+refresh_count_from() {
+  local stamped_log="$1"
+  [ -s "${stamped_log}" ] || { echo 0; return; }
+  grep -c 'Refreshing state\.\.\.' "${stamped_log}" || true
 }

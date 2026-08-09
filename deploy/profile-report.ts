@@ -40,6 +40,93 @@ const secs = (from?: Stamped, to?: Stamped): string => (from && to ? `${(to.at -
 const MUTATION_START = /^(\S+): (Modifying|Creating|Destroying)\.\.\./;
 const MUTATION_END = /^(\S+): (Modifications|Creation|Destruction) complete after/;
 
+interface Probe {
+  label: string;
+  parallelism: number;
+  reads: number;
+  total: number;
+  refresh: number | undefined;
+  status: string;
+}
+
+const median = (values: number[]): number | undefined => {
+  if (!values.length) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+};
+
+const renderPlanProbes = (file: string): string[] => {
+  const probes: Probe[] = fs
+    .readFileSync(file, 'utf-8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [label, parallelism, reads, total, refresh, status] = line.split('\t');
+      return {
+        label,
+        parallelism: Number(parallelism),
+        reads: Number(reads),
+        total: Number(total),
+        refresh: refresh === '-' ? undefined : Number(refresh),
+        status,
+      };
+    });
+
+  const out = [
+    '### Plan probes',
+    '',
+    'Read-only `terraform plan` runs, back to back in this job, so runner and state are held constant.',
+    '',
+    '| # | Probe | -parallelism | Reads | Total | Refresh window | Status |',
+    '| ---: | --- | ---: | ---: | ---: | ---: | --- |',
+    ...probes.map(
+      (p, i) =>
+        `| ${i + 1} | ${p.label} | ${p.parallelism} | ${p.reads} | ${p.total.toFixed(1)}s | ` +
+        `${p.refresh === undefined ? '—' : `${p.refresh.toFixed(1)}s`} | ${p.status} |`
+    ),
+    '',
+  ];
+
+  const at = (label: string): Probe[] => probes.filter((p) => p.label === label);
+  const totalsOf = (label: string): number[] => at(label).map((p) => p.total);
+
+  // A full plan minus the same plan with -refresh=false is the whole cost of
+  // refreshing, and prices `-refresh=false` as a lever.
+  const baseline = at('full-norefresh')[0];
+  const fullAtBaseline = at('full').filter((p) => p.parallelism === baseline?.parallelism);
+  const fullMedian = median(fullAtBaseline.map((p) => p.total));
+  const refreshCost = baseline && fullMedian !== undefined ? fullMedian - baseline.total : undefined;
+
+  // The target pair runs the same pruned graph and differs only in refreshing,
+  // so the difference is the reads and nothing else.
+  const targetWith = median(totalsOf('target'));
+  const targetWithout = median(totalsOf('target-norefresh'));
+  const targetReads = at('target')[0]?.reads ?? 0;
+  const readLatency =
+    targetWith !== undefined && targetWithout !== undefined && targetReads > 0
+      ? (targetWith - targetWithout) / targetReads
+      : undefined;
+
+  const fullReads = fullAtBaseline[0]?.reads ?? 0;
+
+  out.push('**Derived**', '');
+  if (refreshCost !== undefined) {
+    out.push(`- Refreshing ${fullReads} resources costs **${refreshCost.toFixed(1)}s** of a full plan.`);
+  }
+  if (readLatency !== undefined) {
+    out.push(`- One resource read takes **${readLatency.toFixed(2)}s** (${targetReads} read(s) in the target probe).`);
+  }
+  if (refreshCost !== undefined && refreshCost > 0 && readLatency !== undefined && fullReads > 0) {
+    const achieved = (fullReads * readLatency) / refreshCost;
+    out.push(
+      `- Achieved concurrency **${achieved.toFixed(1)}** against \`-parallelism=${baseline?.parallelism}\`. ` +
+        'Far below the requested value means the ceiling is upstream of Terraform, and no client-side change moves it.'
+    );
+  }
+  out.push('');
+  return out;
+};
+
 const main = (): void => {
   const profileDir = process.env.TF_PROFILE_DIR;
   if (!profileDir) throw new Error('TF_PROFILE_DIR is required');
@@ -138,24 +225,8 @@ const main = (): void => {
     out.push('### Zambda assets', '', fs.readFileSync(assetsFile, 'utf-8').trim(), '');
   }
 
-  const sweepFile = path.join(profileDir, 'parallelism-sweep.tsv');
-  if (fs.existsSync(sweepFile)) {
-    const rows = fs
-      .readFileSync(sweepFile, 'utf-8')
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.split('\t'));
-    out.push(
-      '### `-parallelism` sweep',
-      '',
-      'Read-only `terraform plan` runs, back to back in this job, so runner and state are held constant.',
-      '',
-      '| Sample | -parallelism | Total | Refresh | Status |',
-      '| ---: | ---: | ---: | ---: | --- |',
-      ...rows.map((r, i) => `| ${i + 1} | ${r[0]} | ${r[1]}s | ${r[2]}s | ${r[3]} |`),
-      ''
-    );
-  }
+  const probesFile = path.join(profileDir, 'plan-probes.tsv');
+  if (fs.existsSync(probesFile)) out.push(...renderPlanProbes(probesFile));
 
   const driftFile = path.join(profileDir, 'zambda-drift.md');
   if (fs.existsSync(driftFile)) out.push(fs.readFileSync(driftFile, 'utf-8'));

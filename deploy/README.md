@@ -319,21 +319,31 @@ description.
 `TF_PARALLELISM` (default 20) overrides Terraform's `-parallelism` for both the
 plan and apply walks.
 
-### `-parallelism` sweep
+### Plan probes
 
-Refresh dominates the apply (613 resources, ~29s at `-parallelism=20`) and is
-almost entirely request latency, so widening the graph walk should shorten it.
-`parallelism-sweep.sh` measures that:
+`plan-probes.sh` times a series of read-only `terraform plan` runs to work out
+where the plan's time goes:
 
 ```bash
-TF_PROFILE_DIR=/tmp/tf-profile ./parallelism-sweep.sh e2e 20,60,120,20
+TF_PROFILE_DIR=/tmp/tf-profile ./plan-probes.sh e2e 20,120,20
 ```
 
-It runs `terraform plan` — read-only, so it never mutates the environment —
-once per value, back to back, and records the total and the refresh window for
-each. Running the whole sweep inside one job is the point: runner, network,
-workspace and state size are identical across the samples, which comparing
-separately queued CI runs cannot give you. Repeating a value at both ends of
-the sweep (as the default does) shows how much drift there was during the
-measurement. In CI, trigger it with the `parallelism_sweep` `workflow_dispatch`
-input or by putting `/parallelism-sweep` in the PR description.
+Three probe shapes, all in one job so runner, network, workspace and state size
+are identical across every sample — which comparing separately queued CI runs
+cannot give you:
+
+- `full` at each `-parallelism` value — does widening the graph walk help?
+  Repeat a value at both ends to see how much drift there was.
+- `full-norefresh` (`-refresh=false`) — how much of a plan is refreshing at all?
+  The difference from `full` is the whole cost of reading 600+ resources, and
+  prices `-refresh=false` as a lever.
+- `target` / `target-norefresh` — how long is one read? The pair runs the same
+  pruned graph and differs only in whether it refreshes, so the difference
+  isolates the reads. `TF_PLAN_PROBE_TARGET` overrides the resource; the
+  reported read count confirms what `-target` actually pulled in.
+
+`profile-report` renders the table and derives single-read latency, the cost of
+refreshing, and the concurrency actually achieved against the `-parallelism`
+asked for. Every probe is a plan, so this never mutates the environment. In CI,
+trigger it with the `plan_probes` `workflow_dispatch` input or by putting
+`/plan-probes` in the PR description.

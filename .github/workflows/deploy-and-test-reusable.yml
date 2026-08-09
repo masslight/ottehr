@@ -45,8 +45,8 @@ on:
         required: false
         type: boolean
         default: false
-      parallelism_sweep:
-        description: "Comma-separated -parallelism values to time back to back with read-only plans after the deploy, e.g. 20,60,120,20"
+      plan_probes:
+        description: "Comma-separated -parallelism values for the post-deploy read-only plan probes, e.g. 20,120,20. Set to run them."
         required: false
         type: string
         default: ""
@@ -151,14 +151,14 @@ jobs:
           npm run terraform-init -- -input=false
           npm run apply-$ENV
 
-      - name: Terraform -parallelism sweep
-        if: inputs.parallelism_sweep != '' || contains(inputs.pr_body, '/parallelism-sweep')
+      - name: Terraform plan probes
+        if: inputs.plan_probes != '' || contains(inputs.pr_body, '/plan-probes')
         working-directory: deploy
         env:
           TF_PROFILE_DIR: ${{ runner.temp }}/tf-profile
           ENV: ${{ inputs.environment }}
-          SWEEP: ${{ inputs.parallelism_sweep || '20,60,120,20' }}
-        run: ./parallelism-sweep.sh "$ENV" "$SWEEP"
+          PARALLELISM: ${{ inputs.plan_probes || '20,120,20' }}
+        run: ./plan-probes.sh "$ENV" "$PARALLELISM"
 
       - name: Terraform deploy profile
         if: always()

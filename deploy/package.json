@@ -25,7 +25,7 @@
     "fill-env-with-created-resources-data": "node --preserve-symlinks -r tsx/cjs fill-env-with-created-resources-data.ts",
     "profile-zambda-drift": "node --preserve-symlinks -r tsx/cjs profile-zambda-drift.ts",
     "profile-report": "node --preserve-symlinks -r tsx/cjs profile-report.ts",
-    "parallelism-sweep": "./parallelism-sweep.sh",
+    "plan-probes": "./plan-probes.sh",
     "test": "vitest run",
     "test:ci": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests --reporter=dot --reporter=github-actions",
     "test:watch": "vitest"

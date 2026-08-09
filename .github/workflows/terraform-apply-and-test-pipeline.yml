@@ -41,8 +41,8 @@ on:
         required: false
         type: boolean
         default: false
-      parallelism_sweep:
-        description: "Comma-separated -parallelism values to time back to back with read-only plans after the deploy, e.g. 20,60,120,20"
+      plan_probes:
+        description: "Comma-separated -parallelism values for the post-deploy read-only plan probes, e.g. 20,120,20. Set to run them."
         required: false
         type: string
         default: ""
@@ -353,4 +353,4 @@ jobs:
       github_ref: ${{ github.ref }}
       is_pull_request: ${{ github.event_name == 'pull_request' }}
       check_zambda_determinism: ${{ inputs.check_zambda_determinism == true }}
-      parallelism_sweep: ${{ inputs.parallelism_sweep || '' }}
+      plan_probes: ${{ inputs.plan_probes || '' }}
