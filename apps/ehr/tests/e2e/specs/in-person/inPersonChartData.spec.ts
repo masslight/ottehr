@@ -112,9 +112,7 @@ test.describe('In-Person Visit Chart Data', async () => {
   let context: BrowserContext;
 
   test.beforeAll(async ({ browser }) => {
-    // Chart data only; nothing here reads a paperwork-derived field, and submitting paperwork
-    // costs ~12s of sequential patches and polling per appointment.
-    await resourceHandler.setResources({ skipPaperwork: true });
+    await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     const oystehr = await ResourceHandler.getOystehr();

@@ -43,11 +43,7 @@ test.describe('Global Templates E2E', () => {
 
   test.beforeAll(async ({ browser }) => {
     // Create both appointments in parallel
-    // Both visits exist to exercise chart templates, which read nothing from paperwork.
-    await Promise.all([
-      resourceHandler1.setResources({ skipPaperwork: true }),
-      resourceHandler2.setResources({ skipPaperwork: true }),
-    ]);
+    await Promise.all([resourceHandler1.setResources(), resourceHandler2.setResources()]);
 
     await Promise.all([
       resourceHandler1.waitTillAppointmentPreprocessed(resourceHandler1.appointment.id!),

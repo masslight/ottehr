@@ -120,8 +120,7 @@ async function setUpAppointment(
   resourceHandler: ResourceHandler,
   browser: Browser
 ): Promise<{ context: BrowserContext; page: Page }> {
-  // Immunizations are ordered and administered in the chart; no paperwork answer is read.
-  await resourceHandler.setResources({ skipPaperwork: true });
+  await resourceHandler.setResources();
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
   const context = await browser.newContext();

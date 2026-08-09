@@ -14,8 +14,7 @@ const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now()
 
 test.describe('Screening Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
-    // Screening questions live in the chart, not in intake paperwork.
-    await resourceHandler.setResources({ skipPaperwork: true });
+    await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     await setupPractitioners(page);
   });
