@@ -116,10 +116,9 @@ jobs:
             ENV="local"
             echo "[OK] Downstream repository detected - using local environment"
           else
-            # For masslight/ottehr, use load balancing to select least loaded environment
-            # This will be set in the next step
+            # For masslight/ottehr, the next step maps the branch to a workspace
             ENV=""
-            echo "[OK] masslight/ottehr detected - will use load balancing"
+            echo "[OK] masslight/ottehr detected - will select workspace by branch affinity"
           fi
 
           # Safety check: only allow local, e2e, e2e2, e2e3, e2e4, and e2e5 environments
@@ -131,64 +130,93 @@ jobs:
             echo "[OK] Environment validation passed: $ENV"
             echo "environment=$ENV" >> $GITHUB_OUTPUT
           else
-            echo "[INFO] Environment will be determined by load balancing step"
+            echo "[INFO] Environment will be determined by branch affinity step"
           fi
           echo "========================================="
 
-      - name: Select Least Loaded Environment
+      # Each workspace keeps whatever the last branch to deploy there left behind.
+      # Picking by a count of active runs means consecutive pushes to one PR
+      # usually land somewhere different, and because every Zambda bundles
+      # packages/utils, an unrelated branch's build makes all ~390 zips differ.
+      # Measured: a workspace already holding the same bundles planned 9 changes
+      # and applied in 1.8s; a stale one planned 397 and took 13.1s.
+      #
+      # So map a branch to a workspace instead, and keep it there. Other active
+      # runs get the same treatment, so a run can work out where they are headed
+      # without any shared state, and step aside when its own first choice is
+      # already claimed.
+      - name: Select Environment By Branch Affinity
         if: steps.env.outputs.environment == ''
         id: load-balance
         env:
           GH_TOKEN: ${{ github.token }}
+          SELF_BRANCH: ${{ github.head_ref || github.ref_name }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
+          set -uo pipefail
           echo "========================================="
-          echo "Load Balancing"
+          echo "Environment Selection (branch affinity)"
           echo "========================================="
 
-          CURRENT_RUN_ID="${{ github.run_id }}"
-          echo "Current run: $CURRENT_RUN_ID"
+          ENVS=(e2e e2e2 e2e3 e2e4 e2e5)
 
-          # Get active runs
-          echo ""
-          echo "[API] Fetching active runs..."
-          RUNS=$(gh api "repos/${{ github.repository }}/actions/workflows/terraform-apply-and-test-pipeline.yml/runs?per_page=50" | jq '[.workflow_runs[] | select(.status == "pending" or .status == "queued" or .status == "in_progress")]')
+          # cksum is POSIX and stable across runners, which matters more here
+          # than the hash quality — the same branch must always land on the same
+          # workspace.
+          affinity_index() {
+            local sum
+            sum=$(printf '%s' "$1" | cksum | cut -d' ' -f1)
+            echo $(( sum % ${#ENVS[@]} ))
+          }
 
-          # Count OTHER active runs (excluding current)
-          ACTIVE_COUNT=$(echo "$RUNS" | jq '[.[] | select(.id != '$CURRENT_RUN_ID')] | length')
+          PREFERRED=$(affinity_index "$SELF_BRANCH")
+          echo "Branch: $SELF_BRANCH"
+          echo "Preferred workspace: ${ENVS[$PREFERRED]}"
 
-          echo "Active runs (excluding current): $ACTIVE_COUNT"
+          # Any failure here must not block deploys, so fall back to the
+          # preferred workspace and say so.
+          OTHER_BRANCHES=$(gh api "repos/${REPOSITORY}/actions/workflows/terraform-apply-and-test-pipeline.yml/runs?per_page=50" \
+            --jq "[.workflow_runs[]
+                   | select(.status == \"pending\" or .status == \"queued\" or .status == \"in_progress\")
+                   | select(.id != ${CURRENT_RUN_ID})
+                   | .head_branch] | unique | .[]" 2>/dev/null) || {
+            echo "[WARN] Could not list active runs; using preferred workspace."
+            OTHER_BRANCHES=""
+          }
 
-          # Simple: count % 5 for 5 environments
-          # 0 runs -> 0 % 5 = 0 -> e2e
-          # 1 run  -> 1 % 5 = 1 -> e2e2
-          # 2 runs -> 2 % 5 = 2 -> e2e3
-          # 3 runs -> 3 % 5 = 3 -> e2e4
-          # 4 runs -> 4 % 5 = 4 -> e2e5
-          # 5 runs -> 5 % 5 = 0 -> e2e
-          REMAINDER=$((ACTIVE_COUNT % 5))
+          claims=()
+          for _ in "${ENVS[@]}"; do claims+=(0); done
+          while IFS= read -r branch; do
+            [ -z "$branch" ] && continue
+            # A run on our own branch wants the same workspace we do, and has to
+            # queue behind us anyway. Not a reason to move.
+            [ "$branch" = "$SELF_BRANCH" ] && continue
+            idx=$(affinity_index "$branch")
+            claims[$idx]=$(( claims[$idx] + 1 ))
+            echo "  active: $branch -> ${ENVS[$idx]}"
+          done <<< "$OTHER_BRANCHES"
 
-          if [ $REMAINDER -eq 0 ]; then
-            ENV="e2e"
-            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 0) -> e2e"
-          elif [ $REMAINDER -eq 1 ]; then
-            ENV="e2e2"
-            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 1) -> e2e2"
-          elif [ $REMAINDER -eq 2 ]; then
-            ENV="e2e3"
-            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 2) -> e2e3"
-          elif [ $REMAINDER -eq 3 ]; then
-            ENV="e2e4"
-            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 3) -> e2e4"
-          else
-            ENV="e2e5"
-            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 4) -> e2e5"
+          # Take the preferred workspace when it is free. Otherwise the least
+          # claimed, scanning from the preferred one so the choice stays stable.
+          CHOICE=$PREFERRED
+          if [ "${claims[$PREFERRED]}" -ne 0 ]; then
+            BEST=${claims[$PREFERRED]}
+            for offset in $(seq 1 $(( ${#ENVS[@]} - 1 ))); do
+              i=$(( (PREFERRED + offset) % ${#ENVS[@]} ))
+              if [ "${claims[$i]}" -lt "$BEST" ]; then
+                BEST=${claims[$i]}
+                CHOICE=$i
+              fi
+            done
+            echo "Preferred workspace is claimed (${claims[$PREFERRED]} run(s)); stepping aside."
           fi
 
+          ENV="${ENVS[$CHOICE]}"
           echo ""
           echo "Selected: $ENV"
           echo "environment=$ENV" >> $GITHUB_OUTPUT
           echo "========================================="
-
       - name: Finalize Environment Selection
         id: finalize-env
         run: |
