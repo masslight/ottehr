@@ -109,19 +109,46 @@ const renderPlanProbes = (file: string): string[] => {
 
   const fullReads = fullAtBaseline[0]?.reads ?? 0;
 
+  // Turning refresh on costs a fixed amount (Terraform starts and configures the
+  // provider, which authenticates) plus the reads themselves. Two probes with
+  // very different read counts separate the two:
+  //   targetDelta = fixed + targetReads x latency
+  //   fullDelta   = fixed + (fullReads / parallelism) x latency
+  // Attributing the whole target delta to one read instead would overstate
+  // per-read latency by the fixed cost, which is much the larger of the two.
+  const targetDelta = targetWith !== undefined && targetWithout !== undefined ? targetWith - targetWithout : undefined;
+  const parallelism = baseline?.parallelism ?? 0;
+  const fullWaves = parallelism > 0 ? fullReads / parallelism : 0;
+
+  let fixedCost: number | undefined;
+  let latency: number | undefined;
+  if (targetDelta !== undefined && refreshCost !== undefined && fullWaves !== targetReads) {
+    latency = (refreshCost - targetDelta) / (fullWaves - targetReads);
+    fixedCost = targetDelta - targetReads * latency;
+  }
+
   out.push('**Derived**', '');
-  if (refreshCost !== undefined) {
-    out.push(`- Refreshing ${fullReads} resources costs **${refreshCost.toFixed(1)}s** of a full plan.`);
-  }
-  if (readLatency !== undefined) {
-    out.push(`- One resource read takes **${readLatency.toFixed(2)}s** (${targetReads} read(s) in the target probe).`);
-  }
-  if (refreshCost !== undefined && refreshCost > 0 && readLatency !== undefined && fullReads > 0) {
-    const achieved = (fullReads * readLatency) / refreshCost;
+  if (baseline && fullMedian !== undefined) {
+    const share = ((baseline.total / fullMedian) * 100).toFixed(0);
     out.push(
-      `- Achieved concurrency **${achieved.toFixed(1)}** against \`-parallelism=${baseline?.parallelism}\`. ` +
-        'Far below the requested value means the ceiling is upstream of Terraform, and no client-side change moves it.'
+      `- A plan that reads nothing still takes **${baseline.total.toFixed(1)}s** — ${share}% of the full ` +
+        `${fullMedian.toFixed(1)}s plan. That is Terraform's own graph evaluation and rendering, not the API.`
     );
+  }
+  if (refreshCost !== undefined) {
+    out.push(
+      `- Turning refresh on for ${fullReads} resources adds **${refreshCost.toFixed(1)}s**, so \`-refresh=false\` ` +
+        'is worth about that much and no more.'
+    );
+  }
+  if (fixedCost !== undefined && latency !== undefined && latency > 0) {
+    out.push(
+      `- Of that, **${fixedCost.toFixed(1)}s** is fixed cost paid once as soon as anything is read ` +
+        '(provider start, configure, authenticate), leaving **' +
+        `${(refreshCost! - fixedCost).toFixed(1)}s** of actual reading — about ` +
+        `**${latency.toFixed(2)}s** per resource at \`-parallelism=${parallelism}\`.`
+    );
+    out.push('- Widening `-parallelism` can only shrink that last term, which is why it moves the total so little.');
   }
   out.push('');
   return out;
