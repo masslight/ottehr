@@ -346,11 +346,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
         'Computed tomography (procedure)'
       );
-      const existedSubFollowUpId = filterServiceRequestsFromFhir(
-        allResources,
-        subFollowUpMetaTag,
-        followUpPerformer?.coding?.[0]
-      )[0]?.id;
+      // Match the existing ServiceRequest by resolved follow-up type (coding code OR text) —
+      // filtering by coding alone matches nothing for the coding-less 'other'/'lurie-ct'
+      // performer types and would grab the first sub-follow-up of any type.
+      const existedSubFollowUpId = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag).find(
+        (subFollowUp) => followUpTypeFromPerformerType(subFollowUp.performerType) === followUp.type
+      )?.id;
 
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(

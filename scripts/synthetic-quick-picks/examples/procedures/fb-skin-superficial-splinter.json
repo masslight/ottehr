@@ -1,0 +1,34 @@
+{
+  "name": "Foreign Body Removal — Superficial Skin (Splinter)",
+  "procedureType": "foreign-body-removal",
+  "cptCodes": [
+    {
+      "code": "10120",
+      "display": "Incision and removal of foreign body, subcutaneous tissues; simple"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "L92.3",
+      "display": "Foreign body granuloma of skin and subcutaneous tissue"
+    }
+  ],
+  "bodySite": "arm",
+  "bodySide": "left",
+  "technique": [
+    "clean"
+  ],
+  "medicationUsed": "topical",
+  "suppliesUsed": [
+    "forceps",
+    "other"
+  ],
+  "otherSuppliesUsed": "#11 blade, topical EMLA",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "return-if-worsening"
+  ],
+  "timeSpent": "5-10-min"
+}

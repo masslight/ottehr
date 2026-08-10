@@ -1,0 +1,8 @@
+{
+  "name": "Chest X-Ray, 2 Views (PA/Lat)",
+  "cptCode": "71046",
+  "cptDisplay": "Radiologic examination, chest; 2 views",
+  "studyName": "X-Ray Chest 2 Views (PA and Lateral)",
+  "clinicalHistory": "Cough, dyspnea, chest pain — evaluate for pneumonia or acute cardiopulmonary process",
+  "stat": false
+}

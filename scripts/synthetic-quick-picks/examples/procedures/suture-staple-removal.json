@@ -1,0 +1,29 @@
+{
+  "name": "Suture / Staple Removal",
+  "procedureType": "staple-removal",
+  "diagnoses": [
+    {
+      "code": "Z48.02",
+      "display": "Encounter for removal of sutures"
+    }
+  ],
+  "bodySite": "arm",
+  "bodySide": "left",
+  "technique": [
+    "clean"
+  ],
+  "medicationUsed": "none",
+  "suppliesUsed": [
+    "other"
+  ],
+  "otherSuppliesUsed": "Iris scissors or staple remover, steri-strips PRN",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "return-if-worsening",
+    "other"
+  ],
+  "otherPostInstructions": "Steri-strips for 5–7 days if dehiscence concern",
+  "timeSpent": "less-5-min"
+}

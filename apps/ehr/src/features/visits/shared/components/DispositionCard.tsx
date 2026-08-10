@@ -146,7 +146,9 @@ export const DispositionCard: FC = () => {
     return () => subscription.unsubscribe();
   }, [handleSubmit, onSubmit, watch]);
   const isEmsTransportRefused = watch(REFUSAL_OF_EMS_TRANSPORT_FIELD);
-  const fields = dispositionFieldsPerType[currentType];
+  // Guard against a saved disposition type outside the known union (bad/legacy data) —
+  // an undefined lookup here would crash the whole card on `fields.includes(...)`.
+  const fields = dispositionFieldsPerType[currentType] ?? [];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
   if (isChartFieldsLoading || !chartFields?.disposition) {

@@ -1,0 +1,8 @@
+{
+  "name": "Wrist X-Ray, 3 Views",
+  "cptCode": "73110",
+  "cptDisplay": "Radiologic examination, wrist; complete, minimum of 3 views",
+  "studyName": "X-Ray Wrist 3 Views (AP, Oblique, Lateral)",
+  "clinicalHistory": "Wrist pain, fall on outstretched hand — evaluate for fracture, scaphoid concern",
+  "stat": false
+}
