@@ -35,12 +35,6 @@ const mockPatientWithValidContacts = {
   ],
 };
 
-// Must target the deep path, not the `utils` barrel: production imports
-// FEATURE_FLAGS_CONFIG from 'utils/lib/ottehr-config/feature-flags', so a
-// mock on 'utils' resolves a module nothing under test imports and silently
-// stops intercepting. Spread the real config and pin only the two flags these
-// tests depend on — per-customer configs ship them false, which makes
-// produceOutreachTasks return early and every assertion below fail.
 vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
