@@ -28,6 +28,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   carcDescription,
   ClaimRemitAdjustment,
+  ERA_CLAIM_STATUS_CODE,
   EraClaimListItem,
   EraClaimRemit,
   EraDetailResponse,
@@ -58,6 +59,10 @@ const adjustmentDescription = (adjustment: ClaimRemitAdjustment): string => {
   if (!adjustment.reasonCode) return groupLabel;
   return `${groupLabel} — ${carcDescription(adjustment.reasonCode) ?? 'No description available'}`;
 };
+
+// CLP02 statuses a biller must not miss; they color the remit chip and force the remit header
+const isAdverseRemitStatus = (statusCode: EraClaimRemit['eraStatusCode']): boolean =>
+  statusCode === ERA_CLAIM_STATUS_CODE.denied || statusCode === ERA_CLAIM_STATUS_CODE.reversal;
 
 function InlinePair({ label, value }: { label: string; value: ReactNode }): ReactElement {
   return (
@@ -236,7 +241,7 @@ function RemitSection({
           {remit.eraStatusCode && (
             <Chip
               label={ERA_STATUS_LABELS[remit.eraStatusCode]}
-              color={remit.eraStatusCode === '4' || remit.eraStatusCode === '22' ? 'error' : 'default'}
+              color={isAdverseRemitStatus(remit.eraStatusCode) ? 'error' : 'default'}
               variant="outlined"
               size="small"
               sx={{ borderRadius: '4px', fontSize: 12 }}
@@ -463,7 +468,7 @@ export default function EraClaimDetail(): ReactElement {
             claim={claim}
             era={era}
             descriptions={descriptions}
-            showRemitHeader={claim.remits.length > 1 || remit.eraStatusCode === '4' || remit.eraStatusCode === '22'}
+            showRemitHeader={claim.remits.length > 1 || isAdverseRemitStatus(remit.eraStatusCode)}
           />
         ))
       )}
