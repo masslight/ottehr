@@ -30,7 +30,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.7';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.8';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -1014,6 +1014,22 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               text: 'Secondary insurance details',
               type: 'display',
             },
+            insuranceCardFront: {
+              key: 'insurance-card-front-2',
+              label: 'Front side of the insurance card (optional)',
+              type: 'attachment',
+              attachmentText: 'Take a picture of the **front side** of your card and upload it here',
+              dataType: 'Image',
+              documentType: INSURANCE_CARD_CODE,
+            },
+            insuranceCardBack: {
+              key: 'insurance-card-back-2',
+              label: 'Back side of the insurance card (optional)',
+              type: 'attachment',
+              attachmentText: 'Take a picture of the **back side** of your card and upload it here',
+              dataType: 'Image',
+              documentType: INSURANCE_CARD_CODE,
+            },
             insuranceCarrier: {
               key: 'insurance-carrier-2',
               label: 'Insurance carrier',
@@ -1156,22 +1172,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               label: "Patient's relationship to insured",
               type: 'choice',
               options: valueSets.relationshipToInsuredOptions,
-            },
-            insuranceCardFront: {
-              key: 'insurance-card-front-2',
-              label: 'Front side of the insurance card (optional)',
-              type: 'attachment',
-              attachmentText: 'Take a picture of the **front side** of your card and upload it here',
-              dataType: 'Image',
-              documentType: INSURANCE_CARD_CODE,
-            },
-            insuranceCardBack: {
-              key: 'insurance-card-back-2',
-              label: 'Back side of the insurance card (optional)',
-              type: 'attachment',
-              attachmentText: 'Take a picture of the **back side** of your card and upload it here',
-              dataType: 'Image',
-              documentType: INSURANCE_CARD_CODE,
             },
           },
           triggers: [
