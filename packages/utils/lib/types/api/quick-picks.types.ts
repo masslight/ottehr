@@ -59,6 +59,14 @@ export interface ProcedureQuickPickData {
   suppliesUsed?: (string | undefined)[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
+  /** Structured wound/lesion size in cm (length-banded families; mirrors ProcedureDTO.lengthCm). */
+  lengthCm?: number;
+  /** Structured repair depth selection code (mirrors ProcedureDTO.repairDepth). */
+  repairDepth?: string;
+  /** Structured infusion start time, HH:MM 24-hour (mirrors ProcedureDTO.infusionStartTime). */
+  infusionStartTime?: string;
+  /** Structured infusion stop time, HH:MM 24-hour (mirrors ProcedureDTO.infusionStopTime). */
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

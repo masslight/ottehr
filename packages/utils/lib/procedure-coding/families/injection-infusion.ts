@@ -157,6 +157,21 @@ export function extractInfusionDuration(input: ProcedureFactsInput, text: string
 }
 
 /**
+ * One-line display of the structured infusion times for note surfaces (review tab, PDFs,
+ * admin pages), e.g. "14:05–14:47 (42 min)". The duration comes from the same cross-midnight
+ * rule as extractInfusionDuration; a lone or unparseable endpoint renders verbatim (no
+ * duration) rather than dropping. Returns undefined only when both times are absent.
+ */
+export function formatInfusionTimeRange(startTime?: string, stopTime?: string): string | undefined {
+  if (!startTime && !stopTime) return undefined;
+  const start = parseClockTime(startTime);
+  const stop = parseClockTime(stopTime);
+  const range = `${startTime ?? ''}–${stopTime ?? ''}`;
+  if (start === undefined || stop === undefined) return range;
+  return `${range} (${durationFrom(start, stop, 'structured').durationMinutes} min)`;
+}
+
+/**
  * 96366 add-on units for a documented duration: each additional hour beyond 96365's first
  * hour bills one unit, and a final partial hour counts only once more than 30 minutes into
  * it (the same ≥31-minute threshold as the initial hour).

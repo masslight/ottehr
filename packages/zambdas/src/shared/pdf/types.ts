@@ -598,6 +598,12 @@ export interface Procedures extends PdfData {
     medicationUsed?: string;
     bodySite?: string;
     bodySide?: string;
+    /** Pre-formatted wound/lesion size, e.g. "3.2 cm". */
+    lengthCm?: string;
+    /** Repair depth display label (already resolved from the stored code). */
+    repairDepth?: string;
+    /** Pre-formatted infusion time line, e.g. "14:05–14:47 (42 min)". */
+    infusionTime?: string;
     technique?: string[];
     suppliesUsed?: string;
     procedureDetails?: string;

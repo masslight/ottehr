@@ -4,6 +4,7 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { detectProcedureFamily, formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils';
 import { useProcedureQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {
@@ -70,6 +71,17 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
     ...(quickPick.otherSuppliesUsed ? [`Other: ${quickPick.otherSuppliesUsed}`] : []),
   ] as string[];
 
+  // Same family-conditional visibility as the procedure form (useProcedureCoding): the structured
+  // rows appear when the quick pick's family uses them — or when a value is present anyway, so
+  // stored data never disappears if the family tables change.
+  const family = detectProcedureFamily({ procedureType: quickPick.procedureType, cptCodes: quickPick.cptCodes });
+  const showLengthRow = family?.usesStructuredLength === true || quickPick.lengthCm != null;
+  const showRepairDepthRow = family?.usesStructuredRepairDepth === true || quickPick.repairDepth != null;
+  const showInfusionTimeRow =
+    family?.usesStructuredInfusionTimes === true ||
+    quickPick.infusionStartTime != null ||
+    quickPick.infusionStopTime != null;
+
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', py: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -103,6 +115,23 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
           <Row label="Body Side">
             <ValueDisplay value={quickPick.bodySide} />
           </Row>
+          {showLengthRow && (
+            <Row label="Wound/Lesion Size">
+              <ValueDisplay value={quickPick.lengthCm != null ? `${quickPick.lengthCm} cm` : undefined} />
+            </Row>
+          )}
+          {showRepairDepthRow && (
+            <Row label="Repair Depth">
+              <ValueDisplay
+                value={quickPick.repairDepth != null ? repairDepthDisplayLabel(quickPick.repairDepth) : undefined}
+              />
+            </Row>
+          )}
+          {showInfusionTimeRow && (
+            <Row label="Infusion Time">
+              <ValueDisplay value={formatInfusionTimeRange(quickPick.infusionStartTime, quickPick.infusionStopTime)} />
+            </Row>
+          )}
           <Row label="Medication Used">
             <ValueDisplay value={quickPick.medicationUsed} />
           </Row>

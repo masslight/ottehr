@@ -250,6 +250,14 @@ export function isRepairDepthSelection(value: string | undefined): value is Repa
   return REPAIR_DEPTH_OPTIONS.some((option) => option.value === value);
 }
 
+/**
+ * Display label for a persisted Repair depth value (note surfaces, PDFs, admin pages).
+ * Unknown/legacy codes fall back to the raw value rather than dropping it.
+ */
+export function repairDepthDisplayLabel(value: string): string {
+  return REPAIR_DEPTH_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 /** Repair class each non-adhesive selection determines. */
 const REPAIR_DEPTH_SELECTION_CLASS: Record<
   Exclude<RepairDepthSelection, 'tissue-adhesive-only' | 'strips-only'>,
