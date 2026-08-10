@@ -1,4 +1,4 @@
-import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Organization } from 'fhir/r4b';
+import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Coverage, Organization, Patient } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_CODE_TAX_EMPLOYER, FHIR_IDENTIFIER_NPI, FHIR_IDENTIFIER_SYSTEM } from 'utils';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,6 +9,7 @@ import {
 import {
   buildEraClaimRemit,
   buildEraRemitServiceLines,
+  eraContainedMemberId,
   eraPatientAccountNumber,
   resolveEraPayee,
 } from '../../../src/billing/era-remits';
@@ -405,5 +406,58 @@ describe('resolveEraPayee', () => {
     // matched responses lose their contained resources entirely
     expect(resolveEraPayee([bare])).toBeNull();
     expect(resolveEraPayee([])).toBeNull();
+  });
+});
+
+describe('eraContainedMemberId', () => {
+  const memberIdentifier = {
+    type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: 'MB' }] },
+    value: 'MBR-777',
+  };
+  const containedSubscriber: Patient = {
+    resourceType: 'Patient',
+    id: 'subscriber',
+    identifier: [{ value: 'other-id' }, memberIdentifier],
+  };
+  const containedCoverage = (overrides: Partial<Coverage> = {}): Coverage =>
+    ({
+      resourceType: 'Coverage',
+      id: 'coverage',
+      status: 'active',
+      subscriber: { reference: '#subscriber' },
+      beneficiary: { reference: '#patient' },
+      payor: [{ display: 'Acme' }],
+      ...overrides,
+    }) as Coverage;
+
+  it('prefers the contained Coverage subscriberId when present', () => {
+    const cr = claimResponse({
+      contained: [containedClaim(), containedCoverage({ subscriberId: 'SUB-1' }), containedSubscriber],
+    });
+    expect(eraContainedMemberId(cr)).toBe('SUB-1');
+  });
+
+  it('reads the NM109 member identifier off the contained subscriber resource', () => {
+    const cr = claimResponse({
+      contained: [containedClaim(), containedCoverage(), containedSubscriber],
+    });
+    expect(eraContainedMemberId(cr)).toBe('MBR-777');
+  });
+
+  it('falls back to a Coverage identifier, then the contained patient identifier', () => {
+    const viaCoverage = claimResponse({
+      contained: [containedClaim(), containedCoverage({ subscriber: undefined, identifier: [{ value: 'COV-9' }] })],
+    });
+    expect(eraContainedMemberId(viaCoverage)).toBe('COV-9');
+
+    const viaPatient = claimResponse({
+      patient: { reference: '#patient' },
+      contained: [containedClaim(), { resourceType: 'Patient', id: 'patient', identifier: [memberIdentifier] }],
+    });
+    expect(eraContainedMemberId(viaPatient)).toBe('MBR-777');
+  });
+
+  it('is empty for matched remits, which carry no contained resources', () => {
+    expect(eraContainedMemberId(claimResponse())).toBe('');
   });
 });

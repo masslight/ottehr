@@ -4,7 +4,12 @@ import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import * as fs from 'fs';
 import { fetchClaimResponsesByPaymentReconciliations } from '../billing/claim-amounts';
-import { buildEraClaimRemit, eraPatientAccountNumber, resolveEraPayee } from '../billing/era-remits';
+import {
+  buildEraClaimRemit,
+  eraContainedMemberId,
+  eraPatientAccountNumber,
+  resolveEraPayee,
+} from '../billing/era-remits';
 import { getEraCheckNumber } from '../billing/shared';
 import { getAuth0Token } from '../shared';
 
@@ -69,6 +74,7 @@ async function main(): Promise<void> {
     const remit = buildEraClaimRemit(cr, claim);
     console.log('\n--- ClaimResponse', cr.id, matched ? '(matched)' : '(unmatched)', '---');
     console.log('patientAccountNumber:', eraPatientAccountNumber([cr], claim, matched));
+    console.log('containedMemberId:', eraContainedMemberId(cr));
     console.log({
       eraStatusCode: remit.eraStatusCode,
       payerClaimControlNumber: remit.payerClaimControlNumber,

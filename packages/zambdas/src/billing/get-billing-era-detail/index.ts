@@ -17,7 +17,7 @@ import {
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
 } from '../claim-amounts';
-import { buildEraClaimRemit, eraPatientAccountNumber, resolveEraPayee } from '../era-remits';
+import { buildEraClaimRemit, eraContainedMemberId, eraPatientAccountNumber, resolveEraPayee } from '../era-remits';
 import {
   createBillingClient,
   createEraReadClient,
@@ -160,9 +160,8 @@ export async function performEffect(
 
     const coverageId = coverageIdByClaimId.get(claim.id ?? '');
     const coverage = coverageId ? coverages.find((candidate) => candidate.id === coverageId) : undefined;
-    const containedCoverage = orderedResponses
-      .flatMap((claimResponse) => claimResponse.contained ?? [])
-      .find((resource): resource is Coverage => resource.resourceType === 'Coverage');
+    // the NM109 the payer echoed, carried on the unmatched remit's contained resources
+    const containedMemberId = orderedResponses.map(eraContainedMemberId).find(Boolean);
 
     return {
       claimId: claim.id ?? '',
@@ -175,7 +174,7 @@ export async function performEffect(
       posted: payments.insurancePaid,
       patientResp: payments.patientResp,
       patientAccountNumber: eraPatientAccountNumber(claimResponses, claim, matched),
-      memberId: coverage?.subscriberId ?? containedCoverage?.subscriberId ?? '',
+      memberId: coverage?.subscriberId ?? containedMemberId ?? '',
       status: latestStatus,
       matched,
       claimResponseIds: orderedResponses

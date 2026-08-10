@@ -1,4 +1,13 @@
-import { Claim, ClaimItem, ClaimResponse, ClaimResponseItem, Organization } from 'fhir/r4b';
+import {
+  Claim,
+  ClaimItem,
+  ClaimResponse,
+  ClaimResponseItem,
+  Coverage,
+  FhirResource,
+  Identifier,
+  Organization,
+} from 'fhir/r4b';
 import {
   asEraClaimStatusCode,
   ClaimRemitAdjustment,
@@ -33,6 +42,34 @@ export function eraPatientAccountNumber(
   const echoed = claimResponses.map((cr) => getEraExtensionString(cr, ERA_PCN_EXTENSION)).find(Boolean);
   if (echoed) return echoed;
   return matched && claim ? getClaimPcn(claim) : '';
+}
+
+// NM1*IL NM109 — the member id the payer reported the insured under. The converter writes it onto
+// the unmatched remit's contained resources; matched remits lose their contained resources, so
+// matched rows read the claim's own Coverage instead. Checked in order: the contained Coverage's
+// subscriberId, a member-number identifier on the subscriber resource that Coverage points at, on
+// the Coverage itself, then on the contained patient.
+export function eraContainedMemberId(claimResponse: ClaimResponse): string {
+  const contained = claimResponse.contained ?? [];
+  const byLocalRef = (reference: string | undefined): FhirResource | undefined =>
+    reference?.startsWith('#') ? contained.find((resource) => resource.id === reference.slice(1)) : undefined;
+
+  const coverage = contained.find((resource): resource is Coverage => resource.resourceType === 'Coverage');
+  if (coverage?.subscriberId) return coverage.subscriberId;
+
+  // prefer a v2-0203 MB (member number) typed identifier, else the resource's first identifier
+  const memberIdentifierOf = (resource: FhirResource | undefined): string | undefined => {
+    const identifiers = (resource as { identifier?: Identifier[] } | undefined)?.identifier ?? [];
+    const typed = identifiers.find((identifier) => identifier.type?.coding?.some((coding) => coding.code === 'MB'));
+    return (typed ?? identifiers[0])?.value;
+  };
+
+  return (
+    memberIdentifierOf(byLocalRef(coverage?.subscriber?.reference)) ??
+    memberIdentifierOf(coverage) ??
+    memberIdentifierOf(byLocalRef(claimResponse.patient?.reference)) ??
+    ''
+  );
 }
 
 function itemProcedureCode(item: ClaimResponseItem): string {

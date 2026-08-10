@@ -160,6 +160,20 @@ const unmatchedResponse: ClaimResponse = {
       id: 'billing-provider',
       identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1871112375' }],
     } as Organization,
+    {
+      resourceType: 'Coverage',
+      id: 'coverage',
+      status: 'active',
+      subscriber: { reference: '#subscriber' },
+      beneficiary: { reference: '#patient' },
+      payor: [{ display: 'Acme' }],
+    } as Coverage,
+    // NM1*IL: the payer names the insured with the NM109 member id
+    {
+      resourceType: 'Patient',
+      id: 'subscriber',
+      identifier: [{ type: { coding: [{ code: 'MB' }] }, value: 'MBR-777' }],
+    } as Patient,
   ],
   item: [eraItem(1, '87880', { paid: 0, pr: ['3', 25], charge: 570 })],
 };
@@ -311,8 +325,9 @@ describe('get-billing-era-detail performEffect', () => {
       patientAccountNumber: 'ACC-7',
       // the contained claim carries no total, so billed is the charge the payer reported
       billed: 570,
-      // the converter writes no contained Coverage or birth date
-      memberId: '',
+      // NM109 from the contained subscriber resource
+      memberId: 'MBR-777',
+      // the converter writes no birth date on the contained patient
       patientDob: '',
     });
     expect(unmatched?.remits).toHaveLength(1);
