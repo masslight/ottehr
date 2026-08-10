@@ -36,16 +36,6 @@ on:
         required: false
         type: boolean
         default: false
-      check_zambda_determinism:
-        description: "Rebuild every Zambda a second time during deploy and report which zips are not byte-reproducible"
-        required: false
-        type: boolean
-        default: false
-      plan_probes:
-        description: "Comma-separated -parallelism values for the post-deploy read-only plan probes, e.g. 20,120,20. Set to run them."
-        required: false
-        type: string
-        default: ""
   push:
     branches: [main, develop, "release/**"]
     paths:
@@ -380,5 +370,3 @@ jobs:
       pr_body: ${{ github.event.pull_request.body || '' }}
       github_ref: ${{ github.ref }}
       is_pull_request: ${{ github.event_name == 'pull_request' }}
-      check_zambda_determinism: ${{ inputs.check_zambda_determinism == true }}
-      plan_probes: ${{ inputs.plan_probes || '' }}

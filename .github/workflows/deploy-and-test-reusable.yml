@@ -40,16 +40,6 @@ on:
       is_pull_request:
         required: true
         type: boolean
-      check_zambda_determinism:
-        description: "Rebuild every Zambda a second time during deploy and report which zips are not byte-reproducible"
-        required: false
-        type: boolean
-        default: false
-      plan_probes:
-        description: "Comma-separated -parallelism values for the post-deploy read-only plan probes, e.g. 20,120,20. Set to run them."
-        required: false
-        type: string
-        default: ""
 
 jobs:
   deploy:
@@ -142,39 +132,10 @@ jobs:
 
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
-        env:
-          TF_PROFILE_DIR: ${{ runner.temp }}/tf-profile
-          TF_PARALLELISM: ${{ vars.TF_PARALLELISM || '20' }}
-          ZAMBDA_DETERMINISM_CHECK: ${{ (inputs.check_zambda_determinism || contains(inputs.pr_body, '/check-zambda-determinism')) && '1' || '0' }}
-          ENV: ${{ inputs.environment }}
         run: |
+          ENV="${{ inputs.environment }}"
           npm run terraform-init -- -input=false
           npm run apply-$ENV
-
-      - name: Terraform plan probes
-        if: inputs.plan_probes != '' || contains(inputs.pr_body, '/plan-probes')
-        working-directory: deploy
-        env:
-          TF_PROFILE_DIR: ${{ runner.temp }}/tf-profile
-          ENV: ${{ inputs.environment }}
-          PARALLELISM: ${{ inputs.plan_probes || '20,120,20' }}
-        run: ./plan-probes.sh "$ENV" "$PARALLELISM"
-
-      - name: Terraform deploy profile
-        if: always()
-        working-directory: deploy
-        env:
-          TF_PROFILE_DIR: ${{ runner.temp }}/tf-profile
-        run: npm run profile-report
-
-      - name: Upload deploy profile
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tf-deploy-profile-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/tf-profile
-          if-no-files-found: warn
-          retention-days: 7
 
   automated-tests:
     needs: deploy
