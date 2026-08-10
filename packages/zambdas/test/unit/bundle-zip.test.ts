@@ -30,6 +30,14 @@ const buildZip = async (outName: string): Promise<Buffer> => {
   return fs.readFileSync(outPath);
 };
 
+/**
+ * Byte-exact and directly comparable. `Buffer.equals`, `Buffer.compare` and
+ * `createHash().update` all take a `Uint8Array`, and this workspace's
+ * `@types/node` (18) predates the generic `Uint8Array<ArrayBuffer>`, so its
+ * `Buffer` does not satisfy that parameter. `toString` takes no such argument.
+ */
+const bytes = (zip: Buffer): string => zip.toString('hex');
+
 /** Entry names in the order the zip's central directory lists them. */
 const entryNames = (zip: Buffer): string[] => {
   let eocd = zip.length - 22;
@@ -63,8 +71,8 @@ describe('zipZambda', () => {
     const builds = await Promise.all(Array.from({ length: 12 }, (_, i) => buildZip(`concurrent-${i}.zip`)));
 
     // Byte equality is the property Terraform's checksum diff cares about.
-    const differing = builds.filter((zip) => !zip.equals(builds[0])).length;
-    expect(differing, 'zips built concurrently from identical inputs differ').toBe(0);
+    const distinct = new Set(builds.map(bytes)).size;
+    expect(distinct, 'zips built concurrently from identical inputs differ').toBe(1);
   });
 
   it('writes the assets in the order they were passed', async () => {
@@ -81,7 +89,7 @@ describe('zipZambda', () => {
     fs.utimesSync(sourceFile, anHourLater, anHourLater);
     const after = await buildZip('mtime-after.zip');
 
-    expect(after.equals(before), 'zip changed after only the source mtime moved').toBe(true);
+    expect(bytes(after), 'zip changed after only the source mtime moved').toBe(bytes(before));
   });
 
   it('packs a zambda that needs no assets', async () => {
