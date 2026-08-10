@@ -151,6 +151,14 @@ export interface TemplateProcedurePlan {
   medicationUsed: string | undefined;
   suppliesUsed: string | undefined;
   procedureDetails: string | undefined;
+  /** Structured wound/lesion size in cm (mirrors ProcedureDTO.lengthCm). */
+  lengthCm: number | undefined;
+  /** Structured repair depth selection code (mirrors ProcedureDTO.repairDepth; render via repairDepthDisplayLabel). */
+  repairDepth: string | undefined;
+  /** Structured infusion start time, HH:MM 24-hour (mirrors ProcedureDTO.infusionStartTime). */
+  infusionStartTime: string | undefined;
+  /** Structured infusion stop time, HH:MM 24-hour (mirrors ProcedureDTO.infusionStopTime). */
+  infusionStopTime: string | undefined;
   specimenSent: boolean | undefined;
   complications: string | undefined;
   patientResponse: string | undefined;

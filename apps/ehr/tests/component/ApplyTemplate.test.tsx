@@ -186,6 +186,12 @@ const mockTemplateDetail = {
         medicationUsed: 'Lidocaine 1%',
         suppliesUsed: 'Splint kit',
         procedureDetails: 'Applied volar splint after reduction.',
+        lengthCm: 3.5,
+        // Not clinically coherent with a splint, but exercises the structured
+        // coding-assist fields' display path (label lookup + time-range format).
+        repairDepth: 'subcutaneous-layered',
+        infusionStartTime: '10:15',
+        infusionStopTime: '11:00',
         specimenSent: false,
         complications: undefined,
         patientResponse: 'Tolerated well',
@@ -683,6 +689,13 @@ describe('ApplyTemplate', () => {
     expect(within(procCard).getByText(/S62.001A/)).toBeInTheDocument();
     expect(within(procCard).getByText(/Wrist/)).toBeInTheDocument();
     expect(within(procCard).getByText(/Closed reduction/)).toBeInTheDocument();
+
+    // The structured coding-assist fields render with their display formatting:
+    // size in cm, repair depth via its REPAIR_DEPTH_OPTIONS label, and the
+    // infusion times as a range with computed duration.
+    expect(within(procCard).getByText(/3\.5 cm/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/Subcutaneous — layered closure/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/10:15–11:00 \(45 min\)/)).toBeInTheDocument();
   });
 
   it('should not render the procedures section when the template carries no procedures', async () => {

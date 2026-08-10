@@ -1,4 +1,4 @@
-import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils';
+import { formatInfusionTimeRange, repairDepthDisplayLabel, TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils';
 
 export const formatCptCodeAndModifiersForDisplay = (info: TemplateCptCodeInfo): string => {
   return `${info.code}${info.modifiers.length ? `-${info.modifiers.map((mod) => mod.display).join(',-')}` : ''}`;
@@ -21,6 +21,12 @@ export const getProcedureDisplayFields = (plan: TemplateProcedurePlan): Procedur
     { label: 'Performer type', value: plan.performerType ?? '' },
     { label: 'Body site', value: plan.bodySite ?? '' },
     { label: 'Body side', value: plan.bodySide ?? '' },
+    // Structured coding-assist fields. Like the quick-pick detail page, display
+    // surfaces show them whenever a value is present (the family-conditional
+    // visibility only gates empty inputs on the editable form).
+    { label: 'Wound/lesion size', value: plan.lengthCm != null ? `${plan.lengthCm} cm` : '' },
+    { label: 'Repair depth', value: plan.repairDepth != null ? repairDepthDisplayLabel(plan.repairDepth) : '' },
+    { label: 'Infusion time', value: formatInfusionTimeRange(plan.infusionStartTime, plan.infusionStopTime) ?? '' },
     { label: 'Technique', value: plan.technique.join(', ') },
     { label: 'Medication used', value: plan.medicationUsed ?? '' },
     { label: 'Supplies used', value: plan.suppliesUsed ?? '' },

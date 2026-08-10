@@ -483,6 +483,8 @@ const performEffect = async (
     sr.extension?.find((e) => e.url === url)?.valueString;
   const getExtensionBoolean = (sr: ServiceRequest, url: string): boolean | undefined =>
     sr.extension?.find((e) => e.url === url)?.valueBoolean;
+  const getExtensionDecimal = (sr: ServiceRequest, url: string): number | undefined =>
+    sr.extension?.find((e) => e.url === url)?.valueDecimal;
   const getExtensionStrings = (sr: ServiceRequest, url: string): string[] =>
     (sr.extension ?? []).filter((e) => e.url === url).flatMap((e) => (e.valueString ? [e.valueString] : []));
   const getCodingCode = (
@@ -536,6 +538,10 @@ const performEffect = async (
       medicationUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.medicationUsed.url),
       suppliesUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url),
       procedureDetails: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.procedureDetails.url),
+      lengthCm: getExtensionDecimal(plan, FHIR_EXTENSION.ServiceRequest.lengthCm.url),
+      repairDepth: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.repairDepth.url),
+      infusionStartTime: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.infusionStartTime.url),
+      infusionStopTime: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.infusionStopTime.url),
       specimenSent: getExtensionBoolean(plan, FHIR_EXTENSION.ServiceRequest.specimenSent.url),
       complications: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.complications.url),
       patientResponse: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.patientResponse.url),

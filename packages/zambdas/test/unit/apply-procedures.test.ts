@@ -238,6 +238,26 @@ describe('buildLiveProcedureRequest', () => {
     expect(sr.extension).toEqual(customExtensions);
   });
 
+  test('carries the structured coding-assist fields (lengthCm, repairDepth, infusion times) onto the live procedure', () => {
+    // These four fields ride the shared readProcedureFormFieldsFromServiceRequest /
+    // createProcedureServiceRequest pair like every other extension-backed form
+    // field. Pin them explicitly since lengthCm is the one valueDecimal (not
+    // valueString) extension - a reader/builder mismatch would silently drop it.
+    const structuredExtensions: Extension[] = [
+      { url: FHIR_EXTENSION.ServiceRequest.lengthCm.url, valueDecimal: 3.5 },
+      { url: FHIR_EXTENSION.ServiceRequest.repairDepth.url, valueString: 'subcutaneous-layered' },
+      { url: FHIR_EXTENSION.ServiceRequest.infusionStartTime.url, valueString: '10:15' },
+      { url: FHIR_EXTENSION.ServiceRequest.infusionStopTime.url, valueString: '11:00' },
+    ];
+    const request = buildLiveProcedureRequest({
+      plan: buildPlan({ extension: structuredExtensions }),
+      encounter: buildEncounter(),
+      containedIdToNewFullUrl: new Map(),
+    });
+    const sr = request.resource as ServiceRequest;
+    expect(sr.extension).toEqual(structuredExtensions);
+  });
+
   test('omits optional fields when the plan does not carry them', () => {
     // A sparse template entry (procedure with only a CPT and no other form
     // fields) shouldn't end up with empty arrays / undefined extensions on the
