@@ -69,6 +69,12 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
       await upsertPaymentNoticeForRefund(oystehr, refund, event.account, secrets);
       break;
     }
+    case 'invoice.paid': {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.log(`Invoice paid event for ${invoice.id}, charge: ${invoice.charge ?? 'none'}`);
+      await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, event.account, secrets);
+      break;
+    }
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
@@ -318,4 +324,60 @@ const upsertPaymentNoticeForRefund = async (
   });
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
+};
+
+const upsertPaymentNoticeForChargelessInvoice = async (
+  oystehr: Oystehr,
+  invoice: Stripe.Invoice,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  if (invoice.charge) {
+    console.log(`Invoice ${invoice.id} was settled by a charge; the charge event records it`);
+    return;
+  }
+
+  const encounterId = encounterIdFromStripeMetadata(invoice.metadata);
+  if (!encounterId) {
+    console.warn(`Invoice ${invoice.id} has no encounter metadata; skipping PaymentNotice upsert`);
+    return;
+  }
+
+  const amountPaid = (invoice.amount_paid ?? 0) / 100;
+  if (amountPaid <= 0) {
+    console.log(`Invoice ${invoice.id} settled for ${amountPaid}; nothing to record`);
+    return;
+  }
+
+  const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const billingProviderRef = await billingProviderRefForStripeAccount(oystehr, stripeAccount, secrets);
+  const created = new Date((invoice.status_transitions?.paid_at ?? invoice.created) * 1000).toISOString();
+  const settledOutOfBand = invoice.paid_out_of_band === true;
+
+  const paymentAmount: Money = {
+    value: amountPaid,
+    currency: (invoice.currency ?? 'usd').toUpperCase(),
+  };
+
+  const desiredNotice = buildBillingPaymentNotice({
+    claim,
+    encounterId,
+    billingProviderRef,
+    createdISO: created,
+    amount: paymentAmount,
+    identifiers: [
+      {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: invoice.id,
+      },
+    ],
+    // the money was collected somewhere stripe cannot name, which is what 'other' means here
+    paymentMethod: 'other',
+    disposition: `Stripe invoice ${invoice.id} ${
+      settledOutOfBand ? 'marked paid out of band' : 'paid from credit balance'
+    }`,
+    outcome: 'complete',
+  });
+
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, invoice.id, claim, encounterId);
 };

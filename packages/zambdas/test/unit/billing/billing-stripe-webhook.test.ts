@@ -453,3 +453,85 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
     expect(create.mock.calls[1][0].request.identifier.value).toBe('enc-1');
   });
 });
+
+// An invoice can settle with no charge: marked paid out of band, or covered by customer credit.
+describe('billing-stripe-webhook chargeless invoices', () => {
+  it('records a notice for an invoice marked paid out of band', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ paid_out_of_band: true });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    const [resource, options] = create.mock.calls[0];
+    expect(options.ifNoneExist).toContainEqual({
+      name: 'identifier',
+      value: `${STRIPE_PAYMENT_ID_SYSTEM}|in_1`,
+    });
+    expect(resource.identifier).toEqual([
+      {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: 'in_1',
+      },
+    ]);
+    expect(resource.amount).toEqual({
+      value: 90,
+      currency: 'USD',
+    });
+    expect(resource.status).toBe('active');
+    expect(resource.request.reference).toBe('Claim/claim-1');
+    expect(resource.extension[0].valueString).toBe('other');
+    expect(resource.contained[0].disposition).toContain('marked paid out of band');
+    // paid_at, not the invoice creation time
+    expect(resource.created).toBe(new Date(1751900500 * 1000).toISOString());
+  });
+
+  it('records a credit balance settlement when the invoice was not paid out of band', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', makeInvoice()),
+      secrets,
+    });
+
+    expect(create.mock.calls[0][0].contained[0].disposition).toContain('paid from credit balance');
+  });
+
+  it('ignores an invoice that a charge settled, since the charge event records it', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ charge: 'ch_1' });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('ignores an invoice with no encounter metadata', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ metadata: {} });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('ignores an invoice that settled for nothing', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+    const invoice = makeInvoice({ amount_paid: 0 });
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', invoice),
+      secrets,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+  });
+});
