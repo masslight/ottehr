@@ -124,17 +124,8 @@ jobs:
           fi
           echo "========================================="
 
-      # Each workspace keeps whatever the last branch to deploy there left behind.
-      # Picking by a count of active runs means consecutive pushes to one PR
-      # usually land somewhere different, and because every Zambda bundles
-      # packages/utils, an unrelated branch's build makes all ~390 zips differ.
-      # Measured: a workspace already holding the same bundles planned 9 changes
-      # and applied in 1.8s; a stale one planned 397 and took 13.1s.
-      #
-      # So map a branch to a workspace instead, and keep it there. Other active
-      # runs get the same treatment, so a run can work out where they are headed
-      # without any shared state, and step aside when its own first choice is
-      # already claimed.
+      # PRs will pick the same env every time. This makes the apply step faster
+      # when the PR was the most recent one to run on that env.
       - name: Select Environment By Branch Affinity
         if: steps.env.outputs.environment == ''
         id: load-balance
