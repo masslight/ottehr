@@ -1,4 +1,5 @@
 import { Box } from '@mui/material';
+import { DateTime } from 'luxon';
 import { FC, Fragment, ReactNode, useMemo } from 'react';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
@@ -47,8 +48,17 @@ export const AboutPatientContainer: FC<AboutPatientContainerProps> = ({
     addTextSuggestion(patientSummary.items.middleName, photoIdFields.middleName);
     addTextSuggestion(patientSummary.items.lastName, photoIdFields.lastName);
     addTextSuggestion(patientSummary.items.suffix, photoIdFields.suffix);
-    // The date field stores YYYY-MM-DD — the exact format the extraction uses.
-    addTextSuggestion(patientSummary.items.birthDate, photoIdFields.dateOfBirth);
+    // The field stores/compares YYYY-MM-DD (the extraction's format, matching FHIR birthDate), but
+    // the chip should read like the date picker does — display-only, MM/dd/yyyy.
+    const birthDateItem = patientSummary.items.birthDate;
+    if (birthDateItem && photoIdFields.dateOfBirth) {
+      const parsedDob = DateTime.fromISO(photoIdFields.dateOfBirth);
+      suggestions[birthDateItem.key] = {
+        display: parsedDob.isValid ? parsedDob.toFormat('MM/dd/yyyy') : photoIdFields.dateOfBirth,
+        formValue: photoIdFields.dateOfBirth,
+        comparable: photoIdFields.dateOfBirth,
+      };
+    }
     const birthSexItem = patientSummary.items.birthSex;
     const sexSuggestion = buildPhotoIdOptionSuggestion(
       photoIdFields.sex,

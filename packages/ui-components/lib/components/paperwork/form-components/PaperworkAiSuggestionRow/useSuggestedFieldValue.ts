@@ -50,8 +50,8 @@ function splitMemberName(memberName: string): { first: string | null; last: stri
  * useStyleItems.tsx's filterHiddenItems, so a suggestion row there can never render — the real
  * editable versions of those fields live on the booking-time PatientInformation page, which
  * happens before paperwork (and any upload) even starts. Address fields don't have that problem:
- * patient-street-address/city/state/zip are real, visible, editable items on the SAME page as the
- * photo-ID upload, so a suggestion there is actually reachable.
+ * patient-street-address/street-address-2/city/state/zip are real, visible, editable items on the
+ * SAME page as the photo-ID upload, so a suggestion there is actually reachable.
  */
 export const PAPERWORK_AI_SUGGESTION_FIELDS: Record<string, FieldSuggestionConfig> = {
   'insurance-member-id': { source: 'insurance', ocrKey: 'memberId', ordinal: 1 },
@@ -61,6 +61,7 @@ export const PAPERWORK_AI_SUGGESTION_FIELDS: Record<string, FieldSuggestionConfi
   'policy-holder-first-name-2': { source: 'insurance', ocrKey: 'memberName', ordinal: 2, derive: 'memberNameFirst' },
   'policy-holder-last-name-2': { source: 'insurance', ocrKey: 'memberName', ordinal: 2, derive: 'memberNameLast' },
   'patient-street-address': { source: 'photoId', ocrKey: 'addressLine1' },
+  'patient-street-address-2': { source: 'photoId', ocrKey: 'addressLine2' },
   'patient-city': { source: 'photoId', ocrKey: 'addressCity' },
   'patient-state': { source: 'photoId', ocrKey: 'addressState' },
   'patient-zip': { source: 'photoId', ocrKey: 'addressZip' },
