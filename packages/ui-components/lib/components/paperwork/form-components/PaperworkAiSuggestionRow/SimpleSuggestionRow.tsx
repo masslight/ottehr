@@ -3,7 +3,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Box, IconButton, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { pickFirstValueFromAnswerItem } from 'utils';
+import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
 import { useSuggestedFieldValue } from './useSuggestedFieldValue';
 
 interface SimpleSuggestionRowProps {

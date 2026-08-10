@@ -1,5 +1,6 @@
 import { Task } from 'fhir/r4b';
-import { getOutboundDeliveryInput, OUTBOUND_DELIVERY_INPUT_CODES } from 'utils';
+import { OUTBOUND_DELIVERY_INPUT_CODES } from 'utils/lib/fhir/constants';
+import { getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient } = vi.hoisted(() => {

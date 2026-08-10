@@ -2,30 +2,25 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Address, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getPractitionerRoleAllCategories, isServiceCategoryHealthcareService } from 'utils/lib/fhir/healthcareService';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  Closure,
-  ClosureType,
-  DOW,
-  getAllFhirSearchPages,
-  getFullName,
-  getPractitionerRoleAllCategories,
-  getScheduleExtension,
-  getTimezone,
-  INVALID_INPUT_ERROR,
-  isServiceCategoryHealthcareService,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
-  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  OVERRIDE_DATE_FORMAT,
-  SCHEDULE_CHANGES_DATE_FORMAT,
   ScheduleListItem,
   ScheduleOwnerFhirResource,
-  Secrets,
-  TIMEZONES,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/schedules';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { DOW, getScheduleExtension, getTimezone, SCHEDULE_CHANGES_DATE_FORMAT } from 'utils/lib/utils/scheduleUtils';
+import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mToken: string;

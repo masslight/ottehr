@@ -2,7 +2,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CPTCodeOption } from 'utils';
+import { CPTCodeOption } from 'utils/lib/types/common';
 import { useEMCodes } from '../../hooks/useEMCodes';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 

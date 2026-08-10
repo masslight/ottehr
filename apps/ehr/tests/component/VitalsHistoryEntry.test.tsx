@@ -1,4 +1,4 @@
-import { VitalFieldNames } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { describe, expect, it } from 'vitest';
 import { getObservationValueElements } from '../../src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
 

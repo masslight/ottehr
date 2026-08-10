@@ -1,9 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { AdminDeleteTemplateInput, getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { AdminDeleteTemplateInput } from 'utils/lib/types/data/admin-template.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { findHolderList, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -1,4 +1,4 @@
-import { AccessPolicy } from 'utils';
+import { AccessPolicy } from 'utils/lib/types/api/user.types';
 
 export const ADMINISTRATOR_RULES: AccessPolicy = {
   rule: [

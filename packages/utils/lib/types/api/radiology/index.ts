@@ -1,5 +1,9 @@
-import { CPTCodeDTO, isValidUUID, LateralityValue, Pagination, Task } from 'utils';
 import { z } from 'zod';
+import { LateralityValue } from '../../../fhir/radiology';
+import { isValidUUID } from '../../../validation/helper';
+import { Pagination } from '../../data/pagination.types';
+import { Task } from '../../data/tasks/types';
+import { CPTCodeDTO } from '../chart-data/chart-data.types';
 
 /** Patient-safety flags surfaced on an external radiology order. Form-only — never derived from chart data. */
 export const RADIOLOGY_SAFETY_FLAGS = ['implants', 'metal', 'pacemaker', 'pregnancy', 'contrast-allergy'] as const;

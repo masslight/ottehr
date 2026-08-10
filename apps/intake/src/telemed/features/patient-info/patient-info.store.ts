@@ -1,7 +1,7 @@
-import { PatientInfo } from 'utils';
+import { zustandDevtools } from 'src/telemed/utils/zustandDevtools';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { zustandDevtools } from '../../utils';
 
 type PatientInfoState = {
   patientInfo: PatientInfo;

@@ -1,7 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { fixAndParseJsonObjectFromString, PROMPTS_CONFIG } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { PROMPTS_CONFIG } from 'utils/lib/ottehr-config/prompts';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

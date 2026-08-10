@@ -5,22 +5,23 @@ import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import {
-  chooseJson,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
-  CustomFolderDefinition,
-  FOLDERS_CONFIG,
-  getFileNameFromUrl,
-  getMimeType,
-  getPresignedURL,
   isCustomFolderList,
-  isSyntheticFolderId,
-  makeSyntheticFolderId,
   parseCustomFoldersCatalogIncludingDeleted,
   PATIENT_FOLDERS_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/list';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import {
+  CustomFolderDefinition,
+  isSyntheticFolderId,
+  makeSyntheticFolderId,
+} from 'utils/lib/types/data/custom-folder.types';
+import { getFileNameFromUrl, getMimeType } from 'utils/lib/utils/file';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 

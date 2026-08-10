@@ -1,6 +1,8 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { LAB_PAYMENT_METHOD_DISPLAY, LabPaymentMethod, nameLabTest } from 'utils';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { LAB_PAYMENT_METHOD_DISPLAY } from 'utils/lib/types/data/labs/labs.constants';
+import { LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
 import { MOCK_LAB_RESULTS } from './mock-data';
 
 const createPgTestIds = dataTestIds.externalLabs.createPg;

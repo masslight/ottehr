@@ -1,20 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Schedule } from 'fhir/r4b';
+import { SCHEDULE_EXTENSION_URL, SLUG_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Closure } from 'utils/lib/types/common';
+import { MISSING_SCHEDULE_EXTENSION_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import {
-  Closure,
   DailySchedule,
   getScheduleExtension,
-  MISSING_SCHEDULE_EXTENSION_ERROR,
-  SCHEDULE_EXTENSION_URL,
-  SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
   ScheduleOverrides,
-  ScheduleOwnerFhirResource,
-  SLUG_SYSTEM,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/utils/scheduleUtils';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;

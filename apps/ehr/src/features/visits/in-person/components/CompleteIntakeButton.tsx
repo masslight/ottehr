@@ -1,7 +1,7 @@
 import { Button } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { useCallback, useMemo } from 'react';
-import { VisitStatusLabel } from 'utils';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { GenericToolTip } from '../../../../components/GenericToolTip';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { AbnormalVitalsContent } from '../../shared/components/vitals/components/AbnormalVitalsContent';

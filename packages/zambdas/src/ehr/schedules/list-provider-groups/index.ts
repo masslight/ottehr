@@ -1,16 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Location, PractitionerRole } from 'fhir/r4b';
-import {
-  getAllFhirSearchPages,
-  getGroupAllLocations,
-  isServiceCategoryHealthcareService,
-  ListProviderGroupsResponse,
-  ProviderGroupListItem,
-  SERVICE_CATEGORY_SYSTEM,
-  SLUG_SYSTEM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getGroupAllLocations, isServiceCategoryHealthcareService } from 'utils/lib/fhir/healthcareService';
+import { ListProviderGroupsResponse, ProviderGroupListItem } from 'utils/lib/types/api/schedules';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 let m2mToken: string;
 

@@ -3,27 +3,23 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { ActivityDefinition, Provenance } from 'fhir/r4b';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { IN_HOUSE_LAB_LATEST_TAG_DEFINITION } from 'utils/lib/types/data/in-house/in-house.constants';
 import {
   AdminEditInHouseLab,
   AdminInHouseLabConfigOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateInHouseLabStatus,
-  getApiError,
-  getSecret,
-  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
-  INVALID_INPUT_ERROR,
-  makeOptimisticLockIfMatchHeader,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  parseCreatedResourcesBundle,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from 'utils/lib/types/data/in-house/in-house.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { topLevelCatch } from '../../../../shared/lambda';
+import { parseCreatedResourcesBundle } from '../../../../shared/resources.helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import {
   convertAdminInHouseLabItemDefinitionToActivityDefinition,
   incrementSemVer,

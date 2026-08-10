@@ -4,7 +4,7 @@ import { Bundle, FhirResource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { FOLLOWUP_SYSTEMS } from 'utils';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { RoundedButton } from './RoundedButton';
 
 export function ReportsMenu(): JSX.Element {

@@ -32,44 +32,52 @@ import {
   updateRadiologyQuickPick,
 } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { BulkUpdateInsuranceStatusInput } from 'utils/lib/types/api/bulk-update-insurance-status.types';
 import {
-  AdminAddInHouseLabInput,
-  AdminAddInHouseLabOutput,
-  AdminAddLabSetInput,
-  AdminAddLabSetOutput,
-  AdminGetInHouseLabConfigInput,
-  AdminGetLabSetDetailInput,
-  AdminGetLabSetDetailOutput,
-  AdminGetLabSetListOutput,
-  AdminInHouseLabConfigOutput,
-  AdminListInHouseLabsOutput,
-  AdminUpdateInHouseLabInput,
-  AdminUpdateLabSetInput,
-  AdminUpdatePrintingConfigInput,
-  AdminUpdateSupportDialogInput,
-  APIError,
-  BulkUpdateInsuranceStatusInput,
   CreateEmCodeInput,
   DeleteEmCodeInput,
   EmCodeOption,
-  getApiError,
-  GetLabelPrintingConfigInput,
-  GetLabelPrintingConfigOutput,
-  GetSupportDialogOutput,
+  UpdateEmCodeInput,
+} from 'utils/lib/types/api/config/em-codes';
+import {
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
-  isApiError,
+  ProcedureQuickPickData,
+  RadiologyQuickPickData,
+} from 'utils/lib/types/api/quick-picks.types';
+import {
+  AdminAddInHouseLabInput,
+  AdminAddInHouseLabOutput,
+  AdminGetInHouseLabConfigInput,
+  AdminInHouseLabConfigOutput,
+  AdminListInHouseLabsOutput,
+  AdminUpdateInHouseLabInput,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
+  AdminUpdateLabSetInput,
+} from 'utils/lib/types/data/labs/labs.types';
+import {
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
   PracticeManagedQuestionnaireGetOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
-  ProcedureQuickPickData,
-  RadiologyQuickPickData,
-  UpdateEmCodeInput,
-} from 'utils';
-import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import {
+  AdminUpdatePrintingConfigInput,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
+} from 'utils/lib/types/data/printing';
+import { AdminUpdateSupportDialogInput, GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 
 export const useInsurancesQuery = (ids?: string[], enabled?: boolean): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();

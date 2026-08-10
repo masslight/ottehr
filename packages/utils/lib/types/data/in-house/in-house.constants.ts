@@ -1,5 +1,5 @@
 import { CodeableConcept, Coding } from 'fhir/r4b';
-import { CPTCodeDTO } from '../../api';
+import { CPTCodeDTO } from '../../api/chart-data/chart-data.types';
 import { AdminInHouseLabItemDefinition, TestStatus } from './in-house.types';
 
 export enum PageName {

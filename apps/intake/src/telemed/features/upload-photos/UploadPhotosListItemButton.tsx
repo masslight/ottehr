@@ -2,10 +2,10 @@ import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
 import { otherColors } from '@theme/colors';
 import { Attachment } from 'fhir/r4b';
 import { FC, useEffect, useState } from 'react';
-import { UCGetPaperworkResponse } from 'utils';
+import { useGetPaperwork } from 'src/telemed/features/paperwork/paperwork.queries';
+import { UCGetPaperworkResponse } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { create } from 'zustand';
 import { StyledListItemWithButton } from '../../../components/StyledListItemWithButton';
-import { useGetPaperwork } from '../paperwork';
 
 type UploadPhotosListItemButtonProps = {
   onClick: () => void;

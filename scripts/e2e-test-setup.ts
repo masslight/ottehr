@@ -4,18 +4,18 @@ import dotenv from 'dotenv';
 import { FhirResource, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
 import fs from 'fs';
 import {
-  allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
-  FULL_DAY_SCHEDULE,
-  getNPIIdentifier,
-  makeQualificationForPractitioner,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
+import { FULL_DAY_SCHEDULE } from 'utils/lib/utils/scheduleUtils';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared/helpers';
 
 // Default scheduling resources moved out of Terraform into config/runtime-seed/
 // (created at runtime by seed-runtime-resources). Derive the lists this e2e setup

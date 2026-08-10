@@ -1,6 +1,6 @@
 import { DocumentReference } from 'fhir/r4b';
 import { Duration } from 'luxon';
-import { PATIENT_PHOTO_CODE } from 'utils';
+import { PATIENT_PHOTO_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { AppointmentResources } from '../../shared/stores/appointment/appointment.store';
 
 export const formatVideoTimerTime = (difference: Duration): string => {

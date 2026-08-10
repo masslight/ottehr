@@ -1,6 +1,6 @@
 import { Link as MuiLink } from '@mui/material';
 import React from 'react';
-import type { AdHocLinkRoute, OpenLinkOptions } from 'utils';
+import type { AdHocLinkRoute, OpenLinkOptions } from 'utils/lib/types/adhoc/sandbox/events';
 import { sendFrameEvent } from '../messaging';
 
 export type LinkProps = {

@@ -36,7 +36,8 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import { BOOKING_CONFIG, getDefaultCadenceMinutes } from 'utils';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { getDefaultCadenceMinutes } from 'utils/lib/utils/dateUtils';
 import {
   createServiceCategory,
   deleteServiceCategory,

@@ -1,6 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React, { ReactElement } from 'react';
-import { replaceTemplateVariablesHandlebars } from 'utils';
+import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 
 // ---------------------------------------------------------------------------
 // GSM-7 / UCS-2 character counting helpers

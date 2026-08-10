@@ -10,17 +10,19 @@ import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
-} from '../../fhir';
+} from '../../fhir/constants';
 import {
   DataTypeSchema,
   InputWidthSchema,
-  PracticeManagedQuestionnaire,
-  PracticeManagedQuestionnaireItem,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
+} from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.schema';
+import {
+  PracticeManagedQuestionnaire,
+  PracticeManagedQuestionnaireItem,
   StandaloneFormDTO,
-} from '../../types';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
+} from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
 import { slugify } from '../slugify';
 
 const DATA_TYPE_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;

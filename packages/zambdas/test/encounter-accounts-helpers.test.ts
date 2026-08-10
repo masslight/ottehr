@@ -1,5 +1,9 @@
 import { Account, Encounter } from 'fhir/r4b';
-import { OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE, PATIENT_BILLING_ACCOUNT_TYPE, WORKERS_COMP_ACCOUNT_TYPE } from 'utils';
+import {
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  WORKERS_COMP_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
 import { describe, expect, it } from 'vitest';
 import { makeEncounterAccountPatchOp, mergeEncounterAccounts, organizeAccounts } from '../src/ehr/shared/harvest';
 

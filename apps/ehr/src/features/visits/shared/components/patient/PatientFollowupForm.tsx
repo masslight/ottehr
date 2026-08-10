@@ -16,7 +16,8 @@ import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { FOLLOWUP_REASONS, FollowupReason, isFollowupEncounter, PatientFollowupDetails, ProviderDetails } from 'utils';
+import { FOLLOWUP_REASONS, FollowupReason, isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { PatientFollowupDetails, ProviderDetails } from 'utils/lib/types/api/encounter.types';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;

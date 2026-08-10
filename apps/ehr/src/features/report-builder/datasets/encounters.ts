@@ -1,13 +1,12 @@
+import { layerIncludeFlags, layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   AdHocEncounterRow,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-  VisitStatusLabel,
-} from 'utils';
+} from 'utils/lib/types/adhoc/datasets/encounters';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { getAdHocEncounters } from '../../../api/api';
 import { buildTrackingBoardPath } from '../../../pages/reports/trackingBoardLink';
 import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from '../query/batching';

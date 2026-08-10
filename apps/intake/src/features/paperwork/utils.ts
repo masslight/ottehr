@@ -1,4 +1,5 @@
-import { FormItemType, IntakeQuestionnaireItem } from 'utils';
+import { FormItemType } from 'utils/lib/types/common';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 
 export const getInputTypeForItem = (item: IntakeQuestionnaireItem): FormItemType => {
   let inputType: FormItemType = undefined;

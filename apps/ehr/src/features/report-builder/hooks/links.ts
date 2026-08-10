@@ -1,7 +1,7 @@
 // SPA-side handling of the frame's openLink events. The SPA owns every URL template; the generated
 // code only ever names a route + an id (or passes back an app-internal href a row carried), so a
 // report can never emit an arbitrary URL.
-import { AdHocLinkRoute, OpenLinkOptions } from 'utils';
+import { AdHocLinkRoute, OpenLinkOptions } from 'utils/lib/types/adhoc/sandbox/events';
 
 // One template per route the contract defines — typed so a new route can't be added without one.
 const ROUTE_TEMPLATES: Record<AdHocLinkRoute, string> = {

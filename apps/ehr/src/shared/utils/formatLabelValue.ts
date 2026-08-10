@@ -1,4 +1,5 @@
-import { AppointmentType, ServiceMode } from 'utils';
+import { AppointmentType } from 'utils/lib/types/api/appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
 
 export const formatLabelValue = (
   value: string | undefined,

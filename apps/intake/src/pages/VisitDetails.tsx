@@ -2,14 +2,15 @@ import DownloadIcon from '@mui/icons-material/Download';
 import { Box, Button, CircularProgress, Divider, Link, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
+import { useGetVisitDetails } from 'src/telemed/features/appointments/appointment.queries';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { VisitFiles, VisitFileType, visitFileTypes } from 'src/types/types';
-import { FileURLs, GetVisitDetailsResponse } from 'utils';
+import { FileURLs } from 'utils/lib/types/common';
+import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetVisitDetails } from '../telemed/features/appointments';
-import { useIntakeCommonStore } from '../telemed/features/common';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
-import { useOystehrAPIClient } from '../telemed/utils';
 
 function adaptVisitFiles(files?: FileURLs): VisitFiles | undefined {
   if (!files) return undefined;

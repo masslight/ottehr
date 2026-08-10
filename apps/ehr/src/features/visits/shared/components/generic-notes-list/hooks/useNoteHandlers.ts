@@ -1,4 +1,4 @@
-import { NoteDTO } from 'utils';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { EditableNote, UseNoteHandlers } from '../types';
 import { useDeleteNote } from './useDeleteNote';

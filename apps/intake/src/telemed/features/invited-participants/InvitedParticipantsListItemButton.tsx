@@ -1,7 +1,7 @@
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
+import { useGetVideoChatInvites } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import { StyledListItemWithButton } from '../../../components/StyledListItemWithButton';
 import { otherColors } from '../../../IntakeThemeProvider';
-import { useGetVideoChatInvites } from '../waiting-room';
 
 export function InvitedParticipantListItemButton({
   onClick,

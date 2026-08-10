@@ -34,7 +34,7 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils';
+import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';

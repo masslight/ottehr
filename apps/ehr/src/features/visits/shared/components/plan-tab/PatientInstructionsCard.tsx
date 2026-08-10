@@ -3,7 +3,7 @@ import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { CommunicationDTO } from 'utils';
+import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';

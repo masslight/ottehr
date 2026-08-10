@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExternalLabsStatus } from 'utils';
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
 
 interface UseDeleteCommonLabOrderDialogProps {
   deleteOrder: ({

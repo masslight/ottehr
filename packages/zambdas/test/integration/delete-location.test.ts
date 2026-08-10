@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Location, PractitionerRole, Schedule } from 'fhir/r4b';
-import { APIErrorCode, M2MClientMockType, RoleType, SLUG_SYSTEM } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { assert } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { tagForProcessId } from '../helpers/testScheduleUtils';

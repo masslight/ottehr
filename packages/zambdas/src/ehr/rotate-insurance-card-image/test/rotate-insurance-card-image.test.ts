@@ -2,32 +2,45 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { Jimp } from 'jimp';
-import { APIErrorCode, getPresignedURL, INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  createPresignedUrl,
-  uploadObjectToZ3,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
 import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/test/image-fixtures';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
+vi.mock('../../../shared/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/auth')>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn(),
+  };
+});
+
+vi.mock('../../../shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/helpers')>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(),
+  };
+});
+
+vi.mock('../../../shared/z3Utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/z3Utils')>();
+  return {
+    ...actual,
     createPresignedUrl: vi.fn(),
     uploadObjectToZ3: vi.fn(),
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>();
   return {
     ...actual,
     getPresignedURL: vi.fn(),

@@ -6,9 +6,9 @@ import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { Location } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
-import { ServiceMode } from 'utils';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { createSampleAppointments } from 'utils/lib/helpers';
+import { ServiceMode } from 'utils/lib/types/common';
 import { useApiClients } from '../hooks/useAppClients';
 
 const createAppointmentZambdaId = 'create-appointment';

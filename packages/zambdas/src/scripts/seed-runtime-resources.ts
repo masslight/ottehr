@@ -3,7 +3,7 @@ import path from 'node:path';
 import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource } from 'fhir/r4b';
-import { SLUG_SYSTEM } from 'utils';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 /**

@@ -2,19 +2,19 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { List, Resource } from 'fhir/r4b';
+import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
-  BillingRule,
-  BillingRulesResponse,
   collectApplyTagNames,
   collectSetResourceRefs,
-  getResourcesFromBatchInlineRequests,
   getRuleFieldDef,
-  getSecret,
-  INVALID_INPUT_ERROR,
-  isSystemManagedTagName,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { BillingRule, BillingRulesResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { rulesToList } from '../rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,

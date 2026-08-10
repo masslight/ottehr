@@ -5,7 +5,7 @@ import { Box, Button, DialogActions, DialogContent, Stack, Tooltip, Typography, 
 import { FC } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { GetFaxPacketPreviewOutput } from 'utils';
+import { GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { documentLabelGroups, hasNothingToSend } from '../model/faxDocuments';
 import { buildDefaultFormValues } from '../model/faxForm';
 import { applySaveAsPcp, canAddRecipient, canSend, emptyRecipient } from '../model/faxRecipients';

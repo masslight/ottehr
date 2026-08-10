@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, Procedures, ProgressNoteVisitDataInput } from '../../types';
 

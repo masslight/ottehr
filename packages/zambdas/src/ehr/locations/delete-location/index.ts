@@ -1,26 +1,23 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, PractitionerRole, Schedule } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { Secrets } from 'utils/lib/secrets';
+import { DeleteLocationResponse } from 'utils/lib/types/api/locations';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import {
   APIError,
   APIErrorCode,
-  DeleteLocationResponse,
   FHIR_RESOURCE_NOT_FOUND,
-  getAllFhirSearchPages,
   MISSING_REQUEST_BODY,
   RESOURCE_HAS_DEPENDENTS_ERROR,
-  RoleType,
-  Secrets,
-  userMe,
-} from 'utils';
+} from 'utils/lib/types/errors';
 import { z } from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  safeJsonParse,
-  safeValidate,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const ZAMBDA_NAME = 'delete-location';
 let m2mToken: string;

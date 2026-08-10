@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG } from 'utils';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { tagEraResources } from '../../../src/billing/shared';
 

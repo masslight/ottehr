@@ -2,13 +2,14 @@ import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { PharmacyDisplay, PharmacySearch } from 'ui-components';
+import { PharmacyDisplay } from 'ui-components/lib/components/PharmacyDisplay';
+import { PharmacySearch } from 'ui-components/lib/components/PharmacySearch';
+import { PharmacyCollectionAnswerSetInput } from 'utils/lib/helpers/paperwork/pharmacy.helpers';
 import {
   PHARMACY_COLLECTION_LINK_IDS,
-  PharmacyCollectionAnswerSetInput,
   SearchPlacesInput,
   SearchPlacesOutput,
-} from 'utils';
+} from 'utils/lib/types/data/search-places';
 
 export const FormGroupPharmacyCollection: FC = () => {
   const { setValue, watch, register } = useFormContext();

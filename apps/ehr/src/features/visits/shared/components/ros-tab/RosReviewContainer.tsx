@@ -1,7 +1,8 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getRosFindingFieldKeys, InPersonRosConfig } from 'utils';
+import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { ExamReviewGroup } from '../review-tab/components/ExamReviewGroup';
 

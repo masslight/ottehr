@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FOLDERS_CONFIG } from 'utils';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { FolderNameDialog } from '../../src/features/visits/shared/components/patient/docs/FolderNameDialog';
 

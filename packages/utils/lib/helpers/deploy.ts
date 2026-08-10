@@ -1,4 +1,4 @@
-import { SubscriptionZambdaDetails, ZambdaTriggerType } from '../types';
+import { SubscriptionZambdaDetails, ZambdaTriggerType } from '../types/common';
 
 export interface DeployZambdaInput {
   type: ZambdaTriggerType;

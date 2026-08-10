@@ -16,7 +16,8 @@ import {
   TextField,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { ClaimDetailResponse, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { exportClaimX12 } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { downloadTextFile } from '../utils/downloadTextFile';

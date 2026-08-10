@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Task as FhirTask } from 'fhir/r4b';
-import { createInvoiceTaskInput, M2MClientMockType, mapDisplayToInvoiceTaskStatus, RcmTaskCodings } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { createInvoiceTaskInput, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   InsertFullAppointmentDataBaseResult,

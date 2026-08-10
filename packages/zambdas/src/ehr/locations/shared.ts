@@ -1,24 +1,26 @@
 import { Address, ContactPoint, Extension, Location } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import {
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  ROOM_EXTENSION_URL,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
+  SLUG_SYSTEM,
+  slugFromName,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import {
   LOCATION_FORM_EXTENSION_URL,
   LOCATION_IN_PERSON_CODE,
   LOCATION_MANUALLY_CREATED_EXTENSION_URL,
   LOCATION_PHYSICAL_TYPE_SYSTEM,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
-  LocationFieldsInput,
-  RoleType,
-  ROOM_EXTENSION_URL,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
-  Secrets,
-  SLUG_SYSTEM,
-  slugFromName,
-  TelecomUpdate,
-  TIMEZONE_EXTENSION_URL,
-  TIMEZONES,
-  userMe,
-} from 'utils';
+} from 'utils/lib/fhir/location';
+import { Secrets } from 'utils/lib/secrets';
+import { LocationFieldsInput } from 'utils/lib/types/api/locations';
+import { TelecomUpdate } from 'utils/lib/types/api/schedules';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
 import { z } from 'zod';
 
 /**

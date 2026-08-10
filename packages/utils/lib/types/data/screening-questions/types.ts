@@ -1,4 +1,9 @@
-import { ASQObservationDTO, ObservationBooleanFieldDTO, SaveableDTO, VitalsObservationDTO } from '../../api';
+import {
+  ASQObservationDTO,
+  ObservationBooleanFieldDTO,
+  SaveableDTO,
+  VitalsObservationDTO,
+} from '../../api/chart-data/chart-data.types';
 import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,

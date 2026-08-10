@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { updateLabOrderResources } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ReflexLabDTO, TaskReviewedParameters } from 'utils';
+import { ReflexLabDTO, TaskReviewedParameters } from 'utils/lib/types/data/labs/labs.types';
 import { LabBreadcrumbs } from '../labs-orders/LabBreadcrumbs';
 import { DetailsWithResults } from './DetailsWithResults';
 

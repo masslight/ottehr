@@ -13,20 +13,19 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  BillingRule,
-  CLAIM_TAG_SYSTEM,
-  collectSetResourceRefs,
   getResourcesFromBatchInlineRequests,
-  getSecret,
-  HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
   resourceHasTag,
-  RULE_ACTION_TYPE,
-  RULES_ENGINES,
-  RulesEngineType,
+} from 'utils/lib/fhir/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  collectSetResourceRefs,
   ruleUsesChargeMasterPrices,
-  SecretsKeys,
-} from 'utils';
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
@@ -48,7 +47,7 @@ import {
   hasTag,
   listToRulesReportingMalformed,
 } from '../../../billing/shared';
-import { checkOrCreateM2MClientToken } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
 import { finalizeEngineRun } from './finalize';
 

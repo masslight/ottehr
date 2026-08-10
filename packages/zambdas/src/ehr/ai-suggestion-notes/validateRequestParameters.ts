@@ -1,5 +1,7 @@
-import { AISuggestionNotesInput, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): AISuggestionNotesInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

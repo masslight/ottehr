@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FC, ReactNode } from 'react';
 import { FormProvider, useForm, useFormContext } from 'react-hook-form';
-import { InsuranceQuickPickData } from 'utils';
+import { InsuranceQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let mockedQuickPicks: InsuranceQuickPickData[] = [];

@@ -1,5 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsHeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { HeightLocalState } from '../types';
 
 type HeightField = 'cm' | 'inches' | 'feet' | 'inchRemainder';

@@ -5,7 +5,7 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
-import { searchRouteByCode } from 'utils';
+import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { useImmunizationQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateCreateParams } from '../../src/ehr/admin-create-template/validateRequestParameters';
 import { validateRequestParameters as validateDeleteParams } from '../../src/ehr/admin-delete-template/validateRequestParameters';
 import { validateRequestParameters as validateRenameParams } from '../../src/ehr/admin-rename-template/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const createMockZambdaInput = (body: Record<string, unknown>): ZambdaInput => ({
   body: JSON.stringify(body),

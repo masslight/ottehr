@@ -47,7 +47,7 @@
     "clean-up-e2e": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/clean-up-e2e.ts",
     "build": "tsc",
     "bundle": "NODE_OPTIONS='--preserve-symlinks' tsx bundle.ts",
-    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
+    "lint": "npm run lint:barrels && NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix .",
     "clear-tasks": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/clear-tasks.ts production",
     "probe-outreach-tasks": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/probe-outreach-tasks.ts",
@@ -73,7 +73,8 @@
     "reset-lab-order": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/reset-lab-order.ts",
     "seed-runtime-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/seed-runtime-resources.ts",
     "dedupe-scheduling-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/dedupe-scheduling-resources.ts",
-    "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts"
+    "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts",
+    "lint:barrels": "tsx scripts/debarrel.ts src --check && tsx scripts/debarrel.ts test --check"
   },
   "engines": {
     "node": ">=22.0.0",

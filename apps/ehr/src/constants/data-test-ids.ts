@@ -1,4 +1,6 @@
-import { DispositionType, PractitionerQualificationCode, RoleType } from 'utils';
+import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',

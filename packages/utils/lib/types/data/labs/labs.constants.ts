@@ -1,7 +1,7 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Coding } from 'fhir/r4b';
-import { LabelConfig } from '../..';
-import { Pagination } from '..';
+import { LabelConfig } from '../../common';
+import { Pagination } from '../pagination.types';
 import { LabPaymentMethod, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)

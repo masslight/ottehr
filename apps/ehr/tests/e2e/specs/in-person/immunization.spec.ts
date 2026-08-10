@@ -13,7 +13,11 @@ import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonP
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import {
+  medicationApplianceLocations,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
 import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
 
 interface VaccineInfo {

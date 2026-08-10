@@ -3,13 +3,13 @@ import { promises as fsPromises } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { addContentTypeToAttachment } from 'utils/lib/helpers/paperwork/files-docs';
 import {
-  addContentTypeToAttachment,
-  chooseJson,
   GetPresignedFileURLInput,
-  PatchPaperworkParameters,
   PresignUploadUrlResponse,
-} from 'utils';
+} from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

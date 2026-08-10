@@ -29,23 +29,26 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useSearchParams } from 'react-router-dom';
-import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
+import SendInvoiceToPatientDialog from 'src/components/dialogs/SendInvoiceToPatientDialog';
+import SendStatementToPatientDialog from 'src/components/dialogs/SendStatementToPatientDialog';
 import ChatModal from 'src/features/chat/ChatModal';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
-  AppointmentMessaging,
-  chooseJson,
+  getLatestTaskOutput,
+  mapDisplayToInvoiceTaskStatus,
+  mapInvoiceTaskStatusToDisplay,
+} from 'utils/lib/helpers/tasks/invoices-tasks';
+import {
   EXPORT_INVOICES_ZAMBDA_KEY,
   ExportInvoicesCsvKickOffResponse,
   ExportInvoicesCsvStatusResponse,
   ExportInvoicesTasksCsvInput,
-  formatDateConfigurable,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
-  getCoding,
   GetInvoicesTasksInput,
   GetInvoicesTasksResponse,
-  getLatestTaskOutput,
-  getSMSNumberForIndividual,
-  getSupportPhoneFor,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   InvoiceSortDirection,
@@ -56,10 +59,10 @@ import {
   InvoiceTaskDisplayStatuses,
   InvoiceTaskInput,
   InvoiceTaskSource,
-  mapDisplayToInvoiceTaskStatus,
-  mapInvoiceTaskStatusToDisplay,
-  PRIVATE_EXTENSION_BASE_URL,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
+import { AppointmentMessaging } from 'utils/lib/types/api/messaging.types';
+import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
+import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { updateInvoiceTask } from '../../api/api';
 import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';

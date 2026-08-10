@@ -1,19 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, FhirResource, HealthcareService, Location, PractitionerRole } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { Secrets } from 'utils/lib/secrets';
+import { UpdateScheduleParams } from 'utils/lib/types/api/schedules';
+import { ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import {
-  ClosureType,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  OVERRIDE_DATE_FORMAT,
-  Secrets,
-  TIMEZONES,
-  UpdateScheduleParams,
-} from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';

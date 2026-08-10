@@ -1,6 +1,7 @@
 import { default as Oystehr } from '@oystehr/sdk';
 import { FhirResource, PractitionerRole, Schedule } from 'fhir/r4b';
-import { getAllFhirSearchPages, SLUG_SYSTEM } from 'utils';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 /**

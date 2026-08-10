@@ -17,18 +17,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  APIError,
-  buildPrebookModeLinks,
-  isApiError,
-  isValidSlug,
-  isValidUUID,
-  ScheduleDTO,
-  SLUG_VALIDATION_MESSAGE,
-  TIMEZONES,
-  UpdateScheduleParams,
-} from 'utils';
+import { isValidSlug, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { UpdateScheduleParams } from 'utils/lib/types/api/schedules';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { buildPrebookModeLinks, ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { getSchedule, toggleScheduleActive, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';

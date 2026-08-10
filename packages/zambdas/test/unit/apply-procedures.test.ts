@@ -5,7 +5,7 @@ import {
   FHIR_EXTENSION,
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
 import { describe, expect, test } from 'vitest';
 import {
   buildLiveProcedureRequest,

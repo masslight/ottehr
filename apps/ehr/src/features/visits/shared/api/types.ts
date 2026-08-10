@@ -40,4 +40,4 @@ export type GetOystehrTelemedAPIParams = {
   updateApprovedPatientEducationCodesZambdaID?: string;
 };
 
-export type { PromiseReturnType } from 'utils';
+export type { PromiseReturnType } from 'utils/lib/types/common';

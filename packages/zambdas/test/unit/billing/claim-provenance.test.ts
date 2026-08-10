@@ -2,16 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import {
-  AR_STAGE,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
-  CLAIM_STATUS_DATE_EXTENSION_URLS,
   ClaimFieldChange,
+} from 'utils/lib/types/data/billing/claim-history';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_DATE_EXTENSION_URLS,
   ClaimStatusValues,
   claimStatusValuesToTags,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import {
   claimProvenanceRequest,

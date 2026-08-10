@@ -8,27 +8,26 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { HomepageOptions } from 'config-types';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
+import { CancelVisitDialog } from 'src/telemed/components/CancelVisitDialog';
+import { useGetAppointments } from 'src/telemed/features/appointments/appointment.queries';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { findActiveAppointment } from 'src/telemed/features/appointments/appointments.helpers';
+import { useAppointmentsData } from 'src/telemed/features/appointments/hooks/useAppointmentsData';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import {
-  BOOKING_CONFIG,
   serviceCategorySupportsContext,
-  ServiceMode,
   shouldShowServiceCategorySelectionPage,
-} from 'utils';
+} from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { ServiceMode } from 'utils/lib/types/common';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useServiceCategories } from '../hooks/useServiceCategories';
 import { otherColors } from '../IntakeThemeProvider';
-import { CancelVisitDialog } from '../telemed/components';
-import {
-  findActiveAppointment,
-  useAppointmentsData,
-  useAppointmentStore,
-  useGetAppointments,
-} from '../telemed/features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
-import { useOystehrAPIClient } from '../telemed/utils';
 
 const Homepage = (): JSX.Element => {
   const { isAuthenticated } = useAuth0();

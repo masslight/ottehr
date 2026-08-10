@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { CPTCodeDTO } from 'utils';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetCPTHCPCSSearch } from '../../features/visits/shared/stores/appointment/appointment.queries';
 import { AutocompleteInput } from './AutocompleteInput';
 

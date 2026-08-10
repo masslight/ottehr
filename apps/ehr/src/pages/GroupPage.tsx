@@ -28,16 +28,15 @@ import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories, toggleGroupActive, updateGroup } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { formatLocationLabel } from 'src/components/schedule/locationLabel';
+import { isValidSlug, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
-  BOOKING_CONFIG,
-  getAllFhirSearchPages,
   getGroupAllLocations,
   getGroupAssignmentMode,
   getPractitionerRoleAllCategories,
-  getSlugForBookableResource,
-  isValidSlug,
-  SLUG_VALIDATION_MESSAGE,
-} from 'utils';
+} from 'utils/lib/fhir/healthcareService';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { useHydratedSupportedCategoryHsIds } from './useHydratedSupportedCategoryHsIds';

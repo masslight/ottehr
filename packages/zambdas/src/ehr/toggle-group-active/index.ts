@@ -1,15 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, MISSING_REQUEST_BODY } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  safeJsonParse,
-  safeValidate,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const ZAMBDA_NAME = 'toggle-group-active';
 let m2mToken: string;

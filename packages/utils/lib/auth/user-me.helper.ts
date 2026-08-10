@@ -1,6 +1,6 @@
 import { User } from '@oystehr/sdk';
 import { decodeJwt } from 'jose';
-import { createOystehrClient } from '../helpers';
+import { createOystehrClient } from '../helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from '../secrets';
 
 export const TEST_USER_ID = 'test-M2M-user-id';

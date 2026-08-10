@@ -12,7 +12,9 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { GetChartDataResponse, GetMedicationOrdersResponse, ImmunizationOrder } from 'utils';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetMedicationOrdersResponse } from 'utils/lib/types/api/medication-administration.types';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 export interface FullAppointmentResourcePackage {
   appointment: Appointment;
   encounter: Encounter;

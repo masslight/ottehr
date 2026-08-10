@@ -3,16 +3,15 @@ import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { createLocation, deleteLocation, getLocation, toggleLocationActive, updateLocation } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import {
-  APIError,
   CreateLocationParams,
   DeleteLocationParams,
   DeleteLocationResponse,
-  isApiError,
   LocationFieldsInput,
   ToggleLocationActiveParams,
-} from 'utils';
-import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+} from 'utils/lib/types/api/locations';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 
 const LOCATIONS_LIST_KEY = 'locations-list';
 const LOCATION_KEY = 'location';

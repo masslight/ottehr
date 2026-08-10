@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { CPT_CODE_SYSTEM, EXTENSION_URL_CPT_MODIFIER, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { vi } from 'vitest';
 import { performEffect } from '../../../src/billing/bulk-add-charge-item-definition-procedure-codes/index';
 import {

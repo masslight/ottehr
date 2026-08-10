@@ -2,7 +2,8 @@ import { otherColors } from '@ehrTheme/colors';
 import StarIcon from '@mui/icons-material/Star';
 import { Box, Typography, useTheme } from '@mui/material';
 import React from 'react';
-import { PharmacyDTO, PHONE_NOT_ON_FILE } from 'utils';
+import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
 
 interface PreferredPharmacyProps {
   data: PharmacyDTO[];

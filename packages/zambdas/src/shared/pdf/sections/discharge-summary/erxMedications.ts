@@ -1,4 +1,4 @@
-import { mapErxMedicationsToDisplay } from 'utils';
+import { mapErxMedicationsToDisplay } from 'utils/lib/helpers/medications/map-medications-to-display.helper';
 import { groupPrescriptionsByPharmacy } from '../../helpers/pharmacy';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DischargeSummaryInput, ErxMedicationsData, PdfSection } from '../../types';

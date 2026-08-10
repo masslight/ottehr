@@ -1,15 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { APIErrorCode, CreateLocationParams, MISSING_REQUEST_BODY } from 'utils';
+import { CreateLocationParams } from 'utils/lib/types/api/locations';
+import { APIErrorCode, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  safeJsonParse,
-  safeValidate,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { applyLocationFields, callerCanEditPaymentFields, locationFieldsSchema, scaffoldLocation } from '../shared';
 
 const ZAMBDA_NAME = 'create-location';

@@ -10,8 +10,9 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chunkThings, NEVER_DELETE, resourceBelongsToRunTag } from 'utils';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { NEVER_DELETE, resourceBelongsToRunTag } from 'utils/lib/utils/e2eCleanup';
 
 const CHUNK_SIZE = 50;
 // in this script, deleting RelatedPersons is expected

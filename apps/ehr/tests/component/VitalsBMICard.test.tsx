@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import type { VitalsBMIObservationDTO } from 'utils';
-import { VitalFieldNames } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import type { VitalsBMIObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import VitalsBMICard from '../../src/features/visits/shared/components/vitals/bmi/VitalsBMICard';

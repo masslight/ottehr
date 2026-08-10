@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { AiObservationField, getSelectors } from 'utils';
+import { getSelectors } from 'utils/lib/store';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 import { useChartData } from '../stores/appointment/appointment.store';
 

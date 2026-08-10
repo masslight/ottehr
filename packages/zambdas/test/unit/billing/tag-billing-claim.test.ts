@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { SYSTEM_MANAGED_TAGS } from 'utils';
+import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/tag-billing-claim';
 import { TagBillingClaimParams } from '../../../src/billing/tag-billing-claim/validateRequestParameters';

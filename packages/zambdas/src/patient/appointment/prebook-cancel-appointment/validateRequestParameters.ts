@@ -1,6 +1,9 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, ServiceMode, VALUE_SETS } from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { ServiceMode } from 'utils/lib/types/common';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { CancelAppointmentZambdaInputValidated } from '.';
 
 const CancelAppointmentBodySchema = z.object({

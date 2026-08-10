@@ -13,7 +13,8 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { BillingInsuranceType, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import { createBillingCoverage } from '../api/api';
 import { CoverageForm, coverageToCreateInput, emptyCoverageForm } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';

@@ -1,6 +1,7 @@
 import { Operation } from 'fast-json-patch';
 import { Organization, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
-import { PHARMACY_COLLECTION_LINK_IDS, PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
+import { PREFERRED_PHARMACY_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
 import { describe, expect, it } from 'vitest';
 import { createUpdatePharmacyPatchOps, PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 

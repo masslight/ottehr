@@ -1,24 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import {
-  CreateProviderGroupParams,
-  groupCharacteristics,
-  INVALID_INPUT_ERROR,
-  isValidSlug,
-  MISSING_REQUEST_BODY,
-  ScheduleStrategyCoding,
-  SLUG_SYSTEM,
-  slugFromName,
-} from 'utils';
+import { isValidSlug, ScheduleStrategyCoding, SLUG_SYSTEM, slugFromName } from 'utils/lib/fhir/constants';
+import { groupCharacteristics } from 'utils/lib/fhir/healthcareService';
+import { CreateProviderGroupParams } from 'utils/lib/types/api/schedules';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  safeJsonParse,
-  safeValidate,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const ZAMBDA_NAME = 'admin-create-group';
 let m2mToken: string;

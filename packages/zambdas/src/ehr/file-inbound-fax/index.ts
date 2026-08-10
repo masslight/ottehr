@@ -3,21 +3,22 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, FhirResource, List, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { replaceOperation } from 'utils/lib/helpers/operations';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 import {
-  createOystehrClient,
-  FAX_TASK,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getPatchBinary,
-  getSecret,
-  getTaskInputValue,
   INVALID_INPUT_ERROR,
-  makeOptimisticLockIfMatchHeader,
   PRECONDITION_FAILED,
-  replaceOperation,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { resolvePatientDocumentFolder } from '../shared/patient-document-folders';
 import { validateRequestParameters } from './validateRequestParameters';
 

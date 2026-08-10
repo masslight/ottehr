@@ -12,37 +12,40 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
 import {
-  appointmentTypeForAppointment,
-  checkEncounterIsVirtual,
+  makeSlotAtLocationExtensionEntry,
+  makeSlotBookedViaGroupExtensionEntry,
+  SCHEDULE_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SLUG_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { ServiceMode, Timezone } from 'utils/lib/types/common';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import {
   createSlotParamsFromSlotAndOptions,
   getOriginalBookingUrlFromSlot,
   getScheduleExtension,
-  GetScheduleResponse,
   getServiceModeFromSlot,
   getSlotAtLocationId,
   getSlotBookedViaGroupId,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  getSlugForBookableResource,
   getTimezone,
-  isPostTelemedAppointment,
-  makeSlotAtLocationExtensionEntry,
-  makeSlotBookedViaGroupExtensionEntry,
-  PatientInfo,
-  SCHEDULE_EXTENSION_URL,
-  ScheduleOwnerFhirResource,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
   SlotListItem,
-  SLUG_SYSTEM,
-  Timezone,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

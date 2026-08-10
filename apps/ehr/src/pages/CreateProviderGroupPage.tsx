@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isValidSlug, slugFromName } from 'utils';
+import { isValidSlug, slugFromName } from 'utils/lib/fhir/constants';
 import { createProviderGroup, listScheduleOwners } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';

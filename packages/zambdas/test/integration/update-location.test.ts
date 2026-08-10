@@ -1,18 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { ContactPoint, Extension, Location } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
-  LOCATION_IN_PERSON_CODE,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
-  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
-  M2MClientMockType,
   PUBLIC_EXTENSION_BASE_URL,
-  RoleType,
   ROOM_EXTENSION_URL,
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   SLUG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { LOCATION_IN_PERSON_CODE } from 'utils/lib/fhir/location';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
 import { assert } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { tagForProcessId } from '../helpers/testScheduleUtils';

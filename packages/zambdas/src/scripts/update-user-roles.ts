@@ -1,6 +1,8 @@
 import fs from 'fs';
-import { RoleType } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, updateUserRoles } from '../shared/';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { updateUserRoles } from '../shared/rolesUtils';
 
 const updateUserRolesScript = async (config: any): Promise<void> => {
   const auth0Token = await getAuth0Token(config);

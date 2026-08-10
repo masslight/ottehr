@@ -1,4 +1,4 @@
-import { RoleType } from 'utils';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it } from 'vitest';
 import { adminNavGroups, resolveAccessibleAdminNavGroups } from '../../src/features/admin/adminNav';
 

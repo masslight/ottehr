@@ -27,22 +27,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import LocationPaymentsSection from 'src/features/locations/LocationPaymentsSection';
 import {
-  APIError,
-  APIErrorCode,
-  isApiError,
-  isLocationInPerson,
-  isLocationVirtual,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
-  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
-  LocationFieldsInput,
-  RoleType,
   ROOM_EXTENSION_URL,
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { LocationFieldsInput } from 'utils/lib/types/api/locations';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
+import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import {
   useDeleteLocationMutation,

@@ -18,7 +18,8 @@ import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BLANK_SCHEDULE_JSON_TEMPLATE, TIMEZONES } from 'utils';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { BLANK_SCHEDULE_JSON_TEMPLATE } from 'utils/lib/utils/scheduleUtils';
 import {
   createPractitionerRole,
   createSchedule,

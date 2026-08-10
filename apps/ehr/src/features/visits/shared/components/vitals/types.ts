@@ -13,7 +13,7 @@ import {
   VitalsVisionOption,
   VitalsWeightObservationDTO,
   VitalsWeightOption,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { VitalField } from './hooks/useVitalsManagement';
 
 export interface VitalsCardProps<TypeObsDTO extends VitalsObservationDTO> {

@@ -5,14 +5,9 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import {
-  FHIR_IDENTIFIER_NPI,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  PROVIDER_TYPE_EXTENSION_URL,
-  RoleType,
-  User,
-} from 'utils';
+import { FHIR_IDENTIFIER_NPI, PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PractitionerLicense, PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { RoleType, User } from 'utils/lib/types/api/user.types';
 import { updateUser } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';

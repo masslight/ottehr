@@ -1,12 +1,9 @@
 import { QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
-import {
-  buildEnableWhenContext,
-  evalEnableWhen,
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  IntakeQuestionnaireItem,
-  mapQuestionnaireAndValueSetsToItemsList,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from 'utils';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../../ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../../ottehr-config/intake-paperwork-virtual';
+import { IntakeQuestionnaireItem } from '../../types/data/paperwork/paperwork.types';
+import { mapQuestionnaireAndValueSetsToItemsList } from './paperwork';
+import { buildEnableWhenContext, evalEnableWhen } from './validation';
 
 export class QuestionnaireHelper {
   private static inPersonQuestionnaireItems: IntakeQuestionnaireItem[] = [];

@@ -1,4 +1,4 @@
-import { replaceTemplateVariablesHandlebars } from 'utils';
+import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 import { describe, expect, test } from 'vitest';
 
 describe('replaceTemplateVariablesHandlebars', () => {

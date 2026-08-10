@@ -36,8 +36,12 @@ import {
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useCreateInHouseLabStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
-import { DataEntryTestItem, getAttendingPractitionerId, isApiError, LabSetDTO, LabType } from 'utils';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { isApiError } from 'utils/lib/types/errors';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InHouseLabSelect } from '../components/create/InHouseLabSelect';

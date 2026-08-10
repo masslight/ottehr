@@ -1,17 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService, Location, Practitioner, PractitionerRole } from 'fhir/r4b';
-import {
-  groupCharacteristics,
-  INTEGRATION_TEST_TAG_SYSTEM,
-  ListProviderGroupsResponse,
-  M2MClientMockType,
-  SERVICE_CATEGORY_SYSTEM,
-  SERVICE_CATEGORY_TAG,
-  serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
-} from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { SERVICE_CATEGORY_SYSTEM, SERVICE_CATEGORY_TAG } from 'utils/lib/fhir/constants';
+import { groupCharacteristics, serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
+import { ListProviderGroupsResponse } from 'utils/lib/types/api/schedules';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

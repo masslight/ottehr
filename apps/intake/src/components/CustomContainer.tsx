@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import React, { useCallback } from 'react';
-import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { intakeLogo } from '../branding/assets';
 import { useClearStores } from '../features';
-import { useIntakeCommonStore } from '../features/common';
 import { ContainerProps, CustomContainer } from './CustomContainerFactory';
 import Footer from './Footer';
 

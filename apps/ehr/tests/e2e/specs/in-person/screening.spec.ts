@@ -7,7 +7,8 @@ import {
 import { expectScreeningPage, ScreeningPage } from 'tests/e2e/page/in-person/ScreeningPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { ASQKeys, asqLabels, patientScreeningQuestionsConfig } from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
 

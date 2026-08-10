@@ -2,26 +2,19 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Location, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BRANDING_CONFIG,
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  FHIR_IDENTIFIER_NPI,
-  formatDateForLabs,
-  formatDOB,
-  getFullestAvailableName,
-  getPatientFriendlyId,
-  getPresignedURL,
-  LATERALITY_SELECTORS,
-  LateralityValue,
-  RADIOLOGY_SAFETY_FLAG_LABELS,
-  RadiologySafetyFlag,
-  Secrets,
-  standardizePhoneNumber,
-} from 'utils';
+import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
+import { RADIOLOGY_SAFETY_FLAG_LABELS, RadiologySafetyFlag } from 'utils/lib/types/api/radiology';
+import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
 import { getPatientLastFirstName } from '../patients';
 import { makeRadiologyDTO } from '../radiology';
-import { drawFieldLine } from './helpers/render';
+import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { calculateAge, rgbNormalized } from './pdf-utils';
 import { AssetPaths, PdfData, PdfSection } from './types';
