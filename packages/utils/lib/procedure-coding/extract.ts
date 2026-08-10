@@ -118,10 +118,10 @@ export interface LacerationFacts {
 
 // ── Text pattern helpers ───────────────────────────────────────────────────────
 
-/** True when the match at `index` is negated shortly before it ("no sutures", "without staples"). */
+/** True when the match at `index` is negated shortly before it ("no sutures", "without staples", "w/o staples"). */
 function isNegated(text: string, index: number): boolean {
   const before = text.slice(Math.max(0, index - 24), index);
-  return /\b(no|not|without|denies|denied)\b[^.;,]{0,16}$/i.test(before);
+  return /\b(no|not|without|w\/o|denies|denied)\b[^.;,]{0,16}$/i.test(before);
 }
 
 /** Snippet of the source text around a match, for citation. */
@@ -316,8 +316,40 @@ const CLOSURE_METHOD_PATTERNS: Array<[RegExp, string]> = [
 
 const SUTURE_MATERIALS =
   'nylon|ethilon|prolene|vicryl|monocryl|chromic(?:\\s+gut)?|fast[-\\s]absorbing\\s+gut|plain\\s+gut|gut|silk|pds';
-const SIZED_MATERIAL_PATTERN = new RegExp(`\\b(\\d{1,2}[-–/]0)\\s+(${SUTURE_MATERIALS})\\b`, 'i');
+// Gauge shapes: "4-0", "4–0", "4/0", and the freehand "4.0" (same class as COUNT_X_GAUGE_PATTERN).
+const SIZED_MATERIAL_PATTERN = new RegExp(`\\b(\\d{1,2}[-–/.]0)\\s+(${SUTURE_MATERIALS})\\b`, 'i');
 const MATERIAL_ONLY_PATTERN = new RegExp(`\\b(${SUTURE_MATERIALS})\\b`, 'i');
+
+// ── Implicit layered closure ───────────────────────────────────────────────────
+// Two distinct suture layers described without the word "layered": a deep-layer closure
+// mention (deep/dermal/subcutaneous plane tied to closure evidence) AND a separate
+// skin-layer closure mention. Both are required — a single-layer note or ambiguous text
+// ("subcutaneous tissue and skin closed with nylon") must NOT infer layered.
+const GAUGE_SOURCE = String.raw`\d{1,2}[-–/.]0`;
+// Tempered window that never crosses a clause/sentence break or a "skin" mention (the skin
+// mention must be a separate closure statement, not the tail of the deep-layer one).
+const DEEP_WINDOW_SOURCE = String.raw`(?:(?!\bskin\b)[^.;\n]){0,40}?`;
+const DEEP_LAYER_CLOSURE_PATTERN = new RegExp(
+  [
+    // "subcutaneous layer closed with 3-0 Vicryl", "dermal layer: 4-0 Vicryl"
+    String.raw`(?:deep(?:\s+dermal)?|dermal|sub-?cutaneous|subdermal)\s+(?:layers?|tissues?|plane)\b${DEEP_WINDOW_SOURCE}(?:closed|approximated|re-?approximated|sutured|repaired|${GAUGE_SOURCE}|(?:${SUTURE_MATERIALS}))`,
+    // "3 deep dermal 4-0 Vicryl" — deep-plane words immediately followed by a gauge/material
+    String.raw`deep(?:\s+dermal)?\s+(?:${GAUGE_SOURCE}\s*)?(?:${SUTURE_MATERIALS})\b`,
+    // "Vicryl deep", "4-0 Vicryl in the deep dermis" — material first, deep plane after
+    String.raw`(?:${GAUGE_SOURCE}\s+)?(?:${SUTURE_MATERIALS})\b(?:(?!\bskin\b)[^.;,\n]){0,24}?\b(?:deep|dermis|dermal|sub-?cutaneous(?:\s+(?:layers?|tissues?))?)\b`,
+  ].join('|'),
+  'i'
+);
+const SKIN_LAYER_CLOSURE_PATTERN = new RegExp(
+  [
+    // "skin closed with running 5-0 nylon", "skin: 5-0 nylon", "skin re-approximated"
+    String.raw`\bskin\b[^.;,\n]{0,16}?(?::|closed|approximated|re-?approximated|sutured|repaired|stapled)`,
+    // "nylon to skin", "5-0 nylon for the skin" — the window stays inside the clause so a
+    // deep-layer mention before a comma is never swallowed into the skin match
+    String.raw`(?:${GAUGE_SOURCE}\s+)?(?:${SUTURE_MATERIALS}|stapl\w+)\b[^.;,\n]{0,24}?(?:to|for)\s+(?:the\s+)?skin\b`,
+  ].join('|'),
+  'i'
+);
 
 const STITCH_COUNT_LINE_PATTERN = /total\s+(?:stitch|suture|staple)\s+count:?\s*(\d+)/i;
 // "5 sutures", "4 simple interrupted 5-0 nylon sutures" — the lookbehind keeps "4-0" and "5-0"
@@ -334,7 +366,7 @@ const ADHESIVE_STRIPS_PATTERN = /steri[-\s]?strips?|adhesive\s+strips?|butterfly
 
 /** Anesthetic language, shared across families (topical agents included for eye/ear procedures). */
 export const ANESTHESIA_PATTERN =
-  /lidocaine|bupivacaine|marcaine|septocaine|tetracaine|proparacaine|\bLET\b|anesthe\w*|digital\s+block|field\s+block/i;
+  /lidocaine|\blido\b|bupivacaine|marcaine|septocaine|tetracaine|proparacaine|\bLET\b|anesthe\w*|digital\s+block|field\s+block/i;
 const TETANUS_PATTERN = /tetanus|tdap|dtap|\btd\s+(?:given|administered|up\s+to\s+date)/i;
 
 // ── Main extraction ────────────────────────────────────────────────────────────
@@ -372,6 +404,20 @@ function extractDepth(text: string): FactValue<'layered' | 'single-layer'> | und
       confidence: 'text',
       sourceText: snippetAround(text, single.index, single.match.length),
     };
+  }
+  // Implicit layered closure: a deep-layer closure mention plus a separate (non-overlapping)
+  // skin-layer closure mention together establish layered, citing the deep-layer passage.
+  const deep = firstMatch(text, DEEP_LAYER_CLOSURE_PATTERN);
+  const skin = firstMatch(text, SKIN_LAYER_CLOSURE_PATTERN);
+  if (deep && skin) {
+    const overlap = deep.index < skin.index + skin.match.length && skin.index < deep.index + deep.match.length;
+    if (!overlap) {
+      return {
+        value: 'layered',
+        confidence: 'text',
+        sourceText: snippetAround(text, deep.index, deep.match.length),
+      };
+    }
   }
   return undefined;
 }

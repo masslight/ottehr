@@ -24,6 +24,11 @@ export interface UseProcedureCodingResult {
   defense: EvaluationResult | undefined;
   /** Provenance stamp of the rule tables (requirement C4). */
   rulesVintage: string;
+  /**
+   * True when the procedure maps to a family the engine covers (synchronous, not debounced).
+   * The page uses this to make the deterministic engine the sole suggestion source there.
+   */
+  familyDetected: boolean;
   /** True when the detected procedure family uses the structured length/size (cm) input. */
   showLengthInput: boolean;
   /** True when the detected procedure family uses the structured Repair depth select. */
@@ -65,6 +70,7 @@ export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodi
     suggestion: evaluations?.suggestion,
     defense: evaluations?.defense,
     rulesVintage: CPT_RULES_VINTAGE,
+    familyDetected: family != null,
     showLengthInput,
     showRepairDepthSelect,
     showInfusionTimeInputs,

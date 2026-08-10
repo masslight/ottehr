@@ -4,6 +4,7 @@ import { Finding, ProcedureFactsInput } from '../model.types';
 import {
   additionalHourUnits,
   extractInfusionDuration,
+  extractInjectionInfusionFacts,
   INJECTION_J_CODE_PAYER_NOTE,
   injectionInfusionFamily,
 } from './injection-infusion';
@@ -104,6 +105,37 @@ describe('96366 add-on unit math (each additional hour needs >30 minutes into it
     [211, 3],
   ])('%i minutes ⇒ %i units', (minutes, units) => {
     expect(additionalHourUnits(minutes)).toBe(units);
+  });
+});
+
+describe('injection/infusion freehand abbreviation lexicon', () => {
+  it.each([
+    ['SQ', 'Insulin 10 units SQ to the abdomen.'],
+    ['sub-q', 'Epinephrine 0.3 mg given sub-q.'],
+  ])('"%s" reads as the subcutaneous route ⇒ 96372', (_label, text) => {
+    const facts = extractInjectionInfusionFacts(input({ procedureDetails: text }));
+    expect(facts.route?.value).toBe('im-subq');
+    expect(injectionInfusionFamily.suggestCode(input({ procedureDetails: text })).suggestion?.code).toBe('96372');
+  });
+
+  it('"NS" reads as the fluid type, and a "cc" figure as the volume (mL equivalent)', () => {
+    const facts = extractInjectionInfusionFacts(input({ procedureDetails: 'NS 1000 cc infused via left AC IV.' }));
+    expect(facts.fluidDocumented?.value).toBe(true);
+    expect(facts.volumeDocumented?.value).toBe(true);
+    expect(facts.route?.value).toBe('infusion');
+  });
+
+  it('a fluid plus a cc volume alone infer an infusion the same as an mL volume', () => {
+    const facts = extractInjectionInfusionFacts(input({ procedureDetails: 'D5W 500 cc given over an hour.' }));
+    expect(facts.volumeDocumented?.value).toBe(true);
+    expect(facts.route?.value).toBe('infusion');
+  });
+
+  it('"w/o adverse reaction" reads as tolerance documented (w/o maps to without)', () => {
+    const facts = extractInjectionInfusionFacts(
+      input({ procedureDetails: 'Injection given, w/o adverse reaction noted.' })
+    );
+    expect(facts.toleranceDocumented?.value).toBe(true);
   });
 });
 

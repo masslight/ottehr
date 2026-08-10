@@ -231,6 +231,83 @@ describe('extractLacerationFacts: closure-evidence and negation', () => {
   });
 });
 
+describe('extractLacerationFacts: freehand abbreviation lexicon', () => {
+  it('reads "lido" as anesthesia with a citation', () => {
+    const facts = extractLacerationFacts(input({ procedureDetails: 'Wound infiltrated with 2 mL 1% lido.' }));
+    expect(facts.anesthesiaDocumented?.value).toBe(true);
+    expect(facts.anesthesiaDocumented?.sourceText).toContain('lido');
+  });
+
+  it('negated "lido" is not read as anesthesia', () => {
+    const facts = extractLacerationFacts(input({ procedureDetails: 'No lido required for closure.' }));
+    expect(facts.anesthesiaDocumented).toBeUndefined();
+  });
+
+  it('reads closure details through "w/" shorthand', () => {
+    const facts = extractLacerationFacts(
+      input({ procedureDetails: 'Closed w/ 5 simple interrupted 4-0 nylon sutures.' })
+    );
+    expect(facts.closureCount?.value).toBe(5);
+    expect(facts.closureMaterial?.value.toLowerCase()).toContain('nylon');
+    expect(facts.closureMethod?.value).toBe('simple interrupted');
+  });
+
+  it('"w/o" negates like "without" and never counts as positive evidence', () => {
+    const facts = extractLacerationFacts(
+      input({ procedureDetails: 'Wound edges approximated with steri-strips, w/o sutures or staples.' })
+    );
+    expect(facts.suturesDocumented).toBeUndefined();
+    expect(facts.staplesDocumented).toBeUndefined();
+    expect(facts.adhesiveStripsDocumented?.value).toBe(true);
+  });
+
+  it.each([
+    ['4.0 nylon', 'nylon'],
+    ['4/0 prolene', 'prolene'],
+    ['4-0 vicryl', 'vicryl'],
+  ])('reads the sized material from the gauge variant "%s"', (phrase, material) => {
+    const facts = extractLacerationFacts(input({ procedureDetails: `Closed with ${phrase} sutures.` }));
+    expect(facts.closureMaterial?.value.toLowerCase()).toContain(material);
+  });
+});
+
+describe('extractLacerationFacts: implicit layered closure (two distinct suture layers)', () => {
+  it.each([
+    ['deep dermal then skin', '3 deep dermal 4-0 Vicryl, skin closed with 5-0 nylon.'],
+    ['material-first shorthand', 'Vicryl deep, nylon to skin.'],
+    ['named subcutaneous layer', 'Subcutaneous layer closed with 3-0 Vicryl; skin re-approximated with 5-0 nylon.'],
+  ])('infers layered from %s with a citation', (_label, text) => {
+    const facts = extractLacerationFacts(input({ procedureDetails: text }));
+    expect(facts.depth?.value).toBe('layered');
+    expect(facts.depth?.confidence).toBe('text');
+    expect(facts.depth?.sourceText).toBeDefined();
+  });
+
+  it.each([
+    ['a plain single-layer note', 'Closed with simple interrupted sutures placed.'],
+    ['a deep wound with one closure layer', 'Deep laceration of the forearm. Skin closed with 5-0 nylon.'],
+    ['one ambiguous pass through both layers', 'Subcutaneous tissue and skin closed with nylon.'],
+    ['a skin-only closure', 'Skin closed with running 5-0 nylon.'],
+  ])('does not infer layered from %s', (_label, text) => {
+    const facts = extractLacerationFacts(input({ procedureDetails: text }));
+    expect(facts.depth).toBeUndefined();
+  });
+
+  it('negated deep-layer closure does not infer layered', () => {
+    const facts = extractLacerationFacts(
+      input({ procedureDetails: 'No deep dermal Vicryl needed; skin closed with 5-0 nylon.' })
+    );
+    expect(facts.depth).toBeUndefined();
+  });
+
+  it('explicit single-layer language wins over the two-layer inference', () => {
+    const facts = extractLacerationFacts(
+      input({ procedureDetails: 'Single-layer closure. Deep dermal 4-0 Vicryl, skin closed with 5-0 nylon.' })
+    );
+    expect(facts.depth?.value).toBe('single-layer');
+  });
+});
+
 describe('extractLacerationFacts: complex-repair qualifying elements', () => {
   it.each([
     ['extensive-undermining', 'Extensive undermining performed around the wound.'],

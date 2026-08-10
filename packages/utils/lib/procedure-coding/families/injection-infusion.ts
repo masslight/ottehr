@@ -228,7 +228,7 @@ const DRUG_NAME_PATTERN =
   /toradol|ketorolac|rocephin|ceftriaxone|decadron|dexamethasone|zofran|ondansetron|phenergan|promethazine|benadryl|diphenhydramine|solu-?medrol|methylprednisolone|kenalog|triamcinolone|epinephrine|glucagon|bicillin|penicillin|vitamin\s+B-?12/i;
 const ADMIN_SITE_TEXT_PATTERN =
   /\bdeltoid\b|ventro-?gluteal|\bgluteal\b|vastus\s+lateralis|\bthigh\b|antecubital|\bAC\s+fossa\b|\bforearm\b|upper\s+arm|\babdomen\b/i;
-const TOLERANCE_PATTERN = /tolerat\w*|no\s+adverse\s+(?:reaction|event)|without\s+adverse|no\s+reaction/i;
+const TOLERANCE_PATTERN = /tolerat\w*|no\s+adverse\s+(?:reaction|event)|(?:without|w\/o)\s+adverse|no\s+reaction/i;
 
 /** A route/fluid fact matched across Medication used and Technique (structured) or the details text. */
 function structuredOrTextFlag(input: ProcedureFactsInput, text: string, pattern: RegExp): FactValue<true> | undefined {

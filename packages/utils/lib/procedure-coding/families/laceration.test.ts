@@ -204,6 +204,39 @@ describe('laceration forward: repair class paths', () => {
   });
 });
 
+describe('laceration forward: implicit layered closure (two suture layers without "layered")', () => {
+  const IMPLICIT_LAYERED_TEXT = '3 deep dermal 4-0 Vicryl, skin closed with 5-0 nylon. Wound length 3.0 cm.';
+
+  it('two distinct suture layers ⇒ intermediate, citing the deep-layer passage', () => {
+    const result = lacerationFamily.suggestCode(input({ bodySite: 'Arm', procedureDetails: IMPLICIT_LAYERED_TEXT }));
+    expect(result.suggestion?.code).toBe('12032');
+    expect(result.suggestion?.justification).toContain('layered closure documented');
+  });
+
+  it('a single-layer note does not infer layered: the depth [D] ask stays', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Arm', lengthCm: 3.0, procedureDetails: 'Simple interrupted sutures placed.' })
+    );
+    expect(result.suggestion).toBeUndefined();
+    expect(hasFinding(result.findings, 'determines', /Repair depth is not documented/)).toBe(true);
+  });
+
+  it('the structured Repair depth field wins over the inference, with the reconcile finding', () => {
+    const result = lacerationFamily.suggestCode(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 3.2,
+        repairDepth: 'superficial-single',
+        procedureDetails: IMPLICIT_LAYERED_TEXT,
+      })
+    );
+    expect(result.suggestion?.code).toBe('12002'); // simple, per the field — not 12042
+    expect(
+      hasFinding(result.findings, 'contradiction', /Repair depth field documents a single-layer closure.*reconcile/)
+    ).toBe(true);
+  });
+});
+
 describe('laceration forward: multi-wound sum rule', () => {
   it('sums two same-group wounds: two 2.0 cm scalp simple wounds ⇒ 12002 with 4.0 cm total', () => {
     const result = lacerationFamily.suggestCode(

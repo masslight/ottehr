@@ -5,9 +5,8 @@
 //
 // vi.mock calls must come before any component imports (Vitest hoists them).
 
-const { recommendBillingCodesMock, aiSuggestionNotesMock, saveChartDataMock } = vi.hoisted(() => ({
+const { recommendBillingCodesMock, saveChartDataMock } = vi.hoisted(() => ({
   recommendBillingCodesMock: vi.fn(),
-  aiSuggestionNotesMock: vi.fn(),
   saveChartDataMock: vi.fn(),
 }));
 
@@ -63,7 +62,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
   useRecommendBillingCodes: () => ({ mutateAsync: recommendBillingCodesMock }),
-  useAiSuggestionNotes: () => ({ mutateAsync: aiSuggestionNotesMock }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -152,7 +150,6 @@ describe('ProceduresNew — deterministic coding assist', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     recommendBillingCodesMock.mockResolvedValue([]);
-    aiSuggestionNotesMock.mockResolvedValue(undefined);
     saveChartDataMock.mockResolvedValue({});
     useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
     // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
@@ -179,19 +176,25 @@ describe('ProceduresNew — deterministic coding assist', () => {
     expect(bestMatch).toHaveTextContent(/3\.2 cm/);
   });
 
-  it('dedupes the AI list against the deterministic pick', async () => {
-    recommendBillingCodesMock.mockResolvedValue([
-      { code: '12042', description: 'Repair intermediate 2.6-7.5cm', useWhen: 'when' },
-      { code: '99213', description: 'Office visit', useWhen: 'when' },
-    ]);
+  it('makes no recommend-billing-codes call and renders no AI list for an engine-covered family', async () => {
+    recommendBillingCodesMock.mockResolvedValue([{ code: '99213', description: 'Office visit', useWhen: 'when' }]);
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, DETERMINED_DRAFT);
     renderComponent();
     await screen.findByText(/best match — from your documentation/i, undefined, { timeout: 3000 });
-    await waitFor(() => {
-      // 12042 appears exactly once (the best-match row), 99213 stays in the AI list.
-      expect(screen.getAllByTestId('recommended-cpt-code-12042')).toHaveLength(1);
-      expect(screen.getByTestId('recommended-cpt-code-99213')).toBeVisible();
-    });
+    // The deterministic engine is the sole suggestion source for covered families.
+    expect(recommendBillingCodesMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('recommended-cpt-code-99213')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('recommended-cpt-code-12042')).toHaveLength(1);
+  });
+
+  it('still fetches and renders the AI list for a procedure type outside the engine families', async () => {
+    recommendBillingCodesMock.mockResolvedValue([
+      { code: '94640', description: 'Nebulizer treatment', useWhen: 'when' },
+    ]);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Nebulizer Treatment (e.g., Albuterol)' });
+    renderComponent();
+    expect(await screen.findByTestId('recommended-cpt-code-94640', undefined, { timeout: 3000 })).toBeVisible();
+    expect(recommendBillingCodesMock).toHaveBeenCalled();
   });
 
   it('renders the compact open-set line when class and site are known but length is missing', async () => {
@@ -268,15 +271,58 @@ describe('ProceduresNew — deterministic coding assist', () => {
     expect(notAssessed).toHaveTextContent('99214 — not assessed by documentation checks');
   });
 
-  it('preserves the legacy laceration suggestion note alongside the new findings (B6)', async () => {
-    aiSuggestionNotesMock.mockResolvedValue({ suggestions: ['Please include suture size and count'] });
+  it('covers the retired legacy nag: empty closure details ⇒ the engine closure [R] finding', async () => {
+    // Laceration with no closure details — where the legacy aiSuggestionNotes nag used to fire.
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
-      ...DETERMINED_DRAFT,
+      procedureType: 'Laceration Repair',
       cptCodes: [{ code: '12002', display: 'Simple repair 2.6-7.5cm' }],
     });
     renderComponent();
-    expect(await screen.findByText('Please include suture size and count', undefined, { timeout: 3000 })).toBeVisible();
-    expect(await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 })).toBeVisible();
+    const findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).toHaveTextContent(/not documented: closure method, suture material, suture count/i);
+  });
+
+  // --- Compound suggestions: one click adds the primary and every add-on ---
+
+  // Hand complex repair, 14 cm total ⇒ 13132 with add-on 13133 × 2.
+  const COMPOUND_DRAFT = {
+    procedureType: 'Laceration Repair',
+    bodySite: 'Hand',
+    lengthCm: 14,
+    procedureDetails:
+      'Extensive undermining performed. Layered closure: deep dermal 4-0 Vicryl, skin closed with running 5-0 nylon, total stitch count: 8.',
+  };
+
+  it('one click on a compound best-match row adds the primary and each add-on code', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, COMPOUND_DRAFT);
+    renderComponent();
+    const bestMatch = await screen.findByTestId('best-match-cpt-code', undefined, { timeout: 3000 });
+    expect(bestMatch).toHaveTextContent('13132');
+    await user.click(screen.getByTestId('cpt-code-quick-add-13132'));
+    const cptEntries = screen.getAllByTestId('cpt-code').map((entry) => entry.textContent ?? '');
+    expect(cptEntries.some((text) => text.includes('13132'))).toBe(true);
+    // One entry per add-on code, its display carrying the units.
+    expect(cptEntries.some((text) => text.includes('13133') && text.includes('(× 2)'))).toBe(true);
+    // With all codes present the row flips to the added/check state.
+    expect(await screen.findByLabelText('CPT code 13132 already added')).toBeInTheDocument();
+  });
+
+  it('keeps the add button available while an add-on of the compound suggestion is missing', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      ...COMPOUND_DRAFT,
+      // Primary already selected, add-on missing ⇒ partial presence.
+      cptCodes: [{ code: '13132', display: 'Complex repair 2.6-7.5cm' }],
+    });
+    renderComponent();
+    await screen.findByTestId('best-match-cpt-code', undefined, { timeout: 3000 });
+    const addButton = screen.getByTestId('cpt-code-quick-add-13132');
+    expect(addButton).toBeVisible();
+    await user.click(addButton);
+    const cptEntries = screen.getAllByTestId('cpt-code').map((entry) => entry.textContent ?? '');
+    expect(cptEntries.filter((text) => text.includes('13132'))).toHaveLength(1);
+    expect(cptEntries.some((text) => text.includes('13133'))).toBe(true);
   });
 
   // --- Conditional structured length input ---

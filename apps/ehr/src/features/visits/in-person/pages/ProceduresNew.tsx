@@ -54,7 +54,6 @@ import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import {
-  AISuggestionNotes,
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
@@ -85,11 +84,7 @@ import { DiagnosesField } from '../../shared/components/assessment-tab/Diagnoses
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import {
-  useAiSuggestionNotes,
-  useGetCPTHCPCSSearch,
-  useRecommendBillingCodes,
-} from '../../shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -250,10 +245,8 @@ export default function ProceduresNew(): ReactElement {
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
-  const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const queryClient = useQueryClient();
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
-  const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
   const { encounter } = useAppointmentData();
   const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
@@ -308,7 +301,6 @@ export default function ProceduresNew(): ReactElement {
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
   const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
-  const [suggestionNote, setSuggestionNote] = useState<AISuggestionNotes | null>(null);
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
@@ -393,10 +385,19 @@ export default function ProceduresNew(): ReactElement {
   const codingAssist = useProcedureCoding(procedureFacts);
 
   useEffect(() => {
+    if (!formValues.procedureType) {
+      return;
+    }
+    // Engine-covered families take no AI suggestions: the deterministic engine is the sole
+    // suggestion source there, so the recommend-billing-codes zambda is not called at all.
+    if (codingAssist.familyDetected) {
+      setLoadingSuggestions(false);
+      setRecommendedBillingCodes(null);
+      return;
+    }
+    // Stale-response protection: only the latest in-flight request may set state.
+    let stale = false;
     const fetchRecommendedBillingCodes = async (): Promise<void> => {
-      if (!formValues.procedureType) {
-        return;
-      }
       setLoadingSuggestions(true);
       const codes = await recommendBillingCodes({
         procedureType: formValues.procedureType,
@@ -409,23 +410,21 @@ export default function ProceduresNew(): ReactElement {
         procedureDetails: state.procedureDetails,
         timeSpent: state.timeSpent,
       });
+      if (stale) {
+        return;
+      }
       setLoadingSuggestions(false);
       setRecommendedBillingCodes(codes);
-      if (formValues.procedureType.toLowerCase().includes('laceration')) {
-        setLoadingSuggestionNote(true);
-        const suggestions = await aiSuggestionNotes({
-          type: 'procedure',
-          details: { procedureDetails: state.procedureDetails || '' },
-        });
-        setLoadingSuggestionNote(false);
-        setSuggestionNote(suggestions);
-      }
     };
 
     fetchRecommendedBillingCodes().catch((error) => console.log(error));
+    return () => {
+      stale = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     formValues.procedureType,
+    codingAssist.familyDetected,
     state.diagnoses,
     state.medicationUsed,
     state.bodySite,
@@ -434,7 +433,6 @@ export default function ProceduresNew(): ReactElement {
     state.suppliesUsed,
     // state.procedureDetails,
     state.timeSpent,
-    aiSuggestionNotes,
     recommendBillingCodes,
   ]);
 
@@ -685,38 +683,48 @@ export default function ProceduresNew(): ReactElement {
 
   const existingCptCodeSet = useMemo(() => new Set(state.cptCodes?.map((cptCode) => cptCode.code)), [state.cptCodes]);
 
-  const addRecommendedCptCode = (suggestion: ProcedureSuggestion): void =>
+  const addRecommendedCptCodes = (entries: CPTCodeDTO[]): void =>
     updateState((state) => {
-      if (!state.cptCodes?.some((cptCode) => cptCode.code === suggestion.code)) {
-        state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
-      }
+      const cptCodes = [...(state.cptCodes ?? [])];
+      entries.forEach((entry) => {
+        if (!cptCodes.some((cptCode) => cptCode.code === entry.code)) {
+          cptCodes.push(entry);
+        }
+      });
+      state.cptCodes = cptCodes;
     });
 
-  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <Tooltip title={value.useWhen}>
-        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
-          <InfoOutlined sx={{ fontSize: '17px' }} />
-        </IconButton>
-      </Tooltip>
-      {existingCptCodeSet.has(value.code) ? (
-        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
-          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
-        </IconButton>
-      ) : (
-        <Tooltip title="Add CPT code">
-          <IconButton
-            size="small"
-            aria-label={`Add CPT code ${value.code}`}
-            onClick={() => addRecommendedCptCode(value)}
-            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
-          >
-            <AddCircleOutline sx={{ fontSize: '17px' }} />
+  // Compound suggestions (`addOnEntries`) add the primary and every add-on in one click; the
+  // check state appears only once all of them are present (partial presence keeps the add button).
+  const renderRecommendedCptActions = (value: ProcedureSuggestion, addOnEntries: CPTCodeDTO[] = []): ReactElement => {
+    const entries: CPTCodeDTO[] = [{ code: value.code, display: value.description }, ...addOnEntries];
+    const allAdded = entries.every((entry) => existingCptCodeSet.has(entry.code));
+    return (
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Tooltip title={value.useWhen}>
+          <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
+            <InfoOutlined sx={{ fontSize: '17px' }} />
           </IconButton>
         </Tooltip>
-      )}
-    </Box>
-  );
+        {allAdded ? (
+          <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
+            <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+          </IconButton>
+        ) : (
+          <Tooltip title="Add CPT code">
+            <IconButton
+              size="small"
+              aria-label={`Add CPT code ${value.code}`}
+              onClick={() => addRecommendedCptCodes(entries)}
+              data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
+            >
+              <AddCircleOutline sx={{ fontSize: '17px' }} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+    );
+  };
 
   // The deterministic engine's contribution to the Oystehr AI section: the determined top
   // pick when the documentation determines the code, or the compact open-set line when only
@@ -729,6 +737,12 @@ export default function ProceduresNew(): ReactElement {
         description: stripCodePrefix(pick.display, pick.code),
         useWhen: pick.justification,
       };
+      // Compound picks (e.g. 13132 + 13133 × 2) quick-add one entry per add-on code, the
+      // display carrying the units — downstream consumers dedupe by code, so no duplicates.
+      const addOnEntries: CPTCodeDTO[] = (pick.addOns ?? []).map((addOn) => ({
+        code: addOn.code,
+        display: `${stripCodePrefix(addOn.display, addOn.code)}${addOn.units > 1 ? ` (× ${addOn.units})` : ''}`,
+      }));
       return (
         <Box data-testid={dataTestIds.documentProcedurePage.bestMatchCptCode}>
           <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.dark' }}>
@@ -738,7 +752,7 @@ export default function ProceduresNew(): ReactElement {
             <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(pick.code)}>
               <strong>{pick.code}</strong> &ndash; {pickAsSuggestion.description}
             </Typography>
-            {!isReadOnly && renderRecommendedCptActions(pickAsSuggestion)}
+            {!isReadOnly && renderRecommendedCptActions(pickAsSuggestion, addOnEntries)}
           </Box>
           <Typography variant="body2" color="text.secondary">
             {pick.justification}
@@ -768,14 +782,15 @@ export default function ProceduresNew(): ReactElement {
       return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
     }
 
+    // Engine-covered families never render the AI list — the engine is the sole suggestion source.
+    if (codingAssist.familyDetected) {
+      return deterministicContent;
+    }
+
     // Suggestions not fetched yet.
     if (!recommendedBillingCodes) {
       return deterministicContent;
     }
-
-    // The AI list renders beneath the deterministic pick, deduped against it.
-    const deterministicCode = codingAssist.suggestion?.suggestion?.code;
-    const aiSuggestions = recommendedBillingCodes.filter((suggestion) => suggestion.code !== deterministicCode);
 
     if (recommendedBillingCodes.length === 0 && deterministicContent == null) {
       return <Typography color="secondary.light">No suggestions</Typography>;
@@ -784,16 +799,16 @@ export default function ProceduresNew(): ReactElement {
     return (
       <>
         {deterministicContent}
-        {aiSuggestions.length > 0 && (
+        {recommendedBillingCodes.length > 0 && (
           <ActionsList
-            data={aiSuggestions}
+            data={recommendedBillingCodes}
             getKey={(value) => value.code}
             renderItem={(value) => (
               <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
                 <strong>{value.code}</strong> &ndash; {value.description}
               </Typography>
             )}
-            renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
+            renderActions={isReadOnly ? undefined : (value) => renderRecommendedCptActions(value)}
             divider
           />
         )}
@@ -801,10 +816,7 @@ export default function ProceduresNew(): ReactElement {
     );
   };
 
-  // ── Documentation defense (amber box) — driven by defendCodes, preserving the legacy
-  // laceration suggestionNote exactly as-is (requirement B6). ────────────────────────────
-  const legacySuggestionNoteVisible =
-    suggestionNote != null && suggestionNote.suggestions?.[0] !== 'Procedure details are included';
+  // ── Documentation defense (amber box) — driven by defendCodes. ─────────────────────────
   const defense = codingAssist.defense;
   const defenseFindings = defense?.findings ?? [];
   const actionableFindings = defenseFindings.filter((finding) => finding.level !== 'bestPractice');
@@ -817,7 +829,7 @@ export default function ProceduresNew(): ReactElement {
     ...(defense?.payerNotes ?? []),
     ...defenseFindings.map((finding) => finding.payerNote).filter((note): note is string => note != null),
   ].filter((note, index, notes) => notes.indexOf(note) === index);
-  const amberBoxVisible = legacySuggestionNoteVisible || actionableFindings.length > 0;
+  const amberBoxVisible = actionableFindings.length > 0;
   // Positive state (§8.5): every selected code the engine understands is fully supported.
   // Best-practice findings render only inside the amber box, so they don't block affirmation.
   const positiveStateVisible =
@@ -1548,11 +1560,7 @@ export default function ProceduresNew(): ReactElement {
                   <Typography variant="body1" style={{ fontWeight: 700 }}>
                     Procedure Details AI Suggestions
                   </Typography>
-                  {loadingSuggestionNote && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
                 </Container>
-                {legacySuggestionNoteVisible && (
-                  <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
-                )}
                 {actionableFindings.length > 0 && (
                   <Box
                     sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, paddingTop: '4px' }}
