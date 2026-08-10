@@ -20,7 +20,8 @@ import {
   Secrets,
   STATIC_COMPENDIUM_ACCOUNT_NUMBER,
 } from 'utils';
-import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
+import { resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
+import { formatDateTimeForLabs, LABS_DATE_STRING_FORMAT } from '../../ehr/lab/shared/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
@@ -423,8 +424,8 @@ export function getOrderFormDataConfig(
       ? formatZipcodeForDisplay(oystehr.fhir.formatAddress(patient.address[0]))
       : ORDER_ITEM_UNKNOWN,
     patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-    todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
-    orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+    todayDate: formatDateTimeForLabs(now, timezone),
+    orderSubmitDate: formatDateTimeForLabs(now, timezone),
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
