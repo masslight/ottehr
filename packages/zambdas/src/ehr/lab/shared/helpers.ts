@@ -34,7 +34,6 @@ import {
   LabType,
   TIMEZONES,
 } from 'utils';
-import { LABS_DATE_STRING_FORMAT } from '../external/submit-lab-order/helpers';
 
 type SoftDeleteLabResourceTypes =
   | 'ServiceRequest'
@@ -288,6 +287,8 @@ export const isOtherInsurance = (resource: Coverage | Organization): boolean => 
     return resource.name?.toLowerCase() === OTHER || resource.id === '00000' || false;
   }
 };
+
+export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 /**
  * Pulls the timezone off of the Schedule when able, and otherwise defaults to the first
