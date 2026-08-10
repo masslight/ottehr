@@ -29,6 +29,17 @@ vi.mock('../../src/billing/search-billing-patient-ar-claims/handler', () => ({
   fetchAllActivePatientArClaims: (...args: unknown[]) => mockFetchAllActivePatientArClaims(...args),
 }));
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as Record<string, unknown>),
+      ottehrBillingInvoicingEnabled: true,
+    },
+  };
+});
+
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 let handler!: ZambdaHandler;
