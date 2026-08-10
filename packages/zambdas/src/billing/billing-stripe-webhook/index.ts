@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
 import {
@@ -94,6 +94,63 @@ const billingProviderRefForStripeAccount = async (
   return { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` };
 };
 
+const buildBillingPaymentNotice = (params: {
+  claim: Claim | undefined;
+  encounterId: string;
+  billingProviderRef: Reference;
+  createdISO: string;
+  amount: Money;
+  identifiers: Identifier[];
+  paymentMethod: string;
+  disposition: string;
+  outcome: PaymentReconciliation['outcome'];
+  cancelled?: boolean;
+}): PaymentNotice => {
+  const {
+    claim,
+    encounterId,
+    billingProviderRef,
+    createdISO,
+    amount,
+    identifiers,
+    paymentMethod,
+    disposition,
+    outcome,
+    cancelled,
+  } = params;
+  const status = cancelled ? 'cancelled' : 'active';
+
+  const reconciliation: PaymentReconciliation = {
+    resourceType: 'PaymentReconciliation',
+    id: 'contained-reconciliation',
+    status,
+    created: createdISO,
+    disposition,
+    outcome,
+    paymentDate: createdISO.slice(0, 10),
+    paymentAmount: amount,
+  };
+
+  return {
+    resourceType: 'PaymentNotice',
+    status,
+    request: claimRequestFor(claim, encounterId),
+    created: createdISO,
+    amount,
+    identifier: identifiers,
+    extension: [
+      {
+        url: PAYMENT_METHOD_EXTENSION_URL,
+        valueString: paymentMethod,
+      },
+    ],
+    contained: [reconciliation],
+    payment: { reference: `#${reconciliation.id}` },
+    payee: billingProviderRef,
+    recipient: billingProviderRef,
+  };
+};
+
 const chargeInvoiceId = (charge: Stripe.Charge): string | undefined =>
   (typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id) || undefined;
 
@@ -146,37 +203,32 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     currency: (charge.currency ?? 'usd').toUpperCase(),
   };
 
-  const reconciliation: PaymentReconciliation = {
-    resourceType: 'PaymentReconciliation',
-    id: 'contained-reconciliation',
-    status: 'active',
-    created,
+  const desiredNotice = buildBillingPaymentNotice({
+    claim,
+    encounterId,
+    billingProviderRef,
+    createdISO: created,
+    amount: paymentAmount,
+    identifiers: [
+      {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: charge.id,
+      },
+      ...(paymentIntentId
+        ? [
+            {
+              system: STRIPE_PAYMENT_ID_SYSTEM,
+              value: paymentIntentId,
+            },
+          ]
+        : []),
+    ],
+    paymentMethod: charge.payment_method_details?.type ?? 'card',
     disposition: `Stripe charge ${charge.id} ${charge.status ?? ''}${invoiceId ? ` for invoice ${invoiceId}` : ''}`
       .replace(/\s+/g, ' ')
       .trim(),
     outcome: charge.paid ? 'complete' : 'partial',
-    paymentDate: created.slice(0, 10),
-    paymentAmount,
-  };
-
-  const desiredNotice: PaymentNotice = {
-    resourceType: 'PaymentNotice',
-    status: 'active',
-    request: claimRequestFor(claim, encounterId),
-    created,
-    amount: paymentAmount,
-    // charge id is the dedup key, the payment intent id matches how clinical notices are keyed
-    identifier: [
-      { system: STRIPE_PAYMENT_ID_SYSTEM, value: charge.id },
-      ...(paymentIntentId ? [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: paymentIntentId }] : []),
-    ],
-    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
-    contained: [reconciliation],
-    payment: { reference: `#${reconciliation.id}` },
-    // the resolved provider fills payee as the paid party and recipient because fhir requires one
-    payee: billingProviderRef,
-    recipient: billingProviderRef,
-  };
+  });
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
 };
@@ -247,31 +299,23 @@ const upsertPaymentNoticeForRefund = async (
     currency: (refund.currency ?? 'usd').toUpperCase(),
   };
 
-  const reconciliation: PaymentReconciliation = {
-    resourceType: 'PaymentReconciliation',
-    id: 'contained-reconciliation',
-    status: failed ? 'cancelled' : 'active',
-    created,
+  const desiredNotice = buildBillingPaymentNotice({
+    claim,
+    encounterId,
+    billingProviderRef,
+    createdISO: created,
+    amount: refundAmount,
+    identifiers: [
+      {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: refund.id,
+      },
+    ],
+    paymentMethod: charge.payment_method_details?.type ?? 'card',
     disposition: `Stripe refund ${refund.id} (${refund.status ?? 'unknown'}) for charge ${charge.id}`,
     outcome: refund.status === 'succeeded' ? 'complete' : failed ? 'error' : 'queued',
-    paymentDate: created.slice(0, 10),
-    paymentAmount: refundAmount,
-  };
-
-  const desiredNotice: PaymentNotice = {
-    resourceType: 'PaymentNotice',
-    // failed refunds are cancelled and must not count toward patient AR
-    status: failed ? 'cancelled' : 'active',
-    request: claimRequestFor(claim, encounterId),
-    created,
-    amount: refundAmount,
-    identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: refund.id }],
-    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
-    contained: [reconciliation],
-    payment: { reference: `#${reconciliation.id}` },
-    payee: billingProviderRef,
-    recipient: billingProviderRef,
-  };
+    cancelled: failed,
+  });
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
 };
