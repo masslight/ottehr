@@ -44,11 +44,13 @@ export function eraPatientAccountNumber(
   return matched && claim ? getClaimPcn(claim) : '';
 }
 
-// NM1*IL NM109 — the member id the payer reported the insured under. The converter writes it onto
-// the unmatched remit's contained resources; matched remits lose their contained resources, so
-// matched rows read the claim's own Coverage instead. Checked in order: the contained Coverage's
-// subscriberId, a member-number identifier on the subscriber resource that Coverage points at, on
-// the Coverage itself, then on the contained patient.
+// The member id the payer reported the insured under. In the 835 it rides on NM1*IL NM109 when
+// the patient is not the subscriber, and on the patient's own NM1*QC (qualifier MI) when they are
+// — NM1*IL is situational. The converter writes it onto the unmatched remit's contained resources;
+// matched remits lose their contained resources, so matched rows read the claim's own Coverage
+// instead. Checked in order: the contained Coverage's subscriberId, a member-number identifier on
+// the subscriber resource that Coverage points at, on the Coverage itself, then on the contained
+// patient.
 export function eraContainedMemberId(claimResponse: ClaimResponse): string {
   const contained = claimResponse.contained ?? [];
   const byLocalRef = (reference: string | undefined): FhirResource | undefined =>
@@ -57,17 +59,21 @@ export function eraContainedMemberId(claimResponse: ClaimResponse): string {
   const coverage = contained.find((resource): resource is Coverage => resource.resourceType === 'Coverage');
   if (coverage?.subscriberId) return coverage.subscriberId;
 
-  // prefer a v2-0203 MB (member number) typed identifier, else the resource's first identifier
-  const memberIdentifierOf = (resource: FhirResource | undefined): string | undefined => {
+  // prefer a v2-0203 MB (member number) typed identifier; untyped identifiers count only on
+  // resources whose sole job is to identify the insured
+  const memberIdentifierOf = (resource: FhirResource | undefined, typedOnly = false): string | undefined => {
     const identifiers = (resource as { identifier?: Identifier[] } | undefined)?.identifier ?? [];
     const typed = identifiers.find((identifier) => identifier.type?.coding?.some((coding) => coding.code === 'MB'));
-    return (typed ?? identifiers[0])?.value;
+    if (typed?.value) return typed.value;
+    return typedOnly ? undefined : identifiers[0]?.value;
   };
 
   return (
     memberIdentifierOf(byLocalRef(coverage?.subscriber?.reference)) ??
     memberIdentifierOf(coverage) ??
-    memberIdentifierOf(byLocalRef(claimResponse.patient?.reference)) ??
+    // the patient can also carry a medical record number (REF*EA), so only a typed member-number
+    // identifier counts here — an untyped MRN must not masquerade as the member id
+    memberIdentifierOf(byLocalRef(claimResponse.patient?.reference), true) ??
     ''
   );
 }

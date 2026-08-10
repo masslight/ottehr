@@ -444,17 +444,26 @@ describe('eraContainedMemberId', () => {
     expect(eraContainedMemberId(cr)).toBe('MBR-777');
   });
 
-  it('falls back to a Coverage identifier, then the contained patient identifier', () => {
+  it('falls back to a Coverage identifier, then a typed member identifier on the contained patient', () => {
     const viaCoverage = claimResponse({
       contained: [containedClaim(), containedCoverage({ subscriber: undefined, identifier: [{ value: 'COV-9' }] })],
     });
     expect(eraContainedMemberId(viaCoverage)).toBe('COV-9');
 
+    // patient = subscriber: the 835 puts the member id on NM1*QC (qualifier MI), no NM1*IL loop
     const viaPatient = claimResponse({
       patient: { reference: '#patient' },
       contained: [containedClaim(), { resourceType: 'Patient', id: 'patient', identifier: [memberIdentifier] }],
     });
     expect(eraContainedMemberId(viaPatient)).toBe('MBR-777');
+  });
+
+  it('ignores untyped identifiers on the contained patient — they may be a medical record number', () => {
+    const cr = claimResponse({
+      patient: { reference: '#patient' },
+      contained: [containedClaim(), { resourceType: 'Patient', id: 'patient', identifier: [{ value: 'MRN-1' }] }],
+    });
+    expect(eraContainedMemberId(cr)).toBe('');
   });
 
   it('is empty for matched remits, which carry no contained resources', () => {
