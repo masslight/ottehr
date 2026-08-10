@@ -1,5 +1,4 @@
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
-import archiver from 'archiver';
 import dotenv from 'dotenv';
 import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
@@ -8,6 +7,7 @@ import path from 'path';
 import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 import { assetsRequiredBy, listAssetFiles } from './bundle-assets';
+import { zipZambda } from './bundle-zip';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
@@ -113,8 +113,6 @@ const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEn
   }
 };
 
-const ZIP_ENTRY_DATE = new Date('2025-01-01');
-
 const formatMB = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 const copyAssets = async (from: string, to: string): Promise<void> => {
@@ -202,43 +200,6 @@ const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
     `releases finalize ${releaseName}`,
     () => $(shellConfig)`sentry-cli releases finalize ${releaseName}`
   );
-};
-
-interface ZipAsset {
-  /** Path inside the assets tree, e.g. `fonts/rubik/Rubik-Variable.ttf`. */
-  name: string;
-  contents: Buffer;
-}
-
-/**
- * Assets are appended as buffers rather than by path. `archive.file()` defers
- * reading, and with several of them queued the entries can finish out of order,
- * so two builds of the same commit produce zips that differ only in entry order
- * — enough to change the checksum and force a pointless re-upload. Appending
- * buffers keeps the order the caller asked for. (Measured: 20 concurrent zips
- * from identical inputs gave 6 distinct hashes via `file()`, 1 via `append()`.)
- * index.js stays a `file()` so the bundle is streamed rather than held in memory.
- */
-const zipZambda = async (
-  sourceFilePath: string,
-  assetsPath: string,
-  assets: ZipAsset[],
-  outPath: string
-): Promise<void> => {
-  const archive = archiver('zip', { zlib: { level: 1 } });
-  const stream = fs.createWriteStream(outPath);
-
-  return new Promise((resolve, reject) => {
-    let result = archive;
-    result = result.file(sourceFilePath, { name: 'index.js', date: ZIP_ENTRY_DATE });
-    for (const asset of assets) {
-      result = result.append(asset.contents, { name: `${assetsPath}/${asset.name}`, date: ZIP_ENTRY_DATE });
-    }
-    result.on('error', (err) => reject(err)).pipe(stream);
-
-    stream.on('close', () => resolve());
-    void archive.finalize();
-  });
 };
 
 const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string): Promise<void> => {
