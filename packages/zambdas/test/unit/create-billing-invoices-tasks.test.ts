@@ -29,6 +29,25 @@ vi.mock('../../src/billing/search-billing-patient-ar-claims/handler', () => ({
   fetchAllActivePatientArClaims: (...args: unknown[]) => mockFetchAllActivePatientArClaims(...args),
 }));
 
+// These tests assert the *enabled* invoicing path, so the flag has to be on
+// regardless of whichever ottehr-config the run happens to compile against.
+// `ottehrBillingInvoicingEnabled` is optional in FeatureFlagsConfigSchema, so
+// a per-customer config that omits it leaves it undefined — and
+// isOttehrBillingInvoicingEnabled coerces that to false, making the handler
+// short-circuit with "disabled" before it ever reaches the assertions below.
+// Mock the module production actually imports: the `utils` barrel is gone, so
+// FEATURE_FLAGS_CONFIG is only reachable at its deep path.
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as Record<string, unknown>),
+      ottehrBillingInvoicingEnabled: true,
+    },
+  };
+});
+
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 let handler!: ZambdaHandler;

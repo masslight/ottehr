@@ -35,24 +35,21 @@ const mockPatientWithValidContacts = {
   ],
 };
 
-vi.mock('utils', async (importOriginal) => {
+// Must target the deep path, not the `utils` barrel: production imports
+// FEATURE_FLAGS_CONFIG from 'utils/lib/ottehr-config/feature-flags', so a
+// mock on 'utils' resolves a module nothing under test imports and silently
+// stops intercepting. Spread the real config and pin only the two flags these
+// tests depend on — per-customer configs ship them false, which makes
+// produceOutreachTasks return early and every assertion below fail.
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as Record<string, unknown>),
       automatedPatientOutreachEnabled: true,
       mailingPaperStatementsEnabled: true,
     },
-  };
-});
-
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
 
