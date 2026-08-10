@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -30,8 +29,6 @@ const buildZip = async (outName: string): Promise<Buffer> => {
   await zipZambda(sourceFile, 'assets', assets, outPath);
   return fs.readFileSync(outPath);
 };
-
-const sha256 = (contents: Buffer): string => crypto.createHash('sha256').update(contents).digest('hex');
 
 /** Entry names in the order the zip's central directory lists them. */
 const entryNames = (zip: Buffer): string[] => {
@@ -65,7 +62,9 @@ describe('zipZambda', () => {
     // under concurrency those reads finished in whatever order they landed.
     const builds = await Promise.all(Array.from({ length: 12 }, (_, i) => buildZip(`concurrent-${i}.zip`)));
 
-    expect(new Set(builds.map(sha256)).size).toBe(1);
+    // Byte equality is the property Terraform's checksum diff cares about.
+    const differing = builds.filter((zip) => !zip.equals(builds[0])).length;
+    expect(differing, 'zips built concurrently from identical inputs differ').toBe(0);
   });
 
   it('writes the assets in the order they were passed', async () => {
@@ -82,7 +81,7 @@ describe('zipZambda', () => {
     fs.utimesSync(sourceFile, anHourLater, anHourLater);
     const after = await buildZip('mtime-after.zip');
 
-    expect(sha256(after)).toBe(sha256(before));
+    expect(after.equals(before), 'zip changed after only the source mtime moved').toBe(true);
   });
 
   it('packs a zambda that needs no assets', async () => {
