@@ -43,8 +43,21 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
       if (value) suggestions[item.key] = { display: value, formValue: value, comparable: value };
     };
     addTextSuggestion(contactSection.items.streetAddress, photoIdFields.addressLine1);
+    addTextSuggestion(contactSection.items.addressLine2, photoIdFields.addressLine2);
     addTextSuggestion(contactSection.items.city, photoIdFields.addressCity);
-    addTextSuggestion(contactSection.items.zip, photoIdFields.addressZip);
+    // The ZIP field stores unmasked digits only (see PatientRecordFormField's ZIP handling), but
+    // OCR text is transcribed as printed (often "12345-6789") — write/compare digits-only so it
+    // matches what the masked input settles to instead of racing its own normalization.
+    if (photoIdFields.addressZip) {
+      const zipDigits = photoIdFields.addressZip.replace(/[^0-9]/g, '');
+      if (zipDigits) {
+        suggestions[contactSection.items.zip.key] = {
+          display: photoIdFields.addressZip,
+          formValue: zipDigits,
+          comparable: zipDigits,
+        };
+      }
+    }
     const stateItem = contactSection.items.state;
     const stateSuggestion = buildPhotoIdOptionSuggestion(
       photoIdFields.addressState,
@@ -98,6 +111,7 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
         requiredFormFields={requiredFormFields}
         isLoading={isLoading}
       />
+      {renderPhotoIdSuggestion(contact.addressLine2.key)}
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <PatientRecordFormField
