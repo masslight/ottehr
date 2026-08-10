@@ -89,34 +89,59 @@ function itemUnits(item: ClaimResponseItem): number | null {
   return units ? units : null;
 }
 
-// The submitted line this adjudicated line describes, used only to enrich what the remit omits
-// (modifiers, date of service, submitted charge). Matched on procedure code: the ERA's line order
-// need not agree with ours, so a remit line whose code we can't find is left unenriched rather
-// than borrowing another service's details by sequence. Sequence is the fallback only when the
-// remit line carries no code at all. Matching on a real Claim only — a matched ClaimResponse has
-// no contained resources (Oystehr drops them on match) and an unmatched one's contained Claim
-// carries no items.
-function findSubmittedLine(
-  claim: Claim | undefined,
-  procedureCode: string,
-  sequence: number | undefined
-): ClaimItem | undefined {
-  const items = claim?.item ?? [];
-  if (items.length === 0) return undefined;
-  if (procedureCode) {
-    return items.find((item) => item.productOrService?.coding?.some((coding) => coding.code === procedureCode));
-  }
-  return sequence == null ? undefined : items.find((item) => item.sequence === sequence);
+// Assign each adjudicated line the submitted claim line it describes, used only to enrich what
+// the remit omits (modifiers, date of service, submitted charge).
+//
+// Oystehr's RCM stamps REF*6R line item control numbers (from Claim.item.sequence) onto the
+// outgoing 837 and aligns ClaimResponse.item.itemSequence back to them when the payer echoes
+// them, so a sequence join is exact when that round-trip worked — including claims that repeat a
+// procedure code. Payers that don't echo leave itemSequence positional (ERA line order; observed
+// on real ERAs), so a sequence join only counts when the submitted line's procedure code
+// corroborates it. Everything else falls back to one-to-one greedy assignment by procedure code,
+// preferring the line whose submitted charge matches the payer's, never reusing a line; remit
+// lines left without a counterpart stay unenriched for the billers to reconcile.
+function assignSubmittedLines(lineItems: ClaimResponseItem[], claim: Claim | undefined): (ClaimItem | undefined)[] {
+  const assigned: (ClaimItem | undefined)[] = lineItems.map(() => undefined);
+  const items = [...(claim?.item ?? [])].sort((a, b) => a.sequence - b.sequence);
+  if (items.length === 0) return assigned;
+  const consumed = new Set<ClaimItem>();
+
+  const hasCode = (item: ClaimItem, code: string): boolean =>
+    item.productOrService?.coding?.some((coding) => coding.code === code) ?? false;
+
+  // the REF*6R round-trip: sequence joins, corroborated by procedure code when the remit has one
+  lineItems.forEach((lineItem, index) => {
+    const bySequence = items.find((item) => item.sequence === lineItem.itemSequence);
+    if (!bySequence || consumed.has(bySequence)) return;
+    const code = itemProcedureCode(lineItem);
+    if (code && !hasCode(bySequence, code)) return;
+    assigned[index] = bySequence;
+    consumed.add(bySequence);
+  });
+
+  lineItems.forEach((lineItem, index) => {
+    if (assigned[index]) return;
+    const code = itemProcedureCode(lineItem);
+    if (!code) return;
+    const candidates = items.filter((item) => !consumed.has(item) && hasCode(item, code));
+    if (candidates.length === 0) return;
+    const charge = extractLineAmounts(lineItem.adjudication).billed;
+    const byCharge = charge == null ? undefined : candidates.find((item) => item.net?.value === charge);
+    const chosen = byCharge ?? candidates[0];
+    assigned[index] = chosen;
+    consumed.add(chosen);
+  });
+
+  return assigned;
 }
 
 function buildServiceLine(
   item: ClaimResponseItem,
-  claim: Claim | undefined,
+  submitted: ClaimItem | undefined,
   claimLevelDate: string,
   claimLevel: boolean
 ): EraRemitServiceLine {
   const cptCode = itemProcedureCode(item);
-  const submitted = findSubmittedLine(claim, cptCode, item.itemSequence);
   const amounts = extractLineAmounts(item.adjudication);
   const buckets = patientRespBuckets(amounts.adjustments);
   return {
@@ -150,19 +175,29 @@ export function buildEraRemitServiceLines(
     contained?.created ??
     '';
 
+  // The process-era converter parks claim-level CAS adjustments in an addItem bucket coded
+  // 'unknown'; a real procedure code there means it is a genuine payer-added line.
+  const addItems = (claimResponse.addItem ?? []).map((addItem) => {
+    const code = addItem.productOrService?.coding?.[0]?.code;
+    const asItem: ClaimResponseItem = {
+      itemSequence: addItem.itemSequence?.[0] ?? 0,
+      adjudication: addItem.adjudication,
+      extension: addItem.extension,
+    };
+    return { addItem, asItem, code, claimLevel: !code || code === 'unknown' };
+  });
+
+  // claim-level buckets never describe a submitted line, so they sit out the assignment
+  const items = claimResponse.item ?? [];
+  const assignableAddItems = addItems.filter((entry) => !entry.claimLevel);
+  const assigned = assignSubmittedLines([...items, ...assignableAddItems.map((entry) => entry.asItem)], claim);
+  const addItemAssigned = new Map(assignableAddItems.map((entry, index) => [entry, assigned[items.length + index]]));
+
   return [
-    ...(claimResponse.item ?? []).map((item) => buildServiceLine(item, claim, claimLevelDate, false)),
-    // The process-era converter parks claim-level CAS adjustments in an addItem bucket coded
-    // 'unknown'; a real procedure code there means it is a genuine payer-added line.
-    ...(claimResponse.addItem ?? []).map((addItem) => {
-      const code = addItem.productOrService?.coding?.[0]?.code;
-      const asItem: ClaimResponseItem = {
-        itemSequence: addItem.itemSequence?.[0] ?? 0,
-        adjudication: addItem.adjudication,
-        extension: addItem.extension,
-      };
-      const claimLevel = !code || code === 'unknown';
-      const line = buildServiceLine(asItem, claim, claimLevel ? '' : claimLevelDate, claimLevel);
+    ...items.map((item, index) => buildServiceLine(item, assigned[index], claimLevelDate, false)),
+    ...addItems.map((entry) => {
+      const { addItem, asItem, code, claimLevel } = entry;
+      const line = buildServiceLine(asItem, addItemAssigned.get(entry), claimLevel ? '' : claimLevelDate, claimLevel);
       return {
         ...line,
         itemSequence: addItem.itemSequence?.[0] ?? null,

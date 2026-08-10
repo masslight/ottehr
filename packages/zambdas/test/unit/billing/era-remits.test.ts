@@ -189,7 +189,8 @@ describe('buildEraRemitServiceLines', () => {
       ],
     });
 
-    // the remit calls it line 2; our claim has it at line 1 — the code, not the sequence, wins
+    // the remit calls it line 2, but our line 2 is a different code — the sequence join isn't
+    // corroborated, so the greedy code match wins
     const lines = buildEraRemitServiceLines(cr, submittedClaim());
 
     expect(lines[0]).toMatchObject({
@@ -199,6 +200,101 @@ describe('buildEraRemitServiceLines', () => {
       serviceDate: '2026-07-09',
       billed: 100,
     });
+  });
+
+  it('trusts the sequence join for repeated codes when the REF*6R round-trip preserved our line numbers', () => {
+    const claim = submittedClaim({
+      item: [
+        {
+          sequence: 1,
+          productOrService: { coding: [{ code: '99213' }] },
+          modifier: [{ coding: [{ code: '25' }] }],
+          servicedPeriod: { start: '2026-07-09' },
+          net: { value: 100, currency: 'USD' },
+        },
+        {
+          sequence: 2,
+          productOrService: { coding: [{ code: '99213' }] },
+          quantity: { value: 2 },
+          servicedDate: '2026-07-10',
+          net: { value: 50, currency: 'USD' },
+        },
+      ],
+    });
+    const cr = claimResponse({
+      item: [
+        eraItem({ sequence: 1, procedureCode: '99213', adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60)] }),
+        eraItem({ sequence: 2, procedureCode: '99213', adjudication: [adjudication(ADJUDICATION_CODES.PAID, 30)] }),
+      ],
+    });
+
+    const lines = buildEraRemitServiceLines(cr, claim);
+
+    expect(lines[0]).toMatchObject({ modifiers: ['25'], serviceDate: '2026-07-09', billed: 100 });
+    expect(lines[1]).toMatchObject({ modifiers: [], units: 2, serviceDate: '2026-07-10', billed: 50 });
+  });
+
+  it('assigns crossed positional sequences by code, one line each', () => {
+    // the payer numbered its SVC loops in its own order: line 1 is our 87880, line 2 our 99213
+    const cr = claimResponse({
+      item: [
+        eraItem({ sequence: 1, procedureCode: '87880', adjudication: [adjudication(ADJUDICATION_CODES.PAID, 25)] }),
+        eraItem({ sequence: 2, procedureCode: '99213', adjudication: [adjudication(ADJUDICATION_CODES.PAID, 60)] }),
+      ],
+    });
+
+    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+
+    expect(lines[0]).toMatchObject({ cptCode: '87880', units: 2, billed: 50 });
+    expect(lines[1]).toMatchObject({ cptCode: '99213', modifiers: ['25'], billed: 100 });
+  });
+
+  it('assigns repeated codes one-to-one, preferring the submitted charge, leaving leftovers unenriched', () => {
+    const claim = submittedClaim({
+      created: '2026-07-01',
+      item: [
+        {
+          sequence: 1,
+          productOrService: { coding: [{ code: '99213' }] },
+          modifier: [{ coding: [{ code: '25' }] }],
+          servicedPeriod: { start: '2026-07-09' },
+          net: { value: 100, currency: 'USD' },
+        },
+        {
+          sequence: 2,
+          productOrService: { coding: [{ code: '99213' }] },
+          servicedDate: '2026-07-10',
+          net: { value: 50, currency: 'USD' },
+        },
+      ],
+    });
+    // positional sequences that exist nowhere on the claim; the middle line's charge picks line 2
+    const cr = claimResponse({
+      item: [
+        eraItem({
+          sequence: 4,
+          procedureCode: '99213',
+          adjudication: [adjudication(ADJUDICATION_CODES.CHARGE, 50), adjudication(ADJUDICATION_CODES.PAID, 30)],
+        }),
+        eraItem({
+          sequence: 5,
+          procedureCode: '99213',
+          adjudication: [adjudication(ADJUDICATION_CODES.CHARGE, 100), adjudication(ADJUDICATION_CODES.PAID, 60)],
+        }),
+        eraItem({
+          sequence: 6,
+          procedureCode: '99213',
+          adjudication: [adjudication(ADJUDICATION_CODES.CHARGE, 25), adjudication(ADJUDICATION_CODES.PAID, 0)],
+        }),
+      ],
+    });
+
+    const lines = buildEraRemitServiceLines(cr, claim);
+
+    // charge 50 -> our line 2; charge 100 -> our line 1; the third has no line left to borrow from
+    expect(lines[0]).toMatchObject({ modifiers: [], serviceDate: '2026-07-10', billed: 50 });
+    expect(lines[1]).toMatchObject({ modifiers: ['25'], serviceDate: '2026-07-09', billed: 100 });
+    expect(lines[2]).toMatchObject({ modifiers: [], serviceDate: '2026-07-09', billed: 25 });
   });
 
   it('never borrows another service line details when the remit code is not on the claim', () => {
