@@ -116,6 +116,12 @@ test.afterAll(async () => {
 });
 
 test.describe('Inbound Fax Match page', () => {
+  // Serial so the file-level beforeAll — an appointment plus a fax Communication and its Task — is
+  // paid once. Without it, fullyParallel spreads these five tests across workers and every worker
+  // that picks one up repeats that whole setup. They only read, and they total well under a minute,
+  // so running them in sequence costs far less than the repeated setups.
+  test.describe.configure({ mode: 'serial' });
+
   test('loads the match page and displays fax metadata', async ({ page }) => {
     await page.goto(`/inbound-fax/${communicationId}/match`);
 

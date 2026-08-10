@@ -166,6 +166,13 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
 }
 
 test.describe('Order Deletion - Happy Path', () => {
+  // Serial so the file-level beforeAll — an appointment plus the procedure, medication and radiology
+  // orders these tests delete — is paid once instead of once per worker. Each test deletes a
+  // different one of those orders, so they don't interfere. The trade is a longer serial chunk and a
+  // flake re-running all three; that is worth it here because the setup is the expensive part and
+  // this suite is contention-bound, not worker-starved (8 workers measured slower than 6).
+  test.describe.configure({ mode: 'serial' });
+
   test('Delete procedure and verify it is removed from list', async ({ browser }) => {
     // Create isolated context and page for this test
     const context = await browser.newContext();
