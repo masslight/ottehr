@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridPaginationModel, useGridApiRef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -74,8 +74,15 @@ const columns: GridColDef[] = [
     ),
   },
   { field: 'claimCount', headerName: 'Claims', width: 80, align: 'right', headerAlign: 'right' },
-  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right' },
-  { field: 'unmatchedCount', headerName: 'Unmatched', width: 100, align: 'right', headerAlign: 'right' },
+  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right', type: 'number' },
+  {
+    field: 'unmatchedCount',
+    headerName: 'Unmatched',
+    width: 100,
+    align: 'right',
+    headerAlign: 'right',
+    type: 'number',
+  },
 ];
 
 export default function ERAList(): ReactElement {
@@ -96,6 +103,7 @@ export default function ERAList(): ReactElement {
   const [eraStatus, setEraStatus] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const [matchingStatus, setMatchingStatus] = useState('');
 
   // Claim-level filters
   const [searchText, setSearchText] = useState('');
@@ -251,6 +259,34 @@ export default function ERAList(): ReactElement {
     dosTo ||
     selectedPatient;
 
+  const apiRef = useGridApiRef();
+
+  useEffect(() => {
+    if (matchingStatus === '') {
+      apiRef.current.setFilterModel({ items: [] });
+    }
+    if (matchingStatus === 'allMatched') {
+      apiRef.current.setFilterModel({
+        items: [{ field: 'unmatchedCount', operator: '=', value: '0' }],
+      });
+    }
+    if (matchingStatus === 'allUnmatched') {
+      apiRef.current.setFilterModel({
+        items: [{ field: 'matchedCount', operator: '=', value: '0' }],
+      });
+    }
+    if (matchingStatus === 'anyMatched') {
+      apiRef.current.setFilterModel({
+        items: [{ field: 'matchedCount', operator: '>', value: '0' }],
+      });
+    }
+    if (matchingStatus === 'anyUnmatched') {
+      apiRef.current.setFilterModel({
+        items: [{ field: 'unmatchedCount', operator: '>', value: '0' }],
+      });
+    }
+  }, [apiRef, matchingStatus]);
+
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -324,6 +360,22 @@ export default function ERAList(): ReactElement {
           isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Matching Status</InputLabel>
+          <Select
+            value={matchingStatus}
+            label="Matching Status"
+            onChange={(e) => {
+              setMatchingStatus(e.target.value);
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="allMatched">All Matched</MenuItem>
+            <MenuItem value="allUnmatched">All Unmatched</MenuItem>
+            <MenuItem value="anyMatched">Any Matched</MenuItem>
+            <MenuItem value="anyUnmatched">Any Unmatched</MenuItem>
+          </Select>
+        </FormControl>
         <TextField
           size="small"
           type="date"
@@ -429,6 +481,7 @@ export default function ERAList(): ReactElement {
       )}
 
       <DataGridPro
+        apiRef={apiRef}
         rows={eras}
         columns={columns}
         loading={loading}
