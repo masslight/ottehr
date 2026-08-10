@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel, useGridApiRef } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -39,6 +39,7 @@ interface Filters {
   eraDateTo?: string;
   eraStatus?: string;
   payerId?: string;
+  matchingStatus?: string;
   // Claim-level
   searchText?: string;
   claimStatus?: string;
@@ -93,7 +94,7 @@ export default function ERAList(): ReactElement {
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 5 });
   const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ERA-level filters
@@ -130,6 +131,7 @@ export default function ERAList(): ReactElement {
         if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
         if (filters.eraStatus) params.eraStatus = filters.eraStatus;
         if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.matchingStatus) params.matchingStatus = filters.matchingStatus;
         if (filters.searchText) params.searchText = filters.searchText;
         if (filters.claimStatus) params.claimStatus = filters.claimStatus;
         if (filters.dosFrom) params.dosFrom = filters.dosFrom;
@@ -191,6 +193,7 @@ export default function ERAList(): ReactElement {
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
       eraStatus: overrides?.eraStatus ?? eraStatus,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
+      matchingStatus: overrides?.matchingStatus ?? matchingStatus,
       searchText: overrides?.searchText ?? searchText,
       claimStatus: overrides?.claimStatus ?? claimStatus,
       dosFrom: overrides?.dosFrom ?? dosFrom,
@@ -203,6 +206,7 @@ export default function ERAList(): ReactElement {
       eraDateTo,
       eraStatus,
       selectedPayer,
+      matchingStatus,
       searchText,
       claimStatus,
       dosFrom,
@@ -253,39 +257,12 @@ export default function ERAList(): ReactElement {
     eraDateTo ||
     eraStatus ||
     selectedPayer ||
+    matchingStatus ||
     searchText ||
     claimStatus ||
     dosFrom ||
     dosTo ||
     selectedPatient;
-
-  const apiRef = useGridApiRef();
-
-  useEffect(() => {
-    if (matchingStatus === '') {
-      apiRef.current.setFilterModel({ items: [] });
-    }
-    if (matchingStatus === 'allMatched') {
-      apiRef.current.setFilterModel({
-        items: [{ field: 'unmatchedCount', operator: '=', value: '0' }],
-      });
-    }
-    if (matchingStatus === 'allUnmatched') {
-      apiRef.current.setFilterModel({
-        items: [{ field: 'matchedCount', operator: '=', value: '0' }],
-      });
-    }
-    if (matchingStatus === 'anyMatched') {
-      apiRef.current.setFilterModel({
-        items: [{ field: 'matchedCount', operator: '>', value: '0' }],
-      });
-    }
-    if (matchingStatus === 'anyUnmatched') {
-      apiRef.current.setFilterModel({
-        items: [{ field: 'unmatchedCount', operator: '>', value: '0' }],
-      });
-    }
-  }, [apiRef, matchingStatus]);
 
   return (
     <Box sx={{ p: 0 }}>
@@ -367,6 +344,7 @@ export default function ERAList(): ReactElement {
             label="Matching Status"
             onChange={(e) => {
               setMatchingStatus(e.target.value);
+              applyFilters({ matchingStatus: e.target.value });
             }}
           >
             <MenuItem value="">All</MenuItem>
@@ -481,7 +459,6 @@ export default function ERAList(): ReactElement {
       )}
 
       <DataGridPro
-        apiRef={apiRef}
         rows={eras}
         columns={columns}
         loading={loading}
@@ -492,7 +469,7 @@ export default function ERAList(): ReactElement {
         onRowClick={(params) => navigate(`/eras/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        pageSizeOptions={[25, 50, 100]}
+        pageSizeOptions={[5, 50, 100]}
         slots={dataGridSlots({ showCsvExport: true, csvFileName: 'eras' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}

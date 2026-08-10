@@ -72,21 +72,59 @@ async function performEffect(
     });
   }
 
-  const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
-    resourceType: 'PaymentReconciliation',
-    params: searchParams,
-  });
-  const payments = bundle.unbundle();
-  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, payments);
-  // process-era PaymentReconciliations carry no paymentIssuer; resolve the ClaimResponses' payers
-  // as the fallback
-  const payersByRef = await resolvePayersByRef(oystehr, [
-    ...payments.map((pr) => pr.paymentIssuer?.reference),
-    ...[...claimResponsesByPrId.values()].flat().map((cr) => cr.insurer?.reference),
-  ]);
-  const eras = payments.map((pr) => mapEra(pr, payersByRef, claimResponsesByPrId));
+  const resultEras: EraListItem[] = [];
+  let resultOffset = offset;
+  let total = 0;
 
-  return { eras, total: bundle.total ?? 0, offset, pageSize };
+  do {
+    const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+      resourceType: 'PaymentReconciliation',
+      params: searchParams,
+    });
+    total = bundle.total ?? 0;
+    const payments = bundle.unbundle();
+    const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, payments);
+    // process-era PaymentReconciliations carry no paymentIssuer; resolve the ClaimResponses' payers
+    // as the fallback
+    const payersByRef = await resolvePayersByRef(oystehr, [
+      ...payments.map((pr) => pr.paymentIssuer?.reference),
+      ...[...claimResponsesByPrId.values()].flat().map((cr) => cr.insurer?.reference),
+    ]);
+    const eras = payments.map((pr) => mapEra(pr, payersByRef, claimResponsesByPrId));
+
+    if (eras.length === 0) {
+      break;
+    }
+
+    for (const era of eras) {
+      resultOffset++;
+      if (params.matchingStatus === 'allMatched' && era.unmatchedCount === 0) {
+        resultEras.push(era);
+      }
+      if (params.matchingStatus === 'allUnmatched' && era.matchedCount === 0) {
+        resultEras.push(era);
+      }
+      if (params.matchingStatus === 'anyMatched' && era.matchedCount > 0) {
+        resultEras.push(era);
+      }
+      if (params.matchingStatus === 'anyUnmatched' && era.unmatchedCount > 0) {
+        resultEras.push(era);
+      }
+      if (params.matchingStatus == null) {
+        resultEras.push(era);
+      }
+      if (resultEras.length === pageSize) {
+        break;
+      }
+    }
+
+    const offsetParam = searchParams.find((param) => param.name === '_offset');
+    if (offsetParam) {
+      offsetParam.value = String(resultOffset);
+    }
+  } while (resultEras.length < pageSize);
+
+  return { eras: resultEras, total: total ?? 0, offset: resultOffset, pageSize };
 }
 
 // For the given claims, return the ids of the PaymentReconciliations that adjudicated them.
