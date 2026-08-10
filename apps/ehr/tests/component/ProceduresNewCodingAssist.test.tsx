@@ -61,6 +61,8 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
+  // The page no longer uses this hook (the legacy AI list is removed); the mock stays so the
+  // tests can assert the zambda is never called from anywhere on this page.
   useRecommendBillingCodes: () => ({ mutateAsync: recommendBillingCodesMock }),
 }));
 
@@ -187,14 +189,42 @@ describe('ProceduresNew — deterministic coding assist', () => {
     expect(screen.getAllByTestId('recommended-cpt-code-12042')).toHaveLength(1);
   });
 
-  it('still fetches and renders the AI list for a procedure type outside the engine families', async () => {
-    recommendBillingCodesMock.mockResolvedValue([
-      { code: '94640', description: 'Nebulizer treatment', useWhen: 'when' },
-    ]);
-    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Nebulizer Treatment (e.g., Albuterol)' });
+  // The legacy AI list is removed (§III): the deterministic engine is the sole suggestion
+  // source, and no procedure type triggers the recommend-billing-codes call anymore.
+  it('renders no AI list and makes no recommend-billing-codes call for an uncovered type (X-Ray)', async () => {
+    recommendBillingCodesMock.mockResolvedValue([{ code: '73562', description: 'X-ray of knee', useWhen: 'when' }]);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'X-Ray',
+      cptCodes: [{ code: '73562', display: 'X-ray of knee, 3 views' }],
+    });
     renderComponent();
-    expect(await screen.findByTestId('recommended-cpt-code-94640', undefined, { timeout: 3000 })).toBeVisible();
-    expect(recommendBillingCodesMock).toHaveBeenCalled();
+    // Give the debounced evaluation time to run, then assert no suggestion content rendered.
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('best-match-cpt-code')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('open-candidates-line')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('recommended-cpt-code-73562')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('coding-defense-findings')).not.toBeInTheDocument();
+      },
+      { timeout: 1500 }
+    );
+    expect(recommendBillingCodesMock).not.toHaveBeenCalled();
+  });
+
+  it('renders the fixed-code suggestion and supported state for a fixed-code type (nebulizer)', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Nebulizer Treatment (e.g., Albuterol)',
+      cptCodes: [{ code: '94640', display: 'Inhalation treatment (nebulizer)' }],
+      medicationUsed: 'Albuterol 2.5 mg',
+      patientResponse: 'Tolerated Well',
+    });
+    renderComponent();
+    const bestMatch = await screen.findByTestId('best-match-cpt-code', undefined, { timeout: 3000 });
+    expect(bestMatch).toHaveTextContent('94640');
+    expect(bestMatch).toHaveTextContent(/bills a single code/i);
+    const supported = await screen.findByTestId('coding-defense-supported', undefined, { timeout: 3000 });
+    expect(supported).toHaveTextContent('Documentation supports 94640');
+    expect(recommendBillingCodesMock).not.toHaveBeenCalled();
   });
 
   it('renders the compact open-set line when class and site are known but length is missing', async () => {

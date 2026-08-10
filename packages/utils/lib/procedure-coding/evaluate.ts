@@ -1,13 +1,18 @@
 // Family-agnostic evaluators: detect the family, run its extraction, and return an
 // EvaluationResult. Unknown families are reported "not assessed", never guessed (requirement B7).
 
+import { burnTreatmentFamily } from './families/burn-treatment';
 import { cerumenFamily } from './families/cerumen';
 import { ekgFamily } from './families/ekg';
+import { FIXED_CODE_FAMILIES } from './families/fixed-code';
 import { foreignBodyFamily } from './families/foreign-body';
 import { incisionDrainageFamily } from './families/incision-drainage';
 import { injectionInfusionFamily } from './families/injection-infusion';
 import { lacerationFamily } from './families/laceration';
+import { lesionDestructionFamily } from './families/lesion-destruction';
+import { nasalPackingFamily } from './families/nasal-packing';
 import { splintingFamily } from './families/splinting';
+import { urinaryCatheterizationFamily } from './families/urinary-catheterization';
 import { EvaluationResult, FamilyEvaluation, ProcedureFactsInput, ProcedureFamilyModel } from './model.types';
 import { CPT_RULES_VINTAGE } from './provenance';
 
@@ -20,6 +25,12 @@ export const PROCEDURE_FAMILIES: ProcedureFamilyModel[] = [
   splintingFamily,
   injectionInfusionFamily,
   ekgFamily,
+  burnTreatmentFamily,
+  lesionDestructionFamily,
+  urinaryCatheterizationFamily,
+  nasalPackingFamily,
+  // Fixed-code types register last so they can never shadow a full family (requirements §12).
+  ...FIXED_CODE_FAMILIES,
 ];
 
 export function detectProcedureFamily(input: ProcedureFactsInput): ProcedureFamilyModel | undefined {

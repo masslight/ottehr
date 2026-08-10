@@ -84,7 +84,7 @@ import { DiagnosesField } from '../../shared/components/assessment-tab/Diagnoses
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useGetCPTHCPCSSearch, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -244,9 +244,7 @@ export default function ProceduresNew(): ReactElement {
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
   const queryClient = useQueryClient();
-  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
 
   const { encounter } = useAppointmentData();
   const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
@@ -300,7 +298,6 @@ export default function ProceduresNew(): ReactElement {
     documentedBy: draft.documentedBy,
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
-  const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
@@ -383,58 +380,6 @@ export default function ProceduresNew(): ReactElement {
     };
   }, [formValues.procedureType, state]);
   const codingAssist = useProcedureCoding(procedureFacts);
-
-  useEffect(() => {
-    if (!formValues.procedureType) {
-      return;
-    }
-    // Engine-covered families take no AI suggestions: the deterministic engine is the sole
-    // suggestion source there, so the recommend-billing-codes zambda is not called at all.
-    if (codingAssist.familyDetected) {
-      setLoadingSuggestions(false);
-      setRecommendedBillingCodes(null);
-      return;
-    }
-    // Stale-response protection: only the latest in-flight request may set state.
-    let stale = false;
-    const fetchRecommendedBillingCodes = async (): Promise<void> => {
-      setLoadingSuggestions(true);
-      const codes = await recommendBillingCodes({
-        procedureType: formValues.procedureType,
-        diagnoses: state.diagnoses,
-        medicationUsed: state.medicationUsed,
-        bodySite: state.bodySite,
-        bodySide: state.bodySide,
-        technique: state.technique,
-        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
-        procedureDetails: state.procedureDetails,
-        timeSpent: state.timeSpent,
-      });
-      if (stale) {
-        return;
-      }
-      setLoadingSuggestions(false);
-      setRecommendedBillingCodes(codes);
-    };
-
-    fetchRecommendedBillingCodes().catch((error) => console.log(error));
-    return () => {
-      stale = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    formValues.procedureType,
-    codingAssist.familyDetected,
-    state.diagnoses,
-    state.medicationUsed,
-    state.bodySite,
-    state.bodySide,
-    state.technique,
-    state.suppliesUsed,
-    // state.procedureDetails,
-    state.timeSpent,
-    recommendBillingCodes,
-  ]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
   const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
@@ -771,49 +716,13 @@ export default function ProceduresNew(): ReactElement {
     return null;
   };
 
+  // The deterministic engine is the sole code-suggestion source (§III — the legacy AI list is
+  // retired). Uncovered types (X-Ray by design) render no suggestion content at all.
   const recommendedCptCodesContent = (): ReactNode => {
-    const deterministicContent = deterministicSuggestionContent();
-
-    if (loadingSuggestions) {
-      return deterministicContent;
-    }
-
     if (!formValues.procedureType) {
       return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
     }
-
-    // Engine-covered families never render the AI list — the engine is the sole suggestion source.
-    if (codingAssist.familyDetected) {
-      return deterministicContent;
-    }
-
-    // Suggestions not fetched yet.
-    if (!recommendedBillingCodes) {
-      return deterministicContent;
-    }
-
-    if (recommendedBillingCodes.length === 0 && deterministicContent == null) {
-      return <Typography color="secondary.light">No suggestions</Typography>;
-    }
-
-    return (
-      <>
-        {deterministicContent}
-        {recommendedBillingCodes.length > 0 && (
-          <ActionsList
-            data={recommendedBillingCodes}
-            getKey={(value) => value.code}
-            renderItem={(value) => (
-              <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
-                <strong>{value.code}</strong> &ndash; {value.description}
-              </Typography>
-            )}
-            renderActions={isReadOnly ? undefined : (value) => renderRecommendedCptActions(value)}
-            divider
-          />
-        )}
-      </>
-    );
+    return deterministicSuggestionContent();
   };
 
   // ── Documentation defense (amber box) — driven by defendCodes. ─────────────────────────
@@ -1547,7 +1456,7 @@ export default function ProceduresNew(): ReactElement {
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
+            <AiSectionContainer>{recommendedCptCodesContent()}</AiSectionContainer>
             {amberBoxVisible && (
               <Container
                 style={{

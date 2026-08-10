@@ -34,14 +34,25 @@ describe('unknown family results', () => {
     expect(result.notAssessedCodes).toEqual(['73630']);
   });
 
-  it('defendCodes mirrors the same not-assessed behavior', () => {
+  // The no-code types (§12: staple/suture removal, oral rehydration, nasal lavage) deliberately
+  // have no family: their care is captured by the visit charge, so the honest default — no
+  // suggestion, selected codes not assessed — is exactly right for them.
+  it('defendCodes mirrors the same not-assessed behavior for a no-code type', () => {
     const result = defendCodes({
-      procedureType: 'Nebulizer Treatment (e.g., Albuterol)',
-      cptCodes: [{ code: '94640', display: 'Neb' }],
+      procedureType: 'Nasal Lavage (schnozzle)',
+      cptCodes: [{ code: '99213', display: 'Office visit' }],
     });
     expect(result.family).toBeUndefined();
-    expect(result.notAssessedCodes).toEqual(['94640']);
+    expect(result.notAssessedCodes).toEqual(['99213']);
     expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it.each([
+    ['Staple or Suture Removal'],
+    ['Oral Rehydration / Medication Administration (including challenge doses)'],
+    ['Nasal Lavage (schnozzle)'],
+  ])('no family claims the no-code type %s', (procedureType) => {
+    expect(detectProcedureFamily({ procedureType })).toBeUndefined();
   });
 });
 

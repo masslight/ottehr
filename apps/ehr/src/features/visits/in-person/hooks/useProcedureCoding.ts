@@ -39,8 +39,8 @@ export interface UseProcedureCodingResult {
 
 /**
  * Runs the deterministic procedure-coding engine (suggestCode/defendCodes) over the page's
- * form snapshot on a short debounce. Client-side and synchronous — separate from (and never
- * a trigger of) the recommend-billing-codes AI call.
+ * form snapshot on a short debounce. Client-side and synchronous — the sole code-suggestion
+ * source on the procedure page (the legacy AI suggestion list is retired).
  */
 export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodingResult {
   const [evaluations, setEvaluations] = useState<ProcedureEvaluations | undefined>(undefined);

@@ -48,14 +48,16 @@ describe('injection/infusion detection', () => {
     );
   });
 
+  // The adjacent in-house-med types are different services: oral rehydration stays uncovered
+  // (no-code type), the others belong to their own (fixed-code or urinary) families.
   it.each([
-    ['Oral Rehydration / Medication Administration (including challenge doses)'],
-    ['Intravenous (IV) Catheter Placement'],
-    ['Nebulizer Treatment (e.g., Albuterol)'],
-    ['Urinary Catheterization'],
-  ])('does not claim the adjacent in-house-med type %s', (procedureType) => {
+    ['Oral Rehydration / Medication Administration (including challenge doses)', undefined],
+    ['Intravenous (IV) Catheter Placement', 'iv-catheter-placement'],
+    ['Nebulizer Treatment (e.g., Albuterol)', 'nebulizer'],
+    ['Urinary Catheterization', 'urinary-catheterization'],
+  ])('does not claim the adjacent in-house-med type %s', (procedureType, expectedFamily) => {
     expect(injectionInfusionFamily.detect({ procedureType })).toBe(false);
-    expect(detectProcedureFamily({ procedureType })).toBeUndefined();
+    expect(detectProcedureFamily({ procedureType })?.id).toBe(expectedFamily);
   });
 });
 
