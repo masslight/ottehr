@@ -18,6 +18,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  AD_HOC_REPORT_VIEW_ROLES,
   AdHocBillingInput,
   AdHocBillingOutputSchema,
   AdHocBillingRow,
@@ -32,6 +33,8 @@ import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   fetchAllPages,
+  getUserToken,
+  requireUserWithRole,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -56,6 +59,8 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

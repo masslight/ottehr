@@ -1,7 +1,19 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, SaveAdHocReportOutput, SaveAdHocReportOutputSchema } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  AD_HOC_REPORT_EDIT_ROLES,
+  FHIR_RESOURCE_NOT_FOUND,
+  SaveAdHocReportOutput,
+  SaveAdHocReportOutputSchema,
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  getUserToken,
+  requireUserWithRole,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   makeSavedAdHocReportBasic,
   parseSavedAdHocReportBasic,
@@ -17,6 +29,8 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { reportId, definition, secrets } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

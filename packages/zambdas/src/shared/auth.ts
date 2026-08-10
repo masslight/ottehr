@@ -5,6 +5,7 @@ import {
   getNPIIdentifier,
   getPatientsForUser,
   getSecret,
+  MISSING_AUTH_TOKEN,
   NOT_AUTHORIZED,
   RoleType,
   Secrets,
@@ -13,6 +14,12 @@ import {
   userMe,
 } from 'utils';
 import { getAuth0Token } from './getAuth0Token';
+
+export const getUserToken = (input: { headers?: { Authorization?: string } }): string => {
+  const token = input.headers?.Authorization?.replace('Bearer ', '');
+  if (!token) throw MISSING_AUTH_TOKEN;
+  return token;
+};
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;
