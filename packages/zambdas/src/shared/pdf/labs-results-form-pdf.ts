@@ -1404,7 +1404,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       pdfClient,
       textStyles,
       'Results Date:',
-      formatDateTimeForLabs(labResult.finalResultDateTime, data.timezone ?? '') // labs todo: would be great if this wasn't undefined
+      formatDateTimeForLabs(labResult.finalResultDateTime, data.timezone)
     );
     pdfClient.newLine(30);
   }

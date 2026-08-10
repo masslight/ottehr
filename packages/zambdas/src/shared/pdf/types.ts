@@ -283,7 +283,7 @@ export interface InHouseLabResultsData
     'accountNumber' | 'patientVisitNote' | 'clinicalInfo' | 'fastingStatus' | 'resultSpecimenInfo'
   > {
   inHouseLabResults: InHouseLabResultConfig[];
-  timezone: string | undefined;
+  timezone: string;
   serviceRequestID: string;
   orderCreateDate: string;
 }
