@@ -67,7 +67,6 @@ import {
   Secrets,
   SupportedObsImgAttachmentTypes,
 } from 'utils';
-import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { formatDateTimeForLabs, formatStringTimestampForLabs, getTimezoneForLabs } from '../../ehr/lab/shared/helpers';
 import {
   fetchResultResourcesForRelatedServiceRequest,
@@ -133,6 +132,7 @@ type ExternalLabSpecificResources = {
   resultsReceivedDateInTz: string;
   resultInterpretations: string[];
   attachments: ExternalLabResultAttachments;
+  timezone: string;
 };
 
 type LabTypeSpecificResources =
@@ -178,6 +178,7 @@ const getResultDataConfigForDrResources = (
     collectionDateInTz,
     specimenReceivedDateTimeInTz,
     serviceRequest,
+    timezone,
   } = specificResources;
 
   const baseData: LabResultsData = {
@@ -198,7 +199,7 @@ const getResultDataConfigForDrResources = (
     patientPhone: formatPhoneNumberDisplay(
       patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
     ),
-    todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    todayDate: formatDateTimeForLabs(now, timezone),
     dateIncludedInFileName: diagnosticReport.effectiveDateTime || '',
     orderPriority: '',
     testName: testName || '',
@@ -319,7 +320,7 @@ const getResultDataConfig = (
     patientPhone: formatPhoneNumberDisplay(
       patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
     ),
-    todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    todayDate: formatDateTimeForLabs(now, timezone),
     dateIncludedInFileName: serviceRequest.authoredOn || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
@@ -500,6 +501,7 @@ export async function createExternalLabResultPDFBasedOnDr(
       collectionDateInTz,
       specimenReceivedDateTimeInTz,
       serviceRequest,
+      timezone,
     },
   };
 
@@ -610,6 +612,7 @@ export async function createExternalLabResultPDF(
       resultsReceivedDateInTz,
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
+      timezone,
     },
   };
   const commonResources: CommonDataConfigResources = {
@@ -1613,7 +1616,7 @@ const getFormattedInHouseLabResults = async (
   observations: Observation[],
   specimen: Specimen,
   provenance: Provenance,
-  timezone: string | undefined,
+  timezone: string,
   diagnosticReport: DiagnosticReport
 ): Promise<InHouseLabResultConfig> => {
   if (!diagnosticReport.id) {
@@ -1627,9 +1630,7 @@ const getFormattedInHouseLabResults = async (
     specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || 'Not provided';
   const finalResultDateTime = DateTime.fromISO(provenance.recorded);
 
-  const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
-    .setZone(timezone)
-    .toFormat(LABS_DATE_STRING_FORMAT);
+  const collectionDate = formatStringTimestampForLabs(specimen.collection.collectedDateTime, timezone);
 
   const results: InHouseLabResult[] = [];
   const components = convertActivityDefinitionToDataEntryTestItem(activityDefinition, observations).components;
@@ -1703,7 +1704,7 @@ const getAdditionalResultsForRelated = async (
   oystehr: Oystehr,
   relatedSRs: ServiceRequest[],
   activityDefinition: ActivityDefinition,
-  timezone: string | undefined
+  timezone: string
 ): Promise<InHouseLabResultConfig[]> => {
   const { additionalActivityDefinitions, srResourceMap } = await fetchResultResourcesForRelatedServiceRequest(
     oystehr,
