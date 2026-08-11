@@ -16,28 +16,21 @@ import {
   TextField,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { ClaimDetailResponse, getApiError } from 'utils';
-import { exportClaimX12 } from '../api/api';
-import { useApiClients } from '../hooks/useAppClients';
+import { getApiError } from 'utils';
 import { downloadTextFile } from '../utils/downloadTextFile';
 
 interface ExportX12DialogProps {
   open: boolean;
   onClose: () => void;
-  claimId: string;
-  claimType: ClaimDetailResponse['type'];
+  fileName: string;
+  x12Provider: () => Promise<string>;
 }
 
-export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12DialogProps): ReactElement {
-  const { oystehrZambda } = useApiClients();
-
+export function ExportX12Dialog({ open, onClose, fileName, x12Provider }: ExportX12DialogProps): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [x12, setX12] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-
-  const formatLabel = claimType === 'professional' ? '837P' : '837I';
-  const fileName = `claim-${claimId}-${formatLabel.toLowerCase()}.txt`;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -47,17 +40,11 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
     setX12(null);
     setCopied(false);
 
-    if (!oystehrZambda) {
-      setError('Client not ready');
-      setLoading(false);
-      return undefined;
-    }
-
     let cancelled = false;
     void (async () => {
       try {
-        const data = await exportClaimX12(oystehrZambda, { claimId });
-        if (!cancelled) setX12(data.x12);
+        const x12 = await x12Provider();
+        if (!cancelled) setX12(x12);
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -75,7 +62,7 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
     return () => {
       cancelled = true;
     };
-  }, [open, oystehrZambda, claimId]);
+  }, [open, x12Provider]);
 
   const handleCopy = async (): Promise<void> => {
     if (!x12) return;
@@ -119,7 +106,7 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
           justifyContent: 'space-between',
         }}
       >
-        {`Export X12 (${formatLabel})`}
+        Export X12
         <IconButton size="small" onClick={onClose} aria-label="Close">
           <CloseIcon fontSize="small" />
         </IconButton>
