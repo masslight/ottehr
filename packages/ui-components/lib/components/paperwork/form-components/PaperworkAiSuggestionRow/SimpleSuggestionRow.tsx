@@ -1,6 +1,6 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { pickFirstValueFromAnswerItem } from 'utils';
@@ -59,9 +59,11 @@ export const SimpleSuggestionRow: FC<SimpleSuggestionRowProps> = ({ linkId, fiel
       {matches && accepted ? (
         <CheckCircleIcon fontSize="small" color="success" />
       ) : (
-        <IconButton size="small" onClick={handleAccept} aria-label={`Accept suggested value for ${linkId}`}>
-          <AddCircleOutlineIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Use value from card">
+          <IconButton size="small" onClick={handleAccept} aria-label={`Accept suggested value for ${linkId}`}>
+            <AddCircleOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       )}
     </Box>
   );
