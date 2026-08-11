@@ -14,6 +14,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -258,6 +259,12 @@ export const formatServiceRequestConfig = (
   return serviceRequestConfig;
 };
 
+export const getCptCodingFromOrderableItem = (orderableItem: OrderableItemSearchResult): Coding[] =>
+  orderableItem.item.cptCodes.map((code) => ({
+    system: CPT_CODE_SYSTEM,
+    code: code.cptCode,
+  }));
+
 const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
   const coding: Coding[] = [
     {
@@ -272,6 +279,7 @@ const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest[
       code: orderableItem.item.itemLoinc,
     });
   }
+  coding.push(...getCptCodingFromOrderableItem(orderableItem));
   return {
     coding,
     text: orderableItem.item.itemName,
