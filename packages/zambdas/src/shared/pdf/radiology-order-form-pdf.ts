@@ -16,7 +16,7 @@ import { getPatientLastFirstName } from '../patients';
 import { makeRadiologyDTO } from '../radiology';
 import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
-import { calculateAge, rgbNormalized } from './pdf-utils';
+import { rgbNormalized } from './pdf-utils';
 import { AssetPaths, PdfData, PdfSection } from './types';
 
 export const RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE = {
@@ -48,7 +48,7 @@ export interface RadiologyOrderFormInput {
 }
 
 interface RadiologyOrderFormData extends PdfData {
-  patient: { name: string; dob: string; ageYears?: number; id: string; phone?: string };
+  patient: { name: string; dob: string; id: string; phone?: string };
   performingOrg: OrganizationBlock;
   orderingClinic: OrganizationBlock;
   orderingProvider: { name: string; npi?: string; signatureName: string };
@@ -78,7 +78,6 @@ const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, Radio
     patient: {
       name: getPatientLastFirstName(patient) ?? '',
       dob: formatDOB(patient.birthDate) ?? '',
-      ageYears: patient.birthDate ? calculateAge(patient.birthDate) : undefined,
       id: getPatientFriendlyId(patient) || patient.id || '',
       phone: standardizePhoneNumber(patient.telecom?.find((t) => t.system === 'phone')?.value),
     },
@@ -189,9 +188,7 @@ const patientSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData[
     client.drawSeparatedLine(styles.lineStyles.separator);
     client.drawText('Patient:', styles.textStyles.sectionLabel);
     client.drawText(patient.name, styles.textStyles.patientName);
-    const dobPart = patient.dob
-      ? `DOB: ${patient.dob}${patient.ageYears != null ? ` (${patient.ageYears} yo)` : ''}`
-      : '';
+    const dobPart = patient.dob ? `DOB: ${patient.dob}` : '';
     const line = [dobPart, `PID: ${patient.id}`, patient.phone ? `Phone: ${patient.phone}` : '']
       .filter(Boolean)
       .join('     ');
