@@ -40,7 +40,9 @@ export const INSURANCE_CARD_EXTRACTION_EXTENSION_URL = 'https://extensions.fhir.
  */
 export interface InsuranceCardExtractionFields {
   payer: string | null;
-  memberName: string | null;
+  memberFirstName: string | null;
+  memberMiddleName: string | null;
+  memberLastName: string | null;
   memberId: string | null;
   groupNumber: string | null;
   payerId: string | null;

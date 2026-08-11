@@ -67,7 +67,9 @@ function makeStoredExtraction(overrides: Partial<InsuranceCardExtraction> = {}):
     isInsuranceCard: true,
     fields: {
       payer: 'Aetna',
-      memberName: 'JOHN Q SAMPLE',
+      memberFirstName: 'JOHN',
+      memberMiddleName: 'Q',
+      memberLastName: 'SAMPLE',
       memberId: 'W123456789',
       groupNumber: 'GRP-0001',
       payerId: '60054',
