@@ -346,19 +346,81 @@ describe('useGetPatientDocs — visit filter', () => {
     });
   });
 
-  it('requests a large page of visit document ids so counters do not silently undercount', async () => {
-    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+  it('pages through every visit document id so counters do not undercount', async () => {
+    // The visit's documents span two pages: ids 0-1 on the first, id 4 on the second. A
+    // single-page fetch would count 2 of 3 and undercount the folder.
+    const FIRST_PAGE = ['doc-list-1-0', 'doc-list-1-1'];
+    const SECOND_PAGE = ['doc-list-1-4'];
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 5)];
 
-    renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      if (params.some((p) => p.name === '_elements')) {
+        const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+        const page = offset === 0 ? FIRST_PAGE : SECOND_PAGE;
+        return {
+          // Only the first page advertises a successor, so the loop makes exactly two requests.
+          link: offset === 0 ? [{ relation: 'next', url: 'next-page' }] : [],
+          unbundle: () => page.map((id) => ({ resourceType: 'DocumentReference', id })),
+        };
+      }
+
+      return stubBundle([...FIRST_PAGE, ...SECOND_PAGE].map(docRef) as any);
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
 
     await waitFor(() => {
-      const idsQuery = mockFhirSearch.mock.calls.find(([req]: any[]) =>
-        (req?.params ?? []).some((p: any) => p.name === '_elements')
-      );
-      expect(idsQuery).toBeDefined();
-      const countParam = idsQuery![0].params.find((p: any) => p.name === '_count');
-      expect(Number(countParam?.value)).toBeGreaterThanOrEqual(1000);
+      const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
+      expect(folder?.documentsCount).toBe(FIRST_PAGE.length + SECOND_PAGE.length);
     });
+
+    // Two id pages requested, with a monotonically advancing offset.
+    const idsQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) =>
+      (req?.params ?? []).some((p: any) => p.name === '_elements')
+    );
+    expect(idsQueries).toHaveLength(2);
+    expect(idsQueries[0][0].params.find((p: any) => p.name === '_offset').value).toBe('0');
+    expect(Number(idsQueries[1][0].params.find((p: any) => p.name === '_offset').value)).toBeGreaterThan(0);
+  });
+
+  it('pages through every document in the table results', async () => {
+    // Two pages of documents for the same search; a single-page fetch would hide the second page's
+    // documents from the table with nothing on screen to say so.
+    const FIRST_PAGE = ['doc-a', 'doc-b'];
+    const SECOND_PAGE = ['doc-c'];
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+      const page = offset === 0 ? FIRST_PAGE : SECOND_PAGE;
+      return {
+        link: offset === 0 ? [{ relation: 'next', url: 'next-page' }] : [],
+        unbundle: () => page.map(docRef),
+      };
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(FIRST_PAGE.length + SECOND_PAGE.length));
+    expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual([...FIRST_PAGE, ...SECOND_PAGE].sort());
   });
 
   it('leaves folder counters patient-wide when no visit filter is applied', async () => {

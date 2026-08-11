@@ -1,5 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -122,7 +122,53 @@ export const QUERY_KEYS = {
   GET_VISIT_DOCUMENT_IDS: 'get-visit-document-ids',
 };
 
-const VISIT_DOCUMENT_IDS_PAGE_SIZE = 1000;
+const DOCUMENT_SEARCH_PAGE_SIZE = 200;
+// Backstop against an unbounded loop if the server keeps advertising a next page. Far above any
+// real patient chart; reaching it is a bug, not a big chart.
+const DOCUMENT_SEARCH_MAX = 20000;
+
+/**
+ * Every page of a DocumentReference search, concatenated.
+ *
+ * A single `fhir.search` returns one server-sized page. Both callers here need the complete set —
+ * one drives the folder counters, the other the documents table — so a truncated page shows wrong
+ * counts or hides documents outright, with nothing on screen to indicate it happened.
+ */
+const searchAllDocumentReferencePages = async <T extends FhirResource>(
+  oystehr: Oystehr,
+  params: SearchParam[],
+  context: { site: string; tags: Record<string, string> }
+): Promise<T[]> => {
+  const resources: T[] = [];
+  let offset = 0;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const bundle = await oystehr.fhir.search<T>({
+      resourceType: 'DocumentReference',
+      params: [
+        ...params,
+        { name: '_count', value: `${DOCUMENT_SEARCH_PAGE_SIZE}` },
+        { name: '_offset', value: `${offset}` },
+      ],
+    });
+
+    resources.push(...(bundle.unbundle() as T[]));
+
+    offset += DOCUMENT_SEARCH_PAGE_SIZE;
+    hasMorePages = bundle.link?.some((link) => link.relation === 'next') ?? false;
+
+    if (hasMorePages && offset >= DOCUMENT_SEARCH_MAX) {
+      safelyCaptureMessage('DocumentReference paging hit its ceiling; results are truncated', {
+        level: 'error',
+        tags: { ...context.tags, site: context.site, ceiling: `${DOCUMENT_SEARCH_MAX}` },
+      });
+      break;
+    }
+  }
+
+  return resources;
+};
 
 /**
  * Ids of every document filed against one visit, regardless of folder.
@@ -131,6 +177,10 @@ const VISIT_DOCUMENT_IDS_PAGE_SIZE = 1000;
  * is active the sidebar has to show per-visit counts instead, and the main document search can't
  * supply them (it is itself narrowed to the selected folder). So fetch the visit's document ids
  * once and intersect them with each folder's entries.
+ *
+ * Pages exhaustively — these ids drive the counters, so a truncated result silently undercounts and
+ * can show 0 for a folder that holds documents. Only ids are requested (`_elements`), which keeps
+ * each page cheap.
  */
 const useVisitDocumentIds = (patientId: string, encounterId: string | undefined): Set<string> | undefined => {
   const { oystehr } = useApiClients();
@@ -141,35 +191,18 @@ const useVisitDocumentIds = (patientId: string, encounterId: string | undefined)
     queryFn: async (): Promise<string[]> => {
       if (!oystehr) throw new Error('useVisitDocumentIds() oystehr not defined');
 
-      const bundle = await oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [
+      const docRefs = await searchAllDocumentReferencePages<DocumentReference>(
+        oystehr,
+        [
           { name: 'subject', value: `Patient/${patientId}` },
           { name: 'encounter', value: `Encounter/${encounterId}` },
+          // Only ids are needed to intersect with folder entries, which keeps each page cheap.
           { name: '_elements', value: 'id' },
-          // These ids drive the folder counters, so a truncated page would silently undercount —
-          // ask for far more than any single visit realistically holds.
-          { name: '_count', value: `${VISIT_DOCUMENT_IDS_PAGE_SIZE}` },
         ],
-      });
+        { site: 'useVisitDocumentIds', tags: { patientId, encounterId: encounterId ?? '' } }
+      );
 
-      // Report rather than silently undercount if a visit ever exceeds one page.
-      if (bundle.link?.some((link) => link.relation === 'next')) {
-        safelyCaptureMessage('Visit has more documents than one page; folder counters may undercount', {
-          level: 'warning',
-          tags: {
-            site: 'useVisitDocumentIds',
-            patientId,
-            encounterId: encounterId ?? '',
-            pageSize: `${VISIT_DOCUMENT_IDS_PAGE_SIZE}`,
-          },
-        });
-      }
-
-      return bundle
-        .unbundle()
-        .map((docRef) => docRef.id)
-        .filter((id): id is string => !!id);
+      return docRefs.map((docRef) => docRef.id).filter((id): id is string => !!id);
     },
   });
 
@@ -627,12 +660,14 @@ const useSearchPatientDocuments = (
         searchParams.push({ name: 'encounter', value: `Encounter/${filters.encounterId}` });
       }
 
-      return (
-        await oystehr.fhir.search<FhirResource>({
-          resourceType: 'DocumentReference',
-          params: searchParams,
-        })
-      ).unbundle();
+      return await searchAllDocumentReferencePages<FhirResource>(oystehr, searchParams, {
+        site: 'useSearchPatientDocuments',
+        tags: {
+          patientId,
+          folderId: docsFolder?.id ?? '',
+          encounterId: filters?.encounterId ?? '',
+        },
+      });
     },
   });
 
