@@ -203,14 +203,14 @@ The factory model only holds if a *new* part can't ship uncertified. Concretely:
 
 - **Registry invariant tests** (the pattern already exists in `sub-harvest-paperwork-page.test.ts:269`): every `FormItemType` reachable from `getInputTypeForItem` has a row in the Tier 1a contract suite; every extension in `OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS` has a Tier 1d round-trip case and (if behavioral) a Tier 1b/2 mechanism test; every `HarvestStrategy` has a Tier 4 handler test. Adding a component/extension/strategy without its certification test fails core CI.
 - **Certified-catalog data file**: the Tier 1a dispatch matrix and Tier 1d extension list are exported as data so the Tier 5 lint consumes the same source of truth. An instance config using an unknown construct fails certification with "uncertified part," pointing at exactly what needs a part test first.
-- Delete what the catalog says is dead so the invariant stays clean: the 7 unreachable `FormItemType` members, the dead duplicate dispatcher at `apps/intake/src/features/paperwork/utils.ts`, `PaperworkCapabilityConfig.ts` (369 unreferenced lines), the legacy `checkEnable` once its call sites migrate.
+- Delete what the catalog says is dead so the invariant stays clean: the dead duplicate dispatcher at `apps/intake/src/features/paperwork/utils.ts` (deleted in #9109), `PaperworkCapabilityConfig.ts` (369 unreferenced lines), the legacy `checkEnable` once its call sites migrate. One correction from implementation: the 7 `FormItemType` members unreachable from the paperwork dispatcher (`Year`, `File`, `Photos`, `Date Year`, `Date Month`, `Date Day`, `Form list`) are still referenced by the legacy PageForm system (`apps/intake/src/components/PageForm.tsx`, `helpers/form/getFormInput.tsx`), so the catalog marks them legacy-only instead of deleting them — they go when that system goes.
 
 ---
 
 ## 5. Migration plan
 
 **Phase 0 — Quick wins (days).**
-Add the `test` script to `packages/ui-components`; land the `getInputTypeForItem` dispatch matrix test; delete dead code (dead dispatcher, `PaperworkCapabilityConfig`, dead `FormItemType` members). None of this waits on the strategy.
+Add the `test` script to `packages/ui-components`; land the `getInputTypeForItem` dispatch matrix test; delete dead code (dead dispatcher, `PaperworkCapabilityConfig`); mark the legacy-only `FormItemType` members in the catalog. None of this waits on the strategy.
 
 **Phase 1 — Part certification (2–3 weeks).**
 Tier 1a component contract suite + shared jsdom harness; Tier 1b engine matrix + sharp-edge pins; Tier 1c validation-schema certification (porting the legacy scenarios); Tier 1d extension round-trips; registry invariant tests. Runs on every core PR from the day each suite lands.
@@ -233,7 +233,7 @@ The tiers decompose into pull requests as a **DAG, not a single stack**: three s
 | # | PR | Builds on | Character |
 |---|---|---|---|
 | 1 | ui-components test rig: `test` script + turbo wiring + one seed test | — | tiny, config-only |
-| 2 | `getInputTypeForItem` dispatch matrix; delete 7 dead `FormItemType` members + the unused intake duplicate dispatcher; start the certified-catalog data module | — | test-heavy, small type deletion |
+| 2 | `getInputTypeForItem` dispatch matrix; mark the 7 legacy-only `FormItemType` members in the catalog (still referenced by the legacy PageForm system); delete the unused intake duplicate dispatcher; start the certified-catalog data module | — | test-heavy |
 | 3 | Engine operator × value-type matrix + sharp-edge pins | — | test-only |
 | 4 | Tier 2 mechanism suites + enabled-page-set scenario matrix | — | test-only |
 | 5 | `makeValidationSchema` per-type accept/reject pairs | — | test-only |
@@ -252,6 +252,8 @@ The tiers decompose into pull requests as a **DAG, not a single stack**: three s
 | 20 | HOB: cutover — per-customer `e2e-intake` out of nightly, certify fans out to all 10 | 18 + parallel-run period | the Phase 4 PR |
 
 The chains: **1 → 11 → 12a–d → 17** (harness → component contracts → runner), **13 → 14 → 17** (hook cores → extension round-trips → runner), and **15 → 16/17** (shared walker → harvest properties / runner) — converging at the runner, then **17 → 18 → 19 → 20** crossing into `hosted-ottehr-builds`. PRs 2–10 can land in any order, in parallel, from day one. Mapped to the phases: Phase 0 ≈ 1–2 (+10 anytime), Phase 1 ≈ 3, 5–6, 11–14, Phase 2 ≈ 4, 7–9, 15–17, Phase 3 ≈ 18–19, Phase 4 = 20.
+
+PRs 1–3 are open as a stack: [#9108](https://github.com/masslight/ottehr/pull/9108) (test rig) → [#9109](https://github.com/masslight/ottehr/pull/9109) (dispatch matrix + catalog) → [#9110](https://github.com/masslight/ottehr/pull/9110) (enableWhen operator matrix). Merge in that order; GitHub retargets each stacked PR when its base branch is deleted on merge.
 
 Sequencing constraints that matter:
 
@@ -319,7 +321,7 @@ Dispatch: `getInputTypeForItem` — `packages/ui-components/lib/components/paper
 | Group (`list-with-form`, `gray-contained-widget`, `pharmacy-collection`, `credit-card-collection`) | `group` | `group/GroupContainer.tsx`, `PharmacyCollection.tsx` |
 | Header 3 / Header 4 / Description / Call Out | `display` variants | `FormDisplayField` |
 
-Dead enum members to remove: `Year`, `File`, `Photos`, `Date Year`, `Date Month`, `Date Day`, `Form list`.
+Legacy-only enum members — still referenced by the legacy PageForm system, unreachable from the paperwork dispatcher, removed when that system goes: `Year`, `File`, `Photos`, `Date Year`, `Date Month`, `Date Day`, `Form list`.
 
 ### A.2 Conditional mechanisms & extensions
 
