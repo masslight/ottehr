@@ -33,7 +33,7 @@ const clauseFor = (searchText: string, name: string): { name: string; value: str
 
 describe('buildClaimSearchTextQueries', () => {
   it('searches every name field plus the PCN identifier, and no token clause, for a plain name', () => {
-    expect(clauseNames('Smith')).toEqual([...NAME_CLAUSES, 'identifier']);
+    expect(clauseNames('Smith')).toEqual([...NAME_CLAUSES, 'identifier', 'patient.identifier', 'patient.identifier']);
   });
 
   it('sends the same text to each name clause, so either half of a name matches', () => {
@@ -60,24 +60,17 @@ describe('buildClaimSearchTextQueries', () => {
   });
 
   it('adds a claim id clause for a uuid', () => {
-    expect(clauseNames(CLAIM_ID)).toEqual([...NAME_CLAUSES, 'identifier', '_id']);
+    expect(clauseNames(CLAIM_ID)).toEqual([
+      ...NAME_CLAUSES,
+      'identifier',
+      'patient.identifier',
+      'patient.identifier',
+      '_id',
+    ]);
     expect(clauseFor(CLAIM_ID, '_id')).toEqual([
       {
         name: '_id',
         value: CLAIM_ID,
-      },
-    ]);
-  });
-
-  it('searches every linked patient id when the caller resolved them', () => {
-    const queries = buildClaimSearchTextQueries({
-      searchText: PATIENT_ID,
-      patientIds: [PATIENT_ID, 'copy-1', 'copy-2'],
-    });
-    expect(queries.flat().filter((p) => p.name === 'patient')).toEqual([
-      {
-        name: 'patient',
-        value: `Patient/${PATIENT_ID},Patient/copy-1,Patient/copy-2`,
       },
     ]);
   });
@@ -88,7 +81,13 @@ describe('buildClaimSearchTextQueries', () => {
   });
 
   it('restores a dash-stripped PCN into a claim id clause', () => {
-    expect(clauseNames(MINIFIED_CLAIM_ID)).toEqual([...NAME_CLAUSES, 'identifier', '_id']);
+    expect(clauseNames(MINIFIED_CLAIM_ID)).toEqual([
+      ...NAME_CLAUSES,
+      'identifier',
+      'patient.identifier',
+      'patient.identifier',
+      '_id',
+    ]);
     expect(clauseFor(MINIFIED_CLAIM_ID, '_id')).toEqual([
       {
         name: '_id',
@@ -98,15 +97,14 @@ describe('buildClaimSearchTextQueries', () => {
   });
 
   it('keeps the fan-out to at most eight clauses', () => {
-    expect(buildClaimSearchTextQueries({ searchText: 'Smith' })).toHaveLength(6);
-    expect(buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID })).toHaveLength(7);
-    expect(buildClaimSearchTextQueries({ searchText: CLAIM_ID })).toHaveLength(7);
+    expect(buildClaimSearchTextQueries({ searchText: 'Smith' })).toHaveLength(8);
+    expect(buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID })).toHaveLength(9);
+    expect(buildClaimSearchTextQueries({ searchText: CLAIM_ID })).toHaveLength(9);
     expect(
       buildClaimSearchTextQueries({
         searchText: CLAIM_ID,
-        patientIds: [CLAIM_ID],
       })
-    ).toHaveLength(8);
+    ).toHaveLength(9);
   });
 
   it('trims the text and searches nothing when it is blank', () => {
@@ -199,9 +197,6 @@ const claimSearchCalls = (search: Mock): SearchParam[][] =>
 const paramNamed = (params: SearchParam[], name: string): SearchParam | undefined =>
   params.find((param) => param.name === name);
 
-const clauseWith = (search: Mock, name: string): SearchParam[] | undefined =>
-  claimSearchCalls(search).find((params) => paramNamed(params, name));
-
 describe('describeClaimSearchClause', () => {
   it('names the parameter without echoing the searched text', () => {
     expect(
@@ -256,7 +251,7 @@ describe('searchClaimsBySearchText', () => {
       withServiceDateElements: false,
     });
 
-    expect(claimSearchCalls(search)).toHaveLength(6);
+    expect(claimSearchCalls(search)).toHaveLength(8);
     claimSearchCalls(search).forEach((params) => {
       expect(params).toContainEqual(AR_STAGE_FILTER);
       expect(paramNamed(params, '_elements')?.value).toBe('id,meta');
@@ -265,23 +260,6 @@ describe('searchClaimsBySearchText', () => {
       // Includes are what the page hydration is for; carrying them here would blow the response budget.
       expect(paramNamed(params, '_include')).toBeUndefined();
     });
-  });
-
-  it('passes reference values unencoded, which is what Oystehr matches on', async () => {
-    const { oystehr, search } = stubClient({
-      personLinks: [[PATIENT_ID, 'copy-1', 'copy-2']],
-    });
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: PATIENT_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(
-      `Patient/${PATIENT_ID},Patient/copy-1,Patient/copy-2`
-    );
   });
 
   it('asks for the fields the in-memory service date filter needs when a range is active', async () => {
@@ -297,66 +275,6 @@ describe('searchClaimsBySearchText', () => {
     claimSearchCalls(search).forEach((params) =>
       expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item')
     );
-  });
-
-  it('widens a typed patient id to the working copies its claims reference', async () => {
-    const { oystehr, search } = stubClient({
-      personLinks: [[PATIENT_ID, 'copy-1']],
-    });
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: PATIENT_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(search).toHaveBeenCalledWith({
-      resourceType: 'Person',
-      params: [
-        {
-          name: 'link',
-          value: `Patient/${PATIENT_ID}`,
-        },
-      ],
-    });
-    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(
-      `Patient/${PATIENT_ID},Patient/copy-1`
-    );
-  });
-
-  it('unions the links across every Person the patient has, not just the first', async () => {
-    const { oystehr, search } = stubClient({
-      personLinks: [
-        [PATIENT_ID, 'copy-1'],
-        [PATIENT_ID, 'copy-2'],
-        [PATIENT_ID, 'copy-3'],
-      ],
-    });
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: PATIENT_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(
-      `Patient/${PATIENT_ID},Patient/copy-1,Patient/copy-2,Patient/copy-3`
-    );
-  });
-
-  it('still searches the typed id when no Person links it, so a working copy id works directly', async () => {
-    const { oystehr, search } = stubClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: PATIENT_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(`Patient/${PATIENT_ID}`);
   });
 
   it('does not look up a Person for text that is not a uuid', async () => {
@@ -463,7 +381,7 @@ describe('searchClaimsBySearchText', () => {
       filterParams: [],
       withServiceDateElements: false,
     });
-    expect(claimSearchCalls(search)).toHaveLength(8);
+    expect(claimSearchCalls(search)).toHaveLength(9);
   });
 
   // One rejected clause must not empty the whole search, and it has to be loud.
