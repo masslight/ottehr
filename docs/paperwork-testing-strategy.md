@@ -78,7 +78,7 @@ An important nuance for harvest: the extraction functions are **linkId-literal**
 | Config → Questionnaire generator | Partial: `shared-questionnaire.test.ts` (reason-for-visit build, display-filter round-trip), `questionnaire-generation.test.ts` golden files. |
 | Paperwork zambdas | Basic-validation unit tests + 1 happy-path integration test each. `complexSubmitValidation`'s failure mapping (the entire user-facing validation-error surface) is untested; `get-standalone-paperwork` has zero tests; ~1,050 lines of legacy paperwork tests are `describe.skip` dead weight. |
 | Harvest | **Strong where it exists** (coverage/account/guarantor matrix in `harvest-module.test.ts`, 4,130 lines; master-record in `harvest.test.ts`). Gaps: `createConsentResources` + `createDocumentResources` are mocked in tests and never actually exercised; 4 of 7 strategies are dispatch-only; the integration test builds its `HarvestContext` with `questionnaire: undefined`, so enableWhen filtering never runs end-to-end. |
-| Intake e2e | ~18 generated tests; oracle partly self-referential (§1.5); irreplaceable surface is narrow: SMS auth, Stripe iframe, file-upload round-trip, PDF downloads, per-page server round-trip, timezone-sensitive slot rendering. Operational hazards: 15-minute `globalTimeout` for the whole run, 10 `waitForTimeout` sleeps, several soft assertions that log instead of failing, and an `intake:e2e:*:smoke` mode that greps for `@smoke` tags that don't exist — **it runs zero tests and exits green**, and is wired into CI. |
+| Intake e2e | ~18 generated tests; oracle partly self-referential (§1.5); irreplaceable surface is narrow: SMS auth, Stripe iframe, file-upload round-trip, PDF downloads, per-page server round-trip, timezone-sensitive slot rendering. Operational hazards: 10 `waitForTimeout` sleeps and several soft assertions that log instead of failing. |
 | Nightly (`hosted-ottehr-builds`) | 10 customers (11 profiles; `xpress` excluded), full deploy + unit/integration + intake e2e + EHR e2e per customer, `max-parallel: 4`, multi-hour; AI triage pipeline for failures; no Slack reporting; no retry above Playwright's `retries: 2`. |
 
 ---
@@ -193,7 +193,7 @@ Full browser e2e keeps covering the seams that headless tests genuinely cannot:
 
 Run it nightly on **`ottehr` + one bellwether (`urgikids`, matching what `pr-ci.yml` already exercises)**, not on all 10. These seams are instance-independent code paths — running them ten times nightly buys flake exposure, not coverage. Keep `workflow_dispatch` per-customer e2e for debugging specific instances.
 
-Since the suite stays, fix its own hazards: the 15-minute `globalTimeout` (two retried tests can kill the whole run), the 10 `waitForTimeout` sleeps, the soft assertions that log "may be expected" and pass, the `employer-state` escape hatch that papers over a known product bug inside an assertion, and the smoke mode that runs zero tests and exits green.
+Since the suite stays, fix its own hazards: the 10 `waitForTimeout` sleeps, the soft assertions that log "may be expected" and pass, and the `employer-state` escape hatch that papers over a known product bug inside an assertion.
 
 ---
 
@@ -209,8 +209,8 @@ The factory model only holds if a *new* part can't ship uncertified. Concretely:
 
 ## 5. Migration plan
 
-**Phase 0 — Guardrails and quick wins (days).**
-Fix the silent-green smoke mode; raise/remove the intake `globalTimeout`; add the `test` script to `packages/ui-components`; land the `getInputTypeForItem` dispatch matrix test; delete dead code (dead dispatcher, `PaperworkCapabilityConfig`, dead `FormItemType` members). None of this waits on the strategy.
+**Phase 0 — Quick wins (days).**
+Add the `test` script to `packages/ui-components`; land the `getInputTypeForItem` dispatch matrix test; delete dead code (dead dispatcher, `PaperworkCapabilityConfig`, dead `FormItemType` members). None of this waits on the strategy.
 
 **Phase 1 — Part certification (2–3 weeks).**
 Tier 1a component contract suite + shared jsdom harness; Tier 1b engine matrix + sharp-edge pins; Tier 1c validation-schema certification (porting the legacy scenarios); Tier 1d extension round-trips; registry invariant tests. Runs on every core PR from the day each suite lands.
@@ -250,15 +250,13 @@ Honest residual risk: an instance-specific bug that only manifests through the d
 
 Found during research; independent of the strategy decision:
 
-1. `npm run intake:e2e:*:smoke` runs **zero tests and exits green** (greps `@smoke`, no such tags exist) and is wired into `e2e-intake.yml` — a silent-pass hole in CI today.
-2. Intake Playwright `globalTimeout: 15 min` — two retried tests can exceed it and kill the run un-reported.
-3. `packages/ui-components` has a vitest config but no `test` script — any tests added there silently never run in turbo.
-4. Dead code: `apps/intake/tests/utils/config/PaperworkCapabilityConfig.ts` (369 lines, self-referencing only); `apps/intake/src/features/paperwork/utils.ts` (unimported duplicate of the dispatcher); ~1,050 lines of `describe.skip` legacy paperwork tests in zambdas; `questionnaire-validation.test.ts` currently asserts nothing (skipped/commented out).
-5. `PagedQuestionnaireFlowHelper` phase-1 validation has a hardcoded `employer-state` exemption papering over a known bug — track the bug, remove the exemption.
-6. `appointment-service-mode` is a logical item in the booking and patient-record questionnaires but **not** in intake-paperwork — so reason-for-visit `answerDisplayFilters` conditioned on service mode only take effect on the booking form. Latent config landmine; the Tier 5 lint's "conditions must reference resolvable linkIds" check would have flagged it.
-7. enableWhen against a nonexistent question silently evaluates to `operator === '!='` (`validation.ts:693`) — fine as engine behavior, but it should be impossible to *author*: lint it (Tier 5) and pin it (Tier 1b).
-8. A questionnaire page absent from `pageHarvestStrategy` silently never harvests (`patch-paperwork/index.ts:121`) — the Tier 5 harvest-mapping lint makes this a hard failure.
-9. `test/helpers/README.md` and CLAUDE.md reference `integration-test-setup.ts`; the real file is `integration-test-seed-data-setup.ts`. CLAUDE.md also points intake e2e at `apps/intake/tests/specs/`, which no longer exists.
+1. `packages/ui-components` has a vitest config but no `test` script — any tests added there silently never run in turbo.
+2. Dead code: `apps/intake/tests/utils/config/PaperworkCapabilityConfig.ts` (369 lines, self-referencing only); `apps/intake/src/features/paperwork/utils.ts` (unimported duplicate of the dispatcher); ~1,050 lines of `describe.skip` legacy paperwork tests in zambdas; `questionnaire-validation.test.ts` currently asserts nothing (skipped/commented out).
+3. `PagedQuestionnaireFlowHelper` phase-1 validation has a hardcoded `employer-state` exemption papering over a known bug — track the bug, remove the exemption.
+4. `appointment-service-mode` is a logical item in the booking and patient-record questionnaires but **not** in intake-paperwork — so reason-for-visit `answerDisplayFilters` conditioned on service mode only take effect on the booking form. Latent config landmine; the Tier 5 lint's "conditions must reference resolvable linkIds" check would have flagged it.
+5. enableWhen against a nonexistent question silently evaluates to `operator === '!='` (`validation.ts:693`) — fine as engine behavior, but it should be impossible to *author*: lint it (Tier 5) and pin it (Tier 1b).
+6. A questionnaire page absent from `pageHarvestStrategy` silently never harvests (`patch-paperwork/index.ts:121`) — the Tier 5 harvest-mapping lint makes this a hard failure.
+7. `test/helpers/README.md` and CLAUDE.md reference `integration-test-setup.ts`; the real file is `integration-test-seed-data-setup.ts`. CLAUDE.md also points intake e2e at `apps/intake/tests/specs/`, which no longer exists.
 
 ---
 
