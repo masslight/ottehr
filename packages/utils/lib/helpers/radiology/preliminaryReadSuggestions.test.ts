@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assemblePreliminaryRead,
   buildPreliminaryReadSuggestions,
+  findConflictingValue,
   findPreliminaryReadRegion,
   findUnpickedBlank,
   PreliminaryReadBlank,
@@ -9,8 +10,45 @@ import {
 } from './preliminaryReadSuggestions';
 import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
 
+const PEDIATRIC_TYPES = ['buckle (torus)', 'greenstick', 'Salter-Harris I', 'Salter-Harris II'];
+const LOCATION_TITLES = ['Side', 'Bone', 'Site', 'Rib', 'Level', 'Location', 'Ray', 'Phalanx', 'Finger', 'Toe'];
+
 const blanks = (segments: PreliminaryReadSegment[]): PreliminaryReadBlank[] =>
   segments.filter((segment): segment is PreliminaryReadBlank => typeof segment !== 'string');
+
+const indexOfBlank = (segments: PreliminaryReadSegment[], title: string): number =>
+  segments.findIndex((segment) => typeof segment !== 'string' && segment.title === title);
+
+const valuesFor = (segments: PreliminaryReadSegment[], picks: Record<string, string>): (string | undefined)[] =>
+  segments.map((segment) => (typeof segment !== 'string' && segment.title in picks ? picks[segment.title] : undefined));
+
+const pickRequired = (segments: PreliminaryReadSegment[]): (string | undefined)[] => {
+  const values: (string | undefined)[] = segments.map(() => undefined);
+  segments.forEach((segment, i) => {
+    if (typeof segment === 'string' || segment.initial !== undefined) return;
+    values[i] = segment.options.find((option) => !findConflictingValue(segments, values, i, option));
+  });
+  return values;
+};
+
+const allSuggestions = function* (): Generator<{
+  label: string;
+  segments: PreliminaryReadSegment[];
+}> {
+  for (const region of PRELIMINARY_READ_TEMPLATES.regions) {
+    for (const isChild of [false, true]) {
+      for (const laterality of ['LT', '50', undefined] as const) {
+        for (const { name, segments } of buildPreliminaryReadSuggestions({
+          cptCode: region.cptCodes[0],
+          laterality,
+          isChild,
+        })) {
+          yield { label: `${region.name} / ${name} / child=${isChild} / ${laterality}`, segments };
+        }
+      }
+    }
+  }
+};
 
 describe('preliminary read templates config', () => {
   it('names a defined choice list (or side) in every blank', () => {
@@ -40,6 +78,22 @@ describe('preliminary read templates config', () => {
       for (const option of list.childOnlyOptions ?? []) expect(list.options).toContain(option);
     }
   });
+
+  it('only names real options in conflicts, so a typo cannot silently disable a rule', () => {
+    const options = new Set(Object.values(PRELIMINARY_READ_TEMPLATES.choices).flatMap((list) => list.options));
+    for (const pair of PRELIMINARY_READ_TEMPLATES.conflicts) {
+      for (const value of pair) expect(options, value).toContain(value);
+    }
+  });
+
+  it('never starts a sentence on two values that conflict', () => {
+    for (const { label, segments } of allSuggestions()) {
+      segments.forEach((segment, i) => {
+        if (typeof segment === 'string' || segment.initial === undefined) return;
+        expect(findConflictingValue(segments, [], i, segment.initial), label).toBeUndefined();
+      });
+    }
+  });
 });
 
 describe('findPreliminaryReadRegion', () => {
@@ -49,6 +103,15 @@ describe('findPreliminaryReadRegion', () => {
     expect(findPreliminaryReadRegion('71046-50')?.name).toBe('Chest');
   });
 
+  it('keeps facial and nasal studies apart so the negative read names the bones imaged', () => {
+    const negative = (cptCode: string): string =>
+      assemblePreliminaryRead(buildPreliminaryReadSuggestions({ cptCode, isChild: false })[0].segments, []);
+
+    expect(negative('70140')).toBe('No acute fracture of the facial bones.');
+    expect(negative('70150')).toBe('No acute fracture of the facial bones.');
+    expect(negative('70160')).toBe('No acute fracture of the nasal bones.');
+  });
+
   it('returns nothing for unmapped or missing codes', () => {
     expect(findPreliminaryReadRegion('99999')).toBeUndefined();
     expect(findPreliminaryReadRegion(undefined)).toBeUndefined();
@@ -56,20 +119,17 @@ describe('findPreliminaryReadRegion', () => {
 });
 
 describe('buildPreliminaryReadSuggestions', () => {
-  it('fills {side} from the laterality, or offers a side blank with no default when the order fixes none', () => {
+  it('fills {side} from the laterality, or offers a left/right blank with no default when the order fixes none', () => {
     const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'LT', isChild: false });
     expect(fracture.segments).toContain(' fracture of the left ');
     expect(blanks(fracture.segments).map((b) => b.title)).not.toContain('Side');
-    expect(findUnpickedBlank(fracture.segments, [])).toBeUndefined();
 
     for (const laterality of ['50', undefined] as const) {
       const [, unfixed] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality, isChild: false });
       const side = blanks(unfixed.segments).find((b) => b.title === 'Side');
-      expect(side).toEqual({ title: 'Side', options: ['left', 'right', 'bilateral'], initial: undefined });
-      // Blocked until the side is picked; every other blank has a default.
+      expect(side).toEqual({ title: 'Side', options: ['left', 'right'], initial: undefined });
       expect(findUnpickedBlank(unfixed.segments, [])).toBe(side);
-      const values: (string | undefined)[] = [];
-      values[unfixed.segments.indexOf(side!)] = 'right';
+      const values = valuesFor(unfixed.segments, { Side: 'right', Bone: 'distal fibula (lateral malleolus)' });
       expect(findUnpickedBlank(unfixed.segments, values)).toBeUndefined();
       expect(assemblePreliminaryRead(unfixed.segments, values)).toBe(
         'Nondisplaced fracture of the right distal fibula (lateral malleolus). Ankle mortise intact.'
@@ -77,19 +137,56 @@ describe('buildPreliminaryReadSuggestions', () => {
     }
   });
 
-  it('drops child-only blanks for adults and applies child defaults for children', () => {
-    const adult = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: false });
-    expect(blanks(adult[0].segments).map((b) => b.title)).toEqual(['Opening', 'Incidental finding']);
-    expect(blanks(adult[1].segments)[0].initial).toBe('Nondisplaced');
+  it('makes every blank that says where the finding is a must-pick, and nothing else', () => {
+    for (const { label, segments } of allSuggestions()) {
+      for (const blank of blanks(segments)) {
+        expect(blank.initial === undefined, `${label} / ${blank.title}`).toBe(LOCATION_TITLES.includes(blank.title));
+      }
+    }
 
-    const child = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: true });
-    expect(blanks(child[0].segments).map((b) => b.title)).toContain('Growth plates (children only)');
-    expect(blanks(child[1].segments)[0].initial).toBe('Buckle (torus)');
-    expect(blanks(child[1].segments).map((b) => b.initial)).toContain('Growth plate not involved.');
+    for (const region of PRELIMINARY_READ_TEMPLATES.regions) {
+      const [negative] = buildPreliminaryReadSuggestions({
+        cptCode: region.cptCodes[0],
+        laterality: 'LT',
+        isChild: true,
+      });
+
+      expect(findUnpickedBlank(negative.segments, []), region.name).toBeUndefined();
+    }
   });
 
-  it('offers the pediatric fracture types to children only, never as an adult option or default', () => {
-    const pediatric = ['Buckle (torus)', 'Greenstick', 'Salter-Harris I', 'Salter-Harris II'];
+  it('keeps displacement and fracture type as separate blanks', () => {
+    const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: false });
+    const values = valuesFor(fracture.segments, {
+      Displacement: 'Displaced',
+      'Fracture type': 'comminuted',
+      Bone: 'distal radius',
+    });
+    expect(assemblePreliminaryRead(fracture.segments, values)).toBe(
+      'Displaced comminuted fracture of the right distal radius. No dislocation. Alignment maintained.'
+    );
+  });
+
+  it('drops child-only blanks for adults; for children the growth-plate lines are offered but start empty', () => {
+    const adult = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: false });
+    expect(blanks(adult[0].segments).map((b) => b.title)).toEqual(['Opening', 'Incidental finding']);
+    expect(blanks(adult[1].segments).map((b) => [b.title, b.initial])).toEqual([
+      ['Displacement', 'Nondisplaced'],
+      ['Fracture type', ''],
+      ['Bone', undefined],
+      ['Closing line', 'No dislocation. Alignment maintained.'],
+    ]);
+
+    const child = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: true });
+    const physes = blanks(child[0].segments).find((b) => b.title === 'Growth plates (children only)');
+    expect(physes?.initial).toBe('');
+    const fracture = blanks(child[1].segments);
+    expect(fracture.find((b) => b.title === 'Fracture type')?.initial).toBe('buckle (torus)');
+    expect(fracture.find((b) => b.title === 'Growth plate (children only)')?.initial).toBe('');
+  });
+
+  it('offers the pediatric fracture types to children only, and only for growing tubular bones', () => {
+    const nonTubular = ['Ribs', 'Sacrum and coccyx', 'Pelvis and hip', 'Heel', 'Facial bones', 'Nasal bones'];
     const fractureTypes = (cptCode: string, isChild: boolean): PreliminaryReadBlank[] =>
       buildPreliminaryReadSuggestions({ cptCode, laterality: 'LT', isChild })
         .flatMap((s) => blanks(s.segments))
@@ -98,11 +195,21 @@ describe('buildPreliminaryReadSuggestions', () => {
     for (const region of PRELIMINARY_READ_TEMPLATES.regions) {
       for (const adult of fractureTypes(region.cptCodes[0], false)) {
         seen++;
-        expect(adult.options, region.name).toEqual(adult.options.filter((o) => !pediatric.includes(o)));
-        expect(pediatric, region.name).not.toContain(adult.initial);
+        expect(
+          adult.options.filter((o) => PEDIATRIC_TYPES.includes(o)),
+          region.name
+        ).toEqual([]);
+        expect(PEDIATRIC_TYPES, region.name).not.toContain(adult.initial);
       }
       for (const child of fractureTypes(region.cptCodes[0], true)) {
-        expect(child.options, region.name).toEqual(expect.arrayContaining(pediatric));
+        if (nonTubular.includes(region.name)) {
+          expect(
+            child.options.filter((o) => PEDIATRIC_TYPES.includes(o)),
+            region.name
+          ).toEqual([]);
+        } else {
+          expect(child.options, region.name).toEqual(expect.arrayContaining(PEDIATRIC_TYPES));
+        }
       }
     }
     expect(seen).toBeGreaterThan(0);
@@ -113,23 +220,64 @@ describe('buildPreliminaryReadSuggestions', () => {
       buildPreliminaryReadSuggestions({ cptCode, laterality: 'RT', isChild }).map((s) =>
         s.segments.filter((segment): segment is string => typeof segment === 'string')
       );
-    // Forearm: "{negOpening} Alignment maintained. {incidental} {physes}",
-    // "{fxTypeBuckle} fracture of the {side} {forearmBone}. {growthPlate} {wristClose}" and
-    // "{fxTypeBuckle} fractures of the {side} distal radius and ulna. {growthPlate} {wristClose}".
+
     expect(literals('73090', false)).toEqual([
       [' Alignment maintained. '],
-      [' fracture of the right ', '. '],
-      [' fractures of the right distal radius and ulna. '],
+      [' ', ' fracture of the right ', '. '],
+      [' ', ' fractures of the right distal radius and ulna. '],
     ]);
+
     expect(literals('73090', true)).toEqual([
       [' Alignment maintained. ', ' '],
-      [' fracture of the right ', '. ', ' '],
-      [' fractures of the right distal radius and ulna. ', ' '],
+      [' ', ' fracture of the right ', '. ', ' '],
+      [' ', ' fractures of the right distal radius and ulna. ', ' '],
     ]);
   });
 
   it('returns nothing for an unmapped CPT', () => {
     expect(buildPreliminaryReadSuggestions({ cptCode: '99999', isChild: false })).toEqual([]);
+  });
+});
+
+describe('findConflictingValue', () => {
+  it('never pairs a Salter-Harris fracture with a growth-plate line, in either order', () => {
+    const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'LT', isChild: true });
+    const type = indexOfBlank(fracture.segments, 'Fracture type');
+    const plate = indexOfBlank(fracture.segments, 'Growth plate (children only)');
+
+    expect(findConflictingValue(fracture.segments, [], plate, 'Growth plate not involved.')).toBe('Salter-Harris I');
+    expect(findConflictingValue(fracture.segments, [], plate, 'Extends to the growth plate.')).toBe('Salter-Harris I');
+    expect(findConflictingValue(fracture.segments, [], plate, '')).toBeUndefined();
+
+    const values = valuesFor(fracture.segments, {
+      'Fracture type': 'buckle (torus)',
+      'Growth plate (children only)': 'Growth plate not involved.',
+    });
+
+    expect(findConflictingValue(fracture.segments, values, plate, 'Growth plate not involved.')).toBeUndefined();
+
+    expect(findConflictingValue(fracture.segments, values, type, 'Salter-Harris II')).toBe(
+      'Growth plate not involved.'
+    );
+    expect(findConflictingValue(fracture.segments, values, type, 'greenstick')).toBeUndefined();
+  });
+
+  it('does not offer a middle phalanx for the thumb, the great toe or the 1st ray of the foot', () => {
+    const check = (cptCode: string, row: number, otherTitle: string, other: string): void => {
+      const { segments } = buildPreliminaryReadSuggestions({ cptCode, laterality: 'LT', isChild: false })[row];
+      const phalanxTitle = indexOfBlank(segments, 'Phalanx') >= 0 ? 'Phalanx' : 'Bone';
+      const phalanx = indexOfBlank(segments, phalanxTitle);
+      const otherIndex = indexOfBlank(segments, otherTitle);
+      const withOther = valuesFor(segments, { [otherTitle]: other });
+      expect(findConflictingValue(segments, withOther, phalanx, 'middle phalanx')).toBe(other);
+      expect(findConflictingValue(segments, withOther, phalanx, 'proximal phalanx')).toBeUndefined();
+      const withMiddle = valuesFor(segments, { [phalanxTitle]: 'middle phalanx' });
+      expect(findConflictingValue(segments, withMiddle, otherIndex, other)).toBe('middle phalanx');
+    };
+    check('73140', 1, 'Finger', 'thumb');
+    check('73120', 2, 'Finger', 'thumb');
+    check('73660', 1, 'Toe', 'great toe');
+    check('73630', 1, 'Ray', '1st');
   });
 });
 
@@ -143,39 +291,58 @@ describe('assemblePreliminaryRead', () => {
     expect(assemblePreliminaryRead(negative.segments, [])).toBe(
       'No acute fracture or dislocation. Ankle mortise intact.'
     );
-    expect(assemblePreliminaryRead(fracture.segments, [])).toBe(
-      'Nondisplaced fracture of the left distal fibula (lateral malleolus). Ankle mortise intact.'
+    expect(assemblePreliminaryRead(fracture.segments, valuesFor(fracture.segments, { Bone: 'medial malleolus' }))).toBe(
+      'Nondisplaced fracture of the left medial malleolus. Ankle mortise intact.'
     );
   });
 
-  it('builds a clean sentence from the defaults for every region, adult and child, fixed side or not', () => {
-    for (const region of PRELIMINARY_READ_TEMPLATES.regions) {
-      for (const isChild of [false, true]) {
-        for (const laterality of ['LT', '50'] as const) {
-          const suggestions = buildPreliminaryReadSuggestions({ cptCode: region.cptCodes[0], laterality, isChild });
-          for (const { name, segments } of suggestions) {
-            // The only blank without a default is the side; pick it the way the provider would.
-            const values = segments.map((s) => (typeof s !== 'string' && s.initial === undefined ? 'left' : undefined));
-            const text = assemblePreliminaryRead(segments, values);
-            const label = `${region.name} / ${name} / child=${isChild} / ${laterality}`;
-            expect(text, label).toMatch(/^[A-Z].*\.$/);
-            expect(text, label).not.toMatch(/[{}]|\s{2}|\s\./);
-          }
-        }
-      }
+  it('builds a clean sentence for every region, adult and child, fixed side or not', () => {
+    for (const { label, segments } of allSuggestions()) {
+      const values = pickRequired(segments);
+      expect(findUnpickedBlank(segments, values), label).toBeUndefined();
+      const text = assemblePreliminaryRead(segments, values);
+      expect(text, label).toMatch(/^[A-Z].*\.$/);
+      expect(text, label).not.toMatch(/[{}]|\s{2}|\s\.|\bthe the\b|\bthe both\b|\bthe bilateral\b/);
     }
+  });
+
+  it('builds a clean sentence for every combination a provider can pick', () => {
+    let sentences = 0;
+    const malformed: string[] = [];
+    for (const { label, segments } of allSuggestions()) {
+      const blankIndexes = segments.flatMap((segment, i) => (typeof segment === 'string' ? [] : [i]));
+      const walk = (k: number, values: (string | undefined)[]): void => {
+        if (k === blankIndexes.length) {
+          // Reachable only if no picked value clashes with another (the list doesn't offer clashing ones).
+          if (blankIndexes.some((i) => findConflictingValue(segments, values, i, values[i]!))) return;
+          sentences++;
+          const text = assemblePreliminaryRead(segments, values);
+          if (!/^[A-Z][^{}]*\.$/.test(text) || /\s{2}|\s\.|\bthe (the|both|bilateral)\b/.test(text)) {
+            malformed.push(`${label}: ${text}`);
+          }
+          return;
+        }
+        const i = blankIndexes[k];
+        for (const option of (segments[i] as PreliminaryReadBlank).options) {
+          const next = [...values];
+          next[i] = option;
+          walk(k + 1, next);
+        }
+      };
+      walk(
+        0,
+        segments.map(() => undefined)
+      );
+    }
+    expect(malformed.slice(0, 5)).toEqual([]);
+    expect(sentences).toBeGreaterThan(0);
   });
 
   it('applies the chosen values by segment index', () => {
     const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'RT', isChild: true });
-    const values: (string | undefined)[] = [];
-    fracture.segments.forEach((segment, i) => {
-      if (typeof segment === 'string') return;
-      if (segment.title === 'Bone') values[i] = 'medial malleolus';
-      if (segment.title === 'Closing line') values[i] = '';
-    });
+    const values = valuesFor(fracture.segments, { Bone: 'medial malleolus', 'Closing line': '' });
     expect(assemblePreliminaryRead(fracture.segments, values)).toBe(
-      'Salter-Harris I fracture of the right medial malleolus. Growth plate not involved.'
+      'Nondisplaced Salter-Harris I fracture of the right medial malleolus.'
     );
   });
 });

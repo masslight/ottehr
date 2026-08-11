@@ -1,11 +1,12 @@
 import { otherColors } from '@ehrTheme/colors';
 import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
 import { alpha, Box, IconButton, ListSubheader, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { LateralityValue } from 'utils/lib/fhir/radiology';
 import {
   assemblePreliminaryRead,
   buildPreliminaryReadSuggestions,
+  findConflictingValue,
   findUnpickedBlank,
   PRELIMINARY_READ_NONE_LABEL,
   PreliminaryReadBlank,
@@ -29,12 +30,11 @@ interface BlankRef {
 
 const blankKey = ({ row, segment }: BlankRef): string => `${row}:${segment}`;
 
-/**
- * Template sentences for the ordered study, with the variable words highlighted; picking a word swaps it
- * and "+" appends the finished sentence to the Preliminary Read. Plain templates, nothing is read from the
- * image or the chart. Renders nothing for a study without templates.
- */
-export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
+export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryReadSuggestionsProps> = (props) => (
+  <SuggestionsBox key={`${props.cptCode}|${props.laterality}|${props.isChild}`} {...props} />
+);
+
+const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
   cptCode,
   laterality,
   isChild,
@@ -46,22 +46,16 @@ export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryR
     () => buildPreliminaryReadSuggestions({ cptCode, laterality, isChild }),
     [cptCode, laterality, isChild]
   );
-  // Picks are kept apart from the templates so a value the provider chose survives re-renders but not a
-  // change of study or patient age, which rebuilds the templates.
   const [values, setValues] = useState<Record<string, string>>({});
   const [active, setActive] = useState<{ blank: BlankRef; anchor: HTMLElement } | null>(null);
-
-  useEffect(() => {
-    setValues({});
-    setActive(null);
-  }, [suggestions]);
 
   if (disabled || suggestions.length === 0) return null;
 
   const activeBlank = active && (suggestions[active.blank.row].segments[active.blank.segment] as PreliminaryReadBlank);
-  // `undefined` is a blank that still has to be picked (a side the order didn't fix).
+
   const valueOf = (ref: BlankRef, blank: PreliminaryReadBlank): string | undefined =>
     values[blankKey(ref)] ?? blank.initial;
+
   const rowValues = (row: number): (string | undefined)[] =>
     suggestions[row].segments.map((segment, i) =>
       typeof segment === 'string' ? undefined : values[blankKey({ row, segment: i })]
@@ -178,16 +172,30 @@ export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryR
           activeBlank &&
           activeBlank.options.map((option) => {
             const current = option === valueOf(active.blank, activeBlank);
+
+            const clash = findConflictingValue(
+              suggestions[active.blank.row].segments,
+              rowValues(active.blank.row),
+              active.blank.segment,
+              option
+            );
+
             return (
               <MenuItem
                 key={option}
                 role="option"
                 selected={current}
                 aria-selected={current}
+                disabled={Boolean(clash)}
                 sx={{ borderRadius: 1, mx: 1 }}
                 onClick={() => pick(option)}
               >
                 {option || PRELIMINARY_READ_NONE_LABEL}
+                {clash && (
+                  <Typography component="span" variant="caption" sx={{ ml: 1 }}>
+                    (not with “{clash}”)
+                  </Typography>
+                )}
               </MenuItem>
             );
           })}

@@ -1,6 +1,6 @@
-import type { PreliminaryReadChoiceList, PreliminaryReadRegion } from 'config-types/config/radiology';
 import type { LateralityValue } from '../../fhir/radiology';
 import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
+import type { PreliminaryReadChoiceList, PreliminaryReadRegion } from './preliminaryReadTypes';
 
 export interface PreliminaryReadBlank {
   title: string;
@@ -19,7 +19,7 @@ export interface PreliminaryReadSuggestion {
 
 export const PRELIMINARY_READ_NONE_LABEL = '(none)';
 const PRELIMINARY_READ_SIDE_BLANK = 'side';
-const SIDE_CHOICES: PreliminaryReadChoiceList = { title: 'Side', options: ['left', 'right', 'bilateral'] };
+const SIDE_CHOICES: PreliminaryReadChoiceList = { title: 'Side', options: ['left', 'right'], mustPick: true };
 const SIDE_BY_LATERALITY: Partial<Record<LateralityValue, string>> = { LT: 'left', RT: 'right' };
 
 export const findPreliminaryReadRegion = (cptCode: string | undefined): PreliminaryReadRegion | undefined => {
@@ -27,12 +27,6 @@ export const findPreliminaryReadRegion = (cptCode: string | undefined): Prelimin
   return baseCode ? PRELIMINARY_READ_TEMPLATES.regions.find((region) => region.cptCodes.includes(baseCode)) : undefined;
 };
 
-/**
- * The region's templates for one order, with `{side}` resolved from the laterality, child-only blanks dropped
- * for adults and every blank on its default. When the order doesn't fix a side (no modifier, or bilateral)
- * `{side}` becomes a left/right/bilateral blank with no default: the wrong side is the one mistake a template
- * must not make for the provider.
- */
 export const buildPreliminaryReadSuggestions = (input: {
   cptCode?: string;
   laterality?: LateralityValue;
@@ -62,7 +56,7 @@ export const buildPreliminaryReadSuggestions = (input: {
       segments.push({
         title: list.title,
         options,
-        initial: list === SIDE_CHOICES ? undefined : (input.isChild && list.childDefault) || options[0],
+        initial: list.mustPick ? undefined : (input.isChild && list.childDefault) || options[0],
       });
     }
     segments.push(template.text.slice(cursor));
@@ -90,7 +84,6 @@ const tidySegments = (segments: PreliminaryReadSegment[]): PreliminaryReadSegmen
     .filter((segment) => segment !== '');
 };
 
-/** The first blank with neither a default nor a picked value — the sentence can't be added until it has one. */
 export const findUnpickedBlank = (
   segments: PreliminaryReadSegment[],
   values: (string | undefined)[]
@@ -100,7 +93,29 @@ export const findUnpickedBlank = (
       typeof segment !== 'string' && segment.initial === undefined && values[i] === undefined
   );
 
-/** The finished sentence; `values[i]` overrides the blank at segment `i`, and '' (none) contributes nothing. */
+const CONFLICTS = new Map<string, Set<string>>();
+for (const [a, b] of PRELIMINARY_READ_TEMPLATES.conflicts) {
+  CONFLICTS.set(a, (CONFLICTS.get(a) ?? new Set()).add(b));
+  CONFLICTS.set(b, (CONFLICTS.get(b) ?? new Set()).add(a));
+}
+
+export const findConflictingValue = (
+  segments: PreliminaryReadSegment[],
+  values: (string | undefined)[],
+  index: number,
+  option: string
+): string | undefined => {
+  const conflicts = CONFLICTS.get(option);
+  if (!conflicts) return undefined;
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    if (i === index || typeof segment === 'string') continue;
+    const current = values[i] ?? segment.initial;
+    if (current !== undefined && conflicts.has(current)) return current;
+  }
+  return undefined;
+};
+
 export const assemblePreliminaryRead = (segments: PreliminaryReadSegment[], values: (string | undefined)[]): string =>
   segments
     .map((segment, i) => (typeof segment === 'string' ? segment : values[i] ?? segment.initial ?? ''))
