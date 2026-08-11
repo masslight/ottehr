@@ -3,7 +3,7 @@ import { SearchParam } from '@oystehr/sdk';
 import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
 import {
   chooseJson,
@@ -71,6 +71,9 @@ export type PatientDocumentsFilters = {
   documentName?: string;
   documentsFolder?: PatientDocumentsFolder;
   dateAdded?: DateTime;
+  // Restrict results to documents filed against this visit. Also narrows the folder counters,
+  // so the sidebar reflects what the visit actually contains.
+  encounterId?: string;
 };
 
 export type UploadDocumentActionResult = {
@@ -116,9 +119,96 @@ export type UseGetPatientDocsReturn = {
 export const QUERY_KEYS = {
   GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
   GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
+  GET_VISIT_DOCUMENT_IDS: 'get-visit-document-ids',
 };
 
-export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsFilters): UseGetPatientDocsReturn => {
+const VISIT_DOCUMENT_IDS_PAGE_SIZE = 1000;
+
+/**
+ * Ids of every document filed against one visit, regardless of folder.
+ *
+ * The folder counters come from `List.entry` lengths, which are patient-wide. When a visit filter
+ * is active the sidebar has to show per-visit counts instead, and the main document search can't
+ * supply them (it is itself narrowed to the selected folder). So fetch the visit's document ids
+ * once and intersect them with each folder's entries.
+ */
+const useVisitDocumentIds = (patientId: string, encounterId: string | undefined): Set<string> | undefined => {
+  const { oystehr } = useApiClients();
+
+  const { data } = useQuery({
+    queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId, encounterId }],
+    enabled: !!oystehr && !!patientId && !!encounterId,
+    queryFn: async (): Promise<string[]> => {
+      if (!oystehr) throw new Error('useVisitDocumentIds() oystehr not defined');
+
+      const bundle = await oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          { name: 'subject', value: `Patient/${patientId}` },
+          { name: 'encounter', value: `Encounter/${encounterId}` },
+          { name: '_elements', value: 'id' },
+          // These ids drive the folder counters, so a truncated page would silently undercount —
+          // ask for far more than any single visit realistically holds.
+          { name: '_count', value: `${VISIT_DOCUMENT_IDS_PAGE_SIZE}` },
+        ],
+      });
+
+      // Report rather than silently undercount if a visit ever exceeds one page.
+      if (bundle.link?.some((link) => link.relation === 'next')) {
+        safelyCaptureMessage('Visit has more documents than one page; folder counters may undercount', {
+          level: 'warning',
+          tags: {
+            site: 'useVisitDocumentIds',
+            patientId,
+            encounterId: encounterId ?? '',
+            pageSize: `${VISIT_DOCUMENT_IDS_PAGE_SIZE}`,
+          },
+        });
+      }
+
+      return bundle
+        .unbundle()
+        .map((docRef) => docRef.id)
+        .filter((id): id is string => !!id);
+    },
+  });
+
+  return useMemo(() => (encounterId && data ? new Set(data) : undefined), [encounterId, data]);
+};
+
+/**
+ * Rewrites folder counters to only count documents belonging to the given visit. Folders are kept
+ * even at zero so a user can still open one and upload into it (matching the patient-level view).
+ */
+const applyVisitCountsToFolders = (
+  folders: PatientDocumentsFolder[],
+  visitDocumentIds: Set<string> | undefined
+): PatientDocumentsFolder[] => {
+  if (!visitDocumentIds) return folders;
+
+  return folders.map((folder) => {
+    const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
+      const id = docRef.reference?.reference?.split('/')[1];
+      return !!id && visitDocumentIds.has(id);
+    });
+    return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
+  });
+};
+
+export type UseGetPatientDocsOptions = {
+  /**
+   * Visit that documents uploaded through this hook are filed against. Deliberately separate from
+   * `filters.encounterId`: filtering by a visit is a browsing action and must not silently retarget
+   * uploads. Only visit-scoped surfaces (Progress Note, Visit Details) set this.
+   */
+  uploadEncounterId?: string;
+};
+
+export const useGetPatientDocs = (
+  patientId: string,
+  filters?: PatientDocumentsFilters,
+  options?: UseGetPatientDocsOptions
+): UseGetPatientDocsReturn => {
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
@@ -139,7 +229,13 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     }
   );
 
-  const documentActions = usePatientDocsActions({ patientId });
+  const visitDocumentIds = useVisitDocumentIds(patientId, currentFilters?.encounterId);
+  const visibleFolders = useMemo(
+    () => applyVisitCountsToFolders(documentsFolders, visitDocumentIds),
+    [documentsFolders, visitDocumentIds]
+  );
+
+  const documentActions = usePatientDocsActions({ patientId, encounterId: options?.uploadEncounterId });
   const folderActions = useFolderActions({ patientId });
 
   const searchDocuments = useCallback((filters: PatientDocumentsFilters): void => {
@@ -321,7 +417,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     documents: documents,
     // documentsByFolders: documentsByFolders,
     isLoadingFolders: isLoadingFolders,
-    documentsFolders: documentsFolders,
+    documentsFolders: visibleFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
     renameDocument,
@@ -501,6 +597,7 @@ const useSearchPatientDocuments = (
         docSearchTerm: filters?.documentName,
         docCreationDate: docCreationDate,
         docFolderId: filters?.documentsFolder?.id,
+        encounterId: filters?.encounterId,
       },
     ],
 
@@ -524,6 +621,10 @@ const useSearchPatientDocuments = (
 
       if (docCreationDate && docCreationDate.trim().length > 0) {
         searchParams.push({ name: 'date', value: `eq${docCreationDate}` });
+      }
+
+      if (filters?.encounterId) {
+        searchParams.push({ name: 'encounter', value: `Encounter/${filters.encounterId}` });
       }
 
       return (
@@ -550,17 +651,7 @@ const useSearchPatientDocuments = (
           ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
           ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
-      const documents = docRefsResources.map((docRef) => {
-        const docName = debug__createDisplayedDocumentName(docRef);
-        const attachments = extractDocumentAttachments(docRef);
-
-        return {
-          id: docRef.id!,
-          docName: docName,
-          whenAddedDate: docRef.date,
-          attachments: attachments,
-        } as PatientDocumentInfo;
-      });
+      const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
 
       //TODO: remove when _text search will be available
       const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
@@ -614,7 +705,14 @@ const debug__mimicTextNarrativeDocumentsFilter = (
   });
 };
 
-const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatientDocsActionsReturn => {
+const usePatientDocsActions = ({
+  patientId,
+  encounterId,
+}: {
+  patientId: string;
+  // When present, documents uploaded through these actions are filed against this visit.
+  encounterId?: string;
+}): UsePatientDocsActionsReturn => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
@@ -634,6 +732,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         const createUploadDocumentRes = await oystehrZambda.zambda.execute({
           id: CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID,
           patientId: patientId,
+          ...(encounterId ? { encounterId } : {}),
           ...restParams,
         });
         console.log('signing request end RESULT =>');
@@ -668,6 +767,9 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
           queryClient.refetchQueries({
             queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
           }),
+          queryClient.refetchQueries({
+            queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
+          }),
         ]);
 
         return {
@@ -683,7 +785,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         setIsUploading(false);
       }
     },
-    [oystehrZambda, patientId, queryClient]
+    [oystehrZambda, patientId, encounterId, queryClient]
   );
 
   const deleteDocumentAction = useCallback(
@@ -702,6 +804,9 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         }),
         queryClient.refetchQueries({
           queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
+        }),
+        queryClient.refetchQueries({
+          queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
         }),
       ]);
     },

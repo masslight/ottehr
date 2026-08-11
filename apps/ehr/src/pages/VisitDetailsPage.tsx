@@ -40,6 +40,7 @@ import PatientBalances from 'src/components/PatientBalances';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
@@ -1261,6 +1262,18 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
           </Grid>
         </Grid>
+        {patientId && encounter?.id && (
+          <Grid container direction="row">
+            <Grid item xs={12} sx={{ marginLeft: { xs: 0, sm: 8 }, marginRight: { xs: 0, sm: 8 }, marginTop: 2 }}>
+              <Typography variant="h3" color="primary.dark" marginBottom={2}>
+                Visit Documents
+              </Typography>
+              <Paper sx={{ padding: 3 }}>
+                <PatientDocumentsExplorer patientId={patientId} encounterId={encounter.id} />
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <Stack direction="row" spacing={1} useFlexGap>

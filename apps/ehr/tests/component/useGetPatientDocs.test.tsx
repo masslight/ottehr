@@ -267,3 +267,113 @@ describe('useGetPatientDocs — document search short-circuit on synthetic folde
     expect(docRefCalls).toHaveLength(0);
   });
 });
+
+describe('useGetPatientDocs — visit filter', () => {
+  const ENCOUNTER_ID = 'encounter-1';
+
+  // Documents that belong to the visit, out of the three the folder holds patient-wide.
+  const VISIT_DOC_IDS = ['doc-list-1-0', 'doc-list-1-2'];
+
+  const docRef = (id: string): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { encounter: [{ reference: `Encounter/${ENCOUNTER_ID}` }] },
+  });
+
+  // Distinguishes the three searches the hook makes: the folder Lists, the visit's document ids
+  // (identified by `_elements`), and the main document search.
+  const setupVisitSearch = (perPatientLists: List[]): void => {
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : perPatientLists);
+      }
+
+      if (params.some((p) => p.name === '_elements')) {
+        return stubBundle(VISIT_DOC_IDS.map((id) => ({ resourceType: 'DocumentReference', id })) as any);
+      }
+
+      return stubBundle(VISIT_DOC_IDS.map(docRef) as any);
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('narrows the document search to the visit', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+
+    await waitFor(() => {
+      const mainSearch = mockFhirSearch.mock.calls.find(
+        ([req]: any[]) =>
+          req?.resourceType === 'DocumentReference' && !req.params.some((p: any) => p.name === '_elements')
+      );
+      expect(mainSearch).toBeDefined();
+      expect(mainSearch![0].params).toEqual(
+        expect.arrayContaining([{ name: 'encounter', value: `Encounter/${ENCOUNTER_ID}` }])
+      );
+    });
+  });
+
+  it('reports the visit each returned document belongs to', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(VISIT_DOC_IDS.length));
+    expect(result.current.documents?.every((doc) => doc.encounterId === ENCOUNTER_ID)).toBe(true);
+  });
+
+  it('counts only the visit’s documents in the folder sidebar', async () => {
+    // The folder holds three documents patient-wide, two of which belong to this visit.
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+
+    await waitFor(() => {
+      const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
+      expect(folder?.documentsCount).toBe(VISIT_DOC_IDS.length);
+    });
+  });
+
+  it('requests a large page of visit document ids so counters do not silently undercount', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    renderHook(() => useGetPatientDocs(PATIENT_ID, { encounterId: ENCOUNTER_ID }), { wrapper });
+
+    await waitFor(() => {
+      const idsQuery = mockFhirSearch.mock.calls.find(([req]: any[]) =>
+        (req?.params ?? []).some((p: any) => p.name === '_elements')
+      );
+      expect(idsQuery).toBeDefined();
+      const countParam = idsQuery![0].params.find((p: any) => p.name === '_count');
+      expect(Number(countParam?.value)).toBeGreaterThanOrEqual(1000);
+    });
+  });
+
+  it('leaves folder counters patient-wide when no visit filter is applied', async () => {
+    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => {
+      const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
+      expect(folder?.documentsCount).toBe(3);
+    });
+    // No visit means no need to resolve which documents belong to one.
+    const idsQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) =>
+      (req?.params ?? []).some((p: any) => p.name === '_elements')
+    );
+    expect(idsQueries).toHaveLength(0);
+  });
+});

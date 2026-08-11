@@ -7,6 +7,9 @@ const CreateUploadDocumentBodySchema = z.object({
   fileFolderId: z.string(),
   fileName: z.string(),
   internalName: z.string().optional(),
+  // Visit (Encounter) the uploaded document belongs to. Optional: documents uploaded from the
+  // patient-level Docs page are not tied to a visit.
+  encounterId: z.string().min(1).optional(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): CreateUploadPatientDocumentInput {
@@ -18,7 +21,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
     throw new Error('Authorization header is required');
   }
 
-  const { patientId, fileFolderId, fileName, internalName } = safeValidate(
+  const { patientId, fileFolderId, fileName, internalName, encounterId } = safeValidate(
     CreateUploadDocumentBodySchema,
     safeJsonParse(input.body)
   );
@@ -31,5 +34,6 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
     fileName,
     userToken,
     internalName,
+    encounterId,
   };
 }
