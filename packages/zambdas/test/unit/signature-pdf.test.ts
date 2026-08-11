@@ -55,6 +55,27 @@ describe('composeSignature', () => {
     expect(approvedBy).toBeUndefined();
   });
 
+  test('shows a pending placeholder (no signed line) when the note is not signed', () => {
+    const signatures: ProgressNoteSignatures = {
+      signedBy: { name: 'Resident, Ray | MD', dateTimeISO: '2026-06-07T15:30:00.000Z' },
+    };
+
+    const result = composeSignature({ appointmentPackage, visit: initialVisit, signatures, signed: false });
+
+    expect(result.pendingSignature).toBe('Pending provider signature');
+    expect(result.signedBy).toBeUndefined();
+    expect(result.approvedBy).toBeUndefined();
+  });
+
+  test('still signs when signed is true or omitted', () => {
+    const explicit = composeSignature({ appointmentPackage, visit: initialVisit, signatures: undefined, signed: true });
+    const legacy = composeSignature({ appointmentPackage, visit: initialVisit, signatures: undefined });
+
+    expect(explicit.signedBy).toMatch(/^Signed electronically by Attending, Doc \| MD on /);
+    expect(explicit.pendingSignature).toBeUndefined();
+    expect(legacy.signedBy).toMatch(/^Signed electronically by Attending, Doc \| MD on /);
+  });
+
   test('uses the follow-up provider name for follow-up visits', () => {
     const followupVisit: VisitDetailsForProgressNote = {
       visitType: 'followup',

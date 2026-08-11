@@ -1037,6 +1037,8 @@ export interface SignatureData extends PdfData {
   signedBy?: string;
   /** "Approved by {provider} on {date} {time}" — present only when supervisor-approved. */
   approvedBy?: string;
+  /** Placeholder shown instead of the signed line when the note isn't signed yet (e.g. a faxed draft). */
+  pendingSignature?: string;
 }
 
 export interface ProgressNoteInput {
@@ -1049,6 +1051,7 @@ export interface ProgressNoteInput {
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
   signatures?: ProgressNoteSignatures;
+  signed?: boolean;
 }
 
 export interface ProgressNoteData extends PdfData {
