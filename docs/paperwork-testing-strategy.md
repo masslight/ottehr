@@ -226,6 +226,43 @@ Exit criteria: (a) registry invariants green with catalogs complete; (b) over th
 
 **Ongoing.** New customer onboarding adds a certification matrix entry (minutes/night), not an e2e suite (30 min/night + flake surface). New paperwork features add a part test + catalog row first, feature second.
 
+### PR decomposition
+
+The tiers decompose into pull requests as a **DAG, not a single stack**: three short chains plus a set of parallel, mostly test-only PRs. Only three places have real "PR B edits what PR A introduced" dependencies — stack there, branch off `develop` everywhere else. Sizes are per-PR review scope; all in `ottehr` unless noted.
+
+| # | PR | Builds on | Character |
+|---|---|---|---|
+| 1 | ui-components test rig: `test` script + turbo wiring + one seed test | — | tiny, config-only |
+| 2 | `getInputTypeForItem` dispatch matrix; delete 7 dead `FormItemType` members + the unused intake duplicate dispatcher; start the certified-catalog data module | — | test-heavy, small type deletion |
+| 3 | Engine operator × value-type matrix + sharp-edge pins | — | test-only |
+| 4 | Tier 2 mechanism suites + enabled-page-set scenario matrix | — | test-only |
+| 5 | `makeValidationSchema` per-type accept/reject pairs | — | test-only |
+| 6 | Submit-validation failure mapping: port the 21 legacy scenarios, delete the dead files in the same PR | — | test-only |
+| 7–9 | Harvest gap-closers: consent/documents; strategy handlers + patch dedup; `get-standalone-paperwork` + PDF handler | — | test-only, mutually independent |
+| 10 | Intake e2e hygiene: sleeps → event waits, soft assertions → real ones, `employer-state` exemption out | — | e2e-utils only |
+| 11 | Extract `renderPaperworkPage` harness from the EHR preview stubs into a shared test util; refactor the preview to consume it | 1 | small src move |
+| 12a–d | Component contract slices: text/choice/date/boolean · groups + pharmacy · attachments + AI suggestions · credit card (Stripe mocked) + medical history | 11 | test-only, parallel with each other |
+| 13 | Export the pure evaluator cores from the answer-option DSL hooks | — | small src |
+| 14 | Extension round-trip matrix; extend the catalog with the extension axis | 13 | test-only |
+| 15 | Move `generatePaperworkAnswers` to a shared package + add maximal/seeded-random modes | — | src-light move |
+| 16 | Harvest property suite + real `Questionnaire` in the integration context | 15 | test-only |
+| 17 | **Certification runner** (lint + walk + render sweep + prepop dry-run + CLI) wired against reference configs in core CI | 2, 11, 14, 15 | the convergence PR |
+| 18 | HOB: `certify-config` job + `runCertify` plumbing + nightly matrix + report artifact | 17 merged to core | `hosted-ottehr-builds` |
+| 19 | HOB: triage prompt updates + `pr-ci` wiring | 18 | small |
+| 20 | HOB: cutover — per-customer `e2e-intake` out of nightly, certify fans out to all 10 | 18 + parallel-run period | the Phase 4 PR |
+
+The chains: **1 → 11 → 12a–d → 17** (harness → component contracts → runner), **13 → 14 → 17** (hook cores → extension round-trips → runner), and **15 → 16/17** (shared walker → harvest properties / runner) — converging at the runner, then **17 → 18 → 19 → 20** crossing into `hosted-ottehr-builds`. PRs 2–10 can land in any order, in parallel, from day one. Mapped to the phases: Phase 0 ≈ 1–2 (+10 anytime), Phase 1 ≈ 3, 5–6, 11–14, Phase 2 ≈ 4, 7–9, 15–17, Phase 3 ≈ 18–19, Phase 4 = 20.
+
+Sequencing constraints that matter:
+
+- **Port before delete (PR 6).** The legacy scenarios are the only record of the validation-failure surface — one PR, ordered commits.
+- **The catalog is the contract between chains.** PR 2 creates the data module (component axis), PR 14 extends it (extension axis), PR 17's lint consumes it. Agree on its shape early — it's the one design conversation to have before parallelizing.
+- **No publish step gates the HOB side.** `hosted-ottehr-builds` checks out core source at a resolved ref, so PR 18 needs only PR 17 merged to `develop` — no package versioning ceremony.
+- **PR 17 is the only balloon risk.** If it grows, split lint → walk → render sweep; each stage is independently useful (the lint alone catches the page-missing-from-`pageHarvestStrategy` class).
+- **The `checkEnable` legacy-engine migration stays outside the chains** — it touches live intake form code; schedule it as an independent, riskier PR whenever convenient.
+
+A useful emergent property: after PR 17, every core PR is already certified against the reference configs, so the hosted rollout (18–20) is pure CI plumbing with the test machinery pre-proven.
+
 ---
 
 ## 6. What we lose and where it lands
