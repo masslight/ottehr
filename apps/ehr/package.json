@@ -26,7 +26,7 @@
     "preview": "vite preview --port 4002",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
-    "build": "concurrently --kill-others-on-fail \"tsc && tsc -p tsconfig.vite.json\" \"vite build --mode default\"",
+    "build": "concurrently --kill-others-on-fail \"tsc\" \"vite build --mode default\"",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:local": "npm run build",
     "build:e2e": "ENV=e2e npm run build-skeleton",
@@ -39,7 +39,7 @@
     "build:staging": "ENV=staging npm run build-skeleton",
     "build:demo": "ENV=demo npm run build-skeleton",
     "build:production": "ENV=production npm run build-skeleton",
-    "build-skeleton": "tsc && tsc -p tsconfig.vite.json && npm run build-bundle",
+    "build-skeleton": "tsc && npm run build-bundle",
     "build-bundle": "VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') vite build --mode ${ENV}",
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
@@ -93,7 +93,9 @@
     "utif": "^3.1.0",
     "utils": "*",
     "uuid": "^11.0.3",
+    "vega": "^6.3.1",
     "vega-embed": "^7.1.0",
+    "vega-lite": "^6.4.3",
     "wavesurfer.js": "^7.10.1"
   },
   "devDependencies": {
@@ -103,6 +105,7 @@
     "@types/styled-components": "^5.1.34",
     "console-stamp": "^3.1.2",
     "csvtojson": "^2.0.10",
+    "esbuild": "0.25.12",
     "json-2-csv": "^5.5.1",
     "vitest": "^4.1.10"
   }

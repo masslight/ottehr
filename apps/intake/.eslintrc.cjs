@@ -2,7 +2,7 @@ module.exports = {
   extends: ['../../.eslintrc.cjs'],
   parserOptions: {
     tsconfigRootDir: __dirname,
-    project: ['tsconfig.json', 'tsconfig.vite.json'],
+    project: ['tsconfig.json'],
     module: 'ESNext',
     target: 'esnext',
     lib: ['esnext.array', 'dom'],

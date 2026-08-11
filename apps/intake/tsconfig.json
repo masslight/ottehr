@@ -4,7 +4,7 @@
     "target": "esnext",
     "lib": ["esnext.array", "dom", "es2022"],
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "sourceMap": true,
     "inlineSources": true,
     "noUnusedLocals": false,
@@ -15,6 +15,5 @@
       "@defaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": [".", ".eslintrc.cjs"],
-  "exclude": ["vite.config.ts", "vitest.config.ts", "vitest.config.component-tests.ts"]
+  "include": [".", ".eslintrc.cjs"]
 }
