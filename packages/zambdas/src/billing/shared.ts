@@ -7,6 +7,8 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimResponse,
+  ClaimResponseItem,
   Coding,
   Coverage,
   FhirResource,
@@ -236,6 +238,22 @@ export const SOURCE_FRIENDLY_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/billin
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
+// CLP01 patient control number and CLP07 payer claim control number (ICN), as echoed by the payer.
+// Both arrive as ClaimResponse extensions, not identifiers.
+export const ERA_PCN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-pcn';
+export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
+// SVC01 procedure code and SVC05 units, stamped on each ClaimResponse.item. The converter never
+// writes the submitted lines onto the contained Claim, so these are the only line identity the
+// remit itself carries.
+export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
+export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+
+export function getEraExtensionString(
+  resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
+  url: string
+): string | undefined {
+  return resource.extension?.find((ext) => ext.url === url)?.valueString;
+}
 // Oystehr emits one Provenance per ERA (activity era-processing) whose targets are all resources
 // created from that ERA — the PaymentReconciliation and its ClaimResponses. This is how a single
 // ERA's resources are linked to each other.
@@ -330,6 +348,15 @@ export function hasIdentifier(patient: Patient, identifier: Identifier): boolean
   return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
 }
 
+export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
+  const friendlyId = clinicalFriendlyIdOfCopy(patient);
+  const wanted = [
+    clinicalPatientIdentifier(clinicalPatientId),
+    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
+  ];
+  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
+}
+
 export async function addClinicalPatientIdentifiers({
   oystehr,
   patient,
@@ -339,14 +366,8 @@ export async function addClinicalPatientIdentifiers({
   patient: Patient;
   clinicalPatientId: string;
 }): Promise<void> {
-  const friendlyId = clinicalFriendlyIdOfCopy(patient);
-  const wanted = [
-    clinicalPatientIdentifier(clinicalPatientId),
-    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
-  ];
-
   await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = wanted.filter((identifier) => !hasIdentifier(current, identifier));
+    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
     if (missing.length === 0) return [];
     return current.identifier?.length
       ? missing.map((identifier) => ({

@@ -1,4 +1,9 @@
-import { ArrowBack as ArrowBackIcon, MoreVert as MoreVertIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  FileDownloadOutlined as FileDownloadIcon,
+  MoreVert as MoreVertIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -25,14 +30,24 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { EraDetailResponse, formatCurrency, getApiError } from 'utils';
+import { EraDetailResponse, EraPayee, formatCurrency, getApiError } from 'utils';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
+import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
+import { formatDate, formatTaxId } from '../utils/format';
+
+const payeeRows = (payee: EraPayee): { label: string; value: string }[] =>
+  [
+    { label: 'Name', value: payee.name },
+    { label: 'NPI', value: payee.npi },
+    { label: 'Tax ID', value: payee.taxId ? formatTaxId(payee.taxId) : '' },
+  ].filter((row) => row.value);
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
@@ -61,6 +76,7 @@ export default function ERADetail(): ReactElement {
     element: HTMLButtonElement;
     claimResponseIds: string[];
   } | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const claimColumns: GridColDef[] = [
     {
@@ -90,6 +106,7 @@ export default function ERADetail(): ReactElement {
     currencyCol('allowed', 'Allowed', 100),
     currencyCol('paid', 'Ins Paid', 110),
     currencyCol('posted', 'Posted', 100),
+    currencyCol('patientResp', 'Patient Resp', 110),
     {
       field: 'status',
       headerName: 'Status',
@@ -180,11 +197,21 @@ export default function ERADetail(): ReactElement {
         <Box sx={{ flexGrow: 1 }}>
           <Box sx={{ display: 'flex', gap: 4, alignItems: 'baseline' }}>
             <HeaderField label="Check number" value={era.checkNumber} />
-            <HeaderField label="Check date" value={era.checkDate} />
+            <HeaderField label="Check date" value={formatDate(era.checkDate)} />
             <HeaderField label="Check amount" value={formatCurrency(era.checkAmount)} bold />
+            <HeaderField label="Created" value={formatDate(era.createdDate)} />
             <HeaderField label="Payer" value={era.payerName} />
           </Box>
         </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<FileDownloadIcon />}
+          sx={{ mt: 0.5 }}
+          onClick={() => setExportOpen(true)}
+        >
+          Export X12
+        </Button>
         <Chip
           label={era.status}
           color={era.status === 'complete' ? 'success' : 'warning'}
@@ -209,6 +236,15 @@ export default function ERADetail(): ReactElement {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
               {era.paymentMethod && <Row label="Payment method" value={era.paymentMethod} hideBorder />}
             </Box>
+
+            {era.payee && (
+              <ReadOnlySection title="Payee">
+                {/* payers commonly identify the payee by NPI alone, so skip what this ERA omits */}
+                {payeeRows(era.payee).map(({ label, value }, idx, rows) => (
+                  <Row key={label} label={label} value={value} hideBorder={idx === rows.length - 1} />
+                ))}
+              </ReadOnlySection>
+            )}
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" color="primary.dark" fontWeight={600}>
@@ -262,7 +298,7 @@ export default function ERADetail(): ReactElement {
               rows={filteredClaims}
               columns={claimColumns}
               getRowId={(row) => row.claimId}
-              onRowClick={(params) => (params.row.matched ? navigate(`/claims/${params.id}`) : {})}
+              onRowClick={(params) => navigate(`/eras/${id}/claims/${params.id}`)}
               disableRowSelectionOnClick
               disableColumnMenu
               autoHeight
@@ -331,6 +367,15 @@ export default function ERADetail(): ReactElement {
           </List>
         </Popover>
       ) : null}
+
+      {oystehrZambda && (
+        <ExportX12Dialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          fileName={`era-${era.id}.txt`}
+          x12Provider={() => Promise.resolve(era.x12)}
+        />
+      )}
     </Box>
   );
 }

@@ -103,6 +103,7 @@ export interface PhotoIdExtractionFields {
   /** Normalized to 'Male' / 'Female' when the printed value is clear (M/F). */
   sex: string | null;
   addressLine1: string | null;
+  addressLine2: string | null;
   addressCity: string | null;
   addressState: string | null;
   addressZip: string | null;

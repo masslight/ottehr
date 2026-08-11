@@ -40,13 +40,10 @@ import {
   BillingTag,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
-  ClaimRemitAdjustment,
   ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
   CreateBillingProviderInput,
-  ERA_CLAIM_STATUS_CODE,
-  EraClaimStatusCode,
   formatClaimStatusValue,
   formatCurrency,
   getApiError,
@@ -64,6 +61,7 @@ import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
+  exportClaimX12,
   getBillingClaimDetail,
   getPatientCoverages,
   runBillingRulesEngine,
@@ -86,6 +84,7 @@ import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
+import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
@@ -96,6 +95,7 @@ import {
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
+import { ERA_STATUS_LABELS, formatAdjustment } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
@@ -118,8 +118,6 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
   if (arStage === AR_STAGE.patient && !claim.coverageFhirId) return RULES_ENGINES['patient-ar-pre-invoice'];
   return undefined;
 }
-
-const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
 // EHR app base URL for the "View in EHR" backlink
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
@@ -450,12 +448,14 @@ export default function ClaimDetail(): ReactElement {
         )}
       </Box>
 
-      <ExportX12Dialog
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        claimId={claim.id}
-        claimType={claim.type}
-      />
+      {oystehrZambda && (
+        <ExportX12Dialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
+          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+        />
+      )}
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -1283,23 +1283,6 @@ function OtherClaimsSection({
   );
 }
 
-// Human labels for CLP02 claim status codes the ERA can carry.
-const ERA_STATUS_LABELS: Record<EraClaimStatusCode, string> = {
-  [ERA_CLAIM_STATUS_CODE.primary]: 'Primary',
-  [ERA_CLAIM_STATUS_CODE.secondary]: 'Secondary',
-  [ERA_CLAIM_STATUS_CODE.tertiary]: 'Tertiary',
-  [ERA_CLAIM_STATUS_CODE.denied]: 'Denied',
-  [ERA_CLAIM_STATUS_CODE.primaryForwarded]: 'Primary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.secondaryForwarded]: 'Secondary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.tertiaryForwarded]: 'Tertiary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.reversal]: 'Reversal',
-  [ERA_CLAIM_STATUS_CODE.notOurClaimForwarded]: 'Not our claim (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.predetermination]: 'Predetermination',
-};
-
-const formatAdjustment = (adj: ClaimRemitAdjustment): string =>
-  `${adj.groupCode}${adj.reasonCode ? `-${adj.reasonCode}` : ''} ${formatCurrency(adj.amount)}`;
-
 function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): ReactElement {
   return (
     <ReadOnlySection title="Remits">
@@ -1432,25 +1415,6 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
         </TableContainer>
       )}
     </ReadOnlySection>
-  );
-}
-
-function ReadOnlySection({ title, children }: { title: string; children: React.ReactNode }): ReactElement {
-  return (
-    <Card variant="outlined" sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 1.5 }}>
-          {title}
-        </Typography>
-        {typeof children === 'string' ? (
-          <Typography variant="body2" color="text.secondary">
-            {children}
-          </Typography>
-        ) : (
-          children
-        )}
-      </CardContent>
-    </Card>
   );
 }
 

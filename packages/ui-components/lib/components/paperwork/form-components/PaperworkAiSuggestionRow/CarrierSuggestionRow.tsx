@@ -1,6 +1,6 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { Box, IconButton, List, ListItemButton, ListItemText, Popover, Typography } from '@mui/material';
+import { Box, IconButton, List, ListItemButton, ListItemText, Popover, Tooltip, Typography } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { pickFirstValueFromAnswerItem } from 'utils';
@@ -99,9 +99,11 @@ export const CarrierSuggestionRow: FC<CarrierSuggestionRowProps> = ({ linkId, or
       {showAccepted ? (
         <CheckCircleIcon fontSize="small" color="success" />
       ) : !isPickerMode ? (
-        <IconButton size="small" onClick={handleAccept} aria-label="Accept suggested carrier">
-          <AddCircleOutlineIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Use value from card">
+          <IconButton size="small" onClick={handleAccept} aria-label="Accept suggested carrier">
+            <AddCircleOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       ) : null}
       {isPickerMode && (
         <Popover
