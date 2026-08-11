@@ -315,6 +315,9 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       cwd: path.join(process.cwd(), `apps/${appName}`),
       env: {
         ...process.env,
+        // Match the NODE_OPTIONS from the e2e-skeleton npm script so TypeScript global
+        // setup/teardown files can be imported directly.
+        NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import tsx/esm`.trim(),
         ENV,
         SMOKE_TEST,
       },

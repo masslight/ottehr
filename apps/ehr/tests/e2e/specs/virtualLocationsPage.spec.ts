@@ -37,7 +37,7 @@ test('Open "Virtual Locations page", enter state abbreviation,  correct search r
   await virtualLocationsPage.verifyLocationPresent(firstState.id);
   await virtualLocationsPage.verifyPaginationWithPositiveNumbersIsDisplayed();
 
-  await virtualLocationsPage.searchStates('AA');
+  await virtualLocationsPage.searchStates('ZZ');
   await virtualLocationsPage.verifyPaginationState('0–0 of 0');
 });
 
