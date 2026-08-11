@@ -171,6 +171,7 @@ export interface EraDetailResponse {
   totalClaims: number;
   matchedClaims: number;
   unmatchedClaims: number;
+  x12: string;
   claims: {
     claimId: string;
     patientName: string;

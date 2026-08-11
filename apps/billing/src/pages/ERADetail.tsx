@@ -1,4 +1,9 @@
-import { ArrowBack as ArrowBackIcon, MoreVert as MoreVertIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  FileDownloadOutlined as FileDownloadIcon,
+  MoreVert as MoreVertIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -29,6 +34,7 @@ import { EraDetailResponse, formatCurrency, getApiError } from 'utils';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
@@ -61,6 +67,7 @@ export default function ERADetail(): ReactElement {
     element: HTMLButtonElement;
     claimResponseIds: string[];
   } | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const claimColumns: GridColDef[] = [
     {
@@ -185,6 +192,15 @@ export default function ERADetail(): ReactElement {
             <HeaderField label="Payer" value={era.payerName} />
           </Box>
         </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<FileDownloadIcon />}
+          sx={{ mt: 0.5 }}
+          onClick={() => setExportOpen(true)}
+        >
+          Export X12
+        </Button>
         <Chip
           label={era.status}
           color={era.status === 'complete' ? 'success' : 'warning'}
@@ -331,6 +347,15 @@ export default function ERADetail(): ReactElement {
           </List>
         </Popover>
       ) : null}
+
+      {oystehrZambda && (
+        <ExportX12Dialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          fileName={`era-${era.id}.txt`}
+          x12Provider={() => Promise.resolve(era.x12)}
+        />
+      )}
     </Box>
   );
 }
