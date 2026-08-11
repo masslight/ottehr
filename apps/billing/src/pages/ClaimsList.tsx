@@ -179,7 +179,6 @@ export default function ClaimsList(): ReactElement {
     if (!groupKey) {
       return ALL_CLAIM_STATUS_OPTIONS_2;
     }
-    console.log('colin', arStageFilter, groupKey);
     return ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[groupKey];
   }, [arStageFilter]);
 

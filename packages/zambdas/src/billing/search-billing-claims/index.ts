@@ -34,6 +34,8 @@ import {
   resolvePayersByRef,
   resourceDisplayName,
   sortClaimInsurance,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -163,7 +165,6 @@ async function performEffect(
     total = matching.length;
     pageClaims = matching.slice(offset, offset + pageSize);
   } else {
-    console.log('colin', filterParams);
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
@@ -219,13 +220,7 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
-export function buildClaimSearchTextQueries({
-  searchText,
-  patientIds = [],
-}: {
-  searchText: string;
-  patientIds?: string[];
-}): ClaimSearchParam[][] {
+export function buildClaimSearchTextQueries({ searchText }: { searchText: string }): ClaimSearchParam[][] {
   const text = searchText.trim();
   if (!text) return [];
 
@@ -266,6 +261,18 @@ export function buildClaimSearchTextQueries({
         value: `${CLAIM_PCN_IDENTIFIER_SYSTEM}|${text}`,
       },
     ],
+    [
+      {
+        name: 'patient.identifier',
+        value: `${SOURCE_IDENTIFIER_SYSTEM}|${text}`,
+      },
+    ],
+    [
+      {
+        name: 'patient.identifier',
+        value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${text}`,
+      },
+    ],
   ];
 
   if (isValidUUID(text)) {
@@ -276,8 +283,6 @@ export function buildClaimSearchTextQueries({
       },
     ]);
   }
-
-  if (patientIds.length > 0) queries.push([patientSearchParam(patientIds)]);
 
   const pcnClaimId = claimIdFromPcn(text);
   if (pcnClaimId) {
@@ -336,14 +341,7 @@ export async function searchClaimsBySearchText({
     },
   ];
 
-  const patientIds = isValidUUID(searchText.trim())
-    ? await resolveLinkedPatientIds({
-        oystehr,
-        patientId: searchText.trim(),
-      })
-    : [];
-
-  const clauses = buildClaimSearchTextQueries({ searchText, patientIds });
+  const clauses = buildClaimSearchTextQueries({ searchText });
 
   const claims: Claim[] = [];
   const truncatedClauses: string[] = [];
