@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 const mockSafelyCaptureMessage = vi.fn();
 vi.mock('utils/lib/frontend/sentry', () => ({
   safelyCaptureMessage: (...args: unknown[]) => mockSafelyCaptureMessage(...args),
+  safelyCaptureException: vi.fn(),
 }));
 
 import { mergeLocationFilteredTasks, TaskSearchStream } from '../../src/features/visits/in-person/hooks/useTasks';
@@ -30,7 +31,7 @@ const locationLessTask = (id: string, authoredOn: string): FhirTask => ({
   meta: { tag: [{ code: 'task' }] },
 });
 
-const stream = (tasks: FhirTask[], total?: number): TaskSearchStream => ({ tasks, encounters: [], total });
+const stream = (tasks: FhirTask[], total?: number): TaskSearchStream => ({ tasks, total });
 
 describe('mergeLocationFilteredTasks', () => {
   it('keeps location-agnostic tasks visible alongside the filtered location', () => {
