@@ -1,4 +1,5 @@
-import { AppointmentHistoryRow, InPersonAppointmentInformation } from 'utils';
+import { AppointmentHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 
 export const getNewMedicationOrderUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/in-house-medication/order/new`;

@@ -2,11 +2,11 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { HealthcareService, Location, Resource, Schedule, Slot } from 'fhir/r4b';
 import {
   makeSlotAtLocationExtensionEntry,
-  PatientInfo,
   PUBLIC_EXTENSION_BASE_URL,
-  ServiceMode,
   SlotServiceCategory,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { ServiceMode } from 'utils/lib/types/common';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type CreateAppointmentBasicInput,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ServiceMode } from '../types';
+import { ServiceMode } from '../types/common';
 import { buildPrebookModeLinks } from './scheduleUtils';
 
 describe('buildPrebookModeLinks', () => {

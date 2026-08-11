@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { calculatePatientAge, formatDateForDisplay } from 'utils';
+import { calculatePatientAge, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   datesCompareFn,

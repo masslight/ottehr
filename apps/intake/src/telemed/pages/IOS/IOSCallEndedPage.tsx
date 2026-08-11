@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { LoadingSpinner } from 'src/telemed/components/LoadingSpinner';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import { intakeFlowPageRoute } from '../../../App';
-import { LoadingSpinner } from '../../components';
-import { useAppointmentStore } from '../../features/appointments';
-import { useIntakeCommonStore } from '../../features/common';
-import { useGetWaitStatus } from '../../features/waiting-room';
 import CallEndedPage from '../CallEndedPage';
 
 export function IOSCallEndedPage(): JSX.Element {

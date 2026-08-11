@@ -4,9 +4,8 @@ import {
   BILLING_INTERNAL_FIELDS,
   BILLING_LAYERS,
   BillingBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-} from 'utils';
+} from 'utils/lib/types/adhoc/datasets/billing';
+import { layerIncludeFlags, layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import { getAdHocBilling } from '../../../api/api';
 import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from '../query/batching';
 import { buildLlmDatasetSchema } from './schema';

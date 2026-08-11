@@ -2,7 +2,8 @@ import { Box, Divider, Paper, Typography } from '@mui/material';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { NursingOrder, NursingOrdersStatus } from 'utils';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
+import { NursingOrder } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
 interface CollectSampleViewProps {

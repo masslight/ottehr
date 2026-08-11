@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { PatientArClaimItem } from 'utils';
+import { PatientArClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performBillingEffect } from '../../src/ehr/get-patient-balances';
 import { ValidatedInput } from '../../src/ehr/get-patient-balances/validateRequestParameters';

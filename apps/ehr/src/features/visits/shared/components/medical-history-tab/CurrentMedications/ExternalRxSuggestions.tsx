@@ -14,7 +14,8 @@ import {
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { formatDateForDisplay, MedicationDTO } from 'utils';
+import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { ExternalMedication, useExternalMedicationHistory } from '../../../hooks/useExternalMedicationHistory';
 import { ExtractObjectType } from '../../../stores/appointment/appointment.queries';
 

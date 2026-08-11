@@ -4,20 +4,18 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, Encounter, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  BUCKET_NAMES,
-  isCustomFolderList,
-  isSyntheticFolderId,
-  OTTEHR_MODULE,
-  parseSyntheticFolderId,
-  replaceOperation,
-  sanitizeFileNameForZ3,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { isCustomFolderList } from 'utils/lib/fhir/list';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { addOperation, replaceOperation } from 'utils/lib/helpers/operations';
+import { Secrets } from 'utils/lib/secrets';
+import { isSyntheticFolderId, parseSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
+import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import {
   findOrCreatePatientCustomFolderList,

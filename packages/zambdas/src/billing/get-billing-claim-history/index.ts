@@ -1,6 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isPayerUrl } from 'utils/lib/helpers/helpers';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
@@ -11,13 +14,12 @@ import {
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
-  getAllFhirSearchPages,
   GetClaimHistoryResponse,
-  getOptionalSecret,
-  isPayerUrl,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, sendErrors, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/claim-history';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createBillingClient,
   fhirName,

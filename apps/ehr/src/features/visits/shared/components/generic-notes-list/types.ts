@@ -1,5 +1,6 @@
 import { SxProps, Theme } from '@mui/material';
-import { AllChartValues, NOTE_TYPE, NoteDTO, SearchParams } from 'utils';
+import { SearchParams } from 'utils/lib/fhir/uri';
+import { AllChartValues, NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export interface CustomizableNotesConfig {
   separateEncounterNotes?: boolean; // notes from another encounters should be shown by "show more" button

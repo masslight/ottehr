@@ -9,7 +9,7 @@ import {
   ProcedureQuickPickData,
   QuickTextQuickPickData,
   RadiologyQuickPickData,
-} from 'utils';
+} from 'utils/lib/types/api/quick-picks.types';
 import { QuickPickCategory } from './quick-pick-helpers';
 
 export const PROCEDURE_QUICK_PICK_CATEGORY: QuickPickCategory<ProcedureQuickPickData> = {

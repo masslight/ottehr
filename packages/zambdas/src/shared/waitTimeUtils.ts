@@ -1,6 +1,7 @@
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getVisitStatusHistory, VisitStatusHistoryEntry, VisitStatusLabel } from 'utils';
+import { VisitStatusHistoryEntry, VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 
 const startTimeOfMostRecentInstanceOfStatus = (
   status: VisitStatusLabel,

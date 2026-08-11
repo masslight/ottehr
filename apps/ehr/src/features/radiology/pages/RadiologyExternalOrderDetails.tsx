@@ -17,8 +17,12 @@ import { SendFaxButton } from 'src/features/visits/shared/components/review-tab/
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { LATERALITY_SELECTORS, RadiologyResultDTO, toTenDigitPhoneNumber, VitalFieldNames } from 'utils';
+import { LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { RadiologyResultDTO } from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_SAFETY_FLAG_LABELS as SAFETY_FLAG_LABELS } from 'utils/lib/types/api/radiology';
 import {
   createZ3Object,
   deleteRadiologyResult,
@@ -35,7 +39,6 @@ import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCa
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
-import { SAFETY_FLAG_LABELS } from '../constants';
 import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 
 const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React.ReactNode }> = ({

@@ -1,14 +1,10 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Encounter, List, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  chartDataTagSystem,
-  CPTCodeDTO,
-  DiagnosisDTO,
-  ProcedureDTO,
-  resourceHasTagSystem,
-  TemplateSectionAction,
-} from 'utils';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { TemplateSectionAction } from 'utils/lib/types/data/apply-template.types';
 import { v4 as uuidV4 } from 'uuid';
 import { createProcedureServiceRequest, readProcedureFormFieldsFromServiceRequest } from '../../shared/chart-data';
 

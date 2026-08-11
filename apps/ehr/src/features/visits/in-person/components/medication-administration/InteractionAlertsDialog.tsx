@@ -18,7 +18,7 @@ import {
 import { Box, Stack } from '@mui/system';
 import React, { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { MedicationInteractions } from 'utils';
+import { MedicationInteractions } from 'utils/lib/types/api/medication-administration.types';
 
 const OTHER = 'Other';
 const OVERRIDE_REASON = [

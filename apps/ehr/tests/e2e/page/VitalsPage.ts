@@ -5,7 +5,8 @@ import {
   clickAndWaitForSaveChartData,
   waitForSaveChartDataResponse,
 } from 'test-utils';
-import { PROVIDER_CONFIG, VitalFieldNames } from 'utils';
+import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { EditNoteDialog, expectEditNoteDialog } from './in-person/EditNoteDialog';
 import { Dialog, expectDialog } from './patient-information/Dialog';
 

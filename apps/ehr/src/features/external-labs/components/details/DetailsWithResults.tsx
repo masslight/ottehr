@@ -3,7 +3,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
-import { LabOrderDetailedPageDTO, ReflexLabDTO, TaskReviewedParameters, UnsolicitedLabDTO } from 'utils';
+import {
+  LabOrderDetailedPageDTO,
+  ReflexLabDTO,
+  TaskReviewedParameters,
+  UnsolicitedLabDTO,
+} from 'utils/lib/types/data/labs/labs.types';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 

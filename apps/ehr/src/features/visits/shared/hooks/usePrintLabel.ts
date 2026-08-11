@@ -1,8 +1,8 @@
 import Dymo from 'dymojs';
 import { enqueueSnackbar, VariantType } from 'notistack';
 import { useState } from 'react';
-import { LabelPrintingConfig, PrintMode } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { LabelPrintingConfig, PrintMode } from 'utils/lib/types/data/printing';
 
 interface UsePrintLabelOutput {
   printLabelByConfig: (input: {

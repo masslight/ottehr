@@ -1,7 +1,8 @@
 import { Box, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { PERSON_GENDER_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 interface DemographicForm {
   firstName: string | null;

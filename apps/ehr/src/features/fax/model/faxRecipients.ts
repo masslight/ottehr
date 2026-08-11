@@ -1,4 +1,5 @@
-import { FAX_MAX_RECIPIENTS, FaxRecipient, isPhoneNumberValid, SendFaxPacketInput } from 'utils';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { FAX_MAX_RECIPIENTS, FaxRecipient, SendFaxPacketInput } from 'utils/lib/types/api/fax.types';
 import { FaxFormValues, FaxRecipientFormValue } from './types';
 
 export const emptyRecipient = (): FaxRecipientFormValue => ({

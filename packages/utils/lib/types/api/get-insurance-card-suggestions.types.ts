@@ -1,4 +1,4 @@
-import { InsuranceCardExtractionFields } from '../data';
+import { InsuranceCardExtractionFields } from '../data/documents';
 
 export interface GetInsuranceCardSuggestionsInput {
   appointmentID: string;

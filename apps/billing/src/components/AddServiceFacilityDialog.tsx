@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { saveBillingServiceFacility } from '../api/api';
 import {
   emptyServiceFacilityForm,

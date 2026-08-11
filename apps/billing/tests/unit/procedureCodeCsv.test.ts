@@ -1,4 +1,4 @@
-import { BillingChargeItemDefinitionProcedureCode } from 'utils';
+import { BillingChargeItemDefinitionProcedureCode } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it } from 'vitest';
 import { computeDelta, parseProcedureCodeCsv } from '../../src/utils/procedureCodeCsv';
 

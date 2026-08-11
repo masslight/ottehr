@@ -1,10 +1,10 @@
 import { Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  OttehrTaskSystem,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { OttehrTaskSystem } from 'utils/lib/types/common';
 import { describe, expect, it } from 'vitest';
 import { buildRecentlyAssignedTasksMap, resolveTaskRecipients } from '../../src/cron/notifications-updater';
 

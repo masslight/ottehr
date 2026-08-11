@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { GetInsuranceCardSuggestionsResponse, GetPhotoIdSuggestionsResponse } from 'utils';
+import { GetInsuranceCardSuggestionsResponse } from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import { GetPhotoIdSuggestionsResponse } from 'utils/lib/types/api/get-photo-id-suggestions.types';
 
 interface FieldSuggestionConfig {
   source: 'insurance' | 'photoId';

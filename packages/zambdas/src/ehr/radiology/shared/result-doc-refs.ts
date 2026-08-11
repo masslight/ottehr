@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
-import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils';
+import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
 
 // Predicate now lives in shared/radiology (so src/shared can reuse it without depending on src/ehr);
 // re-exported here to keep existing import paths stable.

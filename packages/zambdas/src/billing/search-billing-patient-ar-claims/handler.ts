@@ -1,18 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Patient } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { PatientArClaimItem, SearchBillingPatientARClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
-  chunkThings,
   CLAIM_STATUS_DATE_EXTENSION_URLS,
   CLAIM_STATUS_TAG_SYSTEMS,
   ClaimStatusValues,
   getClaimStatusValues,
-  PatientArClaimItem,
-  removePrefix,
-  SearchBillingPatientARClaimsResponse,
-} from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { fetchAllPages } from '../../shared';
+} from 'utils/lib/types/data/billing/claim-status';
+import { fetchAllPages } from '../../shared/fhir';
 import {
   ClaimPaymentSummary,
   fetchClaimResponsesByClaimIds,

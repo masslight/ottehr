@@ -2,20 +2,21 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { Secrets } from 'utils/lib/secrets';
+import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  Secrets,
-  User,
-  userMe,
-  VisitStatusWithoutUnknown,
-} from 'utils';
-import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared';
-import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
+} from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
+import { User } from 'utils/lib/types/api/user.types';
+import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared/produce-discharge-outreach';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { ZambdaInput } from '../../shared/types';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

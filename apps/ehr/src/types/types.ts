@@ -1,5 +1,6 @@
 import { Slot } from 'fhir/r4b';
-import { FhirAppointmentType, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
+import { PatientFollowupDetails } from 'utils/lib/types/api/encounter.types';
+import { FhirAppointmentType, ScheduleType, ServiceMode } from 'utils/lib/types/common';
 
 // this likely will be consolidated to utils package. doughty conflict resolver, take heed:
 // the important change to include here is that slot is of type "Slot" rather than string
@@ -31,8 +32,9 @@ export type PatientInfo = {
   reasonAdditional?: string;
 };
 
-export { AllStates } from 'utils';
-export type { State, StateType } from 'utils';
+export { AllStates } from 'utils/lib/types/common';
+export type { State } from 'utils/lib/helpers/states';
+export type { StateType } from 'utils/lib/types/common';
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
 

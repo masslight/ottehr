@@ -7,7 +7,7 @@ import {
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
-import { InsuranceEligibilityCheckStatus } from '../paperwork';
+import { InsuranceEligibilityCheckStatus } from '../paperwork/paperwork.types';
 
 export interface GetEligibilityInsuranceData {
   insuranceId: string;

@@ -10,7 +10,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
-import { isSyntheticFolderId } from 'utils';
+import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
 import {
   DocumentTableActions,

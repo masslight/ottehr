@@ -3,7 +3,7 @@ import { Box, Skeleton, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getPresignedURL } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { AiHpiSuggestion } from '../../../../AiHpiSuggestion';
 import { ReasonForVisitFieldReadOnly } from '../../../../ReasonForVisitField';
 import { useAppointmentData } from '../../../stores/appointment/appointment.store';

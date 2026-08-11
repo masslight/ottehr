@@ -10,27 +10,26 @@ import {
 } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT_MODIFIER,
-  ELIGIBILITY_BENEFIT_CODES,
   EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE,
   EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR,
   EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE,
   EXTENSION_URL_CPT_MODIFIER,
-  INSURANCE_PLAN_ID_CODING,
-} from '../main';
+} from '../helpers/rcm/constants';
+import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
+import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import {
-  APIErrorCode,
   BillingProviderData,
   BillingProviderResource,
-  CoverageCheckCoverageDetails,
   CoverageCodeToDescriptionMap,
   FinancialDetails,
   InsuranceCheckStatusWithDate,
   InsuranceDetails,
-  InsuranceEligibilityCheckStatus,
   PatientPaymentBenefit,
-} from '../types';
+} from '../types/data/telemed/eligibility.types';
+import { APIErrorCode } from '../types/errors';
 import { getNPI, getTaxID } from './helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
 

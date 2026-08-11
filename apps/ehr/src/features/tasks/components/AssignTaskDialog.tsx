@@ -4,7 +4,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { formatDate, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
-import { Task } from 'utils';
+import { Task } from 'utils/lib/types/data/tasks/types';
 import { CategoryChip } from './CategoryChip';
 
 interface Props {

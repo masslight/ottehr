@@ -22,7 +22,9 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { CPTCodeDTO, DiagnosisDTO, LATERALITY_SELECTORS, LateralityValue, radiologyStudiesConfig } from 'utils';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
+import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
+import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { RadiologyDiagnosisField } from './RadiologyDiagnosisField';
 
 /**

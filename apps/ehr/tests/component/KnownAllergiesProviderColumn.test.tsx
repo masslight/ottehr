@@ -83,7 +83,7 @@ vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
 }));
 
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { GetChartDataResponse } from 'utils';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { KnownAllergiesProviderColumn } from '../../src/features/visits/shared/components/known-allergies/KnownAllergiesProviderColumn';
 import {
   useDeleteChartData,

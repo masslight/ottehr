@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
-import { GetAnswerOptionsRequest, GetInsuranceCardSuggestionsResponse } from 'utils';
+import { GetInsuranceCardSuggestionsResponse } from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import { GetAnswerOptionsRequest } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { usePaperworkContext } from '../../context';
 import { buildCarrierSuggestion, CarrierSuggestion } from './carrierMatching';
 

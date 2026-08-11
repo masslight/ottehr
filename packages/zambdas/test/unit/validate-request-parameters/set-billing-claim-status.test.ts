@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { AR_STAGE } from 'utils';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/billing/set-billing-claim-status/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';

@@ -2,13 +2,13 @@ import { DateTime } from 'luxon';
 import { useCallback, useMemo } from 'react';
 import { FieldValues, RefCallBack, useFormContext, useFormState } from 'react-hook-form';
 import {
-  DOB_DATE_FORMAT,
-  INSURANCE_PAY_OPTION,
-  IntakeQuestionnaireItem,
-  PHARMACY_COLLECTION_LINK_IDS,
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
-} from 'utils';
+} from 'utils/lib/helpers/paperwork/paperwork';
+import { INSURANCE_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { usePaperworkContext } from '../context';
 
 interface PaperworkFormHelpers {

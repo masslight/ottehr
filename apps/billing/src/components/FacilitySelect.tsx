@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ServiceFacilityItem } from 'utils';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingServiceFacilities } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useFacilityOptionsSearch } from '../hooks/useOptionSearch';

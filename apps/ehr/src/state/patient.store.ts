@@ -1,6 +1,11 @@
 import { Operation } from 'fast-json-patch';
 import { Coverage, Organization, Patient, RelatedPerson } from 'fhir/r4b';
-import { eligibilityRequirementKeys, getPayerId, InsurancePlanDTO, InsurancePlanRequirementKeyBooleans } from 'utils';
+import { getPayerId } from 'utils/lib/helpers/helpers';
+import {
+  eligibilityRequirementKeys,
+  InsurancePlanDTO,
+  InsurancePlanRequirementKeyBooleans,
+} from 'utils/lib/types/data/telemed/insurances.types';
 import { create } from 'zustand';
 
 export interface Insurance {

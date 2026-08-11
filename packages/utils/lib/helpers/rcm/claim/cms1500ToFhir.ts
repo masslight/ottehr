@@ -9,8 +9,8 @@ import {
   CodeableConcept,
   Extension,
 } from 'fhir/r4b';
-import { codeableConcept, filterUndefined, money, undefinedIfEmptyArray } from '../../../fhir';
-import { Cms1500 } from '../../../types';
+import { codeableConcept, filterUndefined, money, undefinedIfEmptyArray } from '../../../fhir/helpers';
+import { Cms1500 } from '../../../types/api/rcm-claims/claim.types';
 import { validateDefined } from '../../helpers';
 import {
   CODE_SYSTEM_ACT_CODE_V3,

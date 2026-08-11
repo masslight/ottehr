@@ -7,7 +7,7 @@ import { Controller, useFieldArray, useFormContext } from 'react-hook-form';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { AdminInHouseLabItemDefinition } from 'utils';
+import { AdminInHouseLabItemDefinition } from 'utils/lib/types/data/in-house/in-house.types';
 import { FieldArrayListItemProps } from './shared.types';
 
 interface CPTCodeListProps {

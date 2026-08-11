@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { UseFormReturn, useWatch } from 'react-hook-form';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { DispositionDTO, DispositionType, getDispositionDefaultTextFromProgressNoteConfig } from 'utils';
+import { DispositionDTO, DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { getDispositionDefaultTextFromProgressNoteConfig } from 'utils/lib/utils/progress-note-config';
 import { DispositionFormValues, mapFormToDisposition } from '../../telemed/utils/disposition.helper';
 
 type SetNoteCache = (note: string) => void;

@@ -4,8 +4,8 @@ import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
 import { FC, useEffect, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { InputMask } from 'ui-components';
-import { isPhoneNumberValid } from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 

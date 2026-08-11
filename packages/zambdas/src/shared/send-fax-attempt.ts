@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Task } from 'fhir/r4b';
-import { getFullestAvailableName } from 'utils';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,

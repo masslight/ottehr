@@ -1,6 +1,6 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
 interface HearingRelayPopupProps {

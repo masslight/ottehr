@@ -24,8 +24,10 @@ vi.mock('../../src/hooks/useUCZambdaClient', () => ({
 
 const mockGetWalkinAvailability = vi.fn();
 const mockCreateSlot = vi.fn();
-vi.mock('../../src/api', () => ({
-  ottehrApi: {
+// WalkinLanding imports ottehrApi from its declaring module (as a default export) rather than
+// the src/api barrel, so the mock has to match that shape to intercept.
+vi.mock('src/api/ottehrApi', () => ({
+  default: {
     getWalkinAvailability: (...args: unknown[]) => mockGetWalkinAvailability(...args),
     createSlot: (...args: unknown[]) => mockCreateSlot(...args),
   },

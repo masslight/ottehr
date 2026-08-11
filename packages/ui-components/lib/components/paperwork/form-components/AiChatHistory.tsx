@@ -2,7 +2,7 @@ import { Avatar, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { defaultSecondaryIcon } from '../../intake/icons';
 const MESSAGES_CONTAINER_ID = 'messages-container';
 

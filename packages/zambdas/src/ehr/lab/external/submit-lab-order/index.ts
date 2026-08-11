@@ -4,23 +4,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  EXTERNAL_LAB_ERROR,
-  externalLabOrderUsesFriendlyPatientId,
-  getPatchBinary,
-  getPatientFriendlyId,
-  MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
-  removePrefix,
-  SubmitLabOrderOutput,
-  userMe,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  requirePractitionerNPI,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { externalLabOrderUsesFriendlyPatientId } from 'utils/lib/helpers/labs/helpers';
+import { MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING } from 'utils/lib/types/data/labs/labs.constants';
+import { SubmitLabOrderOutput } from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import {
   getBundledOrderResources,
   makeOrderFormsAndDocRefs,

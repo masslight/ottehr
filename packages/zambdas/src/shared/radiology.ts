@@ -1,19 +1,21 @@
 import { DiagnosticReport, DocumentReference, Extension, Organization, ServiceRequest } from 'fhir/r4b';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import {
-  FHIR_EXTENSION,
   LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
   RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
-  RadiologyDTO,
-  RadiologyPerformedBy,
-  RadiologyPerformingOrganization,
-  RadiologySafetyFlag,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
+import {
+  RadiologyDTO,
+  RadiologyPerformedBy,
+  RadiologyPerformingOrganization,
+  RadiologySafetyFlag,
+} from 'utils/lib/types/api/radiology';
 
 // The single definition of "this radiology order has an uploaded result": a current DocumentReference
 // with the radiology-result type coding, related to the ServiceRequest. All radiology consumers must agree.

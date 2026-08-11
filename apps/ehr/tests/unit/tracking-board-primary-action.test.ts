@@ -1,4 +1,4 @@
-import { visitStatusArray, VisitStatusLabel } from 'utils';
+import { visitStatusArray, VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { describe, expect, test } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { getTrackingBoardPrimaryAction } from '../../src/helpers/trackingBoardPrimaryAction';

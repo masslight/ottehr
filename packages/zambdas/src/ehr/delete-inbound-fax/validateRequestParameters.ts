@@ -1,5 +1,7 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export interface DeleteInboundFaxInput {
   secrets: Secrets | null;

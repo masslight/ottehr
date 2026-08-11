@@ -25,7 +25,7 @@ import * as readline from 'node:readline';
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 
 // Tee everything printed by this probe into a tmp file so it can be captured and shared after a run.
 // The token is never printed (it is read via a masked prompt), so the dump is safe to hand off.

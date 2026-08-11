@@ -1,4 +1,4 @@
-import { ActionLogChannel } from 'utils';
+import { ActionLogChannel } from 'utils/lib/types/api/action-logs.types';
 
 export const ACTION_LOG_CHANNEL_COPY: Record<
   ActionLogChannel,

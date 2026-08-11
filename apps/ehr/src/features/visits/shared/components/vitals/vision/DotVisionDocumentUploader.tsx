@@ -7,7 +7,9 @@ import { createZ3Object } from 'src/api/api';
 import ImageUploader from 'src/components/ImageUploader';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetPresignedFileURLInput, MIME_TYPES, VitalsDotVisionScreeningDocument } from 'utils';
+import { VitalsDotVisionScreeningDocument } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { useOpenDotVisionDocument } from './useOpenDotVisionDocument';
 
 // Reuses the patient-photo presigned-URL flow purely for the Z3 byte upload. The file bytes are

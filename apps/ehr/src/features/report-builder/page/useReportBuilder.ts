@@ -3,14 +3,10 @@ import { DateTime } from 'luxon';
 import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  ADHOC_RUNTIME_VERSION,
-  AdHocDateRangeFilter,
-  AdHocRow,
-  GenerateAdHocReportInput,
-  LlmDatasetSchema,
-  SavedAdHocReportDefinition,
-} from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';

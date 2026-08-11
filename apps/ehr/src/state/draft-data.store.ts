@@ -1,15 +1,8 @@
 import { useEffect } from 'react';
+import { LateralityValue } from 'utils/lib/fhir/radiology';
 import {
   CPTCodeDTO,
-  CreateInHouseLabOrderParameters,
-  CreateLabOrderParameters,
-  CreateNursingOrderInput,
-  CreateRadiologyZambdaOrderInput,
   DiagnosisDTO,
-  InputImmunizationOrderDetails,
-  LateralityValue,
-  MedicationData,
-  ProcedurePageState,
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
@@ -19,7 +12,14 @@ import {
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
+import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
+import { CreateRadiologyZambdaOrderInput } from 'utils/lib/types/api/radiology';
+import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
+import { CreateInHouseLabOrderParameters } from 'utils/lib/types/data/in-house/in-house.types';
+import { CreateLabOrderParameters } from 'utils/lib/types/data/labs/labs.types';
+import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
 import { create, Mutate, StoreApi, UseBoundStore } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 

@@ -12,16 +12,13 @@
 
 import { Page } from '@playwright/test';
 import { isTelemedEnabled } from 'test-utils';
-import {
-  BOOKING_CONFIG,
-  BookingConfig,
-  CanonicalUrl,
-  CONFIG_INJECTION_KEYS,
-  CreateAppointmentResponse,
-  INTAKE_PAPERWORK_CONFIG,
-  serviceCategorySupportsContext,
-  VIRTUAL_INTAKE_PAPERWORK_CONFIG,
-} from 'utils';
+import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
+import { BOOKING_CONFIG, BookingConfig } from 'utils/lib/ottehr-config/booking';
+import { INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { CanonicalUrl } from 'utils/lib/types/common';
 import { injectTestConfig } from '../config/injectTestConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';

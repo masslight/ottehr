@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getInPersonVisitStatus } from 'utils';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';

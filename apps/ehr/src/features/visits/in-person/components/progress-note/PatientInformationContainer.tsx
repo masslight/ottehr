@@ -2,12 +2,14 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { capitalize, IconButton, Stack, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
+import EditPatientDialog from 'src/components/dialogs/EditPatientDialog';
 import { VisitNoteItem } from 'src/features/visits/shared/components/VisitNoteItem';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { getPatientName } from 'src/shared/utils';
-import { calculatePatientAge, formatDateForDisplay, getPatientAddress, standardizePhoneNumber } from 'utils';
-import { EditPatientDialog } from '../../../../../components/dialogs';
+import { getPatientName } from 'src/shared/utils/getPatientName';
+import { getPatientAddress } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { calculatePatientAge, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 
 export const PatientInformationContainer: FC = () => {
   const { patient } = useAppointmentData();

@@ -2,23 +2,21 @@ import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  EmployeeDetails,
-  getAllNotificationRows,
-  GetEmployeesResponse,
-  getFirstName,
-  getLastName,
-  getProviderNotificationPreferencesV2,
-  getResourcesFromBatchInlineRequests,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  PromiseInnerType,
-  RoleType,
-  Secrets,
-  standardizePhoneNumber,
-} from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
+import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
+import { getFirstName, getLastName, getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { EmployeeDetails, GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
+import { PractitionerLicense, PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { getAllNotificationRows } from 'utils/lib/types/api/provider-notifications';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { PromiseInnerType } from 'utils/lib/types/utils';
+import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { lambdaResponse } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { getRoleMembers } from '../../shared/users.helper';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance

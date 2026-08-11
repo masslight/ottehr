@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { GetChartDataResponse } from 'utils';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it, vi } from 'vitest';
 import { ChartDataApiClient, COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
 

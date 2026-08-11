@@ -1,7 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
 import { MemoryRouter } from 'react-router-dom';
-import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation, VisitType } from 'utils';
+import {
+  getPrivacyPolicyLinkDefForLocation,
+  getTermsAndConditionsLinkDefForLocation,
+} from 'utils/lib/ottehr-config/legal';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ReviewPage from '../../src/pages/Review';
 

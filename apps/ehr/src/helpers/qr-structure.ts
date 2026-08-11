@@ -1,11 +1,11 @@
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import _ from 'lodash';
 import {
-  IntakeQuestionnaireItem,
   isRemovableField,
   makeQRResponseItem,
   mapQuestionnaireAndValueSetsToItemsList,
-} from 'utils';
+} from 'utils/lib/helpers/paperwork/paperwork';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 
 export const containedItemWithLinkId = (item: QuestionnaireItem, linkId: string): QuestionnaireItem | undefined => {
   // note: if item.linkId === linkId, return item

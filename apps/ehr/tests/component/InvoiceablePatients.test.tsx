@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { GET_INVOICES_TASKS_ZAMBDA_KEY, InvoiceTaskSource } from 'utils';
+import { GET_INVOICES_TASKS_ZAMBDA_KEY, InvoiceTaskSource } from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import InvoiceablePatients from '../../src/pages/reports/InvoiceablePatients';
 

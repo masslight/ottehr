@@ -1,6 +1,9 @@
-import { GetPhotoIdSuggestionsInput, MISSING_REQUEST_BODY, Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { GetPhotoIdSuggestionsInput } from 'utils/lib/types/api/get-photo-id-suggestions.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const bodySchema = z.object({
   appointmentID: z.string().uuid(),

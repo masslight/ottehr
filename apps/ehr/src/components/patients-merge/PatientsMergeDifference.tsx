@@ -30,15 +30,13 @@ import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
-import {
-  extractFirstValueFromAnswer,
-  flattenItems,
-  MergePatientsResponse,
-  OrderedCoveragesWithSubscribers,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  prepopulatePatientRecordItems,
-  pruneEmptySections,
-} from 'utils';
+import { prepopulatePatientRecordItems } from 'utils/lib/config-helpers/patient-record';
+import { pruneEmptySections } from 'utils/lib/helpers/paperwork/paperwork';
+import { extractFirstValueFromAnswer } from 'utils/lib/helpers/paperwork/prePopulation';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { MergePatientsResponse } from 'utils/lib/types/api/patient-account';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { useGetPatientAccount, useGetPatientCoverages } from '../../hooks/useGetPatient';
 import { RoundedButton } from '../RoundedButton';
 

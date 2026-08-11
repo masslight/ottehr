@@ -1,6 +1,10 @@
 import { Box, Divider, FormControlLabel, Radio, RadioGroup, Typography } from '@mui/material';
 import { FC } from 'react';
-import { PATIENT_EDUCATION_LANGUAGE_LABELS, PATIENT_EDUCATION_LANGUAGES, PatientEducationLanguage } from 'utils';
+import {
+  PATIENT_EDUCATION_LANGUAGE_LABELS,
+  PATIENT_EDUCATION_LANGUAGES,
+  PatientEducationLanguage,
+} from 'utils/lib/types/data/patient-education.types';
 
 type PatientEducationLanguageSelectorProps = {
   value: PatientEducationLanguage;
