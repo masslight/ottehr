@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -264,7 +264,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
   oystehr: Oystehr;
   resourceType: T['resourceType'];
   ids: string[];
-  buildParam: (batch: string[]) => { name: string; value: string };
+  buildParam: (batch: string[]) => SearchParam[];
   groupKeyOf: (resource: T) => string | undefined;
   batchSize?: number;
 }): Promise<Map<string, T[]>> {
@@ -276,7 +276,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
       const bundle = await oystehr.fhir.search<T>({
         resourceType,
         params: [
-          buildParam(batch),
+          ...buildParam(batch),
           {
             name: '_count',
             value: String(count),
@@ -302,6 +302,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
 
 // Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
 // ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
+// Filters out non-ERA ClaimResponses created by claim submission.
 export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
@@ -310,10 +311,21 @@ export async function fetchClaimResponsesByClaimIds(
     oystehr,
     resourceType: 'ClaimResponse',
     ids: claimIds,
-    buildParam: (batch) => ({
-      name: 'request',
-      value: batch.map((id) => `Claim/${id}`).join(','),
-    }),
+    buildParam: (batch) => [
+      {
+        name: 'request',
+        value: batch.map((id) => `Claim/${id}`).join(','),
+      },
+      // Filter out queued and error CRs, which come from claim submission
+      {
+        name: 'outcome:not',
+        value: 'queued',
+      },
+      {
+        name: 'outcome:not',
+        value: 'error',
+      },
+    ],
     groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
   });
 }
@@ -327,10 +339,12 @@ export async function fetchPatientPaymentsByEncounterIds(
     oystehr,
     resourceType: 'PaymentNotice',
     ids: encounterIds,
-    buildParam: (batch) => ({
-      name: 'request:identifier',
-      value: batch.map((id) => `${system}|${id}`).join(','),
-    }),
+    buildParam: (batch) => [
+      {
+        name: 'request:identifier',
+        value: batch.map((id) => `${system}|${id}`).join(','),
+      },
+    ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,
     batchSize: PATIENT_PAYMENT_ENCOUNTER_BATCH,
   });
@@ -459,10 +473,12 @@ export async function fetchClaimResponsesFromEraProvenances(
     oystehr,
     resourceType: 'ClaimResponse',
     ids: [...new Set([...claimResponseIdsByPrId.values()].flat())],
-    buildParam: (batch) => ({
-      name: '_id',
-      value: batch.join(','),
-    }),
+    buildParam: (batch) => [
+      {
+        name: '_id',
+        value: batch.join(','),
+      },
+    ],
     groupKeyOf: (claimResponse) => claimResponse.id,
   });
 
