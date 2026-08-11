@@ -1,7 +1,11 @@
 import { DateTime } from 'luxon';
-import { AppointmentTypeOptions, MAX_APPOINTMENT_SEARCH_RANGE_DAYS, MISSING_REQUEST_BODY, ServiceMode } from 'utils';
+import { AppointmentTypeOptions } from 'utils/lib/types/api/appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils/lib/types/constants';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 import { GetAppointmentsZambdaInputValidated } from '.';
 
 const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>

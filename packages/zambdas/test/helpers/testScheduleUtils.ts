@@ -3,22 +3,18 @@ import { randomUUID } from 'crypto';
 import { FhirResource, Location, LocationHoursOfOperation, Patient, RelatedPerson, Schedule } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
+import { FHIR_BASE_URL, SCHEDULE_EXTENSION_URL, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
 import {
   Capacity,
-  Closure,
-  ClosureType,
   DailySchedule,
   DOW,
-  FHIR_BASE_URL,
   HourOfDay,
-  OVERRIDE_DATE_FORMAT,
-  SCHEDULE_EXTENSION_URL,
   ScheduleDay,
   ScheduleExtension,
   ScheduleOverrides,
-  ScheduleOwnerFhirResource,
-  SLUG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 type DayLong = (typeof DAYS_LONG)[number];

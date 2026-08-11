@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceDischargeOutreachParams {

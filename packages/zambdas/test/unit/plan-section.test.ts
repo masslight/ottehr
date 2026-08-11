@@ -1,5 +1,6 @@
 import { Encounter } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3, NOTE_TYPE, NoteDTO } from 'utils';
+import { CODE_SYSTEM_ACT_CODE_V3 } from 'utils/lib/helpers/rcm/constants';
+import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { composePlanData } from '../../src/shared/pdf/sections/visit-note/plan';
 import { AllChartData, FullAppointmentResourcePackage } from '../../src/shared/pdf/visit-details-pdf/types';

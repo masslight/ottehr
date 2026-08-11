@@ -3,7 +3,7 @@ import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
-import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';

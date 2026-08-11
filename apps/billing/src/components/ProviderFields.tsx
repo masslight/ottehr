@@ -14,14 +14,11 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { InputMask } from 'ui-components';
-import {
-  isNPIValidWithChecksum,
-  PractitionerQualificationCodesDisplay,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  stripeAccountIdRegex,
-  taxIdRegex,
-} from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import { PractitionerQualificationCodesDisplay } from 'utils/lib/types/api/practitioner.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { stripeAccountIdRegex, taxIdRegex } from 'utils/lib/validation/regex';
 import { ProviderForm } from '../constants/provider';
 import { AddressFields } from './AddressFields';
 

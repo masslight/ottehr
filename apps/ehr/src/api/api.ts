@@ -1,82 +1,133 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { HealthcareService, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
-import { createClinicalOystehrClient } from 'ui-components';
+import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
+import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { AdHocBillingInput, AdHocBillingOutput } from 'utils/lib/types/adhoc/datasets/billing';
+import { AdHocEncountersInput, AdHocEncountersOutput } from 'utils/lib/types/adhoc/datasets/encounters';
+import { AdHocPatientsInput, AdHocPatientsOutput } from 'utils/lib/types/adhoc/datasets/patients';
+import { GenerateAdHocReportInput, GenerateAdHocReportOutput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { InferAdHocLayersInput, InferAdHocLayersOutput } from 'utils/lib/types/adhoc/generation/infer.types';
 import {
-  AdHocBillingInput,
-  AdHocBillingOutput,
-  AdHocEncountersInput,
-  AdHocEncountersOutput,
-  AdHocPatientsInput,
-  AdHocPatientsOutput,
-  AdminAddInHouseLabInput,
-  AdminAddInHouseLabOutput,
-  AdminAddLabSetInput,
-  AdminAddLabSetOutput,
-  AdminCreateTemplateInput,
-  AdminCreateTemplateOutput,
-  AdminDeleteTemplateInput,
-  AdminDeleteTemplateOutput,
-  AdminGetInHouseLabConfigInput,
-  AdminGetLabSetDetailInput,
-  AdminGetLabSetDetailOutput,
-  AdminGetLabSetListOutput,
-  AdminGetTemplateDetailInput,
-  AdminGetTemplateDetailOutput,
-  AdminInHouseLabConfigOutput,
-  AdminListInHouseLabsOutput,
-  AdminRenameTemplateInput,
-  AdminRenameTemplateOutput,
-  AdminUpdateInHouseLabInput,
-  AdminUpdateLabSetInput,
-  AdminUpdateLocationSupportPhonesInput,
-  AdminUpdatePrintingConfigInput,
-  AdminUpdateSupportDialogInput,
+  DeleteAdHocReportInput,
+  DeleteAdHocReportOutput,
+  ListAdHocReportsOutput,
+  SaveAdHocReportInput,
+  SaveAdHocReportOutput,
+} from 'utils/lib/types/adhoc/saved/saved.types';
+import {
+  GetActionLogsInput,
+  GetActionLogsOutput,
+  RetryActionLogInput,
+  RetryActionLogOutput,
+} from 'utils/lib/types/api/action-logs.types';
+import {
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
-  AllergyQuickPickData,
-  apiErrorToThrow,
-  ApplyTemplateZambdaInput,
-  ApplyTemplateZambdaOutput,
+} from 'utils/lib/types/api/ai-assisted-encounters-report.types';
+import {
+  CreateResourcesFromAudioRecordingInput,
+  CreateResourcesFromAudioRecordingOutput,
+  CreateUploadAudioRecordingInput,
+  CreateUploadAudioRecordingOutput,
+} from 'utils/lib/types/api/appointment.types';
+import {
   AssignPractitionerInput,
   AssignPractitionerResponse,
+} from 'utils/lib/types/api/assign-practitioner/assign-practitioner.types';
+import {
   BulkUpdateInsuranceStatusInput,
   BulkUpdateInsuranceStatusResponse,
+} from 'utils/lib/types/api/bulk-update-insurance-status.types';
+import {
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
-  CancelRadiologyOrderZambdaInput,
-  CancelRadiologyOrderZambdaOutput,
+} from 'utils/lib/types/api/cancel-appointment.types';
+import {
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
+} from 'utils/lib/types/api/cancel-telemed-appointment.types';
+import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  chooseJson,
-  CollectInHouseLabSpecimenParameters,
-  CollectInHouseLabSpecimenZambdaOutput,
-  CreateAllergyQuickPickInput,
-  CreateAllergyQuickPickResponse,
-  CreateAppointmentInputParams,
-  CreateAppointmentResponse,
-  CreateCustomFolderInput,
-  CreateCustomFolderOutput,
+} from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
+import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  CreateEmCodeInput,
+  DeleteEmCodeInput,
+  EmCodeOutput,
+  UpdateEmCodeInput,
+} from 'utils/lib/types/api/config/em-codes';
+import {
+  CreateInHouseMedicationInput,
+  UpdateInHouseMedicationInput,
+} from 'utils/lib/types/api/config/in-house-medications';
+import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
-  CreateEmCodeInput,
+} from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
+import { CreateUserOutput, CreateUserParams } from 'utils/lib/types/api/create-user.types';
+import {
+  DailyPaymentsReportZambdaInput,
+  DailyPaymentsReportZambdaOutput,
+} from 'utils/lib/types/api/daily-payments-report.types';
+import { DeleteUserZambdaInput, DeleteUserZambdaOutput } from 'utils/lib/types/api/delete-user.types';
+import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
+import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
+import { GetConversationInput, GetConversationZambdaOutput } from 'utils/lib/types/api/get-conversation.types';
+import { GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
+import {
+  DownloadPatientProfilePhotoInput,
+  GetOrUploadPatientProfilePhotoZambdaResponse,
+  UploadPatientProfilePhotoInput,
+} from 'utils/lib/types/api/get-patient-profile-photo-url.types';
+import {
+  GetPresignedFileURLInput,
+  PresignUploadUrlResponse,
+} from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { GetUserParams, GetUserResponse } from 'utils/lib/types/api/get-user.types';
+import {
+  IncompleteEncountersReportZambdaInput,
+  IncompleteEncountersReportZambdaOutput,
+} from 'utils/lib/types/api/incomplete-encounters-report.types';
+import { UpdateInvoiceTaskZambdaInput } from 'utils/lib/types/api/invoicing.types';
+import {
+  MailedStatementsReportZambdaInput,
+  MailedStatementsReportZambdaOutput,
+  SyncMailedStatementStatusesOutput,
+} from 'utils/lib/types/api/mailed-statements-report.types';
+import {
+  GetPatientLoginPhoneNumbersInput,
+  GetPatientLoginPhoneNumbersOutput,
+  UpdatePatientLoginPhoneNumbersInput,
+} from 'utils/lib/types/api/patient-login-phone-numbers.types';
+import {
+  PracticeKpisReportZambdaInput,
+  PracticeKpisReportZambdaOutput,
+} from 'utils/lib/types/api/practice-kpis-report.types';
+import {
+  CreateAppointmentInputParams,
+  CreateAppointmentResponse,
+  CreateSlotParams,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import {
+  GetProgressNoteConfigInput,
+  GetProgressNoteConfigOutput,
+  UpdateProgressNoteConfigInput,
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import {
+  AllergyQuickPickData,
+  CreateAllergyQuickPickInput,
+  CreateAllergyQuickPickResponse,
   CreateImmunizationQuickPickInput,
   CreateImmunizationQuickPickResponse,
-  CreateInHouseLabOrderParameters,
-  CreateInHouseLabOrderResponse,
-  CreateInHouseMedicationInput,
   CreateInHouseMedicationQuickPickInput,
   CreateInHouseMedicationQuickPickResponse,
   CreateInsuranceQuickPickInput,
   CreateInsuranceQuickPickResponse,
-  CreateLabOrderParameters,
-  CreateLabOrderZambdaOutput,
   CreateMedicalConditionQuickPickInput,
   CreateMedicalConditionQuickPickResponse,
   CreateMedicationHistoryQuickPickInput,
   CreateMedicationHistoryQuickPickResponse,
-  CreateNursingOrderInput,
   CreatePatientInstructionQuickPickInput,
   CreatePatientInstructionQuickPickResponse,
   CreateProcedureQuickPickInput,
@@ -85,121 +136,189 @@ import {
   CreateQuickTextQuickPickResponse,
   CreateRadiologyQuickPickInput,
   CreateRadiologyQuickPickResponse,
-  CreateRadiologyZambdaOrderInput,
-  CreateRadiologyZambdaOrderOutput,
-  CreateResourcesFromAudioRecordingInput,
-  CreateResourcesFromAudioRecordingOutput,
-  CreateScheduleParams,
-  CreateSlotParams,
-  CreateUploadAudioRecordingInput,
-  CreateUploadAudioRecordingOutput,
-  CreateUserOutput,
-  CreateUserParams,
-  DailyPaymentsReportZambdaInput,
-  DailyPaymentsReportZambdaOutput,
-  DeleteAdHocReportInput,
-  DeleteAdHocReportOutput,
-  DeleteCustomFolderInput,
-  DeleteCustomFolderOutput,
-  DeleteEmCodeInput,
-  DeleteInHouseLabOrderParameters,
-  DeleteInHouseLabOrderZambdaOutput,
-  DeleteLabOrderZambdaInput,
-  DeleteLabOrderZambdaOutput,
-  DeletePatientDocumentInput,
-  DeletePatientDocumentOutput,
-  DeleteRadiologyResultZambdaInput,
-  DeleteRadiologyResultZambdaOutput,
-  DeleteUserZambdaInput,
-  DeleteUserZambdaOutput,
-  DeleteVisitFilesInput,
-  DownloadPatientProfilePhotoInput,
-  EHRVisitDetails,
-  EmCodeOutput,
-  ExtractCardInput,
-  ExtractCardResponse,
-  GenerateAdHocReportInput,
-  GenerateAdHocReportOutput,
-  GetActionLogsInput,
-  GetActionLogsOutput,
   GetAllergyQuickPicksResponse,
-  GetAppointmentsZambdaInput,
-  GetAppointmentsZambdaOutput,
-  GetConversationInput,
-  GetConversationZambdaOutput,
-  GetEmployeesResponse,
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
-  GetInHouseOrdersParameters,
   GetInsuranceQuickPicksResponse,
-  GetLabelPrintingConfigInput,
-  GetLabelPrintingConfigOutput,
-  GetLabOrdersParameters,
-  GetLocationSupportPhonesOutput,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
-  GetNursingOrdersInput,
-  GetOrUploadPatientProfilePhotoZambdaResponse,
-  GetPatientBalancesZambdaInput,
-  GetPatientBalancesZambdaOutput,
   GetPatientInstructionQuickPicksResponse,
-  GetPatientLoginPhoneNumbersInput,
-  GetPatientLoginPhoneNumbersOutput,
-  GetPatientMedicalRecordInput,
-  GetPatientMedicalRecordOutput,
-  GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
-  GetProgressNoteConfigInput,
-  GetProgressNoteConfigOutput,
   GetQuickTextQuickPicksResponse,
+  GetRadiologyQuickPicksResponse,
+  ImmunizationQuickPickData,
+  InHouseMedicationQuickPickData,
+  InsuranceQuickPickData,
+  MedicalConditionQuickPickData,
+  MedicationHistoryQuickPickData,
+  PatientInstructionQuickPickData,
+  ProcedureQuickPickData,
+  QuickPickRemoveResponse,
+  QuickTextQuickPickData,
+  RadiologyQuickPickData,
+  UpdateAllergyQuickPickResponse,
+  UpdateImmunizationQuickPickResponse,
+  UpdateInHouseMedicationQuickPickResponse,
+  UpdateInsuranceQuickPickResponse,
+  UpdateMedicalConditionQuickPickResponse,
+  UpdateMedicationHistoryQuickPickResponse,
+  UpdatePatientInstructionQuickPickResponse,
+  UpdateProcedureQuickPickResponse,
+  UpdateQuickTextQuickPickResponse,
+  UpdateRadiologyQuickPickResponse,
+} from 'utils/lib/types/api/quick-picks.types';
+import {
+  CancelRadiologyOrderZambdaInput,
+  CancelRadiologyOrderZambdaOutput,
+  CreateRadiologyZambdaOrderInput,
+  CreateRadiologyZambdaOrderOutput,
+  DeleteRadiologyResultZambdaInput,
+  DeleteRadiologyResultZambdaOutput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetRadiologyOrderPdfZambdaInput,
   GetRadiologyOrderPdfZambdaOutput,
-  GetRadiologyQuickPicksResponse,
-  GetScheduleParams,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  GetSupportDialogOutput,
-  GetUserParams,
-  GetUserResponse,
-  GetVisitDetailsPDFInput,
-  GetVisitFaxHistoryInput,
-  GetVisitFaxHistoryOutput,
-  GetVisitLabelInput,
-  HandleInHouseLabResultsParameters,
-  HandleInHouseLabResultsZambdaOutput,
-  ImmunizationQuickPickData,
-  IncompleteEncountersReportZambdaInput,
-  IncompleteEncountersReportZambdaOutput,
-  InferAdHocLayersInput,
-  InferAdHocLayersOutput,
-  InHouseGetOrdersResponseDTO,
-  InHouseMedicationQuickPickData,
-  InsuranceQuickPickData,
-  InviteParticipantRequestParameters,
-  LabelPdf,
-  ListAdHocReportsOutput,
   ListRadiologyResultsZambdaInput,
   ListRadiologyResultsZambdaOutput,
+  RadiologyLaunchViewerZambdaInput,
+  RadiologyLaunchViewerZambdaOutput,
+  SavePreliminaryRadiologyReportZambdaInput,
+  SaveRadiologyReportZambdaInput,
+  SaveRadiologyReportZambdaOutput,
+  SendForFinalReadZambdaInput,
+  SendForFinalReadZambdaOutput,
+  SendRadiologyOrderFaxZambdaInput,
+  SendRadiologyOrderFaxZambdaOutput,
+  UpdateRadiologyOrderZambdaInput,
+  UpdateRadiologyOrderZambdaOutput,
+  UploadRadiologyResultZambdaInput,
+  UploadRadiologyResultZambdaOutput,
+} from 'utils/lib/types/api/radiology';
+import {
+  RecentPatientsReportZambdaInput,
+  RecentPatientsReportZambdaOutput,
+} from 'utils/lib/types/api/recent-patients-report.types';
+import {
+  SaveFollowupEncounterZambdaInput,
+  SaveFollowupEncounterZambdaOutput,
+} from 'utils/lib/types/api/save-followup-encounter.types';
+import {
+  CreateScheduleParams,
+  GetScheduleParams,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
-  ListTemplatesZambdaInput,
-  ListTemplatesZambdaOutput,
-  MailedStatementsReportZambdaInput,
-  MailedStatementsReportZambdaOutput,
-  MedicalConditionQuickPickData,
-  MedicationHistoryQuickPickData,
-  MigrateExamDataInput,
-  MigrateExamDataOutput,
-  OnDemandLabelXmlRequestInput,
-  OnDemandLabelXmlRequestOutput,
+  UpdateScheduleParams,
+} from 'utils/lib/types/api/schedules';
+import {
+  SendReceiptByEmailZambdaInput,
+  SendReceiptByEmailZambdaOutput,
+} from 'utils/lib/types/api/send-receipt-by-email.types';
+import {
+  UnassignPractitionerZambdaInput,
+  UnassignPractitionerZambdaOutput,
+} from 'utils/lib/types/api/unassign-practitioner/unassign-practitioner.types';
+import { UpdateUserParams, UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
+import {
+  DeleteVisitFilesInput,
+  UpdateVisitDetailsInput,
+  UpdateVisitFilesInput,
+  UpdateVisitFilesOutput,
+} from 'utils/lib/types/api/update-visit-details.types';
+import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
+import {
+  GetVisitFaxHistoryInput,
+  GetVisitFaxHistoryOutput,
+} from 'utils/lib/types/api/visit-details/visit-details.types';
+import {
+  VisitsOverviewReportZambdaInput,
+  VisitsOverviewReportZambdaOutput,
+} from 'utils/lib/types/api/visits-overview-report.types';
+import { GetVisitDetailsPDFInput, GetVisitLabelInput } from 'utils/lib/types/common';
+import {
+  AdminCreateTemplateInput,
+  AdminCreateTemplateOutput,
+  AdminDeleteTemplateInput,
+  AdminDeleteTemplateOutput,
+  AdminGetTemplateDetailInput,
+  AdminGetTemplateDetailOutput,
+  AdminRenameTemplateInput,
+  AdminRenameTemplateOutput,
+} from 'utils/lib/types/data/admin-template.types';
+import { ApplyTemplateZambdaInput, ApplyTemplateZambdaOutput } from 'utils/lib/types/data/apply-template.types';
+import { PendingSupervisorApprovalInput } from 'utils/lib/types/data/appointments/appointments.types';
+import {
+  CreateCustomFolderInput,
+  CreateCustomFolderOutput,
+  DeleteCustomFolderInput,
+  DeleteCustomFolderOutput,
+  RenameCustomFolderInput,
+  RenameCustomFolderOutput,
+} from 'utils/lib/types/data/custom-folder.types';
+import {
+  DeletePatientDocumentInput,
+  DeletePatientDocumentOutput,
+} from 'utils/lib/types/data/delete-patient-document.types';
+import {
+  RotateInsuranceCardImageInput,
+  RotateInsuranceCardImageResponse,
+  VisitDocuments,
+} from 'utils/lib/types/data/documents';
+import {
+  GetPatientMedicalRecordInput,
+  GetPatientMedicalRecordOutput,
+} from 'utils/lib/types/data/get-patient-medical-record.types';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import {
+  AdminAddInHouseLabInput,
+  AdminAddInHouseLabOutput,
+  AdminGetInHouseLabConfigInput,
+  AdminInHouseLabConfigOutput,
+  AdminListInHouseLabsOutput,
+  AdminUpdateInHouseLabInput,
+  CollectInHouseLabSpecimenParameters,
+  CollectInHouseLabSpecimenZambdaOutput,
+  CreateInHouseLabOrderParameters,
+  CreateInHouseLabOrderResponse,
+  DeleteInHouseLabOrderParameters,
+  DeleteInHouseLabOrderZambdaOutput,
+  GetInHouseOrdersParameters,
+  HandleInHouseLabResultsParameters,
+  HandleInHouseLabResultsZambdaOutput,
+  InHouseGetOrdersResponseDTO,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
+  AdminUpdateLabSetInput,
+  CreateLabOrderParameters,
+  CreateLabOrderZambdaOutput,
+  DeleteLabOrderZambdaInput,
+  DeleteLabOrderZambdaOutput,
+  GetLabOrdersParameters,
   PaginatedResponse,
-  PaperworkToPDFInput,
-  PatientInstructionQuickPickData,
-  PendingSupervisorApprovalInput,
-  PracticeKpisReportZambdaInput,
-  PracticeKpisReportZambdaOutput,
+  SubmitLabOrderInput,
+  SubmitLabOrderOutput,
+  UpdateLabOrderResourcesInput,
+} from 'utils/lib/types/data/labs/labs.types';
+import {
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
+} from 'utils/lib/types/data/legacy-data/legacy-data.types';
+import { ListTemplatesZambdaInput, ListTemplatesZambdaOutput } from 'utils/lib/types/data/list-template.types';
+import {
+  CreateNursingOrderInput,
+  GetNursingOrdersInput,
+  UpdateNursingOrderInput,
+} from 'utils/lib/types/data/orders/types';
+import { PaperworkToPDFInput } from 'utils/lib/types/data/paperwork.types';
+import {
+  GetPatientBalancesZambdaInput,
+  GetPatientBalancesZambdaOutput,
+} from 'utils/lib/types/data/payment/payment-method-types';
+import {
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
@@ -207,82 +326,33 @@ import {
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
-  PresignUploadUrlResponse,
-  ProcedureQuickPickData,
-  QuickPickRemoveResponse,
-  QuickTextQuickPickData,
-  RadiologyLaunchViewerZambdaInput,
-  RadiologyLaunchViewerZambdaOutput,
-  RadiologyQuickPickData,
-  RecentPatientsReportZambdaInput,
-  RecentPatientsReportZambdaOutput,
-  RenameCustomFolderInput,
-  RenameCustomFolderOutput,
-  RetryActionLogInput,
-  RetryActionLogOutput,
-  RotateInsuranceCardImageInput,
-  RotateInsuranceCardImageResponse,
-  SaveAdHocReportInput,
-  SaveAdHocReportOutput,
-  SaveFollowupEncounterZambdaInput,
-  SaveFollowupEncounterZambdaOutput,
-  SavePreliminaryRadiologyReportZambdaInput,
-  SaveRadiologyReportZambdaInput,
-  SaveRadiologyReportZambdaOutput,
-  ScheduleDTO,
-  SearchLegacyRecordsInput,
-  SearchLegacyRecordsOutput,
-  SendForFinalReadZambdaInput,
-  SendForFinalReadZambdaOutput,
-  SendPatientFormInput,
-  SendPatientFormOutput,
-  SendRadiologyOrderFaxZambdaInput,
-  SendRadiologyOrderFaxZambdaOutput,
-  SendReceiptByEmailZambdaInput,
-  SendReceiptByEmailZambdaOutput,
-  SubmitLabOrderInput,
-  SubmitLabOrderOutput,
-  SyncMailedStatementStatusesOutput,
-  UnassignPractitionerZambdaInput,
-  UnassignPractitionerZambdaOutput,
-  UpdateAllergyQuickPickResponse,
-  UpdateEmCodeInput,
-  UpdateImmunizationQuickPickResponse,
-  UpdateInHouseMedicationInput,
-  UpdateInHouseMedicationQuickPickResponse,
-  UpdateInsuranceQuickPickResponse,
-  UpdateInvoiceTaskZambdaInput,
-  UpdateLabOrderResourcesInput,
-  UpdateMedicalConditionQuickPickResponse,
-  UpdateMedicationHistoryQuickPickResponse,
-  UpdateNursingOrderInput,
-  UpdatePatientInstructionQuickPickResponse,
-  UpdatePatientLoginPhoneNumbersInput,
-  UpdateProcedureQuickPickResponse,
-  UpdateProgressNoteConfigInput,
-  UpdateQuickTextQuickPickResponse,
-  UpdateRadiologyOrderZambdaInput,
-  UpdateRadiologyOrderZambdaOutput,
-  UpdateRadiologyQuickPickResponse,
-  UpdateScheduleParams,
-  UpdateUserParams,
-  UpdateUserZambdaOutput,
-  UpdateVisitDetailsInput,
-  UpdateVisitFilesInput,
-  UpdateVisitFilesOutput,
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import {
+  AdminUpdatePrintingConfigInput,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
+  LabelPdf,
+  OnDemandLabelXmlRequestInput,
+  OnDemandLabelXmlRequestOutput,
+} from 'utils/lib/types/data/printing';
+import { SendPatientFormInput, SendPatientFormOutput } from 'utils/lib/types/data/send-patient-form';
+import {
+  AdminUpdateLocationSupportPhonesInput,
+  AdminUpdateSupportDialogInput,
+  GetLocationSupportPhonesOutput,
+  GetSupportDialogOutput,
+} from 'utils/lib/types/data/support-dialog';
+import { InviteParticipantRequestParameters } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import {
   UploadDotVisionDocumentInput,
   UploadDotVisionDocumentOutput,
+} from 'utils/lib/types/data/upload-dot-vision-document.types';
+import {
   UploadPatientConditionPhotoInput,
   UploadPatientConditionPhotoOutput,
-  UploadPatientProfilePhotoInput,
-  UploadRadiologyResultZambdaInput,
-  UploadRadiologyResultZambdaOutput,
-  UserActivationZambdaInput,
-  UserActivationZambdaOutput,
-  VisitDocuments,
-  VisitsOverviewReportZambdaInput,
-  VisitsOverviewReportZambdaOutput,
-} from 'utils';
+} from 'utils/lib/types/data/upload-patient-condition-photo.types';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import { ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html

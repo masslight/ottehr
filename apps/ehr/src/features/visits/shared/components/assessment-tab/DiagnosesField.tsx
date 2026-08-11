@@ -3,7 +3,7 @@ import { FC, useState } from 'react';
 import { FieldError } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { IcdSearchResponse } from 'utils';
+import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { useICD10SearchNew } from '../../stores/appointment/appointment.queries';
 
 type DiagnosesFieldProps = {

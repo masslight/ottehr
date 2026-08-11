@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { roundNumberToDecimalPlaces } from '../../utils';
+import { roundNumberToDecimalPlaces } from '../../utils/convert';
 
 export const BMI_DISPLAY_PRECISION = 1;
 export const BMI_UNIT = 'kg/m2';

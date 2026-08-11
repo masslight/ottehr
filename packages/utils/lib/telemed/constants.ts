@@ -1,4 +1,4 @@
-import { OTTEHR_MODULE } from '../fhir';
+import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
 
 export const ELIGIBILITY_BENEFIT_CODES = 'UC,86,30';
 export const ELIGIBILITY_FAILED_REASON_META_TAG = `${OTTEHR_MODULE.TM}-eligibility-failed-reason`;

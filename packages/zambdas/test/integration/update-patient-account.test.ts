@@ -1,6 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient, QuestionnaireResponse } from 'fhir/r4b';
-import { APIErrorCode, M2MClientMockType, PATIENT_HAS_MEDICAID_URL, PATIENT_RECORD_QUESTIONNAIRE } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   InsertFullAppointmentDataBaseResult,

@@ -5,7 +5,8 @@ import { ExternalSelectedTests } from 'src/features/external-labs/components/cre
 import { LabsAutocomplete } from 'src/features/external-labs/components/LabsAutocomplete';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { ExternalLabSetDTO, OrderableItemSearchResult } from 'utils';
+import { ExternalLabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 
 interface AdminLabSetExternalSelectionProps {
   onTestsChange: (tests: OrderableItemSearchResult[]) => void;

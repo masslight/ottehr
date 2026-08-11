@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { QueryClient } from '@tanstack/react-query';
-import { AdHocLayer, AdHocRow, LlmDatasetSchema } from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 
 export type { AdHocRow };
 

@@ -1,4 +1,6 @@
-import { removePrefix, Secrets, userMe } from 'utils';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
 
 /**
  * Resolve the calling user's Practitioner id.

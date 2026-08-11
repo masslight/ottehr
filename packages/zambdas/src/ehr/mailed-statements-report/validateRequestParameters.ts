@@ -1,6 +1,9 @@
-import { MailedStatementsReportZambdaInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { MailedStatementsReportZambdaInput } from 'utils/lib/types/api/mailed-statements-report.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const dateRangeSchema = z.object({
   dateRange: z.object({

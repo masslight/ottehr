@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
-import { CANCELLATION_TAG_SYSTEM } from 'utils';
+import { CANCELLATION_TAG_SYSTEM } from 'utils/lib/helpers/cancellation-meta.helper';
 import { describe, expect, it, vi } from 'vitest';
-import { ZambdaInput } from '../../../../shared';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { validateInput } from '../validation';
 
 describe('cancel-radiology-order zambda', () => {

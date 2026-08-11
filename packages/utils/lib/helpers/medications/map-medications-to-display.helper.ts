@@ -1,7 +1,8 @@
 import { Medication, PrescribedMedication } from '../../../../zambdas/src/shared/pdf/types';
-import { searchRouteByCode } from '../../fhir';
-import { ExtendedMedicationDataForResponse, PrescribedMedicationDTO } from '../../types';
-import { formatDateTimeToZone } from '../../utils';
+import { searchRouteByCode } from '../../fhir/medication-administration';
+import { PrescribedMedicationDTO } from '../../types/api/chart-data/chart-data.types';
+import { ExtendedMedicationDataForResponse } from '../../types/api/medication-administration.types';
+import { formatDateTimeToZone } from '../../utils/date';
 
 export const mapMedicationsToDisplay = (
   medications: ExtendedMedicationDataForResponse[],

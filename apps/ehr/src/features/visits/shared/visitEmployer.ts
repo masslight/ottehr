@@ -1,5 +1,5 @@
 import { Reference } from 'fhir/r4b';
-import { UpdateVisitDetailsInput } from 'utils';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
 
 /** Field / linkId key for the occupational-medicine employer in the patient-record form. */
 export const OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY = 'occupational-medicine-employer';

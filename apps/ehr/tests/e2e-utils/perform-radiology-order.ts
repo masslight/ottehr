@@ -17,7 +17,7 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
 import { readFileSync } from 'fs';
-import { ACCESSION_NUMBER_CODE_SYSTEM } from 'utils';
+import { ACCESSION_NUMBER_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 
 const LOCAL_WEBHOOK_URL = 'http://localhost:3000/local/zambda/radiology-pacs-webhook/execute-public';
 const SECRETS_PATH = './packages/zambdas/.env/zambda-secrets-local.json';

@@ -1,14 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
+import { fhirQuestionnaireToPracticeManaged } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
-  fhirQuestionnaireToPracticeManaged,
-  MANAGED_QUESTIONNAIRE_ERROR,
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireGetOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken } from '../../../shared';
-import { createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateQisPracticeManaged } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

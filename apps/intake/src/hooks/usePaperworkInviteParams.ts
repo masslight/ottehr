@@ -1,6 +1,6 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMemo } from 'react';
-import { InviteParticipantRequestParameters } from 'utils';
+import { InviteParticipantRequestParameters } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 
 export const usePaperworkInviteParams = (
   completedPaperwork: QuestionnaireResponseItem[]

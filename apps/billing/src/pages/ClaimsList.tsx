@@ -19,23 +19,25 @@ import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } f
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
-  ALL_CLAIM_STATUS_OPTIONS_2,
-  ALL_CLAIM_STATUS_OPTIONS_BY_GROUP,
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
   BillingService,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  ALL_CLAIM_STATUS_OPTIONS_2,
+  ALL_CLAIM_STATUS_OPTIONS_BY_GROUP,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_STATUS_GROUPS,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  MAX_RUN_RULES_ENGINE_CLAIMS,
-  SearchBillingClaimsInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import {
   runBillingRulesEngine,
   searchBillingClaims,
@@ -540,7 +542,7 @@ export default function ClaimsList(): ReactElement {
           >
             <MenuItem value="">All</MenuItem>
             {tagOptions.map((t) => (
-              <MenuItem key={t.id} value={t.name}>
+              <MenuItem key={t.id || t.name} value={t.name}>
                 {t.name}
               </MenuItem>
             ))}

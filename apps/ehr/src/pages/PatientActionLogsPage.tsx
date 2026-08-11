@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
-import { getFullName } from 'utils';
+import { getFullName } from 'utils/lib/fhir/patient';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useGetPatient } from '../hooks/useGetPatient';

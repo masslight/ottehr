@@ -29,10 +29,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { captureException } from '@sentry/react';
-import { enqueueSnackbar } from 'notistack';
+import { useSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES, RoleType, SavedAdHocReport } from 'utils';
+import { SavedAdHocReport } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { deleteAdHocReport, listAdHocReports, saveAdHocReport } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -292,8 +294,11 @@ export default function Reports(): React.ReactElement {
   const isAdmin = user?.hasRole([RoleType.Administrator]) ?? false;
   const canViewAdHoc = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
   const canEditAdHoc = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
-  const { oystehrZambda } = useApiClients();
 
+  const { oystehrZambda } = useApiClients();
+  const { enqueueSnackbar } = useSnackbar();
+
+  // Saved ad-hoc reports — same access gate as the Ad-Hoc Report tile (admin only).
   const [savedReports, setSavedReports] = useState<SavedAdHocReport[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [savedError, setSavedError] = useState(false);
@@ -340,7 +345,7 @@ export default function Reports(): React.ReactElement {
     } finally {
       setBusy(false);
     }
-  }, [oystehrZambda, deleteTarget]);
+  }, [oystehrZambda, deleteTarget, enqueueSnackbar]);
 
   const handleSaveEdit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !renameTarget || !renameValue.trim()) return;
@@ -360,7 +365,7 @@ export default function Reports(): React.ReactElement {
     } finally {
       setBusy(false);
     }
-  }, [oystehrZambda, renameTarget, renameValue, descriptionValue, refreshSaved]);
+  }, [oystehrZambda, renameTarget, renameValue, descriptionValue, enqueueSnackbar, refreshSaved]);
 
   return (
     <PageContainer>

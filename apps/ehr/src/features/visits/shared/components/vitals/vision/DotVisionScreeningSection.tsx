@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { DOT_VISION_SCREENING_LABELS } from 'utils';
+import { DOT_VISION_SCREENING_LABELS } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import DotVisionDocumentUploader from './DotVisionDocumentUploader';
 import {

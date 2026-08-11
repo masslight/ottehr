@@ -28,16 +28,13 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { sidebarMenuIcons } from 'src/features/visits/shared/components/Sidebar';
 import { hasAtLeastOneOrder } from 'src/helpers';
-import {
-  ExternalLabsStatus,
-  InPersonAppointmentInformation,
-  MedicationOrderStatuses,
-  NursingOrdersStatus,
-  OrdersForTrackingBoardRow,
-  OrderToolTipConfig,
-  RadiologyOrderStatus,
-  TestStatus,
-} from 'utils';
+import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administration.types';
+import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { TestStatus } from 'utils/lib/types/data/in-house/in-house.types';
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
+import { OrdersForTrackingBoardRow, OrderToolTipConfig } from 'utils/lib/types/data/orders/types';
 import { GenericToolTip } from '../../../../components/GenericToolTip';
 import { medicationStatusMapper } from './plan-tab/ERxContainer';
 

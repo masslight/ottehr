@@ -3,15 +3,13 @@ import React, { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
-  ASQ_FIELD,
-  ASQKeys,
-  asqLabels,
-  Field,
   formatScreeningQuestionWithNote,
-  NoteDTO,
-  patientScreeningQuestionsConfig,
   shouldDisplayScreeningQuestion,
-} from 'utils';
+} from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { Field } from 'utils/lib/types/data/screening-questions/types';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 type AdditionalQuestionsContainerProps = {

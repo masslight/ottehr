@@ -1,8 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { PracticeManagedQuestionnaireCreateOutput } from 'utils';
-import { checkOrCreateM2MClientToken } from '../../../shared';
-import { createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { PracticeManagedQuestionnaireCreateOutput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateQuestionnaireUniqueness, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

@@ -1,4 +1,4 @@
-import { NonNormalResult, NonNormalResultContained } from 'utils';
+import { NonNormalResult, NonNormalResultContained } from 'utils/lib/types/api/lab';
 import { ICON_STYLE } from '../../pdf-consts';
 import { rgbNormalized } from '../../pdf-utils';
 import { PdfAssets, PdfClient, PdfStyles, TextStyle } from '../../types';

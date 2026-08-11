@@ -8,7 +8,7 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useMarkDraftNavigatedAway, useNursingOrderStore } from 'src/state/draft-data.store';
-import { CreateNursingOrderInput } from 'utils';
+import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
 export const NursingOrderCreatePage: React.FC = () => {

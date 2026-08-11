@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import { RoleType, User } from 'utils';
+import { RoleType, User } from 'utils/lib/types/api/user.types';
 import { useAuthToken } from './useAuthToken';
 
 export interface BillingUser extends User {

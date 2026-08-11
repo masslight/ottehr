@@ -5,29 +5,21 @@ import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getCandidInventoryPages,
-  getOrCreateCandidApiClient,
-  getResourcesFromBatchInlineRequests,
-  MISSING_REQUEST_SECRETS,
-  RcmTaskCodings,
-} from 'utils';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
+import { getCandidInventoryPages, getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import {
   getOrCreateInvoicingConfig,
   ParsedInvoicingConfig,
   parseInvoicingConfig,
 } from '../../rcm/invoice-config/helpers';
-import {
-  buildInvoiceTask,
-  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getCandidEncounterIdFromEncounter,
-  isCandidInvoicingEnabled,
-  sendInvoiceTaskDedupeQuery,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, getCandidEncounterIdFromEncounter } from '../../shared/candid';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { buildInvoiceTask, isCandidInvoicingEnabled, sendInvoiceTaskDedupeQuery } from '../../shared/invoice-tasks';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 let m2mToken: string;
 

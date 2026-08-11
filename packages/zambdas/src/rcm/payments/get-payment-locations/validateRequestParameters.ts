@@ -1,5 +1,5 @@
-import { Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
 
 export interface GetPaymentLocationsInput {
   secrets: Secrets | null;

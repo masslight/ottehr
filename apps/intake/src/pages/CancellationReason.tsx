@@ -2,19 +2,15 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useCancelTelemedAppointmentMutation } from 'src/telemed/features/appointments';
-import { useOystehrAPIClient } from 'src/telemed/utils';
-import { FormInputType } from 'src/types';
-import {
-  APIError,
-  APPOINTMENT_NOT_FOUND_ERROR,
-  CANT_CANCEL_CHECKED_IN_APT_ERROR,
-  ServiceMode,
-  VALUE_SETS,
-} from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import { useCancelTelemedAppointmentMutation } from 'src/telemed/features/appointments/appointment.queries';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { FormInputType } from 'src/types/form/form-input-type';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { ServiceMode } from 'utils/lib/types/common';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR } from 'utils/lib/types/errors';
 import ottehrApi from '../api/ottehrApi';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import useAppointmentNotFoundInformation from '../helpers/information';

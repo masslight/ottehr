@@ -1,4 +1,4 @@
-import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils';
+import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils/lib/utils/convert';
 
 export const textToHeartbeatNumber = (text: string): number | undefined => {
   const hrVal = textToNumericValue(text);

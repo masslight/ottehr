@@ -5,15 +5,11 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  LabSetDTO,
-  LabType,
-  ModifiedOrderingLocation,
-  nameLabTest,
-  OrderableItemSearchResult,
-  STATIC_COMPENDIUM_LAB_GUID,
-} from 'utils';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { STATIC_COMPENDIUM_LAB_GUID } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType, ModifiedOrderingLocation, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {

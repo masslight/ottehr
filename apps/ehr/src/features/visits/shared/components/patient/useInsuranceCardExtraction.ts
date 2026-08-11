@@ -3,14 +3,14 @@ import { DocumentReference, Reference } from 'fhir/r4b';
 import { useEffect, useRef } from 'react';
 import { extractInsuranceCard } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import {
   DocumentType,
-  INSURANCE_CARD_CODE,
   INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
   InsuranceCardExtraction,
   InsuranceCardExtractionFields,
-  LOINC_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/data/documents';
+import { INSURANCE_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 
 export type CardOrdinal = 'primary' | 'secondary';
 type CardFace = 'front' | 'back';

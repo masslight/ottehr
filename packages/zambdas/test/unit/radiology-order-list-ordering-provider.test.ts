@@ -1,5 +1,5 @@
 import { Encounter, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { PRACTITIONER_CODINGS } from 'utils';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { describe, expect, test } from 'vitest';
 import { resolveOrderingProvider } from '../../src/ehr/radiology/order-list';
 

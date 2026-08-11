@@ -25,12 +25,9 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ConfirmDeleteFolderDialog } from 'src/features/visits/shared/components/patient/docs/ConfirmDeleteFolderDialog';
 import { FolderNameDialog } from 'src/features/visits/shared/components/patient/docs/FolderNameDialog';
-import {
-  CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
-  CustomFolderDefinition,
-  FOLDERS_CONFIG,
-  parseCustomFoldersCatalog,
-} from 'utils';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
+import { CUSTOM_FOLDERS_CATALOG_IDENTIFIER, parseCustomFoldersCatalog } from 'utils/lib/fhir/list';
+import { CustomFolderDefinition } from 'utils/lib/types/data/custom-folder.types';
 import { useApiClients } from '../hooks/useAppClients';
 import { QUERY_KEYS } from '../hooks/useGetPatientDocs';
 

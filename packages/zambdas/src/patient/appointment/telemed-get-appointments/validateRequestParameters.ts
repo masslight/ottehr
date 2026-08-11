@@ -1,6 +1,7 @@
-import { GetTelemedAppointmentsRequest } from 'utils';
+import { GetTelemedAppointmentsRequest } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const TelemedGetAppointmentsBodySchema = z.object({
   patientId: z.string().uuid().optional(),

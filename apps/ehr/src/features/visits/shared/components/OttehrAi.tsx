@@ -7,12 +7,12 @@ import React from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  AiObservationField,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  ObservationTextFieldDTO,
   PUBLIC_EXTENSION_BASE_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';

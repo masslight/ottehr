@@ -1,5 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { toVitalHeartbeatObservationMethod, VitalFieldNames, VitalsHeartbeatObservationDTO } from 'utils';
+import { toVitalHeartbeatObservationMethod } from 'utils/lib/fhir/vitals';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsHeartbeatObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { HeartbeatLocalState } from '../types';
 import { textToHeartbeatNumber } from './helpers';
 

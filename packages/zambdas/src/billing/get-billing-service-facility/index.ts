@@ -1,8 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, ServiceFacilityItem } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { mapServiceFacility } from '../service-facility.helpers';
 import { createBillingClient } from '../shared';
 import { GetServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';

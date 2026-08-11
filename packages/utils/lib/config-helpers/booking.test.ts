@@ -1,6 +1,6 @@
 import { type ServiceCategoryConfig } from 'config-types';
 import { describe, expect, it } from 'vitest';
-import { SERVICE_CATEGORY_SYSTEM } from '../fhir';
+import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
 import { resolveReasonForVisitOptions, serviceCategorySupportsContext } from './booking';
 
 const makeCategory = (code: string, overrides: Partial<ServiceCategoryConfig> = {}): ServiceCategoryConfig => ({

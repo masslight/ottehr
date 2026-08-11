@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { MedicationAdministration, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { M2MClientMockType } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   InsertFullAppointmentDataBaseResult,

@@ -1,80 +1,107 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
+import { getOystehrApiHelpers } from 'utils/lib/helpers/oystehrApi';
+import { AISuggestionNotes, AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 import {
-  AISuggestionNotes,
-  AISuggestionNotesInput,
-  AssignPractitionerInput,
-  AssignPractitionerResponse,
-  BillingSuggestionInput,
-  BillingSuggestionOutput,
-  ChangeInPersonVisitStatusInput,
-  ChangeInPersonVisitStatusResponse,
-  CommunicationDTO,
   DeleteApprovedPatientEducationInput,
   DeleteApprovedPatientEducationOutput,
+  ListApprovedPatientEducationOutput,
+  SaveApprovedPatientEducationInput,
+  SaveApprovedPatientEducationOutput,
+  UpdateApprovedPatientEducationCodesInput,
+  UpdateApprovedPatientEducationCodesOutput,
+} from 'utils/lib/types/api/approved-patient-education.types';
+import {
+  AssignPractitionerInput,
+  AssignPractitionerResponse,
+} from 'utils/lib/types/api/assign-practitioner/assign-practitioner.types';
+import {
+  ChangeInPersonVisitStatusInput,
+  ChangeInPersonVisitStatusResponse,
+} from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
+import {
+  BillingSuggestionInput,
+  BillingSuggestionOutput,
+  CommunicationDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
   DeleteChartDataRequest,
   DeleteChartDataResponse,
-  DeletePatientInstructionInput,
-  GeneratePatientEducationInput,
-  GeneratePatientEducationOutput,
-  GetChartDataRequest,
-  GetChartDataResponse,
-  GetCreateInHouseLabOrderResourcesInput,
-  GetCreateInHouseLabOrderResourcesOutput,
-  GetCreateLabOrderResources,
+} from 'utils/lib/types/api/chart-data/delete-chart-data.types';
+import { GetChartDataRequest, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataRequest, SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import {
   GetFaxPacketPreviewInput,
   GetFaxPacketPreviewOutput,
   GetFaxPacketStatusInput,
   GetFaxPacketStatusOutput,
-  GetMedicationOrdersInput,
-  GetMedicationOrdersResponse,
-  GetMergePatientsTaskInput,
-  GetMergePatientsTaskResponse,
-  getOystehrApiHelpers,
-  GetPatientAccountZambdaInput,
-  GetPatientInstructionsInput,
-  GetUnsolicitedResultsResourcesInput,
-  GetUnsolicitedResultsResourcesOutput,
-  InitTelemedSessionRequestParams,
-  InitTelemedSessionResponse,
-  LabOrderResourcesRes,
-  ListApprovedPatientEducationOutput,
-  MakeMedicationHistoryPdfZambdaInput,
-  MakeMedicationHistoryPdfZambdaOutput,
-  MergePatientsInput,
-  MergePatientsResponse,
-  OrderedCoveragesWithSubscribers,
-  PatientAccountResponse,
-  PatientEducationLanguage,
-  ProcedureDetail,
-  ProcedureSuggestion,
-  RemoveCoverageResponse,
-  RemoveCoverageZambdaInput,
-  SaveApprovedPatientEducationInput,
-  SaveApprovedPatientEducationOutput,
-  SaveChartDataRequest,
-  SaveChartDataResponse,
-  SavePatientEducationPdfInput,
-  SavePatientEducationPdfOutput,
-  SavePatientInstructionInput,
-  SearchPlacesInput,
-  SearchPlacesOutput,
   SendFaxPacketInput,
   SendFaxPacketOutput,
-  SignAppointmentInput,
-  SignAppointmentResponse,
-  SyncUserResponse,
-  UnassignPractitionerZambdaInput,
-  UnassignPractitionerZambdaOutput,
-  UnlockAppointmentZambdaInputValidated,
-  UnlockAppointmentZambdaOutput,
-  UpdateApprovedPatientEducationCodesInput,
-  UpdateApprovedPatientEducationCodesOutput,
-  UpdateLabOrderResourcesInput,
+} from 'utils/lib/types/api/fax.types';
+import {
+  InitTelemedSessionRequestParams,
+  InitTelemedSessionResponse,
+} from 'utils/lib/types/api/init-telemed-session/init-telemed-session.types';
+import {
+  GetMedicationOrdersInput,
+  GetMedicationOrdersResponse,
   UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import {
+  GetMergePatientsTaskInput,
+  GetMergePatientsTaskResponse,
+  GetPatientAccountZambdaInput,
+  MergePatientsInput,
+  MergePatientsResponse,
+  PatientAccountResponse,
+  RemoveCoverageResponse,
+  RemoveCoverageZambdaInput,
   UpdatePatientAccountInput,
   UpdatePatientAccountResponse,
-} from 'utils';
+} from 'utils/lib/types/api/patient-account';
+import {
+  DeletePatientInstructionInput,
+  GetPatientInstructionsInput,
+  SavePatientInstructionInput,
+} from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
+import {
+  MakeMedicationHistoryPdfZambdaInput,
+  MakeMedicationHistoryPdfZambdaOutput,
+} from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import { ProcedureDetail, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
+import {
+  SignAppointmentInput,
+  SignAppointmentResponse,
+} from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
+import { SyncUserResponse } from 'utils/lib/types/api/sync-user/sync-user.types';
+import {
+  UnassignPractitionerZambdaInput,
+  UnassignPractitionerZambdaOutput,
+} from 'utils/lib/types/api/unassign-practitioner/unassign-practitioner.types';
+import {
+  UnlockAppointmentZambdaInputValidated,
+  UnlockAppointmentZambdaOutput,
+} from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import {
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  GetCreateLabOrderResources,
+  GetUnsolicitedResultsResourcesInput,
+  GetUnsolicitedResultsResourcesOutput,
+  LabOrderResourcesRes,
+  UpdateLabOrderResourcesInput,
+} from 'utils/lib/types/data/labs/labs.types';
+import {
+  GeneratePatientEducationInput,
+  GeneratePatientEducationOutput,
+  PatientEducationLanguage,
+  SavePatientEducationPdfInput,
+  SavePatientEducationPdfOutput,
+} from 'utils/lib/types/data/patient-education.types';
+import { SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
 import { GetOystehrTelemedAPIParams } from './types';
 
 enum ZambdaNames {

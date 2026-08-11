@@ -12,7 +12,8 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { PATIENT_BILLING_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
 import { createBillingClient } from '../../src/billing/shared';

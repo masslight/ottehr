@@ -27,67 +27,77 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  AR_STAGE,
-  BILLING_INSURANCE_TYPE_LABELS,
   BILLING_RESOURCE_TAG,
-  BillingChargeItemDefinitionProcedureCode,
-  BillingInsuranceType,
-  BillingPolicyHolderInput,
-  BillingProviderOption,
-  BillingRule,
-  BillingSubscriberRelationship,
+  CPT_CODE_SYSTEM,
+  FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_CODE_TAX_SS,
+  FHIR_IDENTIFIER_CODE_TAXONOMY,
+  FHIR_IDENTIFIER_SYSTEM,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  WORKERS_COMP_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
+import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import {
   buildCoverageSubscriberRelatedPerson,
-  ChargeItemDefinitionDefault,
-  ChargeItemDefinitionType,
-  CLAIM_STATUS_FIELDS,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimStatusFieldKey,
-  ClaimStatusValues,
-  claimStatusValuesToTags,
+  createCoverageMemberIdentifier,
+  getNPI,
+  getResourcesFromBatchInlineRequests,
+  getSubscriberRelationshipCodeableConcept,
+  getTaxID,
+  patchWithOptimisticLock,
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  convertFhirNameToDisplayName,
-  CPT_CODE_SYSTEM,
-  createCoverageMemberIdentifier,
   EXTENSION_URL_CPT_MODIFIER,
-  FHIR_IDENTIFIER_CLIA,
-  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
-  FHIR_IDENTIFIER_CODE_TAX_SS,
-  FHIR_IDENTIFIER_CODE_TAXONOMY,
-  FHIR_IDENTIFIER_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
+} from 'utils/lib/helpers/rcm/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  BillingInsuranceType,
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BILLING_INSURANCE_TYPE_LABELS,
+  BillingChargeItemDefinitionProcedureCode,
+  BillingProviderOption,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   getClaimStatusFieldValue,
   getClaimStatusValues,
-  getNPI,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  getPayerId,
-  getPayerUrl,
-  getResourcesFromBatchInlineRequests,
-  getSecret,
-  getSubscriberRelationshipCodeableConcept,
-  getTaxID,
-  INVALID_INPUT_ERROR,
-  isPayerUrl,
   isValidClaimStatusValue,
-  isValidUUID,
-  patchWithOptimisticLock,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RulesEngineType,
-  Secrets,
-  SecretsKeys,
-  setCoveragePlanType,
   withArStageInitialization,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { fetchAllPages, sendErrors } from '../shared';
+} from 'utils/lib/types/data/billing/claim-status';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  isSystemManagedTagName,
+  SYSTEM_MANAGED_TAGS,
+  SystemManagedTag,
+} from 'utils/lib/types/data/billing/system-tags';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { sendErrors } from '../shared/errors';
+import { fetchAllPages } from '../shared/fhir';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -473,8 +483,35 @@ export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
+// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
+// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
+// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
+// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
+// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
+// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
-  return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+  return isSystemManagedTagName(tag.code?.text);
+}
+
+// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
+export function systemTagBasic(def: SystemManagedTag): Basic {
+  return {
+    resourceType: 'Basic',
+    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+    extension: [
+      { url: TAG_DESCRIPTION_URL, valueString: def.description },
+      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+    ],
+  };
+}
+
+// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
+// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
+// whether or not their Basics exist).
+export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
+  const defined = await fetchDefinedTagNames(oystehr);
+  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
+  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
 }
 
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
@@ -516,9 +553,6 @@ export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Refere
     careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
   }));
 }
-
-export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
-export const AUTO_ACCIDENT_TAG_DESCRIPTION = 'Claim is for a clinical encounter resulting from an auto accident';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 

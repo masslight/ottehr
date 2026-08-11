@@ -1,4 +1,4 @@
-import { mapMedicationsToDisplay } from 'utils';
+import { mapMedicationsToDisplay } from 'utils/lib/helpers/medications/map-medications-to-display.helper';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DischargeSummaryInput, InHouseMedicationsDataForDischargeSummary, PdfSection } from '../../types';
 

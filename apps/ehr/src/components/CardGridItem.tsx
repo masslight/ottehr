@@ -1,7 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, CircularProgress, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { DocumentInfo } from 'utils';
+import { DocumentInfo } from 'utils/lib/types/data/documents';
 
 interface CardGridItemProps {
   card: DocumentInfo;

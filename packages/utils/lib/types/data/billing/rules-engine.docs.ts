@@ -1,4 +1,4 @@
-import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RULES_ENGINES } from './rules-engine.constants';
+import { RULES_ENGINE_TYPES, RULES_ENGINES } from './rules-engine.constants';
 import {
   ADD_SERVICE_LINE_FIELDS,
   RULE_FIELD_CATALOG,
@@ -17,6 +17,7 @@ import {
   RULE_OPERATOR_METADATA,
   RULE_OPERATORS,
 } from './rules-engine.schemas';
+import { HOLD_TAG_NAME } from './system-tags';
 
 // ---------------------------------------------------------------------------
 // Generated documentation for the pre-submission rules engine.

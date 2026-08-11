@@ -1,14 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { List, Patient } from 'fhir/r4b';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import {
   createCustomPatientDocumentList,
   createPatientDocumentList,
   fetchCustomFoldersCatalog,
-  FOLDERS_CONFIG,
   isCustomFolderList,
-  isSyntheticFolderId,
-  parseSyntheticFolderId,
-} from 'utils';
+} from 'utils/lib/fhir/list';
+import { isSyntheticFolderId, parseSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 
 const logIt = (msg: string): void => {
   console.log(`[patient-document-folders]: ${msg}`);

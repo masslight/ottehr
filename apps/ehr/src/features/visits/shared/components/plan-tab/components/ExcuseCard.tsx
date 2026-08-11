@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { UppercaseCaptionTypography } from 'src/features/visits/shared/components/UppercaseCaptionTypography';
-import { SchoolWorkNoteExcuseDocFileDTO } from 'utils';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ExcuseLink } from './ExcuseLink';
 
 type ExcuseCardProps = {

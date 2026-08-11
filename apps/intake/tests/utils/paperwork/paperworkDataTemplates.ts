@@ -1,4 +1,5 @@
-import { VALUE_SETS } from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { logVerbose } from '../logging';
 
 /**
  * Test data template factories
@@ -604,14 +605,13 @@ const pageDataTemplateMapFactory: (context?: {
   const maybeServiceMode = context?.serviceMode;
   const maybeVisitType = context?.visitType;
   const maybeServiceCategory = context?.serviceCategory;
-  if (context) {
-    console.log('test data factory context: ');
-    console.log(`  serviceMode: ${maybeServiceMode}`);
-    console.log(`  visitType: ${maybeVisitType}`);
-    console.log(`  serviceCategory: ${maybeServiceCategory}`);
-  } else {
-    console.log('test data factory context: none');
-  }
+  // One line, not five, and only when asked for: this factory is called once per page per test, so
+  // in CI it was reprinting the same context a hundred times per run.
+  logVerbose(
+    context
+      ? `test data factory context: serviceMode=${maybeServiceMode} visitType=${maybeVisitType} serviceCategory=${maybeServiceCategory}`
+      : 'test data factory context: none'
+  );
   return {
     'contact-information-page': createContactInformationData,
     'patient-details-page': createPatientDetailsData,

@@ -1,22 +1,20 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Extension, FhirResource, Location, Task as FhirTask } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import {
   AppointmentProviderNotificationTypes,
-  FAX_TASK,
-  getAllFhirSearchPages,
-  getAllNotificationRows,
-  getPatchBinary,
-  getProviderNotificationPreferencesV2,
-  getTaskInputValue,
-  isPhoneNumberValid,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
-} from 'utils';
-import { useSuccessQuery } from 'utils/lib/frontend';
+} from 'utils/lib/types/api/practitioner.types';
+import { getAllNotificationRows, ProviderNotificationPreferencesV2 } from 'utils/lib/types/api/provider-notifications';
+import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
 

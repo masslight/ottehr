@@ -6,7 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { DiagnosisDTO, EntryMode, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
+import { getFormattedDiagnoses } from 'utils/lib/helpers/in-house-labs';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { LoadingState } from 'utils/lib/types/data/in-house/in-house.constants';
+import { EntryMode, InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 import { configResultPageContainerTestId } from '../../utils/test-ids';
 import { InHouseLabResultCard } from './InHouseLabResultCard';
 

@@ -19,7 +19,7 @@ import {
   defaultGroup,
   virtualDefaultLocations,
 } from '../packages/zambdas/src/scripts/setup-default-locations';
-import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared/helpers';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');

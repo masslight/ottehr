@@ -38,7 +38,8 @@ import {
   useGetPatientDocsFolders,
 } from 'src/hooks/useGetPatientDocs';
 import PageContainer from 'src/layout/PageContainer';
-import { FAX_TASK, getPresignedURL } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 
 export const InboundFaxMatch: React.FC = () => {

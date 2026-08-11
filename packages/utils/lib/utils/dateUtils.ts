@@ -1,6 +1,6 @@
 import { Appointment, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { formatDate } from 'utils';
+import { formatDate } from './date';
 import { Capacity, SlotCapacityMap } from './scheduleUtils';
 
 export function createMinimumAndMaximumTime(date: DateTime, numDays: number): { minimum: string; maximum: string } {

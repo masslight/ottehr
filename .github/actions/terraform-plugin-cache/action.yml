@@ -1,0 +1,30 @@
+name: "Cache Terraform providers"
+description: "Point terraform at a shared provider cache and restore it, so `terraform init` stops re-downloading pinned providers in every job."
+
+# Six jobs in the pipeline run `terraform init`, and a log gap analysis put that at ~15.5s each --
+# the single largest piece of the ~28s "Populate and validate secrets" step, ahead of reading the
+# state itself (~8.6s). The providers are pinned by deploy/.terraform.lock.hcl, so every one of those
+# downloads fetches bytes identical to the last job's.
+#
+# Keyed on the lock file: a provider bump changes the key and the next run repopulates it. The
+# restore-keys fallback means a bump degrades to a partial hit rather than a cold miss, since
+# unchanged providers are still present in the older cache and terraform only fetches the difference.
+runs:
+  using: "composite"
+  steps:
+    - name: Point terraform at the shared provider cache
+      shell: bash
+      # Terraform fails rather than falling back when TF_PLUGIN_CACHE_DIR names a directory that does
+      # not exist, so create it before anything reads the variable.
+      run: |
+        cache_dir="$HOME/.terraform.d/plugin-cache"
+        mkdir -p "$cache_dir"
+        echo "TF_PLUGIN_CACHE_DIR=$cache_dir" >> "$GITHUB_ENV"
+
+    - name: Restore Terraform providers
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ~/.terraform.d/plugin-cache
+        key: terraform-providers-${{ runner.os }}-${{ hashFiles('deploy/.terraform.lock.hcl') }}
+        restore-keys: |
+          terraform-providers-${{ runner.os }}-

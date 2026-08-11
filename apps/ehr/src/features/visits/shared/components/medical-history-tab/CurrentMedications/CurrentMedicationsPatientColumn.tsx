@@ -3,7 +3,10 @@ import { FC } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { AiObservationField, getQuestionnaireResponseByLinkId, MedicationDTO, ObservationTextFieldDTO } from 'utils';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
 import { ExternalMedicationSelection, ExternalRxSuggestions } from './ExternalRxSuggestions';
 

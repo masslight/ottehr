@@ -1,5 +1,10 @@
-import { INVALID_INPUT_ERROR, MedicationInteractions, MISSING_REQUEST_BODY, UpdateMedicationOrderInput } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import {
+  MedicationInteractions,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

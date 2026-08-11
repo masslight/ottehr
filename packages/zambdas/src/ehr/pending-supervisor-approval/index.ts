@@ -2,18 +2,17 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Encounter, FhirResource, Provenance } from 'fhir/r4b';
-import {
-  createExtensionValue,
-  findExtensionIndex,
-  getEncounterStatusHistoryUpdateOp,
-  getPatchBinary,
-  getTaskResource,
-  PendingSupervisorApprovalInputValidated,
-  TaskIndicator,
-  visitStatusToFhirEncounterStatusMap,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
+import { createExtensionValue, findExtensionIndex, getTaskResource } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { visitStatusToFhirEncounterStatusMap } from 'utils/lib/types/api/appointment.types';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { PendingSupervisorApprovalInputValidated } from 'utils/lib/types/data/appointments/appointments.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableRow, Typography } from '@mui/material';
 import React from 'react';
-import { formatDateForLabs } from 'utils';
 import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 
 interface InHouseLabOrderHistoryProps {

@@ -20,7 +20,9 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { buildPrebookModeLinks, RoleType, ScheduleDTO, UpdateScheduleParams } from 'utils';
+import { UpdateScheduleParams } from 'utils/lib/types/api/schedules';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { buildPrebookModeLinks, ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
 import { setScheduleOwnerActive } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';

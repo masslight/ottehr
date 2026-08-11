@@ -2,9 +2,9 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { FormFieldItemRecord, FormFieldsInputItem } from 'config-types';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { unpackFhirResponse } from 'utils/lib/fhir/helpers';
 import {
-  BOOKING_CONFIG,
-  CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
   DEMO_VISIT_PATIENT_ETHNICITY,
@@ -29,10 +29,10 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
-  getReasonForVisitOptionsForServiceCategory,
-  PATIENT_RECORD_CONFIG,
-  unpackFhirResponse,
-} from 'utils';
+} from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_SHORT,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BillingProviderOption, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { getBillingProvider } from '../api/api';
 import { ProviderRole } from '../constants/provider';
 import { useApiClients } from './useAppClients';

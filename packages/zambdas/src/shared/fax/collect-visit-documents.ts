@@ -1,20 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
+import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { docRefIsOttehrGeneratedResultAndCurrent } from 'utils/lib/helpers/labs/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  DISCHARGE_SUMMARY_CODE,
-  docRefIsOttehrGeneratedResultAndCurrent,
   FAX_DOCUMENT_LABELS,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
   FaxDocumentAvailability,
   FaxDocumentKind,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  ORDER_TYPE_CODE_SYSTEM,
+} from 'utils/lib/types/api/fax.types';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
-  Secrets,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { searchRadiologyResultDocRefs } from '../../ehr/radiology/shared/result-doc-refs';
 import { assembleProgressNoteInput } from '../pdf/assemble-progress-note-input';
 import { createProgressNotePdfBytes } from '../pdf/progress-note-pdf';

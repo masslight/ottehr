@@ -1,20 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
+import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  ADHOC_RUNTIME_VERSION,
-  AdHocDateRangeFilter,
-  AdHocRow,
-  GenerateAdHocReportInput,
-  LlmDatasetSchema,
-  SavedAdHocReportDefinition,
-} from 'utils';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import useEvolveUser from '../../../hooks/useEvolveUser';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
@@ -133,6 +129,7 @@ export function useReportBuilder(): UseReportBuilder {
   const user = useEvolveUser();
   const canView = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
   const canCreate = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
+  const { enqueueSnackbar } = useSnackbar();
 
   const initialDatasetId = AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive';
   const [datasetId, setDatasetId] = useState<string>(initialDatasetId);
@@ -336,7 +333,6 @@ export function useReportBuilder(): UseReportBuilder {
     },
     [oystehrZambda, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
   );
-
   orchestrateRef.current = orchestrate;
 
   // Consume a deferred regeneration on the render AFTER the saved-report loader committed the saved
@@ -542,7 +538,7 @@ export function useReportBuilder(): UseReportBuilder {
         setSaving(false);
       }
     },
-    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition]
+    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition, enqueueSnackbar]
   );
 
   const openSaveDialog = useCallback((): void => {

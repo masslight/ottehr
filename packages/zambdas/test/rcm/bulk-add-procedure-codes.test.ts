@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/fee-schedules/bulk-add-procedure-codes/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';
@@ -112,12 +112,26 @@ const fakeExisting = (propertyGroup: ChargeItemDefinition['propertyGroup']): Cha
     propertyGroup: propertyGroup || [],
   }) as ChargeItemDefinition;
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });

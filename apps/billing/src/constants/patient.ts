@@ -1,4 +1,9 @@
-import { CreateBillingPatientInput, GenderOption, PatientDetailResponse, UpdateBillingPatientInput } from 'utils';
+import {
+  CreateBillingPatientInput,
+  GenderOption,
+  UpdateBillingPatientInput,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export interface PatientForm {

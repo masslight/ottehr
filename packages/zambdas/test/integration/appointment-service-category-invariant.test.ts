@@ -3,18 +3,18 @@ import { randomUUID } from 'crypto';
 import { Appointment, FhirResource, Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BOOKING_CONFIG,
-  CreateAppointmentResponse,
-  PatientInfo,
   SCHEDULE_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
   SlotServiceCategory,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

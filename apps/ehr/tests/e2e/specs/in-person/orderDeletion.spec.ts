@@ -18,14 +18,14 @@ import {
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { dismissSnackbars } from 'tests/e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
 import {
-  FEATURE_FLAGS_CONFIG,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
-  medicationApplianceRoutes,
-  radiologyStudiesConfig,
-  UNIT_OPTIONS,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
 
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;
@@ -166,6 +166,13 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
 }
 
 test.describe('Order Deletion - Happy Path', () => {
+  // Serial so the file-level beforeAll — an appointment plus the procedure, medication and radiology
+  // orders these tests delete — is paid once instead of once per worker. Each test deletes a
+  // different one of those orders, so they don't interfere. The trade is a longer serial chunk and a
+  // flake re-running all three; that is worth it here because the setup is the expensive part and
+  // this suite is contention-bound, not worker-starved (8 workers measured slower than 6).
+  test.describe.configure({ mode: 'serial' });
+
   test('Delete procedure and verify it is removed from list', async ({ browser }) => {
     // Create isolated context and page for this test
     const context = await browser.newContext();

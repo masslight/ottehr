@@ -5,7 +5,7 @@ import {
   MedicationData,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.types';
 import { MedicationOrderType } from '../components/medication-administration/medication-editable-card/fieldsConfig';
 import { statusTransitions } from '../components/medication-administration/medicationTypes';
 import { useMedicationAPI } from './useMedicationOperations';

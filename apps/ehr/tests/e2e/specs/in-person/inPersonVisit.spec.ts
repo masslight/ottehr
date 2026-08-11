@@ -4,8 +4,8 @@ import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { hideTooltip, verifyVisitNotePdfDocumentReference } from 'tests/e2e-utils/helpers/tests-utils';
+import { hasAttorneyInformationPage, hasEmployerInformationPage } from 'utils/lib/helpers/create-demo-visits';
 import {
-  chooseJson,
   getAttorneyInformationStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
@@ -14,12 +14,11 @@ import {
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getResponsiblePartyStepAnswers,
-  getTimezone,
-  hasAttorneyInformationPage,
-  hasEmployerInformationPage,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
   isoToDateObject,
-} from 'utils';
+} from 'utils/lib/helpers/helpers';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils/lib/types/api/insurances.constants';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
 import {
   PATIENT_INSURANCE_MEMBER_ID,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 import { GetEmployeesInput } from '.';
 
 const GetEmployeesBodySchema = z.object({
