@@ -56,6 +56,27 @@ export const makeBusinessIdentifierForStripePayment = (stripePaymentId: string):
   };
 };
 
+export const STRIPE_METADATA_KEYS = {
+  patientId: 'oystehr_patient_id',
+  encounterId: 'oystehr_encounter_id',
+  legacyEncounterId: 'encounterId',
+} as const;
+
+export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
+  metadata?.[STRIPE_METADATA_KEYS.encounterId] || metadata?.[STRIPE_METADATA_KEYS.legacyEncounterId] || undefined;
+
+export const patientIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
+  metadata?.[STRIPE_METADATA_KEYS.patientId] || undefined;
+
+export const stripeEncounterMetadata = (params: { encounterId: string; patientId: string }): Stripe.MetadataParam => ({
+  [STRIPE_METADATA_KEYS.patientId]: params.patientId,
+  [STRIPE_METADATA_KEYS.encounterId]: params.encounterId,
+});
+
+export const stripeEncounterMetadataQuery = (encounterId: string): string =>
+  `metadata['${STRIPE_METADATA_KEYS.legacyEncounterId}']:"${encounterId}" OR ` +
+  `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`;
+
 interface EnsureStripeCustomerIdParams {
   guarantorResource: Patient | RelatedPerson | undefined;
   account: Account;
@@ -88,14 +109,25 @@ export const ensureStripeCustomerId = async (
     let customer: Stripe.Customer;
     try {
       customer = await stripeClient.customers.create(
-        { email, name, metadata: { oystehr_patient_id: patientId } },
+        {
+          email,
+          name,
+          metadata: {
+            [STRIPE_METADATA_KEYS.patientId]: patientId,
+          },
+        },
         { stripeAccount }
       );
     } catch (stripeError: any) {
       if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
         console.warn(`Stripe rejected email for patient ${patientId}, creating customer without email`);
         customer = await stripeClient.customers.create(
-          { name, metadata: { oystehr_patient_id: patientId } },
+          {
+            name,
+            metadata: {
+              [STRIPE_METADATA_KEYS.patientId]: patientId,
+            },
+          },
           { stripeAccount }
         );
         createdWithoutEmail = true;

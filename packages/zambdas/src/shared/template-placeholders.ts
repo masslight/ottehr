@@ -14,7 +14,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getStripeClient } from './stripeIntegration';
+import { getStripeClient, STRIPE_METADATA_KEYS } from './stripeIntegration';
 
 // ---------------------------------------------------------------------------
 // Shared template placeholder resolution
@@ -158,9 +158,9 @@ export async function findStripeInvoiceByEncounterId(
 ): Promise<Stripe.Invoice | undefined> {
   try {
     const invoices = await stripe.invoices.search({
-      query: `metadata['oystehr_encounter_id']:"${encounterId}"`,
+      query: `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`,
     });
-    return invoices.data.find((invoice) => invoice.metadata?.oystehr_encounter_id === encounterId);
+    return invoices.data.find((invoice) => invoice.metadata?.[STRIPE_METADATA_KEYS.encounterId] === encounterId);
   } catch (error) {
     console.error('Error fetching payment intents or payment methods for encounter:', error);
     throw checkForStripeCustomerDeletedError(error);
