@@ -142,9 +142,8 @@ const searchAllDocumentReferencePages = async <T extends FhirResource>(
 ): Promise<T[]> => {
   const resources: T[] = [];
   let offset = 0;
-  let hasMorePages = true;
 
-  while (hasMorePages) {
+  for (;;) {
     const bundle = await oystehr.fhir.search<T>({
       resourceType: 'DocumentReference',
       params: [
@@ -154,12 +153,21 @@ const searchAllDocumentReferencePages = async <T extends FhirResource>(
       ],
     });
 
-    resources.push(...(bundle.unbundle() as T[]));
+    const page = bundle.unbundle() as T[];
+    resources.push(...page);
 
-    offset += DOCUMENT_SEARCH_PAGE_SIZE;
-    hasMorePages = bundle.link?.some((link) => link.relation === 'next') ?? false;
+    // Advance by what the server actually returned, not by what was requested: a server free to
+    // cap `_count` below the requested size would otherwise leave a gap the size of the shortfall,
+    // silently skipping documents.
+    offset += page.length;
 
-    if (hasMorePages && offset >= DOCUMENT_SEARCH_MAX) {
+    const hasMorePages = bundle.link?.some((link) => link.relation === 'next') ?? false;
+
+    // An empty page means there is nothing left to read even if a next link is advertised, and the
+    // offset can no longer advance — continuing would loop until the ceiling.
+    if (!hasMorePages || page.length === 0) break;
+
+    if (resources.length >= DOCUMENT_SEARCH_MAX) {
       safelyCaptureMessage('DocumentReference paging hit its ceiling; results are truncated', {
         level: 'error',
         tags: { ...context.tags, site: context.site, ceiling: `${DOCUMENT_SEARCH_MAX}` },

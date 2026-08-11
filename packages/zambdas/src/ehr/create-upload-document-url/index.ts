@@ -58,8 +58,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   logIt(`handler() start.`);
   const validatedInput = validateRequestParameters(input);
   const { secrets, patientId, fileFolderId, fileName, internalName, encounterId } = validatedInput;
-  logIt(`validatedInput => `);
-  logIt(JSON.stringify(validatedInput));
+  // Log only the non-sensitive fields: validatedInput also carries userToken and secrets, which must
+  // never reach CloudWatch or Sentry.
+  logIt(`validatedInput => ${JSON.stringify({ patientId, fileFolderId, fileName, internalName, encounterId })}`);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   logIt(`Got m2mToken`);

@@ -423,6 +423,73 @@ describe('useGetPatientDocs — visit filter', () => {
     expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual([...FIRST_PAGE, ...SECOND_PAGE].sort());
   });
 
+  it('advances by the page actually returned when the server caps the requested count', async () => {
+    // A server free to cap `_count` returns fewer resources than asked for. Advancing the offset by
+    // the requested size would leave a gap the size of the shortfall and silently skip documents.
+    const ALL = ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e'];
+    const SERVER_CAP = 1;
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+      const page = ALL.slice(offset, offset + SERVER_CAP);
+      return {
+        link: offset + page.length < ALL.length ? [{ relation: 'next', url: 'next-page' }] : [],
+        unbundle: () => page.map(docRef),
+      };
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    // Every document is collected despite each page returning one at a time.
+    await waitFor(() => expect(result.current.documents?.length).toBe(ALL.length));
+    expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual([...ALL].sort());
+
+    const offsets = mockFhirSearch.mock.calls
+      .filter(([req]: any[]) => req?.resourceType !== 'List')
+      .map(([req]: any[]) => Number(req.params.find((p: any) => p.name === '_offset').value));
+    expect(offsets).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('stops paging on an empty page even if a next link is advertised', async () => {
+    // A server that always advertises a successor would otherwise spin to the ceiling.
+    const lists = [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)];
+
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : lists);
+      }
+
+      const offset = Number(params.find((p) => p.name === '_offset')?.value ?? '0');
+      return {
+        link: [{ relation: 'next', url: 'next-page' }],
+        unbundle: () => (offset === 0 ? [docRef('doc-a')] : []),
+      };
+    });
+
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
+
+    await waitFor(() => expect(result.current.documents?.length).toBe(1));
+
+    const docQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) => req?.resourceType !== 'List');
+    // The first page plus the empty one that ends it — not a run up to the ceiling.
+    expect(docQueries).toHaveLength(2);
+  });
+
   it('leaves folder counters patient-wide when no visit filter is applied', async () => {
     setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
 
