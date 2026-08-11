@@ -34,6 +34,7 @@ import {
   RcmTaskCode,
   SecretsKeys,
   TIMEZONES,
+  toCsv,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
 import { getResponsiblePartyRelationship } from '../../ehr/get-invoices-tasks';
@@ -219,17 +220,11 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
   });
 }
 
-function escapeCsvField(field: string): string {
-  if (field.includes(',') || field.includes('"') || field.includes('\n') || field.includes('\r')) {
-    return `"${field.replace(/"/g, '""')}"`;
-  }
-  return field;
-}
-
 function buildCsv(rows: CsvRow[]): string {
-  const headerLine = CSV_HEADERS.map((h) => escapeCsvField(CSV_HEADER_LABELS[h])).join(',');
-  const dataLines = rows.map((row) => CSV_HEADERS.map((h) => escapeCsvField(row[h])).join(','));
-  return [headerLine, ...dataLines].join('\n');
+  return toCsv(
+    CSV_HEADERS.map((header) => CSV_HEADER_LABELS[header]),
+    rows.map((row) => CSV_HEADERS.map((header) => row[header]))
+  );
 }
 
 async function getFhirResourcesPage(
