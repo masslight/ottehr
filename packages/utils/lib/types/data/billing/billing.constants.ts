@@ -4,6 +4,12 @@ import { Patient } from 'fhir/r4b';
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 
+// Task code (under EXPORT_TASK_SYSTEM) for a claims-list CSV export, and the codes its Task inputs
+// and outputs carry. The Subscription that runs the export matches on the code.
+export const EXPORT_CLAIMS_CSV_TASK_CODE = 'export-billing-claims-csv';
+export const EXPORT_CLAIMS_FILTERS_CODE = 'export-claims-filters';
+export const EXPORT_CLAIMS_INCOMPLETE_CODE = 'export-claims-incomplete';
+
 // FHIR administrative gender, labeled the way the billing app displays it. The demographics forms,
 // the rules field catalog, and the engine's gender writer all share this one list.
 export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; label: string }[] = [
