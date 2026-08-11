@@ -8,6 +8,17 @@ import { getOutboundDeliveryInput, makeOutboundDeliveryAttempt } from 'utils/lib
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as Record<string, unknown>),
+      skipSendingVisitNoteToPatientPortalEnabled: false,
+    },
+  };
+});
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({
