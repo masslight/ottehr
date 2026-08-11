@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd job: runs the daily synthetic census at 07:15 local against the demo env.
+  Install (edit the paths below to your absolute repo path first):
+    cp scripts/synthetic-patient-data/com.ottehr.synth-daily-census.plist ~/Library/LaunchAgents/
+    launchctl load  ~/Library/LaunchAgents/com.ottehr.synth-daily-census.plist
+    launchctl start com.ottehr.synth-daily-census        # run once now to test
+    launchctl unload ~/Library/LaunchAgents/com.ottehr.synth-daily-census.plist   # to disable
+
+  StartCalendarInterval fires at 07:15; if the Mac is asleep it runs at next wake
+  (but not if powered off). Output also goes to the wrapper's own dated logs.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ottehr.synth-daily-census</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dabrams/development/ottehr/scripts/synthetic-patient-data/run-daily-census.sh</string>
+        <string>--env</string>
+        <string>demo</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>7</integer>
+        <key>Minute</key>
+        <integer>15</integer>
+    </dict>
+
+    <!-- launchd runs with a minimal PATH; point at the Node/npm you use. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/dabrams/.nvm/versions/node/v22.22.1/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dabrams/development/ottehr</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/dabrams/development/ottehr/scripts/synthetic-patient-data/.census-logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dabrams/development/ottehr/scripts/synthetic-patient-data/.census-logs/launchd.err.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

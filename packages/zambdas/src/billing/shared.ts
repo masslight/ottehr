@@ -1,4 +1,5 @@
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
+import { deepStrictEqual } from 'node:assert';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig, SearchParam } from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -74,6 +75,7 @@ import {
   isPayerUrl,
   isValidClaimStatusValue,
   isValidUUID,
+  patchWithOptimisticLock,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RulesEngineType,
   Secrets,
@@ -83,7 +85,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { sendErrors } from '../shared';
+import { fetchAllPages, sendErrors } from '../shared';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -225,9 +227,12 @@ export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
+const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
+export const SOURCE_FRIENDLY_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
@@ -239,6 +244,177 @@ export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
 
 export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
+}
+
+export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+}
+
+export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+}
+
+export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier {
+  return {
+    system: SOURCE_IDENTIFIER_SYSTEM,
+    value: clinicalPatientId,
+  };
+}
+
+export function clinicalFriendlyIdIdentifier(friendlyId: string): Identifier {
+  return {
+    system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+    value: friendlyId,
+  };
+}
+
+export function identifierSearchToken(identifier: Identifier): string {
+  return `${identifier.system}|${identifier.value}`;
+}
+
+export async function searchPatientsByClinicalIds({
+  oystehr,
+  baseSearchParams,
+  offset,
+  pageSize,
+  uuid,
+  friendlyId,
+}: {
+  oystehr: Oystehr;
+  baseSearchParams: SearchParam[];
+  offset: number;
+  pageSize: number;
+  uuid?: string;
+  friendlyId?: string;
+}): Promise<{ total: number; results: Patient[] }> {
+  // creates an OR search
+  const identifierTokens = [
+    ...(uuid ? [identifierSearchToken(clinicalPatientIdentifier(uuid))] : []),
+    ...(friendlyId ? [identifierSearchToken(clinicalFriendlyIdIdentifier(friendlyId))] : []),
+  ];
+
+  if (identifierTokens.length > 0) {
+    const indexed = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: 'identifier',
+          value: identifierTokens.join(','),
+        },
+        {
+          name: '_count',
+          value: String(pageSize),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    const results = indexed.unbundle();
+    if (results.length > 0) {
+      return {
+        total: indexed.total ?? results.length,
+        results,
+      };
+    }
+  }
+
+  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+}
+
+export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
+  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+}
+
+export async function addClinicalPatientIdentifiers({
+  oystehr,
+  patient,
+  clinicalPatientId,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  clinicalPatientId: string;
+}): Promise<void> {
+  const friendlyId = clinicalFriendlyIdOfCopy(patient);
+  const wanted = [
+    clinicalPatientIdentifier(clinicalPatientId),
+    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
+  ];
+
+  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
+    const missing = wanted.filter((identifier) => !hasIdentifier(current, identifier));
+    if (missing.length === 0) return [];
+    return current.identifier?.length
+      ? missing.map((identifier) => ({
+          op: 'add' as const,
+          path: '/identifier/-',
+          value: identifier,
+        }))
+      : [
+          {
+            op: 'add' as const,
+            path: '/identifier',
+            value: missing,
+          },
+        ];
+  });
+}
+
+export async function searchOnClinicalIDs(
+  oystehr: Oystehr,
+  baseSearchParams: SearchParam[],
+  baseOffset: number,
+  basePageSize: number,
+  uuid?: string,
+  friendlyId?: string
+): Promise<{ total: number; results: Patient[] }> {
+  let results: Patient[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const response = oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    results.push(...(await response).unbundle());
+    return response;
+  }, CLINICAL_ID_SCAN_PAGE_SIZE);
+  if (uuid || friendlyId) {
+    results = results.filter(
+      (p) =>
+        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+    );
+  }
+  const total = results.length;
+  results = results.slice(baseOffset, baseOffset + basePageSize);
+  return { total, results };
+}
+
+export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {
+  try {
+    deepStrictEqual(withoutMeta(stored), withoutMeta(copy));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function withoutMeta<T extends Resource>(resource: T): Omit<T, 'meta'> {
+  const fields = { ...resource };
+  delete fields.meta;
+  return fields;
 }
 
 // Claim.MD stamps the check number as a searchable identifier; process-era only sets

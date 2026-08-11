@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Robert Anderson — 68yo community-acquired pneumonia + COPD exacerbation",
+
+  "patient": {
+    "firstName": "Robert",
+    "lastName": "Anderson",
+    "dateOfBirth": "1957-05-30",
+    "sex": "male",
+    "email": "robert.anderson@example.com",
+    "phoneNumber": "+19735550379",
+    "address": {
+      "line1": "154 Elm Street",
+      "city": "Newark",
+      "state": "NJ",
+      "postalCode": "07103"
+    },
+    "race": "Black or African American",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "Diane",
+      "lastName": "Anderson",
+      "phone": "+19735550381",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Medicare",
+        "memberId": "1AB2CD3EF45",
+        "planName": "Medicare Part B",
+        "subscriberRelationship": "self"
+      },
+      "secondary": {
+        "carrier": "UnitedHealthcare",
+        "memberId": "UHM119988776",
+        "planName": "UHC Medicare Supplement Plan G",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Cough and/or congestion - 4 days, fever, productive yellow-green sputum, increased SOB",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+
+  "template": {
+    "name": "Pneumonia",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99214", "display": "Office visit, established, moderate complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [
+      { "name": "Tiotropium 18mcg Inhalation Powder", "status": "active", "dose": "18 mcg", "frequency": "once daily", "route": "inhaled" },
+      { "name": "Albuterol HFA inhaler 90 mcg", "status": "active", "dose": "2 puffs", "frequency": "every 4-6 hours as needed", "route": "inhaled" },
+      { "name": "Lisinopril 10mg Oral Tablet", "status": "active", "dose": "10 mg", "frequency": "once daily", "route": "PO" },
+      { "name": "Metoprolol Tartrate 25mg Oral Tablet", "status": "active", "dose": "25 mg", "frequency": "twice daily", "route": "PO" }
+    ],
+    "conditions": [
+      { "code": "J44.9", "display": "COPD, unspecified (GOLD stage 2, FEV1 ~55%)", "current": true },
+      { "code": "I10", "display": "Essential hypertension", "current": true },
+      { "code": "I25.2", "display": "Old myocardial infarction (2018, s/p PCI to LAD)", "current": true }
+    ],
+    "surgicalHistory": [
+      { "code": "92928", "display": "PCI with stent placement to LAD (2018)" }
+    ],
+    "hospitalizations": [
+      { "code": "195951007", "display": "COPD exacerbation (hospitalized ~14 months ago, no ICU)" }
+    ],
+    "screening": [
+      { "field": "tobacco-use", "value": true }
+    ],
+    "screenNotes": [
+      { "code": "screening", "text": "Tobacco use: current smoker × 40 years, 1 PPD. No active quit attempt. Counseled on cessation; offered resources." },
+      { "code": "internal", "text": "68yo male with 4-day productive cough + fever + increased SOB on background COPD/CAD. CXR shows RLL consolidation. CURB-65 = 1. SpO2 90% RA → 95% on 2L NC; after albuterol neb, 95% RA. Stable for outpatient management; strict return precautions given comorbidity burden." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 38.6, "unit": "C" },
+    "heartRate": { "value": 102 },
+    "bloodPressure": { "systolic": 138, "diastolic": 84 },
+    "respirationRate": { "value": 24 },
+    "oxygenSaturation": { "value": 90 },
+    "weight": { "value": 82, "unit": "kg" },
+    "height": { "value": 173, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseMedications": [
+      { "medicationName": "Albuterol Sulfate 2.5mg/3mL Nebulizer Solution", "dose": "2.5", "units": "mg", "route": "inhaled", "administered": true, "effectiveDateTime": "2026-04-25T14:00:00Z" }
+    ],
+    "radiology": [
+      {
+        "studyName": "Chest X-ray, 2 views",
+        "cptCode": "71046",
+        "diagnosisCode": "J18.9",
+        "stat": false,
+        "clinicalHistory": "68yo male with 4-day productive cough, fever, SpO2 90%, crackles RLL. Rule out pneumonia.",
+        "consentObtained": true
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Medicare Part B + UHC Medicare Supplement Plan G",
+    "coverageActive": true,
+    "deductible": { "individual": 240, "family": 0, "met": 240 },
+    "outOfPocketMax": { "individual": 0, "family": 0 },
+    "copays": { "officeVisit": 0, "urgentCare": 0, "specialist": 0, "emergencyRoom": 0 },
+    "coinsurancePercent": 0,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99214",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 145,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 145
+      },
+      {
+        "cpt": "71046",
+        "serviceType": "73",
+        "inNetwork": true,
+        "allowedAmount": 130,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 130
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Medicare Part B",
+    "cptPrices": [
+      { "cpt": "99214", "chargedAmount": 220, "allowedAmount": 145 },
+      { "cpt": "71046", "chargedAmount": 250, "allowedAmount": 130 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "pneumonia", "title": "Pneumonia: Recovery and What to Watch For" },
+      { "topic": "smoking cessation", "title": "Quitting Smoking: Resources and Support" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Levofloxacin 750 mg PO daily × 5 days. Prednisone 40 mg PO daily × 5 days. Continue tiotropium + albuterol prn. Discussed admission given hypoxemia + comorbidities; CURB-65 = 1; patient strongly preferred outpatient with close f/u. Strict return precautions: worsening SOB, chest pain, fever not improving in 48-72h, confusion. PCP follow-up in 2-3 days mandatory.",
+    "followUpIn": 3
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

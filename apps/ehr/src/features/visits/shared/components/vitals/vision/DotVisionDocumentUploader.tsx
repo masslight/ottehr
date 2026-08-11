@@ -113,7 +113,6 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
       <ImageUploader
         fileName={DOT_VISION_FILE_TYPE}
         appointmentId={appointmentId}
-        aspectRatio={6}
         disabled={disabled}
         isUploading={isUploading}
         submitAttachment={handleSubmitAttachment}

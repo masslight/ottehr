@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Rachel Goldstein — 45yo poison-ivy allergic contact dermatitis",
+
+  "patient": {
+    "firstName": "Rachel",
+    "lastName": "Goldstein",
+    "dateOfBirth": "1980-09-25",
+    "sex": "female",
+    "email": "rachel.goldstein@example.com",
+    "phoneNumber": "+18565550312",
+    "address": {
+      "line1": "67 Cherry Hill Road",
+      "city": "Cherry Hill",
+      "state": "NJ",
+      "postalCode": "08002"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "Daniel",
+      "lastName": "Goldstein",
+      "phone": "+18565550313",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Blue Cross Blue Shield",
+        "memberId": "BCB223344556",
+        "groupNumber": "GRP-BCBS-779",
+        "planName": "BCBS PPO Gold 1500",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Rash or skin issue - poison ivy contact, vesicular rash on legs and right arm, severe pruritus",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+
+  "template": {
+    "name": "Poison Ivy",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [
+      { "name": "Penicillin", "current": true, "note": "Childhood rash/hives — avoid penicillins" }
+    ],
+    "medications": [
+      {
+        "name": "Levothyroxine 75mcg Oral Tablet",
+        "status": "active",
+        "dose": "75 mcg",
+        "frequency": "once daily in the morning",
+        "route": "PO"
+      },
+      {
+        "name": "Sertraline 50mg Oral Tablet",
+        "status": "active",
+        "dose": "50 mg",
+        "frequency": "once daily",
+        "route": "PO"
+      }
+    ],
+    "conditions": [
+      { "code": "E03.9", "display": "Hypothyroidism, unspecified", "current": true },
+      { "code": "F41.1", "display": "Generalized anxiety disorder", "current": true },
+      { "code": "E78.5", "display": "Hyperlipidemia, unspecified", "current": true }
+    ],
+    "surgicalHistory": [
+      { "code": "47562", "display": "Laparoscopic cholecystectomy (age 38)" }
+    ],
+    "hospitalizations": [],
+    "screening": [
+      { "field": "tobacco-use", "value": false }
+    ],
+    "screenNotes": [
+      { "code": "internal", "text": "45yo female with linear vesicular rash bilateral lower legs + R volar forearm 24h after weekend hiking — recognized poison ivy. No respiratory involvement, no facial/periorbital edema. Pruritus interfering with sleep." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.0, "unit": "C" },
+    "heartRate": { "value": 76 },
+    "bloodPressure": { "systolic": 124, "diastolic": 78 },
+    "respirationRate": { "value": 14 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 71, "unit": "kg" },
+    "height": { "value": 168, "unit": "cm" }
+  },
+
+  "eligibility": {
+    "plan": "BCBS PPO Gold 1500",
+    "coverageActive": true,
+    "deductible": { "individual": 1500, "family": 3000, "met": 800 },
+    "outOfPocketMax": { "individual": 6000, "family": 12000 },
+    "copays": { "officeVisit": 30, "urgentCare": 50, "specialist": 60, "emergencyRoom": 250 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 50,
+        "insuranceResponsibility": 45
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "BCBS PPO Standard",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "contact dermatitis", "title": "Caring for Poison Ivy / Contact Dermatitis" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Prednisone taper (40 mg × 5d, 30 mg × 3d, 20 mg × 3d, 10 mg × 3d). Hydroxyzine 25 mg q6h prn itch (caution with driving). Triamcinolone 0.1% ointment BID to affected areas. Cool compresses, oatmeal baths. Avoid scratching. Return for facial swelling, SOB, or signs of secondary infection.",
+    "followUpIn": 14
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

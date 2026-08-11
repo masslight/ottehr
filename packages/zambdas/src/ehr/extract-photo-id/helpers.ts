@@ -19,6 +19,7 @@ If it is a photo ID, extract exactly these fields, using ONLY values that are cl
 - dateOfBirth: the date of birth (DOB), formatted YYYY-MM-DD
 - sex: the sex as printed; normalize "M" to "Male" and "F" to "Female" when clear
 - addressLine1: the street address line (number and street only, without city/state/ZIP)
+- addressLine2: address info on its own line, separate from addressLine1
 - addressCity: the city
 - addressState: the two-letter state abbreviation
 - addressZip: the ZIP code
@@ -43,6 +44,7 @@ export const photoIdResponseSchema = {
     dateOfBirth: { type: 'string', nullable: true },
     sex: { type: 'string', nullable: true },
     addressLine1: { type: 'string', nullable: true },
+    addressLine2: { type: 'string', nullable: true },
     addressCity: { type: 'string', nullable: true },
     addressState: { type: 'string', nullable: true },
     addressZip: { type: 'string', nullable: true },
@@ -58,6 +60,7 @@ export const photoIdResponseSchema = {
     'dateOfBirth',
     'sex',
     'addressLine1',
+    'addressLine2',
     'addressCity',
     'addressState',
     'addressZip',
@@ -74,6 +77,7 @@ const EXTRACTION_FIELD_KEYS: (keyof PhotoIdExtractionFields)[] = [
   'dateOfBirth',
   'sex',
   'addressLine1',
+  'addressLine2',
   'addressCity',
   'addressState',
   'addressZip',

@@ -14,6 +14,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  AD_HOC_REPORT_VIEW_ROLES,
   AdHocPatientRow,
   AdHocPatientsInput,
   AdHocPatientsOutputSchema,
@@ -30,7 +31,14 @@ import {
   PATIENT_POINT_OF_DISCOVERY_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  getUserToken,
+  requireUserWithRole,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -58,6 +66,8 @@ interface PatientAgg {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

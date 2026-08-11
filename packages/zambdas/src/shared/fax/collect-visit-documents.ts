@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
 import {
   DISCHARGE_SUMMARY_CODE,
+  docRefIsOttehrGeneratedResultAndCurrent,
   FAX_DOCUMENT_LABELS,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
@@ -124,8 +125,7 @@ const findVisitDocuments = async (
   return {
     'progress-note': progressNote.sort(byDateDescending),
     'discharge-summary': dischargeSummary.sort(byDateDescending),
-    // docStatus goes preliminary -> final on review; only reviewed results may leave the building.
-    'lab-results': labResults.filter((docRef) => docRef.docStatus === 'final').sort(byDateDescending),
+    'lab-results': labResults.filter(docRefIsOttehrGeneratedResultAndCurrent).sort(byDateDescending),
     'radiology-results': radiologyResults.sort(byDateDescending),
     'patient-education': patientEducation.sort(byDateDescending),
   };

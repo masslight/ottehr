@@ -33,7 +33,7 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
     .filter((order) => !order.finalReport)
     .map((order) => order.studyType);
 
-  return { radiology, radiologyOrders: pendingOrderNames };
+  return { radiology, pendingRadiologyOrders: pendingOrderNames };
 };
 
 export const createRadiologySection = <TData extends { radiology?: RadiologyData }>(): PdfSection<

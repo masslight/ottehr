@@ -1,0 +1,8 @@
+{
+  "name": "Forearm X-Ray, 2 Views",
+  "cptCode": "73090",
+  "cptDisplay": "Radiologic examination, forearm; 2 views",
+  "studyName": "X-Ray Forearm 2 Views (AP and Lateral)",
+  "clinicalHistory": "Forearm pain or deformity after trauma — evaluate for radius/ulna fracture",
+  "stat": false
+}

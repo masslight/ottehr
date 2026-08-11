@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -2341,6 +2341,46 @@
               "text": "Secondary insurance details"
             },
             {
+              "linkId": "insurance-card-front-2",
+              "type": "attachment",
+              "text": "Front side of the insurance card (optional)",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+                  "valueString": "Take a picture of the **front side** of your card and upload it here"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                  "valueString": "Image"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                  "valueString": "64290-0"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back-2",
+              "type": "attachment",
+              "text": "Back side of the insurance card (optional)",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+                  "valueString": "Take a picture of the **back side** of your card and upload it here"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                  "valueString": "Image"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                  "valueString": "64290-0"
+                }
+              ]
+            },
+            {
               "linkId": "insurance-carrier-2",
               "type": "choice",
               "text": "Insurance carrier",
@@ -2758,46 +2798,6 @@
                 },
                 {
                   "valueString": "Other"
-                }
-              ]
-            },
-            {
-              "linkId": "insurance-card-front-2",
-              "type": "attachment",
-              "text": "Front side of the insurance card (optional)",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-                  "valueString": "Take a picture of the **front side** of your card and upload it here"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                  "valueString": "Image"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                  "valueString": "64290-0"
-                }
-              ]
-            },
-            {
-              "linkId": "insurance-card-back-2",
-              "type": "attachment",
-              "text": "Back side of the insurance card (optional)",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-                  "valueString": "Take a picture of the **back side** of your card and upload it here"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                  "valueString": "Image"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                  "valueString": "64290-0"
                 }
               ]
             }

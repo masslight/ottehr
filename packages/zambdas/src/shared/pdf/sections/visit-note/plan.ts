@@ -50,11 +50,14 @@ export const composePlanData: DataComposer<
   const specialty = getSpecialtyTransferDisplay(disposition?.specialty, disposition?.specialtyOther);
 
   const subSpecialtyFollowup =
-    additionalChartData?.disposition?.followUp?.map((followUp) => {
-      const display = dispositionCheckboxOptions.find((option) => option.name === followUp.type)!.label;
+    additionalChartData?.disposition?.followUp?.flatMap((followUp) => {
+      // Skip follow-up types with no matching checkbox option (e.g. legacy/unknown types) —
+      // throwing here would 500 the whole visit-note PDF generation at sign time.
+      const display = dispositionCheckboxOptions.find((option) => option.name === followUp.type)?.label;
+      if (!display) return [];
       let note = '';
-      if (followUp.type === 'other') note = `: ${followUp.note}`;
-      return `${display} ${note}`;
+      if (followUp.type === 'other' && followUp.note) note = `: ${followUp.note}`;
+      return [`${display} ${note}`];
     }) ?? [];
 
   const workSchoolExcuse: string[] = [];

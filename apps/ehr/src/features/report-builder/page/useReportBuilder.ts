@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useSnackbar } from 'notistack';
+import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -11,8 +11,10 @@ import {
   LlmDatasetSchema,
   SavedAdHocReportDefinition,
 } from 'utils';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import useEvolveUser from '../../../hooks/useEvolveUser';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
@@ -76,6 +78,8 @@ function partialWarningFor(rows: AdHocRow[]): string | null {
 
 type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
+  canView: boolean;
+  canCreate: boolean;
   datasetId: string;
   dateRange: AdHocDateRangeFilter;
   customDate: string;
@@ -126,7 +130,9 @@ export function useReportBuilder(): UseReportBuilder {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const { enqueueSnackbar } = useSnackbar();
+  const user = useEvolveUser();
+  const canView = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
+  const canCreate = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
 
   const initialDatasetId = AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive';
   const [datasetId, setDatasetId] = useState<string>(initialDatasetId);
@@ -330,6 +336,7 @@ export function useReportBuilder(): UseReportBuilder {
     },
     [oystehrZambda, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
   );
+
   orchestrateRef.current = orchestrate;
 
   // Consume a deferred regeneration on the render AFTER the saved-report loader committed the saved
@@ -344,12 +351,12 @@ export function useReportBuilder(): UseReportBuilder {
 
   // Editing the request and generating again IS the refinement flow — there is no separate one.
   const handleGenerate = useCallback((): void => {
-    if (!request.trim()) return;
+    if (!request.trim() || !canCreate) return;
     autoRetryRef.current = 0;
     autoFixedRef.current = false;
     setGeneratedCode(null);
     void orchestrate(request, true);
-  }, [request, orchestrate]);
+  }, [request, canCreate, orchestrate]);
 
   // When the generated code throws at runtime in the iframe, transparently regenerate once with the
   // failing code + error attached. After the budget is spent, surface the error. A watchdog
@@ -359,6 +366,7 @@ export function useReportBuilder(): UseReportBuilder {
     (message: string): void => {
       if (
         message !== SANDBOX_TIMEOUT_MESSAGE &&
+        canCreate &&
         autoRetryRef.current < MAX_AUTO_RETRIES &&
         !generating &&
         activeRequestRef.current
@@ -378,7 +386,7 @@ export function useReportBuilder(): UseReportBuilder {
       }
       setRenderError(message);
     },
-    [generating, generatedCode]
+    [canCreate, generating, generatedCode]
   );
 
   // Clear the generated report to start fresh. Keeps the fetched rows/schema and request text, so
@@ -400,7 +408,7 @@ export function useReportBuilder(): UseReportBuilder {
   useEffect(() => {
     const savedId = searchParams.get('saved');
 
-    if (!savedId || !oystehrZambda || loadAttemptedRef.current) return;
+    if (!savedId || !oystehrZambda || !canView || loadAttemptedRef.current) return;
 
     loadAttemptedRef.current = true;
 
@@ -449,16 +457,20 @@ export function useReportBuilder(): UseReportBuilder {
         autoRetryRef.current = 0;
 
         if ((saved.runtimeVersion ?? 0) !== ADHOC_RUNTIME_VERSION) {
-          showAdHocDebugLog('saved', 'runtime version mismatch — regenerating from prompt', {
+          showAdHocDebugLog('saved', 'runtime version mismatch', {
             saved: saved.runtimeVersion,
             current: ADHOC_RUNTIME_VERSION,
           });
 
-          enqueueSnackbar('This report was rebuilt for an updated report engine.', {
-            variant: 'info',
-          });
-          autoFixedRef.current = true;
-          setPendingRegenerate(saved.request);
+          if (!canCreate) {
+            setError('This report was built for an older report engine and needs an administrator to rebuild it.');
+          } else {
+            enqueueSnackbar('This report was rebuilt for an updated report engine.', {
+              variant: 'info',
+            });
+            autoFixedRef.current = true;
+            setPendingRegenerate(saved.request);
+          }
         } else {
           setGeneratedCode(saved.code);
           setGeneratedTitle(saved.title);
@@ -504,12 +516,12 @@ export function useReportBuilder(): UseReportBuilder {
   const handleRendered = useCallback((): void => {
     if (!autoFixedRef.current) return;
     autoFixedRef.current = false;
-    if (!oystehrZambda || !loadedSavedId || !generatedCode) return;
+    if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode) return;
     void saveAdHocReport(oystehrZambda, {
       reportId: loadedSavedId,
       definition: buildDefinition(savedName || generatedTitle || 'Report', generatedCode),
     }).catch((e) => console.warn('Could not persist auto-fixed report', e));
-  }, [oystehrZambda, loadedSavedId, generatedCode, buildDefinition, savedName, generatedTitle]);
+  }, [canCreate, oystehrZambda, loadedSavedId, generatedCode, buildDefinition, savedName, generatedTitle]);
 
   const handleSave = useCallback(
     async (mode: 'update' | 'new'): Promise<void> => {
@@ -530,7 +542,7 @@ export function useReportBuilder(): UseReportBuilder {
         setSaving(false);
       }
     },
-    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition, enqueueSnackbar]
+    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition]
   );
 
   const openSaveDialog = useCallback((): void => {
@@ -540,6 +552,8 @@ export function useReportBuilder(): UseReportBuilder {
 
   return {
     oystehrZambda,
+    canView,
+    canCreate,
     datasetId,
     dateRange,
     customDate,
