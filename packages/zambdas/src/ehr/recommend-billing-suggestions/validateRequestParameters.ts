@@ -7,7 +7,6 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
   }
 
   const {
-    patientId,
     newPatient,
     patientAge,
     patientSex,
@@ -22,10 +21,10 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     diagnoses,
     billing,
     prescribedMedications,
+    currentMedications,
   } = JSON.parse(input.body);
 
   return {
-    patientId,
     newPatient,
     patientAge: patientAge || '',
     patientSex: patientSex || '',
@@ -40,6 +39,7 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     diagnoses,
     billing,
     prescribedMedications,
+    currentMedications,
     secrets: input.secrets,
   };
 }

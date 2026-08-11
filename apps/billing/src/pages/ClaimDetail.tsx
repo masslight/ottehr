@@ -61,6 +61,7 @@ import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
+  exportClaimX12,
   getBillingClaimDetail,
   getPatientCoverages,
   runBillingRulesEngine,
@@ -447,12 +448,14 @@ export default function ClaimDetail(): ReactElement {
         )}
       </Box>
 
-      <ExportX12Dialog
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        claimId={claim.id}
-        claimType={claim.type}
-      />
+      {oystehrZambda && (
+        <ExportX12Dialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
+          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+        />
+      )}
 
       <ClaimNotesDrawer
         key={claim.id}

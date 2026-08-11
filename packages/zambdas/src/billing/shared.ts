@@ -348,6 +348,15 @@ export function hasIdentifier(patient: Patient, identifier: Identifier): boolean
   return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
 }
 
+export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
+  const friendlyId = clinicalFriendlyIdOfCopy(patient);
+  const wanted = [
+    clinicalPatientIdentifier(clinicalPatientId),
+    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
+  ];
+  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
+}
+
 export async function addClinicalPatientIdentifiers({
   oystehr,
   patient,
@@ -357,14 +366,8 @@ export async function addClinicalPatientIdentifiers({
   patient: Patient;
   clinicalPatientId: string;
 }): Promise<void> {
-  const friendlyId = clinicalFriendlyIdOfCopy(patient);
-  const wanted = [
-    clinicalPatientIdentifier(clinicalPatientId),
-    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
-  ];
-
   await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = wanted.filter((identifier) => !hasIdentifier(current, identifier));
+    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
     if (missing.length === 0) return [];
     return current.identifier?.length
       ? missing.map((identifier) => ({

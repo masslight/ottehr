@@ -7,6 +7,8 @@ import {
   codeableConcept,
   EraDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
+  getExtension,
+  RAW_X12_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -205,6 +207,7 @@ export async function performEffect(
     totalClaims: counts.total,
     matchedClaims: counts.matched,
     unmatchedClaims: counts.unmatched,
+    x12: getExtension(pr, RAW_X12_EXTENSION_URL)?.valueString ?? '',
     claims: claimItems,
   };
 }

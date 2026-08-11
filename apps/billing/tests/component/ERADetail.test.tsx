@@ -125,6 +125,7 @@ const makeEra = (): EraDetailResponse => ({
   totalClaims: 2,
   matchedClaims: 1,
   unmatchedClaims: 1,
+  x12: 'ISA*00*...~',
   claims: [
     {
       claimId: 'c1',

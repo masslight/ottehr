@@ -250,6 +250,8 @@ export interface EraDetailResponse {
   totalClaims: number;
   matchedClaims: number;
   unmatchedClaims: number;
+  // the raw 835 as received, from the PaymentReconciliation's rcm-raw-x12 extension
+  x12: string;
   claims: EraClaimListItem[];
 }
 
