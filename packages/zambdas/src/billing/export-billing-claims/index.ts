@@ -9,6 +9,7 @@ import {
   EXPORT_CLAIMS_INCOMPLETE_CODE,
   EXPORT_CSV_OUTPUT_URL_CODE,
   EXPORT_TASK_SYSTEM,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -85,12 +86,14 @@ async function getExportStatus(oystehr: Oystehr, taskId: string): Promise<Billin
     resourceType: 'Task',
     id: taskId,
   });
+  if (!isClaimsExportTask(task)) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Task/${taskId} is not a claims export`);
+
   const status = task.status as BillingClaimsExportStatusResponse['status'];
 
   if (status === 'failed') {
     return {
       status,
-      error: task.statusReason?.coding?.[0]?.code ?? task.statusReason?.text ?? 'Export failed',
+      error: task.statusReason?.text ?? task.statusReason?.coding?.[0]?.code ?? 'Export failed',
     };
   }
 
@@ -112,3 +115,8 @@ async function getExportStatus(oystehr: Oystehr, taskId: string): Promise<Billin
 
 const taskOutputValue = (task: Task, code: string): string | undefined =>
   task.output?.find((output) => output.type?.coding?.some((coding) => coding.code === code))?.valueString;
+
+const isClaimsExportTask = (task: Task): boolean =>
+  task.code?.coding?.some(
+    (coding) => coding.system === EXPORT_TASK_SYSTEM && coding.code === EXPORT_CLAIMS_CSV_TASK_CODE
+  ) ?? false;

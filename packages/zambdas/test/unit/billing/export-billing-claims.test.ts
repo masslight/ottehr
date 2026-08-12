@@ -59,13 +59,28 @@ const taskFilters = (task: Task): unknown =>
       ?.valueString ?? 'null'
   );
 
-const completedTask = (output: Task['output']): Task =>
+const exportTaskCode: Task['code'] = {
+  coding: [
+    {
+      system: EXPORT_TASK_SYSTEM,
+      code: EXPORT_CLAIMS_CSV_TASK_CODE,
+    },
+  ],
+};
+
+const exportTask = (task: Partial<Task>): Task =>
   ({
     resourceType: 'Task',
     id: 'task-1',
+    code: exportTaskCode,
+    ...task,
+  }) as Task;
+
+const completedTask = (output: Task['output']): Task =>
+  exportTask({
     status: 'completed',
     output,
-  }) as Task;
+  });
 
 describe('export-billing-claims', () => {
   beforeEach(async () => {
@@ -212,11 +227,7 @@ describe('export-billing-claims', () => {
     });
 
     it('reports work still in flight without a link', async () => {
-      mockOystehrClient.fhir.get.mockResolvedValue({
-        resourceType: 'Task',
-        id: 'task-1',
-        status: 'in-progress',
-      } as Task);
+      mockOystehrClient.fhir.get.mockResolvedValue(exportTask({ status: 'in-progress' }));
 
       const result = await handler(makeInput({ taskId: 'task-1' }));
 
@@ -224,19 +235,52 @@ describe('export-billing-claims', () => {
       expect(mockCreatePresignedUrl).not.toHaveBeenCalled();
     });
 
-    it('surfaces why the export failed', async () => {
+    it('refuses a task that is not a claims export', async () => {
       mockOystehrClient.fhir.get.mockResolvedValue({
         resourceType: 'Task',
         id: 'task-1',
-        status: 'failed',
-        statusReason: {
+        status: 'completed',
+        code: {
           coding: [
             {
-              code: 'payer lookup timed out',
+              system: EXPORT_TASK_SYSTEM,
+              code: 'export-invoices-csv',
             },
           ],
         },
+        output: [
+          {
+            type: {
+              coding: [
+                {
+                  system: EXPORT_TASK_SYSTEM,
+                  code: EXPORT_CSV_OUTPUT_URL_CODE,
+                },
+              ],
+            },
+            valueString: 'https://project.api/z3/bucket/invoices.csv',
+          },
+        ],
       } as Task);
+
+      await expect(handler(makeInput({ taskId: 'task-1' }))).rejects.toBeDefined();
+      expect(mockCreatePresignedUrl).not.toHaveBeenCalled();
+    });
+
+    it('surfaces why the export failed, as it was written', async () => {
+      mockOystehrClient.fhir.get.mockResolvedValue(
+        exportTask({
+          status: 'failed',
+          statusReason: {
+            coding: [
+              {
+                code: 'payer-lookup-timed-out',
+              },
+            ],
+            text: 'payer lookup timed out',
+          },
+        })
+      );
 
       const result = await handler(makeInput({ taskId: 'task-1' }));
 
@@ -246,12 +290,25 @@ describe('export-billing-claims', () => {
       });
     });
 
+    it('falls back to the reason code when the failure carries no text', async () => {
+      mockOystehrClient.fhir.get.mockResolvedValue(
+        exportTask({
+          status: 'failed',
+          statusReason: {
+            coding: [
+              {
+                code: 'payer-lookup-timed-out',
+              },
+            ],
+          },
+        })
+      );
+
+      expect(JSON.parse((await handler(makeInput({ taskId: 'task-1' }))).body).error).toBe('payer-lookup-timed-out');
+    });
+
     it('falls back to a generic error when the failure carries no reason', async () => {
-      mockOystehrClient.fhir.get.mockResolvedValue({
-        resourceType: 'Task',
-        id: 'task-1',
-        status: 'failed',
-      } as Task);
+      mockOystehrClient.fhir.get.mockResolvedValue(exportTask({ status: 'failed' }));
 
       expect(JSON.parse((await handler(makeInput({ taskId: 'task-1' }))).body).error).toBe('Export failed');
     });
