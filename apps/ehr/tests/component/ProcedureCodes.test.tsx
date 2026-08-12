@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { ReactNode } from 'react';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================

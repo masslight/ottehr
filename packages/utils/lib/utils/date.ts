@@ -1,5 +1,5 @@
 import { DateTime, DateTimeJSOptions } from 'luxon';
-import { DateComponents, Timezone } from '../types';
+import { DateComponents, Timezone } from '../types/common';
 
 interface timezone {
   value: string;

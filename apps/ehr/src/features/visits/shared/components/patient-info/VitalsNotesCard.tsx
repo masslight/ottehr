@@ -1,5 +1,6 @@
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { IN_PERSON_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { IN_PERSON_NOTE_ID, NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GenericNoteList } from '../generic-notes-list/GenericNoteList';
 import { GenericNotesConfig } from '../generic-notes-list/types';
 

@@ -1,21 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   FAX_PACKET_REQUEST_TASK_INPUT,
   FaxPacketTaskPayload,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  removePrefix,
   SendFaxPacketOutput,
-  TaskIndicator,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/api/fax.types';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-fax-packet';

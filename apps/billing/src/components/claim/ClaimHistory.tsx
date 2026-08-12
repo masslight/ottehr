@@ -15,7 +15,8 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { ClaimHistoryEntry, ClaimHistoryLink, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimHistoryEntry, ClaimHistoryLink } from 'utils/lib/types/data/billing/claim-history';
 import { getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '../../themes/ottehr/colors';

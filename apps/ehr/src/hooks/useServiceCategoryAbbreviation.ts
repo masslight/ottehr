@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { resolveServiceCategoryAbbreviation } from 'utils';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { listServiceCategories } from '../api/api';
 import { useApiClients } from './useAppClients';
 

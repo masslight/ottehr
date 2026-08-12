@@ -7,7 +7,7 @@ import {
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-} from '../../data';
+} from '../../data/paperwork/paperwork.constants';
 
 export interface GetPresignedFileURLInput {
   appointmentID: string;

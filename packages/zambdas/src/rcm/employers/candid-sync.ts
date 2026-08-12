@@ -2,7 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { NonInsurancePayerId } from 'candidhealth/api/resources/nonInsurancePayers/resources/v1';
 import { Address } from 'fhir/r4b';
-import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { Secrets } from 'utils/lib/secrets';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { CANDID_EMPLOYER_DESCRIPTION } from './helpers';
 
 const mapFhirAddressToCandidAddress = (addresses?: Address[]): CandidApi.StreetAddressShortZip | undefined => {

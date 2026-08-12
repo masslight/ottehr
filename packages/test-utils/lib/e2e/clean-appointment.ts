@@ -2,7 +2,7 @@ import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 
 const exec = promisify(execCb);
 let totalResourceCleanupTime = 0;

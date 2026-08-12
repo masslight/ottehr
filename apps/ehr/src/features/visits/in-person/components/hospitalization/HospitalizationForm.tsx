@@ -10,7 +10,7 @@ import { ProviderSideListSkeleton } from 'src/features/visits/shared/components/
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { HospitalizationDTO } from 'utils';
+import { HospitalizationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { HospitalizationOptions } from './hospitalizationOptions';
 
 export const HospitalizationForm: FC = () => {

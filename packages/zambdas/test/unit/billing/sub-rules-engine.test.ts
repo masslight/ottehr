@@ -1,17 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition, Claim, Organization, ProvenanceAgent } from 'fhir/r4b';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
-  AR_STAGE,
-  BillingRule,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-  CLAIM_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/claim-history';
+import {
+  AR_STAGE,
   claimStatusValuesToTags,
-  CPT_CODE_SYSTEM,
-  getPayerUrl,
-  HOLD_TAG_NAME,
   withArStageInitialization,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';
 import { rulesToList } from '../../../src/billing/rules-engine/serialization';

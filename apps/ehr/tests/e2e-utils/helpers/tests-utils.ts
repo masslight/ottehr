@@ -1,7 +1,7 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { expect, Locator, Page } from '@playwright/test';
 import { DocumentReference } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG } from 'utils';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../resource-handler';
 

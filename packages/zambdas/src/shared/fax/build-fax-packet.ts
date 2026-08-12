@@ -2,22 +2,22 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  BUCKET_NAMES,
   FAX_DOCUMENT_ORDER,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
   FaxDocumentKind,
   FaxRecipient,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/api/fax.types';
 import { createFaxCoverSheetPdfBytes } from '../pdf/fax-cover-sheet-pdf';
 import { makeFaxPacketDocumentReference } from '../pdf/make-fax-packet-document-reference';
 import { downloadPdfBytes, mergePdfDocuments } from '../pdf/merge-pdfs';
 import { PdfInfo } from '../pdf/pdf-utils';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { collectFaxParts, FaxPacketPart } from './collect-visit-documents';
 

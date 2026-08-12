@@ -2,7 +2,7 @@
 // cSpell:ignore LCAT, LCMHC, LCMHCA, LCPC, LCSW, LCSWA, LGPC, LGSW, LICSW, LIMHP, LISW, LMFT, LMFTA, LMHC, LMHCA, LMPC
 // cSpell:ignore LMSW, LPCA, LPCC, LPCI, LPCMH, LSCSW, MFTA, MHCA, MHSP, MLSW, PMHNP, PROFESSI, RCSWI, RHMCI, RNFA, SLPA
 // cSpell:ignore SLPD
-import { StateType } from 'utils';
+import { StateType } from '../common';
 
 export type PractitionerQualificationCode =
   | 'MD'

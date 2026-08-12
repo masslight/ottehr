@@ -5,7 +5,7 @@ import { ReactElement, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { LabSetDTO, LabSetStatus } from 'utils';
+import { LabSetDTO, LabSetStatus } from 'utils/lib/types/data/labs/lab-set.schema';
 import { useAdminGetLabSetDetail, useAdminUpdateLabSet } from '../admin.queries';
 import AdminLabSetForm from './AdminLabSetForm';
 

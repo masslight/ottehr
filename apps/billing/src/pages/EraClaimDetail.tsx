@@ -25,21 +25,18 @@ import {
 } from '@mui/material';
 import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ERA_CLAIM_STATUS_CODE, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import {
-  carcDescription,
   ClaimRemitAdjustment,
-  ERA_CLAIM_STATUS_CODE,
   EraClaimListItem,
   EraClaimRemit,
   EraDetailResponse,
   EraRemitServiceLine,
-  formatCurrency,
-  getAgeInYears,
-  getApiError,
-  roundNumberToDecimalPlaces,
-  X12_ADJUSTMENT_GROUP_CODE,
-  X12_ADJUSTMENT_GROUP_LABELS,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.types';
+import { carcDescription, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
+import { formatCurrency, roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { getAgeInYears } from 'utils/lib/validation/helper';
 import { getBillingEraDetail, lookupProcedureDescriptions } from '../api/api';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { ERA_STATUS_LABELS } from '../constants/era';

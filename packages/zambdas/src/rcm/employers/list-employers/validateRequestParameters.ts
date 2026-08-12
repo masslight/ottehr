@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
 
 export interface ListEmployersParams {
   secrets: ZambdaInput['secrets'];

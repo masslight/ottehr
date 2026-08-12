@@ -2,18 +2,17 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Communication, Device, Task } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  FAX_TASK,
-  getSecret,
-  INVALID_INPUT_ERROR,
-  OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
-  SecretsKeys,
-  TASK_CATEGORY_IDENTIFIER,
-} from 'utils';
+import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL, TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { topLevelCatch } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
 import { createTask } from '../../../shared/tasks';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-inbound-fax';

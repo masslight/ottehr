@@ -1,5 +1,5 @@
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
-import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils';
+import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 

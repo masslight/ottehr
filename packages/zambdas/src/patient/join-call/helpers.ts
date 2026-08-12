@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Encounter, Extension } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 
 export async function addUserToVideoEncounterIfNeeded(
   encounter: Encounter,

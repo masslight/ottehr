@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, List, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ZambdaInput } from '../../src/shared';
+import type { ZambdaInput } from '../../src/shared/types/common';
 
 // The exported `index` is typed as an AWS 3-arg Handler, but `wrapHandler` is mocked to
 // return the single-arg inner function; cast the imports to reflect the runtime shape.
@@ -25,7 +25,7 @@ const { mockOystehr, mockDeleteZ3Object, mockCaptureException } = vi.hoisted(() 
   mockCaptureException: vi.fn(),
 }));
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/helpers/helpers', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -33,12 +33,26 @@ vi.mock('utils', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     getAuth0Token: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
@@ -59,7 +73,10 @@ vi.mock('@sentry/aws-serverless', async (importOriginal) => {
   };
 });
 
-import { APIErrorCode, FAX_TASK, getUiTaskCategoryForCode, OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils';
+import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getUiTaskCategoryForCode } from 'utils/lib/types/api/provider-notifications';
+import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { index as deleteInboundFaxRaw } from '../../src/ehr/delete-inbound-fax/index';
 import { index as fileInboundFaxRaw } from '../../src/ehr/file-inbound-fax/index';
 import { Z3Error } from '../../src/shared/z3Utils';

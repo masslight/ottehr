@@ -1,15 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationRequest } from 'fhir/r4b';
-import { ERX_MEDICATION_META_TAG_CODE, GetErxOrdersInput, GetErxOrdersInputSchema, GetErxOrdersResponse } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  makePrescribedMedicationDTO,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
+import { GetErxOrdersInput, GetErxOrdersInputSchema, GetErxOrdersResponse } from 'utils/lib/types/api/erx.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { makePrescribedMedicationDTO } from '../../shared/chart-data';
+import { createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-erx-orders';

@@ -1,5 +1,5 @@
 import { captureException, captureMessage } from '@sentry/aws-serverless';
-import { handleUnknownError } from 'utils';
+import { handleUnknownError } from 'utils/lib/fhir/helpers';
 
 export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
   if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {

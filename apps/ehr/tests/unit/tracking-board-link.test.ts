@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { visitStatusArray, VisitStatusLabel } from 'utils';
+import { visitStatusArray, VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { describe, expect, test } from 'vitest';
 import { buildTrackingBoardPath } from '../../src/pages/reports/trackingBoardLink';
 

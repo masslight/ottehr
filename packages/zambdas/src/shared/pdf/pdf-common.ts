@@ -1,15 +1,12 @@
 import fs from 'node:fs';
 import { FormFieldsDisplayItem, FormFieldSection } from 'config-types';
 import { PDFImage } from 'pdf-lib';
-import {
-  AppointmentContext,
-  evaluateFieldTriggers,
-  getPresignedURL,
-  PATIENT_RECORD_CONFIG,
-  Secrets,
-  uploadPDF,
-} from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
+import { AppointmentContext, evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { Secrets } from 'utils/lib/secrets';
+import { uploadPDF } from 'utils/lib/utils/pdf';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import {

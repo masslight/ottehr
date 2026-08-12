@@ -2,8 +2,9 @@ import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import fs from 'fs';
-import { FHIR_BASE_URL } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { FHIR_BASE_URL } from 'utils/lib/fhir/constants';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {

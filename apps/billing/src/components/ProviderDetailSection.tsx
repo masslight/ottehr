@@ -1,6 +1,8 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { BillingProviderOption, CreateBillingProviderInput, getApiError, UpdateBillingProviderInput } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { updateBillingProvider } from '../api/api';
 import {
   defaultProviderFormValues,

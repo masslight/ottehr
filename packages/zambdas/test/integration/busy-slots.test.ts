@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Location, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { SlotServiceCategory } from 'utils/lib/fhir/constants';
 import {
   getAllSlotsAsCapacityMap,
   getAvailableSlots,
@@ -12,10 +13,10 @@ import {
   GetSlotsInWindowInput,
   getTimezone,
   HourOfDay,
-  SlotServiceCategory,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
 import { assert, vi } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import {

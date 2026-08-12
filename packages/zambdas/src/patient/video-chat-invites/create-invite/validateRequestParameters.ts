@@ -1,6 +1,9 @@
-import { emailRegex, INVALID_INPUT_ERROR, VideoChatCreateInviteInput } from 'utils';
+import { VideoChatCreateInviteInput } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { emailRegex } from 'utils/lib/validation/regex';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const CreateInviteBodySchema = z
   .object({

@@ -1,6 +1,9 @@
-import { CancelInviteParticipantRequestInput, emailRegex, INVALID_INPUT_ERROR, phoneRegex } from 'utils';
+import { CancelInviteParticipantRequestInput } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { emailRegex, phoneRegex } from 'utils/lib/validation/regex';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const CancelInviteBodySchema = z
   .object({

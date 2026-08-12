@@ -5,7 +5,9 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { ASQ_FIELD, ASQKeys, asqLabels, ASQObservationDTO, ObservationDTO } from 'utils';
+import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ASQObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import { InPersonModal } from '../InPersonModal';
 
 const isASQObservationDTO = (obs: ObservationDTO): obs is ASQObservationDTO => {

@@ -17,14 +17,14 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { UpdateChargeItemDefinitionInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
   BillingCodeOption,
   ChargeItemDefinitionType,
-  getApiError,
-  UpdateChargeItemDefinitionInputSchema,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.types';
 import z from 'zod';
 import { updateChargeItemDefinition } from '../api/api';
 import {

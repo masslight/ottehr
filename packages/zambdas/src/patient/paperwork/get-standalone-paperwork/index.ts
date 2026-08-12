@@ -10,25 +10,24 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
+import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import {
   extractHealthcareServiceAndSupportingLocations,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getLastUpdateTimestampForResource,
-  getQuestionnaireForQR,
-  MANAGED_QUESTIONNAIRE_ERROR,
-  mapQuestionnaireAndValueSetsToItemsList,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  UCGetPaperworkResponse,
-} from 'utils';
+} from 'utils/lib/fhir/helpers';
+import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { UCGetPaperworkResponse } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getUser,
-  userHasAccessToPatient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+  MANAGED_QUESTIONNAIRE_ERROR,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+} from 'utils/lib/types/errors';
+import { getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   formatPatientSexForPaperwork,
   getPaperworkSupportingInfoForUserWithAccess,

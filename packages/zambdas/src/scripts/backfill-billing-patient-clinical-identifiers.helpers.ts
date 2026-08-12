@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import { getAllFhirSearchPages } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   addClinicalPatientIdentifiers,
   clinicalPatientIdOfCopy,

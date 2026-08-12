@@ -16,7 +16,8 @@ import {
   PatientDocumentsExplorerTable,
 } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
-import { getFullName, isSyntheticFolderId } from 'utils';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';

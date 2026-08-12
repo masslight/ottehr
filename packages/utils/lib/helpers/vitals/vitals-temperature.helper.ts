@@ -1,4 +1,4 @@
-import { roundNumberToDecimalPlaces } from '../../utils';
+import { roundNumberToDecimalPlaces } from '../../utils/convert';
 
 export const roundTemperatureValue = (temperature: number): number => roundNumberToDecimalPlaces(temperature, 1);
 

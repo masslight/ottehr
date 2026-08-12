@@ -1,5 +1,6 @@
 import React from 'react';
-import { IN_PERSON_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { IN_PERSON_NOTE_ID, NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useInternalNotesModal } from '../hooks/useInternalNotes';
 import { ButtonRounded } from './RoundedButton';

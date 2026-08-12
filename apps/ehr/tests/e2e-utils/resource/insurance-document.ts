@@ -1,5 +1,5 @@
 import { DocumentReference } from 'fhir/r4b';
-import { MIME_TYPES } from 'utils';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 // import { INSURANCE_CARD_CODE, OTTEHR_MODULE } from 'utils';
 
 interface DocumentReferenceParams {

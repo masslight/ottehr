@@ -11,7 +11,7 @@ import {
   resolveEraPayee,
 } from '../billing/era-remits';
 import { getEraCheckNumber } from '../billing/shared';
-import { getAuth0Token } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 const ENV = process.env.ENV || 'local';
 const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${ENV}.json`, 'utf8'));

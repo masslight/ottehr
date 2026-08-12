@@ -1,6 +1,8 @@
-import { GetPatientInstructionsInput, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils';
+import { GetPatientInstructionsInput } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const GetPatientInstructionsBodySchema = z.object({
   type: z.enum(['provider', 'organization']),

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useICD10SearchNew } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { IcdSearchResponse } from 'utils';
+import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 
 export type Icd10Option = IcdSearchResponse['codes'][number];
 

@@ -1,7 +1,7 @@
 import { Autocomplete, Box, TextField } from '@mui/material';
 import { FC, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 export type ExamCheckboxDropdownOptionType = { label: string; name: string };

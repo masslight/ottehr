@@ -1,6 +1,6 @@
 import { Autocomplete, Box, Button, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
-import { CMS_PLACE_OF_SERVICE_CODES } from 'utils';
+import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 
 export interface ServiceLineRow {

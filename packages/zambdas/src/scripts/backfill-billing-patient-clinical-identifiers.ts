@@ -1,6 +1,6 @@
-import { Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
 import { createBillingClient } from '../billing/shared';
-import { getAuth0Token } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
 import { backfillBillingPatientClinicalIdentifiers } from './backfill-billing-patient-clinical-identifiers.helpers';
 import { performEffectWithEnvFile } from './helpers';
 

@@ -5,7 +5,8 @@ import { Box, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Typ
 import Oystehr from '@oystehr/sdk';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { LabSetDTO, LabType } from 'utils';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 
 type LabSetsProps = {
   labSets: LabSetDTO[];

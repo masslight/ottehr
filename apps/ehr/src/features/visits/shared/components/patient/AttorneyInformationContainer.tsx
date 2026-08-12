@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import { PATIENT_RECORD_CONFIG } from 'utils';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 import { SectionSaveButton } from './SectionSaveButton';

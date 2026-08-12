@@ -1,5 +1,5 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
-import { PHARMACY_COLLECTION_LINK_IDS } from 'utils';
+import { PHARMACY_COLLECTION_LINK_IDS } from '../../types/data/search-places';
 
 export type PharmacyCollectionAnswerSetInput = {
   placesId: string;

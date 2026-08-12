@@ -14,8 +14,8 @@ vi.mock('../src/shared/ai', () => ({
 }));
 
 // Mock auth so the handler runs offline.
-vi.mock('../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/shared')>();
+vi.mock('../src/shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/shared/getAuth0Token')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(async () => 'mock-token'),
@@ -24,11 +24,18 @@ vi.mock('../src/shared', async (importOriginal) => {
 
 // createOystehrClient/getAttendingPractitionerId are imported from 'utils' by the handler, so mock the encounter
 // lookup and provider attribution here instead of '../src/shared'.
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/helpers/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/helpers')>();
   return {
     ...actual,
     createOystehrClient: vi.fn(() => ({ fhir: { get: fhirGet } })),
+  };
+});
+
+vi.mock('utils/lib/fhir/practitioners', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/fhir/practitioners')>();
+  return {
+    ...actual,
     getAttendingPractitionerId,
   };
 });

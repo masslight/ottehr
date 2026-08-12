@@ -1,5 +1,7 @@
-import { DEFAULT_LABS_ITEMS_PER_PAGE, GetLabOrdersParameters } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { DEFAULT_LABS_ITEMS_PER_PAGE } from 'utils/lib/types/data/labs/labs.constants';
+import { GetLabOrdersParameters } from 'utils/lib/types/data/labs/labs.types';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export type GetZambdaLabOrdersParams = GetLabOrdersParameters & { secrets: any };
 

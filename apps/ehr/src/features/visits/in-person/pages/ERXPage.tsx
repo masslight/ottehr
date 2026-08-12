@@ -1,7 +1,8 @@
 import { Paper, Stack, Typography } from '@mui/material';
 import React from 'react';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { AiObservationField, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { Loader } from '../../shared/components/Loader';
 import { ERxContainer } from '../../shared/components/plan-tab/ERxContainer';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';

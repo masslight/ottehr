@@ -1,6 +1,6 @@
 import { Chip, ChipProps } from '@mui/material';
 import { ReactElement } from 'react';
-import { NursingOrdersStatus } from 'utils';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
 
 interface NursingOrdersStatusChipProps {
   status: NursingOrdersStatus | string;

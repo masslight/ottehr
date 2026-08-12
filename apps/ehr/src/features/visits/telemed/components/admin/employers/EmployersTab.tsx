@@ -27,8 +27,8 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { StatusChip } from 'src/components/StatusChip';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import { useEmployersQuery } from 'src/rcm/state/employers';
 import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
+import { useEmployersQuery } from 'src/rcm/state/employers/employers.queries';
 import EmployerDialog from './EmployerDialog';
 
 enum EmployerActiveStatus {

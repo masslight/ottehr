@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { ADHOC_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
+import { ADHOC_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils/lib/helpers/reports';
 
 // ISO instant → viewer-local yyyy-MM-dd, or null when absent/unparseable. utils' formatDate() does
 // the same parse/format but returns '-' on missing/invalid; here null must be preserved (date fields

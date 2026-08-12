@@ -1,7 +1,8 @@
 import { Alert, Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
-import { CLAIM_NOTE_MAX_LENGTH, ClaimHistoryEntry, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CLAIM_NOTE_MAX_LENGTH, ClaimHistoryEntry } from 'utils/lib/types/data/billing/claim-history';
 import { addBillingClaimNote, getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '../../themes/ottehr/colors';

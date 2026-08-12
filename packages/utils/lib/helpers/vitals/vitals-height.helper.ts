@@ -1,4 +1,4 @@
-import { roundNumberToDecimalPlaces, textToNumericValue } from '../../utils';
+import { roundNumberToDecimalPlaces, textToNumericValue } from '../../utils/convert';
 
 const INCHES_PER_CM = 0.393701;
 const INCHES_IN_FOOT = 12;

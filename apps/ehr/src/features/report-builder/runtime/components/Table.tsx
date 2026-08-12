@@ -10,8 +10,7 @@ import {
   useGridApiRef,
 } from '@mui/x-data-grid-pro';
 import React, { useCallback, useMemo, useState } from 'react';
-import type { AdHocLinkRoute } from 'utils';
-// Deep import (not the 'utils' barrel) so the iframe bundle stays zod-free.
+import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
 import { MAX_EXPORT_CSV_LENGTH } from 'utils/lib/types/adhoc/sandbox/limits';
 import { sendFrameEvent } from '../messaging';
 import { formatValue, ValueFormat } from './format';

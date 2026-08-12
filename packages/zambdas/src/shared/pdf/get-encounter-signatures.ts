@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { getProviderNameWithProfession, PARTICIPATION_CODE_SYSTEM } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { ProgressNoteSignatures, SignatureProvenanceInfo } from './types';
 
 type SignatureRole = 'author' | 'verifier';

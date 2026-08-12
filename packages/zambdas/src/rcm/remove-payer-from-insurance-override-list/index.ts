@@ -1,17 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
-  createOystehrClient,
-  getSecret,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   PRECONDITION_FAILED,
-  SecretsKeys,
-} from 'utils';
+} from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { formatZodError, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { formatZodError } from '../../shared/validation';
 import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list/handler';
 
 const payerInfoSchema = z.object({

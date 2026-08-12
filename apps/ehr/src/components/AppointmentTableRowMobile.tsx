@@ -4,7 +4,7 @@ import { CSSProperties, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RecordAudioContainer } from 'src/features/visits/in-person/components/progress-note/RecordAudioContainer';
 import { getInPersonVisitDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
-import { InPersonAppointmentInformation } from 'utils';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
 import { PatientDateOfBirth } from './PatientDateOfBirth';

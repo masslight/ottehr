@@ -1,7 +1,8 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { FaxRecipientResult, formatPhoneNumberDisplay } from 'utils';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { FaxRecipientResult } from 'utils/lib/types/api/fax.types';
 
 interface FaxSendResultDialogProps {
   failures: FaxRecipientResult[];

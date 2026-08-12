@@ -1,4 +1,4 @@
-import { GetFaxPacketPreviewOutput } from 'utils';
+import { GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { initialRecipients } from './faxRecipients';
 import { FaxFormValues } from './types';
 

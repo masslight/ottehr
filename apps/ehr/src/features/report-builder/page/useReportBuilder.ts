@@ -3,15 +3,11 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  ADHOC_RUNTIME_VERSION,
-  AdHocDateRangeFilter,
-  AdHocRow,
-  GenerateAdHocReportInput,
-  LlmDatasetSchema,
-  SavedAdHocReportDefinition,
-} from 'utils';
-import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';

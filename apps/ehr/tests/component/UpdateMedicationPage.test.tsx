@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { MEDICATION_DISPENSABLE_DRUG_ID, MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils';
+import {
+  MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-router-dom', async () => {

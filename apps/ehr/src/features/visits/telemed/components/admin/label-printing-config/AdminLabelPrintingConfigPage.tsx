@@ -1,7 +1,8 @@
 import { Box, CircularProgress, Paper, Typography } from '@mui/material';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useCallback, useState } from 'react';
-import { APIError, LabelPrintingConfig } from 'utils';
+import { LabelPrintingConfig } from 'utils/lib/types/data/printing';
+import { APIError } from 'utils/lib/types/errors';
 import { useAdminGetLabelPrintingConfig, useAdminUpdateLabelPrintingConfig } from '../admin.queries';
 import AdminLabelPrintingConfigForm from './AdminLabelPrintingConfigForm';
 

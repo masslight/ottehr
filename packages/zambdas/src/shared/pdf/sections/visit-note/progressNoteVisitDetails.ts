@@ -1,21 +1,17 @@
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  formatDateTimeToZone,
-  formatFhirEncounterToPatientFollowupDetails,
-  getAdmitterPractitionerId,
-  getAttendingPractitionerId,
-  getCoding,
-  getProviderNameWithProfession,
-  getQuestionnaireResponseByLinkId,
-  isAnnotationFollowupEncounter,
-  isInPersonAppointment,
-  resolveServiceCategoryAbbreviation,
-  SERVICE_CATEGORY_SYSTEM,
-  Timezone,
-} from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { formatFhirEncounterToPatientFollowupDetails, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding, getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { Timezone } from 'utils/lib/types/common';
+import { formatDateTimeToZone } from 'utils/lib/utils/date';
 import { getPatientLastFirstName } from '../../../patients';
-import { drawFieldLine, drawRegularText } from '../../helpers/render';
+import { drawFieldLine } from '../../helpers/render/drawFieldLine';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, ProgressNoteVisitDataInput, VisitDetailsForProgressNote } from '../../types';
 import { getBookingTypeForPdf, getVisitTypeForPdf } from '../visitInfo';

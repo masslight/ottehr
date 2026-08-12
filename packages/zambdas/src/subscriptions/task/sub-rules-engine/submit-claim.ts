@@ -1,5 +1,9 @@
 import { Claim } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  getClaimStatusFieldValue,
+} from 'utils/lib/types/data/billing/claim-status';
 import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 import { FinalizeRunInput, FinalizeRunResult } from './finalize';

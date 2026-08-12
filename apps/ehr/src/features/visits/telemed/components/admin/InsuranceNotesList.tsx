@@ -26,8 +26,8 @@ import { INSURANCE_ROWS_PER_PAGE } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { BILLING_URL, INSURANCES_URL } from 'src/features/admin/adminRoutes';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { extractPayerIdFromUrl, getPayerId, getPayerUrl } from 'utils';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { extractPayerIdFromUrl, getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { useInsurancesQuery } from './admin.queries';
 
 export default function InsuranceNotesList(): ReactElement {

@@ -1,4 +1,5 @@
-import { PATIENT_RECORD_CONFIG, patientScreeningQuestionsConfig } from 'utils';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 
 export const PHONE_NUMBER_REGEX = /^\d{10}$/;
 export const EMAIL_REGEX = /^\S+@\S+\.\S+$/;

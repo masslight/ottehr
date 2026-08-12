@@ -1,10 +1,10 @@
 import { DocumentReference } from 'fhir/r4b';
+import { ApprovedPatientEducationIcdCode } from 'utils/lib/types/api/approved-patient-education.types';
 import {
-  ApprovedPatientEducationIcdCode,
-  normalizePatientEducationLanguage,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { normalizePatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 
 /**
  * Pull the ICD-10-CM codes attached to an approved-patient-education DocumentReference.

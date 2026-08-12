@@ -1,10 +1,11 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
-import { OystehrAPIClient } from 'ui-components';
-import { isNullOrUndefined, PromiseReturnType } from 'utils';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { useOystehrAPIClient } from '../../utils';
-import { useAppointmentStore } from '../appointments';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import { isNullOrUndefined } from 'utils/lib/validation/helper';
 
 export const useGetPaperwork = (
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>> | null) => void,

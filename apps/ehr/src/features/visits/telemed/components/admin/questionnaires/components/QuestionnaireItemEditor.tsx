@@ -34,7 +34,7 @@ import {
   OTTEHR_INPUT_WIDTHS,
   PracticeManagedQuestionnaireItem,
   QUESTIONNAIRE_ITEM_TYPES,
-} from 'utils';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { ItemAction } from '../questionnaire.reducer';
 import { AnswerOptionEditor } from './AnswerOptionEditor';
 

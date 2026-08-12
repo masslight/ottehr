@@ -1,6 +1,8 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { getApiError, SaveServiceFacilityInput, ServiceFacilityItem } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { saveBillingServiceFacility } from '../api/api';
 import {
   defaultServiceFacilityFormValues,

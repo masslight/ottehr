@@ -1,5 +1,5 @@
+import { VitalFieldNames } from './chart-data.constants';
 import {
-  VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
@@ -10,7 +10,7 @@ import {
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
-} from '../..';
+} from './chart-data.types';
 
 export type GetVitalsResponseData = {
   [VitalFieldNames.VitalTemperature]: VitalsTemperatureObservationDTO[];

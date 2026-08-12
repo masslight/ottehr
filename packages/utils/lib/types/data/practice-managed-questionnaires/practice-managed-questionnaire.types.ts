@@ -1,7 +1,7 @@
 import { QuestionnaireDataTypes } from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
-import { QAndQRResponse } from '../paperwork';
+import { QAndQRResponse } from '../paperwork/paperwork.types';
 import {
   GetStandAlonePaperworkInputSchema,
   PracticeManagedQuestionnaireItemSchema,

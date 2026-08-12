@@ -1,8 +1,9 @@
 import { init, isInitialized, setTag, setTags, wrapHandler as sentryWrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
-import { getSecret, parseCommaSeparatedTags, Secrets, SecretsKeys } from 'utils';
+import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { topLevelCatch } from './lambda';
-import { ZambdaInput } from './types';
+import { ZambdaInput } from './types/common';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
   const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
