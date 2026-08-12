@@ -183,9 +183,10 @@ export async function buildProgressNoteBytes(args: {
   token: string;
   secrets: Secrets | null;
   visitResources: FullAppointmentResourcePackage;
+  signed: boolean;
 }): Promise<Uint8Array> {
-  const { oystehr, token, secrets, visitResources } = args;
-  const input = await assembleProgressNoteInput(oystehr, token, visitResources);
+  const { oystehr, token, secrets, visitResources, signed } = args;
+  const input = await assembleProgressNoteInput(oystehr, token, visitResources, { signed });
   return createProgressNotePdfBytes(input, secrets, token);
 }
 
@@ -234,16 +235,19 @@ export async function collectFaxParts(args: {
 
     if (kind === 'progress-note') {
       const existing = partsFromDocRefs(kind, documents['progress-note']);
-      if (existing.length > 0) {
+      const noteIsSigned = existing.length > 0;
+
+      if (noteIsSigned) {
         parts.push(existing[0]);
       } else {
         console.log(`No visit note DocumentReference for appointment ${appointmentId}; regenerating for the packet`);
         parts.push({
           kind,
           title: FAX_DOCUMENT_LABELS[kind],
-          bytes: await buildProgressNoteBytes({ oystehr, token, secrets, visitResources }),
+          bytes: await buildProgressNoteBytes({ oystehr, token, secrets, visitResources, signed: noteIsSigned }),
         });
       }
+
       continue;
     }
 
