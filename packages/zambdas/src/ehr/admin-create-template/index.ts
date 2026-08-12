@@ -16,10 +16,10 @@ import {
 import { DateTime } from 'luxon';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
   resourceHasTagSystem,
   transactionWasSuccessful,
+  withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
 import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
@@ -527,18 +527,18 @@ const performEffect = async (
   // is atomic — a conflicted attempt leaves nothing behind — so re-read the holder and retry.
   // Retries re-read by id: findHolderList goes through search, which can keep serving the same
   // stale holder version under write load, while a direct read always returns the current one.
-  const MAX_HOLDER_LINK_ATTEMPTS = 3;
-  let createdList: List | undefined;
+  // (patchWithOptimisticLock can't be used here: the guarded PATCH must land in the same
+  // transaction as the template POST so a failure can never orphan the new template.)
   let holderId: string | undefined;
 
-  for (let attempt = 1; attempt <= MAX_HOLDER_LINK_ATTEMPTS; attempt++) {
-    const holderList = holderId
-      ? await oystehr.fhir.get<List>({ resourceType: 'List', id: holderId })
-      : await findHolderList(oystehr);
-    if (!holderList?.id) throw new Error('No global templates holder list found — cannot link template');
-    holderId = holderList.id;
+  const createdList = await withVersionConflictRetries(
+    async () => {
+      const holderList = holderId
+        ? await oystehr.fhir.get<List>({ resourceType: 'List', id: holderId })
+        : await findHolderList(oystehr);
+      if (!holderList?.id) throw new Error('No global templates holder list found — cannot link template');
+      holderId = holderList.id;
 
-    try {
       const transactionResponse = await oystehr.fhir.transaction<List>({
         requests: [
           {
@@ -572,15 +572,15 @@ const performEffect = async (
         throw new Error('Unable to create template or add it to template holder');
       }
 
-      createdList = transactionResponse.unbundle().find((list) => list.id !== holderList.id);
-      break;
-    } catch (error) {
-      if (attempt === MAX_HOLDER_LINK_ATTEMPTS || !isVersionConflictError(error)) throw error;
-      console.log(
-        `Holder list version conflict while linking template (attempt ${attempt}/${MAX_HOLDER_LINK_ATTEMPTS}), re-reading and retrying`
-      );
+      return transactionResponse.unbundle().find((list) => list.id !== holderList.id);
+    },
+    {
+      onConflict: (attempt) =>
+        console.log(
+          `Holder list version conflict while linking template (attempt ${attempt}), re-reading and retrying`
+        ),
     }
-  }
+  );
 
   if (!createdList) {
     throw new Error('Unable to create template or add it to template holder');

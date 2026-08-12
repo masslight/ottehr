@@ -1656,6 +1656,33 @@ export function isVersionConflictError(error: unknown): boolean {
 }
 
 /**
+ * Runs an optimistically-locked FHIR write, retrying on version conflict (412).
+ *
+ * The callback re-runs from scratch on each attempt and is responsible for re-reading the
+ * If-Match-guarded resource itself, so every retry writes against the current version instead
+ * of the one that just lost the race. Non-conflict errors, and a conflict on the final
+ * attempt, are rethrown. Prefer patchWithOptimisticLock for a plain single-resource PATCH;
+ * this is the underlying engine for writes it can't express (e.g. a transaction that pairs
+ * the guarded PATCH with other requests).
+ */
+export async function withVersionConflictRetries<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts?: { maxAttempts?: number; onConflict?: (attempt: number) => void }
+): Promise<T> {
+  const maxAttempts = opts?.maxAttempts ?? OPTIMISTIC_LOCK_MAX_RETRIES;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      if (attempt >= maxAttempts || !isVersionConflictError(error)) {
+        throw error;
+      }
+      opts?.onConflict?.(attempt);
+    }
+  }
+}
+
+/**
  * Patches a FHIR resource with optimistic locking (E-tag).
  *
  * Uses the resource's versionId as an If-Match header so the FHIR server
@@ -1671,29 +1698,29 @@ export async function patchWithOptimisticLock<T extends FhirResource & { id: str
   const { resourceType } = initialResource;
   let current = initialResource;
 
-  for (let attempt = 0; attempt < OPTIMISTIC_LOCK_MAX_RETRIES; attempt++) {
-    const operations = await computeOps(current);
-    if (operations.length === 0) return;
+  await withVersionConflictRetries(
+    async (attempt) => {
+      if (attempt > 1) {
+        current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
+      }
+      const operations = await computeOps(current);
+      if (operations.length === 0) return;
 
-    const versionId = current.meta?.versionId;
-    try {
+      const versionId = current.meta?.versionId;
       await oystehr.fhir.patch(
         { resourceType, id: current.id, operations },
         versionId ? { optimisticLockingVersionId: versionId } : undefined
       );
-      return;
-    } catch (error: any) {
-      if (!isVersionConflictError(error) || attempt === OPTIMISTIC_LOCK_MAX_RETRIES - 1) {
-        throw error;
-      }
-      console.log(
-        `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${attempt + 1}/${
-          OPTIMISTIC_LOCK_MAX_RETRIES - 1
-        })`
-      );
-      current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
+    },
+    {
+      onConflict: (attempt) =>
+        console.log(
+          `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${attempt}/${
+            OPTIMISTIC_LOCK_MAX_RETRIES - 1
+          })`
+        ),
     }
-  }
+  );
 }
 
 export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): string | undefined {
