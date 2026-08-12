@@ -14,8 +14,6 @@ import {
 import { createBillingClient } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
-export * from '../claim-search';
-
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-claims';
 
