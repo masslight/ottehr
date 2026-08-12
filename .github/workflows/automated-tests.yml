@@ -117,33 +117,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: node ./scripts/print-test-run-summary.mjs
 
-      - name: Upload spec coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('packages/spec/coverage/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: spec
-          parallel: true
-          file: ./packages/spec/coverage/lcov.info
-          fail-on-error: false
-
-      - name: Upload test-utils coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('packages/test-utils/coverage/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: test-utils
-          parallel: true
-          file: ./packages/test-utils/coverage/lcov.info
-          fail-on-error: false
-
-      - name: Upload deploy coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('deploy/coverage/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: deploy
-          parallel: true
-          file: ./deploy/coverage/lcov.info
-          fail-on-error: false
-
       - name: Upload utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/utils/coverage/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -160,42 +133,6 @@ jobs:
           flag-name: zambdas-unit
           parallel: true
           file: ./packages/zambdas/coverage/unit/lcov.info
-          fail-on-error: false
-
-      - name: Upload EHR unit coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/unit/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: ehr-unit
-          parallel: true
-          file: ./apps/ehr/coverage/unit/lcov.info
-          fail-on-error: false
-
-      - name: Upload EHR component coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/component/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: ehr-component
-          parallel: true
-          file: ./apps/ehr/coverage/component/lcov.info
-          fail-on-error: false
-
-      - name: Upload intake unit coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('apps/intake/coverage/unit/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: intake-unit
-          parallel: true
-          file: ./apps/intake/coverage/unit/lcov.info
-          fail-on-error: false
-
-      - name: Upload intake component coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('apps/intake/coverage/component/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: intake-component
-          parallel: true
-          file: ./apps/intake/coverage/component/lcov.info
           fail-on-error: false
 
   # The zambdas integration suite runs on its own standard (4-core) runner: it is I/O-bound on
@@ -312,7 +249,7 @@ jobs:
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           parallel-finished: true
-          carryforward: "spec,test-utils,deploy,utils,zambdas,zambdas-unit,ehr-unit,ehr-component,intake-unit,intake-component"
+          carryforward: "utils,zambdas,zambdas-unit"
           fail-on-error: false
 
       - name: Set GitHub Commit Status
