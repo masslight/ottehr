@@ -2,17 +2,30 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { AR_STAGE, BillingClaimItem, emptyClaimStatusValues } from 'utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ClaimsList from '../../src/pages/ClaimsList';
 
-const { searchBillingClaimsMock, runBillingRulesEngineMock } = vi.hoisted(() => ({
+const {
+  searchBillingClaimsMock,
+  runBillingRulesEngineMock,
+  exportBillingClaimsMock,
+  getBillingClaimsExportStatusMock,
+  pollExportTaskMock,
+  downloadTextFileMock,
+} = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
+  exportBillingClaimsMock: vi.fn(),
+  getBillingClaimsExportStatusMock: vi.fn(),
+  pollExportTaskMock: vi.fn(),
+  downloadTextFileMock: vi.fn(),
 }));
 
 vi.mock('../../src/api/api', () => ({
   searchBillingClaims: searchBillingClaimsMock,
   runBillingRulesEngine: runBillingRulesEngineMock,
+  exportBillingClaims: exportBillingClaimsMock,
+  getBillingClaimsExportStatus: getBillingClaimsExportStatusMock,
   searchBillingPatients: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
   // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
@@ -35,8 +48,16 @@ vi.mock('notistack', () => ({
 }));
 
 vi.mock('../../src/components/BillingDataGrid', () => ({
-  dataGridSlots: () => ({}),
+  dataGridSlots: (props?: { onExportCsv?: () => void; exporting?: boolean }) => ({ exportSlot: props }),
   dataGridSx: {},
+}));
+
+vi.mock('../../src/utils/pollExportTask', () => ({
+  pollExportTask: pollExportTaskMock,
+}));
+
+vi.mock('../../src/utils/downloadTextFile', () => ({
+  downloadTextFile: downloadTextFileMock,
 }));
 
 // DataGridPro doesn't render rows under jsdom (no layout/ResizeObserver). Replace it with a minimal
@@ -50,6 +71,7 @@ vi.mock('@mui/x-data-grid-pro', () => ({
     onRowSelectionModelChange,
     paginationModel,
     onPaginationModelChange,
+    slots,
   }: {
     rows: BillingClaimItem[];
     isRowSelectable?: (params: { row: BillingClaimItem }) => boolean;
@@ -57,8 +79,14 @@ vi.mock('@mui/x-data-grid-pro', () => ({
     onRowSelectionModelChange?: (model: (string | number)[]) => void;
     paginationModel?: { page: number; pageSize: number };
     onPaginationModelChange?: (model: { page: number; pageSize: number }) => void;
+    slots?: { exportSlot?: { onExportCsv?: () => void; exporting?: boolean } };
   }) => (
     <div>
+      {slots?.exportSlot?.onExportCsv && (
+        <button type="button" onClick={slots.exportSlot.onExportCsv} disabled={slots.exportSlot.exporting}>
+          Export
+        </button>
+      )}
       {rows.map((row) => (
         <input
           key={row.id}
@@ -208,6 +236,105 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
+  });
+});
+
+describe('ClaimsList — export', () => {
+  const clickExport = async (): Promise<void> => {
+    const button = await screen.findByRole('button', { name: 'Export' });
+    fireEvent.click(button);
+  };
+
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    exportBillingClaimsMock.mockReset();
+    pollExportTaskMock.mockReset();
+    downloadTextFileMock.mockReset();
+    enqueueSnackbarMock.mockReset();
+
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [makeRow('c-1', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      total: 1_800,
+    });
+    exportBillingClaimsMock.mockResolvedValue({ taskId: 'task-1' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('Claim ID,Patient Name\nc-1,"Doe, Jane"'),
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // The grid only ever holds one page, so the export has to come from the backend, not the rows.
+  it('exports every claim the current filters match, not the page on screen', async () => {
+    pollExportTaskMock.mockResolvedValue({
+      status: 'completed',
+      downloadUrl: 'https://signed.example/claims.csv',
+    });
+    renderList();
+
+    const search = await screen.findByPlaceholderText(/Search by patient name/);
+    fireEvent.change(search, {
+      target: {
+        value: 'Smith',
+      },
+    });
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenLastCalledWith({}, expect.anything()));
+
+    await clickExport();
+
+    await waitFor(() => expect(exportBillingClaimsMock).toHaveBeenCalledWith({}, { searchText: 'Smith' }));
+    expect(exportBillingClaimsMock.mock.calls[0][1]).not.toHaveProperty('offset');
+    expect(exportBillingClaimsMock.mock.calls[0][1]).not.toHaveProperty('pageSize');
+
+    await waitFor(() => expect(downloadTextFileMock).toHaveBeenCalled());
+    const [fileName, contents] = downloadTextFileMock.mock.calls[0];
+    expect(fileName).toMatch(/^claims-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(contents).toBe('Claim ID,Patient Name\nc-1,"Doe, Jane"');
+  });
+
+  it('reports why an export failed instead of downloading nothing', async () => {
+    pollExportTaskMock.mockResolvedValue({
+      status: 'failed',
+      error: 'payer lookup timed out',
+    });
+    renderList();
+
+    await clickExport();
+
+    await waitFor(() =>
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith('payer lookup timed out', { variant: 'error' })
+    );
+    expect(downloadTextFileMock).not.toHaveBeenCalled();
+  });
+
+  it('still downloads a partial export, but says it is partial', async () => {
+    pollExportTaskMock.mockResolvedValue({
+      status: 'completed',
+      downloadUrl: 'https://signed.example/claims.csv',
+      incomplete: true,
+    });
+    renderList();
+
+    await clickExport();
+
+    await waitFor(() => expect(downloadTextFileMock).toHaveBeenCalled());
+    expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.stringMatching(/may be missing/), { variant: 'warning' });
+  });
+
+  it('surfaces a timeout rather than leaving the button spinning', async () => {
+    pollExportTaskMock.mockRejectedValue(new Error('Export timed out'));
+    renderList();
+
+    await clickExport();
+
+    await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalledWith('Export timed out', { variant: 'error' }));
+    expect(await screen.findByRole('button', { name: 'Export' })).toBeEnabled();
   });
 });
 

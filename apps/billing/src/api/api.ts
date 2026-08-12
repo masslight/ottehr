@@ -3,6 +3,8 @@ import {
   AddClaimNoteInputSchema,
   apiErrorToThrow,
   BillingChargeItemDefinition,
+  BillingClaimsExportKickOffResponse,
+  BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
   BillingRulesResponse,
@@ -23,8 +25,10 @@ import {
   DeletedResponse,
   DeleteServiceFacilityInputSchema,
   EraDetailResponse,
+  ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   ExportClaimX12Response,
+  GetBillingClaimsExportStatusInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPatientBalanceResponse,
   GetBillingProviderInputSchema,
@@ -145,6 +149,16 @@ export const searchBillingClaims = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
+
+export const exportBillingClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportBillingClaimsInputSchema>
+): Promise<BillingClaimsExportKickOffResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
+
+export const getBillingClaimsExportStatus = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingClaimsExportStatusInputSchema>
+): Promise<BillingClaimsExportStatusResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
 
 export const searchBillingPatientARClaims = (
   oystehr: Oystehr,
