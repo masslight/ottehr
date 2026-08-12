@@ -24,6 +24,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
+  CONSENT_ONLY_QUESTIONNAIRE_URL,
   getCanonicalUrlFromQ,
   getFlowModes,
   getOttehrManagedQuestionnaires,
@@ -40,6 +41,7 @@ const VIRTUAL_URL = VIRTUAL_INTAKE_PAPERWORK_CANONICAL.url as string;
 const MANAGED_Q_LABEL_MAP = {
   [INTAKE_URL]: 'In-Person Intake Paperwork (system managed)',
   [VIRTUAL_URL]: 'Virtual Intake Paperwork (system managed)',
+  [CONSENT_ONLY_QUESTIONNAIRE_URL]: 'Consent Page (system managed)',
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -162,9 +164,7 @@ function makeServiceIdsByFlowUrlMap(services: HealthcareService[]): Map<string, 
 function toPaperworkFlowQuestionnaire(
   flow: Questionnaire,
   forms: Map<string, Questionnaire>
-): PaperworkFlowQuestionnaire | null {
-  if (!isPaperworkFlow(flow)) return null;
-
+): PaperworkFlowQuestionnaire {
   return {
     qId: flow.id ?? '',
     name: flow.title ?? 'flow',
@@ -176,10 +176,6 @@ function toPaperworkFlowQuestionnaire(
   };
 }
 
-function isPaperworkFlow(q: Questionnaire): boolean {
-  return (q.meta?.tag ?? []).some((t) => t.system === PAPERWORK_FLOW_TAG.system && t.code === PAPERWORK_FLOW_TAG.code);
-}
-
 function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowForm[] {
   return (
     q.derivedFrom
@@ -189,6 +185,7 @@ function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowFo
 
         const flowForm: FlowForm = {
           id: formQ.id,
+          url: formQ.url,
           label: formQ.title ?? 'form',
         };
 
@@ -203,9 +200,11 @@ function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowFo
 
 const managedQToFlowForm = (questionnaires: Questionnaire[]): FlowForm[] => {
   return questionnaires.map((q) => {
-    const formatted = { id: q.id ?? '', label: q.title ?? '' };
     const url = q.url;
+    const formatted = { id: q.id ?? '', url: url ?? '', label: q.title ?? '' };
+
     if (!url) return formatted;
+
     const customLabel = MANAGED_Q_LABEL_MAP[url];
     if (customLabel) formatted.label = customLabel;
 

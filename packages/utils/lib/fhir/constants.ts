@@ -524,6 +524,17 @@ export const QR_DISTRIBUTION_TAG = {
   code: 'practitioner', // right now only triggered by users sending from visit details but this could be expanded in the future
 };
 
+/**
+ * meta.tag identifying a QuestionnaireResponse as the patient's intake paperwork response — the one
+ * created at booking, whether it points at the default intake Questionnaire or a paperwork flow.
+ * Readers use this (in addition to the legacy intake-paperwork canonical-URL match) to recognize
+ * flow-backed paperwork QRs, whose canonical is the flow's url and does not contain the intake URLs.
+ */
+export const INTAKE_PAPERWORK_QR_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-response-type'),
+  code: 'intake-paperwork',
+};
+
 /** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
 export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-practitioner-distribution-by');
 

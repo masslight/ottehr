@@ -24,7 +24,7 @@ export type PaperworkFlow = z.infer<typeof PaperworkFlowSchema>;
 
 export interface PaperworkFlowListOutput {
   flows: PaperworkFlow[];
-  ottehrManagedQuestionnaires: { id: string; label: string }[];
+  ottehrManagedQuestionnaires: FlowForm[];
 }
 
 export type PaperworkFlowCreateInput = z.infer<typeof PaperworkFlowCreateInputSchema>;

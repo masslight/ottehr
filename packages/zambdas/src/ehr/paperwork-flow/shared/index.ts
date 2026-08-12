@@ -1,28 +1,35 @@
-import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
 import {
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
+  parseQuestionnaireCanonicalExtension,
+  SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ServiceMode } from 'utils/lib/types/common';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
 import { FlowForm, FlowService } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { PAPERWORK_FLOW_ERROR } from 'utils/lib/types/errors';
 import { sendErrors } from '../../../shared/errors';
 
 export const healthcareServiceExtensionUrlMap = {
   [ServiceMode['in-person']]: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   [ServiceMode['virtual']]: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
 };
+
+// matches url defined in config/oystehr/intake-paperwork-consent-only.json
+export const CONSENT_ONLY_QUESTIONNAIRE_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-consent-only';
 
 // Version minted for a brand-new flow (bumped on every subsequent edit).
 export const PAPERWORK_FLOW_BASE_VERSION = '1.0.0';
@@ -64,38 +71,39 @@ export const getOttehrManagedQuestionnaires = async (
   const questionnaires = await Promise.all([
     makeQuestionnaireSearchRequest(IN_PERSON_INTAKE_PAPERWORK_CANONICAL, oystehr, secrets),
     makeQuestionnaireSearchRequest(VIRTUAL_INTAKE_PAPERWORK_CANONICAL, oystehr, secrets),
+    makeQuestionnaireSearchRequest({ url: CONSENT_ONLY_QUESTIONNAIRE_URL }, oystehr, secrets),
   ]);
 
   return questionnaires.filter((q) => q !== undefined);
 };
 
 const makeQuestionnaireSearchRequest = async (
-  qConfig: { url: string; version: string },
+  qConfig: { url: string; version?: string },
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<Questionnaire | undefined> => {
   const { url, version } = qConfig;
 
+  const params: SearchParam[] = [{ name: 'url', value: url }];
+  if (version) {
+    params.push({ name: 'version', value: version });
+  } else {
+    params.push({ name: 'status', value: 'active' });
+  }
+
   const qSearch = (
     await oystehr.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',
-      params: [
-        {
-          name: 'url',
-          value: url,
-        },
-        {
-          name: 'version',
-          value: version,
-        },
-      ],
+      params,
     })
   ).unbundle();
 
   if (qSearch.length !== 1) {
-    console.log('qSearch len:', qSearch.length);
-    const errorMessage = `Unexpected number of questionnaires returned for ${url}|${version}`;
+    const returned = qSearch.map((q) => `Questionnaire/${q.id}`);
+    console.log('questionnaires returned', returned);
+    const errorMessage = `Unexpected number of questionnaires returned for ${url}|${version}: ${returned.length}`;
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    // no need to error and fail the call but this would be odd so alerting
     await sendErrors(errorMessage, ENVIRONMENT);
     return;
   }
@@ -165,17 +173,27 @@ export function makeOttehrManagedServiceTags(services: FlowService[]): Coding[] 
 
 /** returns canonical urls (url|version) for flow forms passed */
 export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms: FlowForm[]): string[] {
-  const formIdMap = new Map<string, Questionnaire>();
+  const formUrlMap = new Map<string, Questionnaire>();
   const formCanonicalUrls: string[] = [];
 
-  formQuestionnaires.forEach((form) => form.id && formIdMap.set(form.id, form));
+  formQuestionnaires.forEach((form) => form.url && formUrlMap.set(form.url, form));
 
   // important: forms must remain in the order which they were sent
   flowForms.forEach((form) => {
-    const q = formIdMap.get(form.id);
-    if (!q) return;
+    // we will use the url to grab the form to accommodate for edge case where the form was edited while a user was making the flow
+    const q = formUrlMap.get(form.url);
+
+    // edge case: form was deleted while someone else was making this flow - we should tell the user
+    if (!q || q.status === 'retired') {
+      throw PAPERWORK_FLOW_ERROR(
+        `We could not resolve for form: ${form.label}; please verify in the questionnaires tab that ths form is active`
+      );
+    }
+
     const canonical = getCanonicalUrlFromQ(q);
-    if (canonical) formCanonicalUrls.push(canonical);
+    if (!canonical) throw new Error(`Could not parse canonical url from Questionnaire/${q.id}`);
+
+    formCanonicalUrls.push(canonical);
   });
 
   return formCanonicalUrls;
@@ -266,4 +284,64 @@ export function makeAdditionalFlowQuestionnairePatches(input: {
   });
 
   return patchRequests;
+}
+
+/**
+ * Resolves the active paperwork flow canonical assigned to a (service category x visit mode),
+ * returns undefined when none is assigned or there is an error resolving the flow.
+ * In the case of an error, sentry should be alerted while returning undefined to avoid erroring during booking
+ */
+export async function resolveFlowCanonicalForServiceMode(input: {
+  serviceCategoryCode: string;
+  serviceMode: ServiceMode;
+  oystehr: Oystehr;
+  secrets: Secrets | null;
+}): Promise<CanonicalUrl | undefined> {
+  const { serviceCategoryCode, serviceMode, oystehr, secrets } = input;
+  if (!serviceCategoryCode) return;
+
+  const flows = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
+
+  if (isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+    // Ottehr-managed service category: the assignment lives as a meta.tag on the flow Questionnaire.
+    const match = flows.find(
+      (flow) =>
+        (flow.meta?.tag ?? []).some(
+          (tag) => tag.system === SYSTEM_MANAGED_SERVICE_TAG_SYSTEM && tag.code === serviceCategoryCode
+        ) && getFlowModes(flow).includes(serviceMode)
+    );
+    const canonical = match ? getCanonicalUrlFromQ(match) : undefined;
+    return canonical ? parseQuestionnaireCanonicalExtension(canonical) : undefined;
+  }
+
+  // FHIR-backed service category: the assignment lives as a per-mode extension on the HealthcareService.
+  const services = await searchServiceCategoryHealthcareServices(oystehr);
+  const service = services.find((hs) => getCoding(hs.type, SERVICE_CATEGORY_SYSTEM)?.code === serviceCategoryCode);
+  if (!service) return;
+
+  const extensionUrl = healthcareServiceExtensionUrlMap[serviceMode];
+  const flowUrlFromExtension = service.extension?.find((ext) => ext.url === extensionUrl)?.valueCanonical;
+  if (!flowUrlFromExtension) return;
+
+  const flow = flows.find((flowQ) => flowQ.url === flowUrlFromExtension);
+  if (!flow) {
+    // we do not want to fail booking but we do want to alert sentry in this case
+    const flowsIdMap = flows.map((q) => `Questionnaire/${q.id}`);
+    const errorMsg = `A flow extension was found on HealthcareService/${service.id} but we were unable to find an active flow with a matching url: ${flowUrlFromExtension}. Flow questionnaires evaluated: ${flowsIdMap}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(errorMsg, ENVIRONMENT);
+    return;
+  }
+
+  if (!flow.url || !flow.version) {
+    // same as above, we do not want to fail booking but we do want to alert sentry in this case
+    // the expectation is that if there is some error resolving the flow url, then fall back to system defaults
+    const errorMsg = `Questionnaire/${flow.id} is missing url and/or version. Url: ${flow.url} Version: ${flow.version}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(errorMsg, ENVIRONMENT);
+    return;
+  }
+
+  const canonicalUrlForFlow: CanonicalUrl = { url: flow.url, version: flow.version };
+  return canonicalUrlForFlow;
 }

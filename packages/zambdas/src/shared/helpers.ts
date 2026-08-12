@@ -274,6 +274,8 @@ export function checkPaperworkComplete(questionnaireResponse: QuestionnaireRespo
     const photoIdFrontItem = findQuestionnaireResponseItemLinkId('photo-id-front', questionnaireResponse?.item ?? []);
     if (photoIdFrontItem) {
       photoIdFront = pickFirstValueFromAnswerItem(photoIdFrontItem, 'attachment');
+    } else {
+      return true;
     }
     if (photoIdFront) {
       return true;

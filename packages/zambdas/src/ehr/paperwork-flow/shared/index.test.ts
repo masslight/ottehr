@@ -114,8 +114,8 @@ describe('getFormCanonicals', () => {
       { resourceType: 'Questionnaire', id: 'q-b', url: 'https://example.com/B', version: '2.0.0', status: 'active' },
     ];
     const flowForms: FlowForm[] = [
-      { id: 'q-b', label: 'B' },
-      { id: 'q-a', label: 'A' },
+      { id: 'q-b', url: 'https://example.com/B', label: 'B' },
+      { id: 'q-a', url: 'https://example.com/A', label: 'A' },
     ];
 
     expect(getFormCanonicals(formQuestionnaires, flowForms)).toEqual([
@@ -124,25 +124,25 @@ describe('getFormCanonicals', () => {
     ]);
   });
 
-  it('skips flow forms with no matching questionnaire', () => {
+  it('throws error when unable to resolve form form to found questionnaires', () => {
     const formQuestionnaires: Questionnaire[] = [
       { resourceType: 'Questionnaire', id: 'q-a', url: 'https://example.com/A', version: '1.0.0', status: 'active' },
     ];
     const flowForms: FlowForm[] = [
-      { id: 'missing', label: 'Missing' },
-      { id: 'q-a', label: 'A' },
+      { id: 'q-b', url: 'https://example.com/B', label: 'B' },
+      { id: 'q-a', url: 'https://example.com/A', label: 'A' },
     ];
 
-    expect(getFormCanonicals(formQuestionnaires, flowForms)).toEqual(['https://example.com/A|1.0.0']);
+    expect(() => getFormCanonicals(formQuestionnaires, flowForms)).toThrow();
   });
 
-  it('skips a matched questionnaire that has no resolvable canonical url', () => {
+  it('throws an error when we are unable to parse a full canonical url from a questionnaire', () => {
     const formQuestionnaires: Questionnaire[] = [
-      { resourceType: 'Questionnaire', id: 'q-a', version: '1.0.0', status: 'active' },
+      { resourceType: 'Questionnaire', id: 'q-a', url: 'https://example.com/A', status: 'active' },
     ];
-    const flowForms: FlowForm[] = [{ id: 'q-a', label: 'A' }];
+    const flowForms: FlowForm[] = [{ id: 'q-a', url: 'https://example.com/A', label: 'A' }];
 
-    expect(getFormCanonicals(formQuestionnaires, flowForms)).toEqual([]);
+    expect(() => getFormCanonicals(formQuestionnaires, flowForms)).toThrow();
   });
 });
 

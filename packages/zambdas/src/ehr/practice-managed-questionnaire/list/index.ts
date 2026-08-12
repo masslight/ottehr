@@ -63,6 +63,7 @@ async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuesti
       id: questionnaire.id ?? '',
       title: questionnaire.title ?? '',
       status: questionnaire.status,
+      url: questionnaire.url ?? '',
     };
 
     return dto;

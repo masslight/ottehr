@@ -2,7 +2,9 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputReque
 import { Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
 import {
+  getCanonicalUrlFromQ,
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
@@ -74,6 +76,7 @@ export async function handleFormInFlows(input: HandleFormInFlowInput): Promise<B
 // canonical (versioned) resources too, so rather than patching derivedFrom in place, the previous
 // flow version is retired and a new one is minted — identical except for the bumped flow version
 // and the updated form canonical in derivedFrom.
+// requests to patch and HealthcareServices pointing at the prior version of the form are also made
 export function bumpFlowFormVersionRequests(
   input: Omit<HandleFormInFlowInput, 'oystehr'> & { flowQuestionnaires: Questionnaire[] }
 ): BatchInputRequest<Questionnaire>[] {
@@ -117,3 +120,27 @@ export function bumpFlowFormVersionRequests(
 
   return requests;
 }
+
+export async function validateFormIsExcludedFromFlows(formQId: string, oystehr: Oystehr): Promise<void> {
+  console.log('checking if the form is contained in any flows before retiring');
+  const [targetFormQ, flowQuestionnaires] = await Promise.all([
+    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: formQId }),
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+  ]);
+  evaluateFlowsForUrl(targetFormQ, flowQuestionnaires);
+}
+
+export const evaluateFlowsForUrl = (targetFormQ: Questionnaire, flowQuestionnaires: Questionnaire[]): void => {
+  const canonicalUrl = getCanonicalUrlFromQ(targetFormQ);
+  const contained = flowQuestionnaires.filter((q) => {
+    return q.derivedFrom?.some((url) => url === canonicalUrl);
+  });
+
+  if (contained.length > 0) {
+    const flowsImpacted = contained.map((flow) => flow.title);
+    throw MANAGED_QUESTIONNAIRE_ERROR(
+      `This form is contained in a paperwork flow, please remove it from the following: ${flowsImpacted.join(', ')}`
+    );
+  }
+  console.log('safe to retire');
+};

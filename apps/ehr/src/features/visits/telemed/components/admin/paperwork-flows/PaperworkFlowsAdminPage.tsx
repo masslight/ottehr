@@ -112,7 +112,7 @@ const PaperworkFlowsAdminPage: FC = () => {
   const formOptions: FlowForm[] = useMemo(() => {
     const practiceManagedForms = (formsData ?? [])
       .filter((q) => !!q.id && q.status !== 'retired')
-      .map((q) => ({ id: q.id, label: q.title || q.id }))
+      .map((q) => ({ id: q.id, url: q.url, label: q.title || q.id }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
     return [...ottehrManagedQuestionnaires, ...practiceManagedForms];
