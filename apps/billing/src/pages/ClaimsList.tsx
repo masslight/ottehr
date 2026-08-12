@@ -19,20 +19,22 @@ import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } f
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
   BillingService,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  MAX_RUN_RULES_ENGINE_CLAIMS,
-  SearchBillingClaimsInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import {
   runBillingRulesEngine,
   searchBillingClaims,
@@ -137,6 +139,7 @@ export default function ClaimsList(): ReactElement {
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
@@ -179,6 +182,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setIncomplete(false);
       setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
@@ -200,6 +204,7 @@ export default function ClaimsList(): ReactElement {
         const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
+        setIncomplete(Boolean(data.incomplete));
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
@@ -411,7 +416,8 @@ export default function ClaimsList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name..."
+        placeholder="Search by patient name, provider name, patient ID, PCN, or claim ID..."
+        helperText="Names match from the start. Patient ID, PCN, and claim ID must be entered in full."
         value={searchText}
         onChange={(e) => handleSearchChange(e.target.value)}
         InputProps={{
@@ -496,7 +502,7 @@ export default function ClaimsList(): ReactElement {
           >
             <MenuItem value="">All</MenuItem>
             {tagOptions.map((t) => (
-              <MenuItem key={t.id} value={t.name}>
+              <MenuItem key={t.id || t.name} value={t.name}>
                 {t.name}
               </MenuItem>
             ))}
@@ -579,6 +585,13 @@ export default function ClaimsList(): ReactElement {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {incomplete && !error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Some claims may be missing from these results. Narrow the search, or use the filters to find a claim you
+          expected to see.
         </Alert>
       )}
 

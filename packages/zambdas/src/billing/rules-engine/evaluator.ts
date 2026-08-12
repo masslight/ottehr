@@ -1,11 +1,9 @@
+import { resourceHasTag } from 'utils/lib/fhir/helpers';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
+import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
-  ChargeItemDefinitionDefault,
-  CLAIM_TAG_SYSTEM,
-  getRuleFieldDef,
-  getServiceLinePropertyDef,
-  HOLD_TAG_NAME,
-  resourceHasTag,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_OUTCOME_TYPE,
@@ -17,7 +15,8 @@ import {
   RuleOutcome,
   SERVICE_LINE_MATCH_TYPE,
   ServiceLineMatch,
-} from 'utils';
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
 import { claimHasRealCoverage } from '../shared';
 import {

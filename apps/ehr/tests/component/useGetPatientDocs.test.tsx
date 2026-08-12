@@ -2,13 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { List } from 'fhir/r4b';
 import { ReactNode } from 'react';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import {
   CUSTOM_FOLDER_DELETED_FLAG_CODE,
   CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
-  FOLDERS_CONFIG,
-  SYNTHETIC_FOLDER_ID_PREFIX,
-} from 'utils';
+} from 'utils/lib/fhir/list';
+import { SYNTHETIC_FOLDER_ID_PREFIX } from 'utils/lib/types/data/custom-folder.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock useAppClients before the hook is imported.

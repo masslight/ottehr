@@ -2,16 +2,26 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Claim, Encounter, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
-import { APIErrorCode, BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL, Secrets } from 'utils';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { Secrets } from 'utils/lib/secrets';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
-vi.mock('../../../src/shared', async (importOriginal) => ({
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   wrapHandler: (_name: string, handler: unknown) => handler,
+}));
+
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
-  createClinicalOystehrClient: vi.fn(),
   getUser: vi.fn(),
+}));
+
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createClinicalOystehrClient: vi.fn(),
 }));
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -22,7 +32,9 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 import { CHECK_NUMBER_IDENTIFIER_SYSTEM, MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM } from '../../../src/billing/payments';
 import { index as _index } from '../../../src/billing/record-billing-manual-payment';
 import { createBillingClient } from '../../../src/billing/shared';
-import { createClinicalOystehrClient, getUser, ZambdaInput } from '../../../src/shared';
+import { getUser } from '../../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../../src/shared/helpers';
+import { ZambdaInput } from '../../../src/shared/types/common';
 
 const index = _index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 

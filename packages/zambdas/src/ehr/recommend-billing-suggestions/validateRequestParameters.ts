@@ -1,5 +1,5 @@
-import { BillingSuggestionInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { BillingSuggestionInput } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ZambdaInput } from '../../shared/types/common';
 
 export function validateRequestParameters(input: ZambdaInput): BillingSuggestionInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

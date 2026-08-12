@@ -5,15 +5,10 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  formatWeight,
-  formatWeightKg,
-  formatWeightLbs,
-  VitalFieldNames,
-  vitalsConfig,
-  VitalsWeightObservationDTO,
-  VitalsWeightOption,
-} from 'utils';
+import { formatWeight, formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { vitalsConfig } from 'utils/lib/ottehr-config/vitals';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsWeightObservationDTO, VitalsWeightOption } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';

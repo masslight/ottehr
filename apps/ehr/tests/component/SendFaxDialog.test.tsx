@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FAX_MAX_RECIPIENTS, FAX_MAX_TRANSMISSIONS } from 'utils';
+import { FAX_MAX_TRANSMISSIONS, SEND_FAX_MAX_RECIPIENTS } from 'utils/lib/types/api/send-fax.types';
 import { describe, expect, it, vi } from 'vitest';
 import { SendFaxDialog } from '../../src/components/dialogs/SendFaxDialog';
 
@@ -121,11 +121,11 @@ describe('SendFaxDialog', () => {
     render(<SendFaxDialog {...baseProps} title="Send Fax" onSend={vi.fn()} />);
 
     const addRecipient = screen.getByRole('button', { name: /Add Recipient/i });
-    for (let i = 1; i < FAX_MAX_RECIPIENTS; i++) {
+    for (let i = 1; i < SEND_FAX_MAX_RECIPIENTS; i++) {
       await user.click(addRecipient);
     }
 
-    expect(screen.getAllByLabelText(/Fax number/i)).toHaveLength(FAX_MAX_RECIPIENTS);
+    expect(screen.getAllByLabelText(/Fax number/i)).toHaveLength(SEND_FAX_MAX_RECIPIENTS);
     expect(addRecipient).toBeDisabled();
   });
 

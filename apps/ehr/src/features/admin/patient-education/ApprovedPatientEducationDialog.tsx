@@ -18,7 +18,9 @@ import { PatientEducationLanguageSelector } from 'src/features/visits/shared/com
 import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { EducationSection, generateCombinedPdf } from 'src/features/visits/shared/hooks/usePatientEducation';
-import { ApprovedPatientEducationIcdCode, getApiError, PatientEducationLanguage } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ApprovedPatientEducationIcdCode } from 'utils/lib/types/api/approved-patient-education.types';
+import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 import { AlternateDiagnosesInput, PrimaryDiagnosisInput } from './IcdDiagnosisInputs';
 import { APPROVED_PATIENT_EDUCATION_QUERY_KEY } from './PatientEducationAdminPage';
 import { Icd10Option } from './useIcd10SearchInput';

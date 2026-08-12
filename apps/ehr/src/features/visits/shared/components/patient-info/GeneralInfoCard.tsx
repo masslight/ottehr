@@ -1,7 +1,7 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, IconButton, Paper } from '@mui/material';
 import React, { useState } from 'react';
-import { EditPatientDialog } from 'src/components/dialogs';
+import EditPatientDialog from 'src/components/dialogs/EditPatientDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';

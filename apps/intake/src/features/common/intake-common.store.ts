@@ -1,4 +1,4 @@
-import { AvailableLocationInformation } from 'utils';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 

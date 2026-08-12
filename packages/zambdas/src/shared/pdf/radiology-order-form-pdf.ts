@@ -2,28 +2,21 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Location, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BRANDING_CONFIG,
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  FHIR_IDENTIFIER_NPI,
-  formatDateForLabs,
-  formatDOB,
-  getFullestAvailableName,
-  getPatientFriendlyId,
-  getPresignedURL,
-  LATERALITY_SELECTORS,
-  LateralityValue,
-  RADIOLOGY_SAFETY_FLAG_LABELS,
-  RadiologySafetyFlag,
-  Secrets,
-  standardizePhoneNumber,
-} from 'utils';
+import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
+import { RADIOLOGY_SAFETY_FLAG_LABELS, RadiologySafetyFlag } from 'utils/lib/types/api/radiology';
+import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
 import { getPatientLastFirstName } from '../patients';
 import { makeRadiologyDTO } from '../radiology';
-import { drawFieldLine } from './helpers/render';
+import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
-import { calculateAge, rgbNormalized } from './pdf-utils';
+import { rgbNormalized } from './pdf-utils';
 import { AssetPaths, PdfData, PdfSection } from './types';
 
 export const RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE = {
@@ -31,6 +24,10 @@ export const RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE = {
   code: 'radiology-order-form',
   display: 'Radiology Order Form',
 };
+
+/** Identifier system for a stored order form's source versions. Written here only — never on results. */
+export const RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/radiology-order-form-source-version';
 
 interface OrganizationBlock {
   projectName?: string;
@@ -51,7 +48,7 @@ export interface RadiologyOrderFormInput {
 }
 
 interface RadiologyOrderFormData extends PdfData {
-  patient: { name: string; dob: string; ageYears?: number; id: string; phone?: string };
+  patient: { name: string; dob: string; id: string; phone?: string };
   performingOrg: OrganizationBlock;
   orderingClinic: OrganizationBlock;
   orderingProvider: { name: string; npi?: string; signatureName: string };
@@ -81,7 +78,6 @@ const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, Radio
     patient: {
       name: getPatientLastFirstName(patient) ?? '',
       dob: formatDOB(patient.birthDate) ?? '',
-      ageYears: patient.birthDate ? calculateAge(patient.birthDate) : undefined,
       id: getPatientFriendlyId(patient) || patient.id || '',
       phone: standardizePhoneNumber(patient.telecom?.find((t) => t.system === 'phone')?.value),
     },
@@ -192,9 +188,7 @@ const patientSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData[
     client.drawSeparatedLine(styles.lineStyles.separator);
     client.drawText('Patient:', styles.textStyles.sectionLabel);
     client.drawText(patient.name, styles.textStyles.patientName);
-    const dobPart = patient.dob
-      ? `DOB: ${patient.dob}${patient.ageYears != null ? ` (${patient.ageYears} yo)` : ''}`
-      : '';
+    const dobPart = patient.dob ? `DOB: ${patient.dob}` : '';
     const line = [dobPart, `PID: ${patient.id}`, patient.phone ? `Phone: ${patient.phone}` : '']
       .filter(Boolean)
       .join('     ');
@@ -276,7 +270,8 @@ export async function createRadiologyOrderFormPDF(
   input: RadiologyOrderFormInput,
   refs: { patientId: string; encounterId: string; serviceRequestId: string },
   secrets: Secrets | null,
-  token: string
+  token: string,
+  sourceVersion?: string
 ): Promise<{ documentReference: DocumentReference; presignedURL: string }> {
   const { patientId, encounterId, serviceRequestId } = refs;
 
@@ -298,6 +293,9 @@ export async function createRadiologyOrderFormPDF(
         related: [{ reference: `ServiceRequest/${serviceRequestId}` }],
         encounter: [{ reference: `Encounter/${encounterId}` }],
       },
+      ...(sourceVersion
+        ? { identifier: [{ system: RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM, value: sourceVersion }] }
+        : {}),
     },
     docStatus: 'final',
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',

@@ -1,6 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkForStripeCustomerDeletedError, getStripeAccountForAppointmentOrEncounter } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 

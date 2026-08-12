@@ -1,8 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Patient, Person } from 'fhir/r4b';
-import { PatientDetailResponse } from 'utils';
-import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import { Claim, Patient } from 'fhir/r4b';
+import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fetchAllPages } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaidByClaimId,
@@ -15,6 +18,8 @@ import {
   formatAddress,
   getClaimStatus,
   isWorkingCopy,
+  patientSearchParam,
+  resolveLinkedPatientIds,
   resolvePayersByRef,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -87,21 +92,10 @@ async function fetchPatientClaims(
   claims: PatientDetailResponse['claims'];
   balance: PatientDetailResponse['balance'];
 }> {
-  let patientIds = [patientId];
-  const personResult = await oystehr.fhir.search<Person>({
-    resourceType: 'Person',
-    params: [{ name: 'link', value: `Patient/${patientId}` }],
+  const patientIds = await resolveLinkedPatientIds({
+    oystehr,
+    patientId,
   });
-  const person = personResult.unbundle()[0];
-  if (person?.link) {
-    const linkedIds = person.link
-      .map((l) => l.target?.reference)
-      .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
-      .map((ref) => ref.replace('Patient/', ''));
-    patientIds = [...new Set([...patientIds, ...linkedIds])];
-  }
-
-  const patientParam = patientIds.map((pid) => `Patient/${pid}`).join(',');
 
   const claims: Claim[] = [];
 
@@ -109,7 +103,7 @@ async function fetchPatientClaims(
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
-        { name: 'patient', value: patientParam },
+        patientSearchParam(patientIds),
         { name: '_sort', value: '-created' },
         { name: '_count', value: String(count) },
         { name: '_offset', value: String(offset) },

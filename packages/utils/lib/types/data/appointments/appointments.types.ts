@@ -17,12 +17,12 @@ import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import { Secrets } from '../../../secrets';
 import {
   AppointmentAttendanceType,
-  AppointmentMessaging,
   AppointmentType,
   FhirAppointmentStatus,
   VisitStatusHistoryEntry,
   VisitStatusLabel,
-} from '../../api';
+} from '../../api/appointment.types';
+import { AppointmentMessaging } from '../../api/messaging.types';
 import { ProviderTypeCode } from '../../api/practitioner.types';
 import { FhirAppointmentType } from '../../common';
 

@@ -1,9 +1,14 @@
 import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
+import { BillingSuggestionOutput, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

@@ -20,7 +20,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';

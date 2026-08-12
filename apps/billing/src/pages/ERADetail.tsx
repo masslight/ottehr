@@ -25,7 +25,9 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { EraDetailResponse, formatCurrency, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -304,7 +306,7 @@ export default function ERADetail(): ReactElement {
           }}
           onCancel={() => setClaimResponsesToUnmatch(null)}
         >
-          Do you really want to unmatch
+          Do you really want to unmatch?
         </ConfirmDialog>
       )}
       {moreActionsPopoverData ? (

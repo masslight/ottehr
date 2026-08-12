@@ -11,7 +11,11 @@ export const GLOBAL_ACTION_LOG_VIEWER_ROLES = [
   RoleType.CustomerSupport,
   RoleType.Staff,
 ];
-export const PATIENT_ACTION_LOG_VIEWER_ROLES = [...GLOBAL_ACTION_LOG_VIEWER_ROLES, RoleType.Provider];
+export const PATIENT_ACTION_LOG_VIEWER_ROLES = [
+  ...GLOBAL_ACTION_LOG_VIEWER_ROLES,
+  RoleType.Provider,
+  RoleType.Clinician,
+];
 
 export const ActionLogChannelSchema = z.enum(['fax', 'email']);
 export type ActionLogChannel = z.infer<typeof ActionLogChannelSchema>;
@@ -75,9 +79,13 @@ export interface OutboundDeliveryAttemptData {
   appointmentId?: string;
   recipientAddress: string;
   recipientName?: string;
+  recipientOrganization?: string;
+  recipientPhone?: string;
   documentReferenceId?: string;
   /** Z3 URL of the transmitted file; lets a retry re-send exactly what was sent the first time. */
   media?: string;
+  faxPacketPageCount?: number;
+  faxPacketParts?: string[];
   communicationReference?: string;
   requesterReference?: string;
   senderOrganizationReference?: string;

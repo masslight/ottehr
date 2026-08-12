@@ -416,6 +416,36 @@ jobs:
           aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
 
+      # Built alongside the terraform apply by the build-intake-bundle job so this job doesn't pay for
+      # it. Absent for a standalone workflow_dispatch, in which case run-e2e.ts builds as usual.
+      - name: Download prebuilt intake bundle
+        id: download-bundle
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: intake-bundle-${{ needs.check-changes.outputs.environment }}
+          # The artifact's paths share apps/intake as their common ancestor, so it unpacks as
+          # build/ and env/.env.<env>.prebuilt — extract into apps/intake to restore the real layout.
+          path: apps/intake
+
+      # That bundle was built against an env file generated from terraform state before the apply
+      # finished. If the apply changed it, the bundle is stale: drop it and let run-e2e.ts rebuild
+      # against the copy this job just generated.
+      - name: Discard the prebuilt bundle if its env no longer matches
+        if: steps.download-bundle.outcome == 'success'
+        run: |
+          ENV_FILE="apps/intake/env/.env.${{ needs.check-changes.outputs.environment }}"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "No env file to compare against; discarding the prebuilt bundle."
+            rm -rf apps/intake/build
+          elif cmp -s "$ENV_FILE" "$ENV_FILE.prebuilt"; then
+            echo "Prebuilt bundle matches this job's env; using it."
+          else
+            echo "Env changed since the bundle was built; discarding it and rebuilding."
+            rm -rf apps/intake/build
+          fi
+          rm -f "$ENV_FILE.prebuilt"
+
       - name: Run E2E tests
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"

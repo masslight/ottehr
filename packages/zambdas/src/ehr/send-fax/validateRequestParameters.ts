@@ -1,15 +1,9 @@
-import {
-  FAX_MAX_RECIPIENTS,
-  FAX_MAX_TRANSMISSIONS,
-  getPhoneNumberDigits,
-  INVALID_INPUT_ERROR,
-  isFaxNumberValid,
-  MISSING_AUTH_TOKEN,
-  MISSING_REQUEST_BODY,
-  SendFaxZambdaInput,
-} from 'utils';
+import { getPhoneNumberDigits, isFaxNumberValid } from 'utils/lib/helpers/helpers';
+import { FAX_MAX_TRANSMISSIONS, SEND_FAX_MAX_RECIPIENTS, SendFaxZambdaInput } from 'utils/lib/types/api/send-fax.types';
+import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const OptionalTextSchema = z
   .string()
@@ -54,7 +48,7 @@ const SendFaxBodySchema = z
     recipients: z
       .array(FaxRecipientSchema)
       .min(1)
-      .max(FAX_MAX_RECIPIENTS)
+      .max(SEND_FAX_MAX_RECIPIENTS)
       .refine(
         (recipients) =>
           new Set(recipients.map((recipient) => getPhoneNumberDigits(recipient.faxNumber))).size === recipients.length,

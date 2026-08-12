@@ -22,7 +22,7 @@ const mockFeatureFlags = {
   mailingPaperStatementsEnabled: true,
 };
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -30,20 +30,21 @@ vi.mock('utils', async (importOriginal) => {
   };
 });
 
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 vi.mock('../../../src/shared/helpers', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
+    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
     getPatchBinary: vi.fn(),
   };
 });

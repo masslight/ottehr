@@ -4,8 +4,11 @@ import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
-} from '../../fhir';
-import { PracticeManagedQuestionnaire, PracticeManagedQuestionnaireItem } from '../../types';
+} from '../../fhir/constants';
+import {
+  PracticeManagedQuestionnaire,
+  PracticeManagedQuestionnaireItem,
+} from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import {
   fhirQuestionnaireItemToManaged,
   fhirQuestionnaireToPracticeManaged,

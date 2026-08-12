@@ -2,6 +2,15 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { OUTBOUND_DELIVERY_TASK_CODES, OUTBOUND_DELIVERY_TASK_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  getOutboundDeliveryAttemptStatus,
+  getOutboundDeliveryChannel,
+  getOutboundDeliveryRecipientSnapshot,
+  OutboundDeliveryRecipientSnapshot,
+} from 'utils/lib/fhir/outbound-delivery';
+import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   ACTION_LOGS_DISPLAY_WINDOW_DAYS,
   ACTION_LOGS_PAGE_SIZE,
@@ -9,25 +18,14 @@ import {
   ActionLogEntry,
   GetActionLogsInputValidated,
   GetActionLogsOutput,
-  getFormattedPatientFullName,
-  getOutboundDeliveryAttemptStatus,
-  getOutboundDeliveryChannel,
-  getOutboundDeliveryRecipientSnapshot,
   GLOBAL_ACTION_LOG_VIEWER_ROLES,
-  OUTBOUND_DELIVERY_TASK_CODES,
-  OUTBOUND_DELIVERY_TASK_SYSTEM,
-  OutboundDeliveryRecipientSnapshot,
   PATIENT_ACTION_LOG_VIEWER_ROLES,
-  removePrefix,
-  RoleType,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  requireUserWithRole,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/api/action-logs.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-action-logs';

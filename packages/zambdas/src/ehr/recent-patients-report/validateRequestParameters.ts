@@ -1,5 +1,8 @@
-import { RecentPatientsReportZambdaInput, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { RecentPatientsReportZambdaInput } from 'utils/lib/types/api/recent-patients-report.types';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): {
   dateRange: { start: string; end: string };
@@ -35,6 +38,12 @@ export function validateRequestParameters(input: ZambdaInput): {
 
   if (!input.secrets) {
     throw new Error('Input did not have any secrets');
+  }
+
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE } = input.secrets;
+
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
   return {

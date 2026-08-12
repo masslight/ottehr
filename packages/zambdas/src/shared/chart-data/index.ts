@@ -29,79 +29,83 @@ import { DateTime } from 'luxon';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
-  AccidentDTO,
-  ADDED_VIA_LAB_ORDER_SYSTEM,
+  BODY_SITE_SYSTEM,
+  CPT_CODE_SYSTEM,
+  ERX_MEDICATION_META_TAG_CODE,
+  FHIR_EXTENSION,
+  PERFORMER_TYPE_SYSTEM,
+  PRESCRIPTION_ERX_PHARMACY_ID_URL,
+  PRIVATE_EXTENSION_BASE_URL,
+  PROCEDURE_TYPE_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { createFilesDocumentReferences, getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
+import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import {
   addEmptyArrOperation,
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
   addOperation,
   addOrReplaceOperation,
+  removeOperation,
+} from 'utils/lib/helpers/operations';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
+import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import {
+  DispositionMetaFieldsNames,
+  ProviderChartDataFieldsNames,
+  SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  AccidentDTO,
+  ADDITIONAL_QUESTIONS_META_SYSTEM,
   AI_OBSERVATION_META_SYSTEM,
   AllChartValues,
   AllergyDTO,
   BirthHistoryDTO,
-  BODY_SITE_SYSTEM,
   BooleanValueDTO,
   ClinicalImpressionDTO,
-  CODE_SYSTEM_ICD_10,
   CommunicationDTO,
-  CPT_CODE_SYSTEM,
   CPTCodeDTO,
-  createCodeableConcept,
-  createFilesDocumentReferences,
   DiagnosisDTO,
   DispositionDTO,
   DispositionFollowUpType,
-  DispositionMetaFieldsNames,
   DispositionType,
-  ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
   ExamObservationDTO,
-  FHIR_EXTENSION,
-  fillVitalObservationAttributes,
   FreeTextNoteDTO,
-  getBooleanExtensionValue,
-  GetChartDataResponse,
-  getVitalObservationFhirInterpretations,
   HospitalizationDTO,
   IN_PERSON_NOTE_ID,
-  isNoteEdited,
-  isVitalObservation,
-  makeVitalsObservationDTO,
   MedicalConditionDTO,
-  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
   NOTE_TYPE,
   NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
   ObservationBooleanFieldDTO,
+  PATIENT_VITALS_META_SYSTEM,
+  PrescribedMedicationDTO,
+  ProcedureDTO,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_ID,
+  ROS_OBSERVATION_META_SYSTEM,
+  SchoolWorkNoteExcuseDocFileDTO,
+  SchoolWorkNoteType,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
+import { TaskCoding } from 'utils/lib/types/common';
+import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import {
   ObservationDateFieldDTO,
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
-  OTHER_SPECIALTY_TRANSFER_OPTION,
-  PATIENT_VITALS_META_SYSTEM,
-  patientScreeningQuestionsConfig,
-  PERFORMER_TYPE_SYSTEM,
-  PrescribedMedicationDTO,
-  PRESCRIPTION_ERX_PHARMACY_ID_URL,
-  PRIVATE_EXTENSION_BASE_URL,
-  PROCEDURE_TYPE_SYSTEM,
-  ProcedureDTO,
-  ProviderChartDataFieldsNames,
-  REFUSAL_OF_EMS_TRANSPORT_FIELD,
-  REFUSAL_OF_EMS_TRANSPORT_ID,
-  removeOperation,
-  ROS_OBSERVATION_META_SYSTEM,
-  SCHOOL_WORK_NOTE,
-  SCHOOL_WORK_NOTE_CODE,
-  SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
-  SchoolWorkNoteExcuseDocFileDTO,
-  SchoolWorkNoteType,
-  SNOMEDCodeConceptInterface,
-  TaskCoding,
-  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/screening-questions/types';
 import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
@@ -951,10 +955,7 @@ export function makeDispositionDTO(
       : undefined;
 
   const followUpArr = subFollowUp?.map((element) => {
-    const performerCode = element.performerType?.coding?.[0].code;
-    const followUpType = Object.keys(followUpToPerformerMap).find(
-      (keyName) => performerCode === followUpToPerformerMap[keyName as DispositionFollowUpType]?.coding?.[0].code
-    );
+    const followUpType = followUpTypeFromPerformerType(element.performerType);
 
     return {
       type: followUpType as DispositionFollowUpType,
@@ -989,7 +990,6 @@ export function makeDispositionDTOFromFhirResources(
   encounter?: Encounter,
   serviceRequests?: ServiceRequest[]
 ): DispositionDTO | undefined {
-  // checking and creating dispositionDTO
   if (encounter) {
     const dischargeDisposition = encounter.hospitalization?.dischargeDisposition;
     const dispositionCode = dischargeDisposition?.coding?.find(
@@ -1852,6 +1852,22 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   ]),
   'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
   other: createCodeableConcept(undefined, 'other'),
+};
+
+/**
+ * Reverse of followUpToPerformerMap: maps a sub-follow-up ServiceRequest.performerType back to its
+ * DispositionFollowUpType key. Coded types carry a SNOMED coding; 'other'/'lurie-ct' are text-only,
+ * so match on coding[0].code OR text — guarded so undefined never matches undefined.
+ */
+export const followUpTypeFromPerformerType = (
+  performerType: CodeableConcept | undefined
+): DispositionFollowUpType | undefined => {
+  const performerKey = performerType?.coding?.[0]?.code ?? performerType?.text;
+  if (!performerKey) return undefined;
+  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((key) => {
+    const performer = followUpToPerformerMap[key];
+    return performer?.coding?.[0]?.code === performerKey || performer?.text === performerKey;
+  });
 };
 
 export function makeProceduresDTOFromFhirResources(

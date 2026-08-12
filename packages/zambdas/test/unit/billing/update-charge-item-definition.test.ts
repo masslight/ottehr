@@ -1,13 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import {
-  CPT_CODE_SYSTEM,
-  EXTENSION_URL_CPT_MODIFIER,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  UpdateChargeItemDefinitionInput,
-} from 'utils';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { UpdateChargeItemDefinitionInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { vi } from 'vitest';
 import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
 import { performEffect } from '../../../src/billing/update-charge-item-definition/index';

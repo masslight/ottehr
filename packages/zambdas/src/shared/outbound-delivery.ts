@@ -3,14 +3,13 @@ import { randomUUID } from 'crypto';
 import { Identifier, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  makeOutboundDeliveryAttempt,
-  makeOutboundDeliveryOutput,
   OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM,
   OUTBOUND_DELIVERY_INPUT_CODES,
   OUTBOUND_DELIVERY_INPUT_SYSTEM,
   OUTBOUND_DELIVERY_OUTPUT_CODES,
-  OutboundDeliveryAttemptData,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { makeOutboundDeliveryAttempt, makeOutboundDeliveryOutput } from 'utils/lib/fhir/outbound-delivery';
+import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
 
 const ATTEMPT_PATCH_RETRIES = 3;
 

@@ -23,6 +23,8 @@
             "Zambda:Function:get-standalone-paperwork",
             "Zambda:Function:update-paperwork-in-progress",
             "Zambda:Function:get-presigned-file-url",
+            "Zambda:Function:get-insurance-card-suggestions",
+            "Zambda:Function:get-photo-id-suggestions",
             "Zambda:Function:get-appointment-details",
             "Zambda:Function:patch-paperwork",
             "Zambda:Function:submit-paperwork",
@@ -287,6 +289,7 @@
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:get-billing-claim-history",
+            "Zambda:Function:add-billing-claim-note",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:get-billing-service-facility",
             "Zambda:Function:search-billing-tags",
@@ -841,7 +844,8 @@
             "FHIR:Person",
             "FHIR:Schedule",
             "FHIR:ValueSet",
-            "FHIR:List"
+            "FHIR:List",
+            "FHIR:Medication"
           ],
           "action": [
             "FHIR:Search",
@@ -1125,6 +1129,208 @@
           "effect": "Allow",
           "resource": [
             "FHIR:Claim",
+            "FHIR:Appointment",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:Coverage",
+            "FHIR:Practitioner",
+            "FHIR:Patient",
+            "FHIR:RelatedPerson"
+          ]
+        },
+        {
+          "resource": [
+            "Terminology:Code:*"
+          ],
+          "action": [
+            "Terminology:SearchCodes"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "action": [
+            "RCM:SearchPayer",
+            "RCM:GetPayer"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "RCM:Payer"
+          ]
+        }
+      ]
+    },
+    "CLINICIAN": {
+      "name": "Clinician",
+      "description": "Clinical staff without an NPI (e.g. nurses, medical assistants). Provider access except NPI-gated actions (e-prescribing and submitting claims are excluded here; sign, external labs & imaging, and in-house medication orders are enforced in the zambdas via requirePractitionerNPI).",
+      "accessPolicy": [
+        {
+          "resource": [
+            "FHIR:Consent",
+            "FHIR:Coverage",
+            "FHIR:RelatedPerson",
+            "FHIR:Organization",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:PractitionerRole",
+            "FHIR:Questionnaire",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Person",
+            "FHIR:Task",
+            "FHIR:List",
+            "FHIR:Schedule",
+            "FHIR:ValueSet",
+            "FHIR:Medication",
+            "FHIR:MedicationRequest"
+          ],
+          "action": [
+            "FHIR:Search",
+            "FHIR:Read"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
+            "FHIR:Appointment",
+            "FHIR:Encounter",
+            "FHIR:Patient",
+            "FHIR:Flag",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Task",
+            "FHIR:DocumentReference"
+          ],
+          "action": [
+            "FHIR:Search",
+            "FHIR:Read",
+            "FHIR:Update"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "action": [
+            "Telemed:JoinMeeting",
+            "Telemed:EndMeeting"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Telemed:Meeting:*"
+          ]
+        },
+        {
+          "resource": [
+            "Z3:*"
+          ],
+          "action": [
+            "Z3:GetObject"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "action": [
+            "Zambda:InvokeFunction"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Zambda:Function:*"
+          ]
+        },
+        {
+          "action": [
+            "FHIR:Read",
+            "FHIR:Update"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Practitioner"
+          ]
+        },
+        {
+          "action": [
+            "FHIR:Search",
+            "FHIR:Read",
+            "FHIR:Update",
+            "FHIR:Create"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Communication"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:SendTransactionalSMS"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConfiguration"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "eRx:SearchMedication",
+            "eRx:GetMedication"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Medication"
+          ]
+        },
+        {
+          "action": [
+            "eRx:SearchAllergen"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Allergen"
+          ]
+        },
+        {
+          "action": [
+            "eRx:GetConfiguration"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Configuration"
+          ]
+        },
+        {
+          "resource": [
+            "FHIR:AllergyIntolerance:*",
+            "FHIR:MedicationStatement:*"
+          ],
+          "action": [
+            "FHIR:Read",
+            "FHIR:Search"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "action": [
+            "FHIR:History"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Patient",
+            "FHIR:Appointment"
+          ]
+        },
+        {
+          "action": [
+            "FHIR:Search",
+            "FHIR:Read",
+            "FHIR:Update",
+            "FHIR:Create"
+          ],
+          "effect": "Allow",
+          "resource": [
             "FHIR:Appointment",
             "FHIR:Location",
             "FHIR:HealthcareService",

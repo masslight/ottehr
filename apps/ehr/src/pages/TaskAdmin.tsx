@@ -24,8 +24,8 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
-import { getAllTaskTypes, TaskTypeOption } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getAllTaskTypes, TaskTypeOption } from 'utils/lib/helpers/tasks/task-types';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 

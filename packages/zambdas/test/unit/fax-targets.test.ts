@@ -1,11 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter, Location, Patient } from 'fhir/r4b';
+import { SERVICE_CATEGORY_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   MEDICAL_RECORD_EXPORT_CODE,
-  SERVICE_CATEGORY_SYSTEM,
-  TIMEZONE_EXTENSION_URL,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveFaxTransmissions } from '../../src/shared/fax/fax-targets';
 

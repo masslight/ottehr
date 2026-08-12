@@ -1,5 +1,7 @@
 import { PageSizes, PDFDocument, PDFImage } from 'pdf-lib';
-import { FAX_TOO_LARGE_ERROR, FaxRecipient, getMimeType, isFaxableAttachment, MIME_TYPES } from 'utils';
+import { FaxRecipient } from 'utils/lib/types/api/fax.types';
+import { FAX_TOO_LARGE_ERROR } from 'utils/lib/types/errors';
+import { getMimeType, isFaxableAttachment, MIME_TYPES } from 'utils/lib/utils/file';
 import { createPresignedUrl } from '../z3Utils';
 import { drawFaxCoverPage, FaxCoverAssets, FaxCoverPageInfo, FaxSender } from './fax-cover-page';
 

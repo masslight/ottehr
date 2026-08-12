@@ -1,20 +1,13 @@
-/** Recipients a single request may carry; the "Add Recipient" form stops here. */
-export const FAX_MAX_RECIPIENTS = 10;
+import { FaxRecipient } from './fax.types';
+
+/** Recipients a patient-document fax request may carry; the "Add Recipient" form stops here. */
+export const SEND_FAX_MAX_RECIPIENTS = 10;
 
 /**
  * Faxes a single request may send (selected visits × recipients). Each one is a document assembly, a
  * Z3 upload and a provider call, so the request has to stay well inside the zambda's timeout.
  */
 export const FAX_MAX_TRANSMISSIONS = 20;
-
-/** A single fax destination, captured from the "Recipient Information" form. */
-export interface FaxRecipient {
-  faxNumber: string;
-  name?: string;
-  organization?: string;
-  /** Follow-up voice number; printed on the cover page only. */
-  phoneNumber?: string;
-}
 
 /**
  * What to fax. Each variant maps to one entry point in the EHR:

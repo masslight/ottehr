@@ -13,7 +13,8 @@ import {
 import { FC, useCallback } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { FAX_MAX_RECIPIENTS, FAX_MAX_TRANSMISSIONS, FaxRecipient } from 'utils';
+import { FaxRecipient } from 'utils/lib/types/api/fax.types';
+import { FAX_MAX_TRANSMISSIONS, SEND_FAX_MAX_RECIPIENTS } from 'utils/lib/types/api/send-fax.types';
 import { FAX_NUMBER_HELPER_TEXT, FaxNumberField, isFaxNumberValid } from '../FaxNumberField';
 import { RoundedButton } from '../RoundedButton';
 import { CustomDialog } from './CustomDialog';
@@ -219,7 +220,7 @@ export const SendFaxDialog: FC<SendFaxDialogProps> = ({ title, visits, onClose, 
           <RoundedButton
             variant="text"
             startIcon={<AddIcon />}
-            disabled={recipientCount >= FAX_MAX_RECIPIENTS}
+            disabled={recipientCount >= SEND_FAX_MAX_RECIPIENTS}
             onClick={() => append(EMPTY_RECIPIENT)}
             data-testid={dataTestIds.sendFaxDialog.addRecipientButton}
           >

@@ -22,7 +22,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { CptCodesInput } from 'src/components/input/CptCodesInput';
 import { DateInput } from 'src/components/input/DateInput';
@@ -43,14 +43,12 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
-import {
-  EMERGENCY_CONTACT_RELATIONSHIPS,
-  getApiError,
-  ImmunizationOrder,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  RoleType,
-  UNIT_OPTIONS,
-} from 'utils';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';

@@ -1,6 +1,7 @@
-import { NOTE_TYPE } from 'utils';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { mapMedicalConditions } from '../../helpers/mappers';
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { MedicalConditionsData, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

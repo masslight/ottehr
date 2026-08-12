@@ -1,6 +1,6 @@
-import { MeetingData } from 'utils';
+import { zustandDevtools } from 'src/telemed/utils/zustandDevtools';
+import { MeetingData } from 'utils/lib/types/data/telemed/join-call.types';
 import { create } from 'zustand';
-import { zustandDevtools } from '../../utils';
 
 export interface VideoCallState {
   meetingData: MeetingData | null;

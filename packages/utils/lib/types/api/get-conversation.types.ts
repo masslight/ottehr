@@ -1,4 +1,4 @@
-import { ConversationMessage } from '.';
+import { ConversationMessage } from './messaging.types';
 
 export interface GetConversationInput {
   patientId: string;

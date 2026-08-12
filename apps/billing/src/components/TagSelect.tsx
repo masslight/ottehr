@@ -1,13 +1,13 @@
 import { Autocomplete, AutocompleteRenderInputParams, Box, TextField, Typography } from '@mui/material';
 import { HTMLAttributes, ReactElement, ReactNode, Ref, useState } from 'react';
-import { HOLD_TAG_NAME } from 'utils';
+import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { searchBillingTags } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 
 // Tag picker for the rules builder: only tags that exist in the tags feature can be chosen (no free
 // text), matching save-billing-rules' server-side check. The tag list is small and loads once on
-// first open (the Tags page precedent) with MUI's client-side filtering. The Hold tag is always
-// offered even before it has been seeded as a stored tag (it is built into the engine), and a
+// first open (the Tags page precedent) with MUI's client-side filtering. System-managed tags are
+// always offered even while the tag list is unavailable (they are built into the system), and a
 // stored-but-deleted tag stays visible so an existing rule renders faithfully — the server rejects
 // it with a clear message on the next save.
 
@@ -27,7 +27,10 @@ interface TagSelectProps {
   inputRef?: Ref<HTMLInputElement>;
 }
 
-const HOLD_FALLBACK_OPTION: TagOption = { name: HOLD_TAG_NAME, description: 'Holds the claim and stops the engine.' };
+const SYSTEM_TAG_FALLBACK_OPTIONS: TagOption[] = SYSTEM_MANAGED_TAGS.map((tag) => ({
+  name: tag.name,
+  description: tag.description,
+}));
 
 export function TagSelect({
   value,
@@ -51,13 +54,13 @@ export function TagSelect({
     }
   };
 
-  // Fetched tags win the dedupe (a seeded Hold tag carries its real description); the stored value
-  // is appended last so it renders even when its definition has been deleted.
+  // Fetched tags win the dedupe (a stored system tag carries its stored description); the stored
+  // value is appended last so it renders even when its definition has been deleted.
   const stored = value?.trim();
   const seen = new Set<string>();
   const options = [
     ...(fetched ?? []),
-    HOLD_FALLBACK_OPTION,
+    ...SYSTEM_TAG_FALLBACK_OPTIONS,
     ...(stored ? [{ name: stored, description: '' }] : []),
   ].filter((option) => {
     if (seen.has(option.name)) return false;

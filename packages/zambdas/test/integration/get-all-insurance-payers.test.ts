@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { M2MClientMockType } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { BillingRule, RuleConditional, RulesEngineType } from 'utils';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRule, RuleConditional } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
@@ -216,7 +217,7 @@ describe('ConditionalEditor', () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 
-  it('offers only existing tags (plus the built-in Hold) in the apply-tag picker', async () => {
+  it('offers only existing tags (plus the built-in system-managed tags) in the apply-tag picker', async () => {
     searchBillingTagsMock.mockReset();
     searchBillingTagsMock.mockResolvedValue({ tags: [{ name: 'VIP', description: 'White-glove payers' }] });
     const conditional: RuleConditional = {
@@ -231,6 +232,7 @@ describe('ConditionalEditor', () => {
 
     expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Auto Accident/ })).toBeInTheDocument();
     expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
   });
 

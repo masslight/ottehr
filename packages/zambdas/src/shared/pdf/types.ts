@@ -15,22 +15,21 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
+import { AppointmentContext } from 'utils/lib/config-helpers/patient-record';
+import { FollowupReason } from 'utils/lib/fhir/encounter';
+import { Gender } from 'utils/lib/fhir/helpers';
+import { VitalsVisitNoteData } from 'utils/lib/helpers/vitals/vitals-visit-note-data.types';
 import {
-  AppointmentContext,
-  ExternalLabOrderResult,
-  FollowupReason,
-  Gender,
-  InHouseLabResult as InHouseLabResultPdfData,
-  LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OrderedCoveragesWithSubscribers,
-  PatientPaymentDTO,
-  ProviderDetails,
-  QuantityDataEntryComponent,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
-  SupportedObsImgAttachmentTypes,
-  VitalsVisitNoteData,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
+import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
+import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
+import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { testDataForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { UpcomingFollowUp } from './get-upcoming-follow-ups';
 import { Column, PdfInfo } from './pdf-utils';
@@ -891,8 +890,11 @@ export interface PatientInfoForDischargeSummary extends PdfData {
 }
 
 export interface RadiologyData extends PdfData {
+  /** Study names for orders that have no final report yet — rendered under "Pending Results" in the PDF. */
+  pendingRadiologyOrders?: string[];
   radiology?: {
     name: string;
+    performedBy?: string;
     result?: string;
   }[];
 }
@@ -1112,6 +1114,37 @@ export interface DischargeSummaryData extends PdfData {
   upcomingVisits: UpcomingVisitsData;
   documentsAttached?: boolean;
 }
+/**
+ * Data for the generated first page of an outbound fax packet.
+ */
+export interface FaxCoverSheetData extends PdfData {
+  recipient: { name?: string; organization?: string; faxNumber: string; phoneNumber?: string };
+  sender: {
+    practitionerName: string;
+    npi?: string;
+    organizationName: string;
+    addressText: string;
+    phoneNumber?: string;
+    faxNumber?: string;
+  };
+  subject: {
+    /** "Black, Oliver" */
+    patientName: string;
+    /** MRN or patient uuid — printed as PID. */
+    patientId: string;
+    /** Appointment id — printed as VID. */
+    visitId: string;
+    /** Already formatted MM/DD/YYYY. */
+    dateOfService: string;
+    /** e.g. "Urgent Care Visit" / "Follow-Up Visit". */
+    visitTypeLabel: string;
+  };
+  /** Total pages of the merged packet, cover sheet included. */
+  totalPages: number;
+  /** Already formatted "MM/DD/YYYY  hh:mm A". */
+  generatedAt: string;
+}
+
 export interface MedicationHistoryInput extends PdfData {
   patient: PatientInfoForDischargeSummary; // all this is pretty generic actually
   visit: VisitInfo;

@@ -25,7 +25,7 @@
  */
 
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
-import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared/helpers';
 
 // ── Auth ──
 async function getAuthToken(): Promise<string> {

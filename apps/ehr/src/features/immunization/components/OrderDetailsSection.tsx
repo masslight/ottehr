@@ -9,9 +9,9 @@ import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunizat
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { PROVIDERS_FILTER } from 'src/shared/utils';
+import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
-import { UNIT_OPTIONS } from 'utils';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();

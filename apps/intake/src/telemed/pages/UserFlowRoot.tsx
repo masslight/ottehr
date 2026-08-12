@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { initialLocationState, useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { LoadingScreen } from 'src/telemed/features/common/LoadingScreen';
+import { useFilesStore } from 'src/telemed/features/files/files.store';
+import { usePatientInfoStore } from 'src/telemed/features/patient-info/patient-info.store';
+import { useGetPatients } from 'src/telemed/features/patients/patients.queries';
+import { usePatientsStore } from 'src/telemed/features/patients/patients.store';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { intakeFlowPageRoute } from '../../App';
-import { useAppointmentStore } from '../features/appointments';
-import { initialLocationState, LoadingScreen, useIntakeCommonStore } from '../features/common';
-import { useFilesStore } from '../features/files';
-import { usePatientInfoStore } from '../features/patient-info';
-import { useGetPatients, usePatientsStore } from '../features/patients';
-import { useOystehrAPIClient } from '../utils';
 
 const UserFlowRoot = (): JSX.Element => {
   const apiClient = useOystehrAPIClient();

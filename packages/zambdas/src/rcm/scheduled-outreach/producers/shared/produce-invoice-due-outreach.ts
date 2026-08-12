@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { Secrets } from 'utils';
-import { getStripeClient } from '../../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { getStripeClient } from '../../../../shared/stripeIntegration';
 import {
   getOrCreateOutreachConfig,
   OutreachAction,

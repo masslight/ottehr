@@ -1,26 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import {
-  checkForStripeCustomerDeletedError,
-  getCoding,
-  getConsentAndRelatedDocRefsForAppointment,
-  getVisitOccupationalMedicineEmployerFromEncounter,
-  PatientPaymentDTO,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  VisitDetailsResponse,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getStripeClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { VisitDetailsResponse } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
+import { wrapHandler } from '../../../shared/sentry';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getPaymentsForEncounter } from '../../patient-payments/helpers';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../shared/harvest';
 import { searchDocumentReferencesForVisit } from '../get-visit-files';
@@ -40,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+  const response = await performEffect(oystehr, appointmentId, secrets, m2mToken, timezone);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -51,6 +47,7 @@ export const performEffect = async (
   oystehr: Oystehr,
   appointmentId: string,
   secrets: Secrets | null,
+  token: string,
   timezone?: string
 ): Promise<VisitDetailsResponse> => {
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
@@ -166,7 +163,7 @@ export const performEffect = async (
       payments,
     },
     secrets,
-    m2mToken
+    token
   );
 
   console.log(`Creating Visit details PDF Document Reference`);

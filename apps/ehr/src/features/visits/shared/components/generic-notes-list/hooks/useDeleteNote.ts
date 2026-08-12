@@ -1,6 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
-import { AllChartValues, GetChartDataResponse } from 'utils';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { useDeleteChartData } from '../../../stores/appointment/appointment.store';
 import { EditableNote, UseDeleteNote } from '../types';

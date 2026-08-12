@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { validateInput } from '../../src/ehr/radiology/update-order/validation';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const createMockZambdaInput = (body: any): ZambdaInput => ({
   body: JSON.stringify(body),

@@ -1,5 +1,5 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
@@ -27,11 +27,15 @@ export const BILLING_INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string>
 };
 
 export interface BillingTag {
+  // Empty for a system-managed tag whose Basic definition hasn't been created yet.
   id: string;
   name: string;
   description: string;
   usage: number;
   updatedAt: string;
+  // System-managed tags (see ./system-tags.ts) are always returned by search-billing-tags and
+  // cannot be edited or deleted.
+  isSystemTag: boolean;
 }
 
 // Search/autocomplete option shapes — shared by the search-billing-* zambdas and the billing UI.
@@ -410,6 +414,7 @@ export interface SearchBillingPatientsResponse extends Paginated {
 
 export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
+  incomplete?: boolean;
 }
 
 // amounts in dollars
@@ -489,7 +494,7 @@ export interface DeletedResponse {
   deleted: true;
 }
 
-export interface TaggedClaimResponse {
+export interface OkResponse {
   ok: true;
 }
 

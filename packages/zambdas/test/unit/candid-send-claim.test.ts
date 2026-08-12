@@ -1,4 +1,4 @@
-import { MISSING_REQUEST_SECRETS } from 'utils';
+import { MISSING_REQUEST_SECRETS, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -25,19 +25,40 @@ const mockOystehrClient = {
 
 const mockGetAppointmentAndRelatedResources = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/candid', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     createEncounterFromAppointment: mockCreateEncounterFromAppointment,
-    getAuth0Token: mockGetAuth0Token,
-    createClinicalOystehrClient: mockCreateOystehrClient,
-    wrapHandler: (_name: string, handler: any) => handler,
     CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('../../src/shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getAuth0Token: mockGetAuth0Token,
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createClinicalOystehrClient: mockCreateOystehrClient,
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    wrapHandler: (_name: string, handler: any) => handler,
+  };
+});
+
+vi.mock('utils/lib/helpers/candidApi', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -53,8 +74,14 @@ vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
   getAppointmentAndRelatedResources: (...args: any[]) => mockGetAppointmentAndRelatedResources(...args),
 }));
 
+const { mockCaptureException, mockCaptureMessage } = vi.hoisted(() => ({
+  mockCaptureException: vi.fn(),
+  mockCaptureMessage: vi.fn(),
+}));
+
 vi.mock('@sentry/aws-serverless', () => ({
-  captureException: vi.fn(),
+  captureException: mockCaptureException,
+  captureMessage: mockCaptureMessage,
 }));
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────────
@@ -66,7 +93,7 @@ const index = _index as unknown as (input: any) => Promise<{ statusCode: number;
 
 const { createCandidDiagnoses, buildRelatedCausesInformation } = await import('../../src/shared/candid');
 const { DiagnosisTypeCode } = await import('candidhealth/api');
-const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils');
+const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils/lib/fhir/constants');
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -335,6 +362,42 @@ describe('sub-send-claim', () => {
 
     await expect(index({ headers: {}, body: '{}', secrets: {} })).rejects.toThrow(
       'Visit resources are not properly defined'
+    );
+  });
+
+  it('fails the task without throwing when the claim can not be created (e.g. provider has no NPI)', async () => {
+    // Missing data is not a bug, so the handler must not throw: throwing reports it to Sentry as an
+    // exception. It goes out as a warning instead.
+    setupValidatedParams('task-10', 'appt-10');
+    mockGetAppointmentAndRelatedResources.mockResolvedValue(makeVisitResources({ encounterId: 'enc-10' }));
+    mockCreateEncounterFromAppointment.mockRejectedValue(
+      RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Practitioner pract-1 has no NPI identifier, so a claim can't be created")
+    );
+
+    const result = await index({ headers: {}, body: '{}', secrets: {} });
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toContain('has no NPI identifier');
+    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'Claim could not be created because required data is missing',
+      expect.objectContaining({
+        level: 'warning',
+        extra: expect.objectContaining({ taskId: 'task-10', reason: expect.stringContaining('has no NPI identifier') }),
+      })
+    );
+    expect(mockFhirPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        id: 'task-10',
+        operations: expect.arrayContaining([
+          expect.objectContaining({
+            op: 'replace',
+            path: '/status',
+            value: 'failed',
+          }),
+        ]),
+      })
     );
   });
 

@@ -1,5 +1,6 @@
-import { getSpentTime, isInPersonAppointment } from 'utils';
-import { drawRegularText } from '../../helpers/render';
+import { getSpentTime } from 'utils/lib/fhir/encounter';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { ChiefComplaint, EncounterInfo, PdfSection, ProgressNoteVisitDataInput } from '../../types';
 

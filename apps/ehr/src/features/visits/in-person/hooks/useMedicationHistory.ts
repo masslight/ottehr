@@ -1,5 +1,7 @@
 import { QueryObserverResult } from '@tanstack/react-query';
-import { AllChartValuesKeys, MedicationDTO, removePrefix, SearchParams } from 'utils';
+import { SearchParams } from 'utils/lib/fhir/uri';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { AllChartValuesKeys, MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 
 export type MedicationHistoryField = Extract<AllChartValuesKeys, 'medications' | 'inhouseMedications'>;

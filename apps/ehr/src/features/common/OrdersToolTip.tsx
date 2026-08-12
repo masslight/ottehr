@@ -1,7 +1,7 @@
 import { Box, Divider, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { OrderToolTipConfig } from 'utils';
+import { OrderToolTipConfig } from 'utils/lib/types/data/orders/types';
 
 export const OrdersToolTip: React.FC<{
   orderConfigs: OrderToolTipConfig[];

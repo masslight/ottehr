@@ -3,18 +3,20 @@ import { randomUUID } from 'crypto';
 import { Appointment, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  DOB_DATE_FORMAT,
-  FHIRObservationInterpretationSystem,
-  GetVitalsResponseData,
   LOINC_SYSTEM,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+} from 'utils/lib/fhir/vitals';
+import {
+  FHIRObservationInterpretationSystem,
   VitalFieldNames,
-  VitalsObservationDTO,
-  VitalsVisionObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { assert, inject, suite } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { cleanupTestScheduleResources, makeTestPatient, persistTestPatient } from '../helpers/testScheduleUtils';

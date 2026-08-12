@@ -22,19 +22,15 @@ import {
 } from '../../config-helpers/shared-questionnaire';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
-  genderMap,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  getNameSuffix,
-  getPronounsFromExtension,
-  LANGUAGE_OPTIONS,
-  LanguageOption,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
-} from '../../fhir';
+} from '../../fhir/constants';
+import { genderMap } from '../../fhir/helpers';
+import { getFirstName, getLastName, getMiddleName, getNameSuffix, getPronounsFromExtension } from '../../fhir/patient';
+import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
+import { PatientAccountResponse } from '../../types/api/patient-account';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -42,14 +38,13 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
-  PatientAccountResponse,
-  PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
   RESPONSIBLE_PARTY_NO_EMAIL_URL,
-} from '../../types';
-import { isValidUUID } from '../../validation';
+} from '../../types/constants';
+import { PHARMACY_COLLECTION_LINK_IDS } from '../../types/data/search-places';
+import { isValidUUID } from '../../validation/helper';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
@@ -257,6 +252,12 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           if (linkId === 'reason-for-visit' && normalizedReasonForVisit) {
             answer = makeAnswer(normalizedReasonForVisit);
           }
+          if (linkId === 'photo-id-front' && photoIdFrontDocumentReference) {
+            answer = makeAnswer(photoIdFront, 'Attachment');
+          }
+          if (linkId === 'photo-id-back' && photoIdBackDocumentReference) {
+            answer = makeAnswer(photoIdBack, 'Attachment');
+          }
 
           return {
             linkId,
@@ -344,22 +345,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapAttorneyToQuestionnaireResponseItems({
           items: itemItems,
           attorneyRelatedPerson: accountInfo?.attorneyRelatedPerson,
-        });
-      } else if (item.linkId === 'photo-id-page') {
-        return itemItems.map((item) => {
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          const { linkId } = item;
-          if (linkId === 'photo-id-front' && photoIdFrontDocumentReference) {
-            answer = makeAnswer(photoIdFront, 'Attachment');
-          }
-          if (linkId === 'photo-id-back' && photoIdBackDocumentReference) {
-            answer = makeAnswer(photoIdBack, 'Attachment');
-          }
-
-          return {
-            linkId,
-            answer,
-          };
         });
       }
 

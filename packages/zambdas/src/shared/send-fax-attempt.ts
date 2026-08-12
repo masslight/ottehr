@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Task } from 'fhir/r4b';
-import { getFullestAvailableName } from 'utils';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
   addOutboundDeliveryAttemptContent,
   completeOutboundDeliveryAttempt,
@@ -20,6 +20,14 @@ export interface SendFaxAttemptInput {
   documentReferenceId?: string;
   userPractitioner: Practitioner;
   recipientName?: string;
+  /** Practice or facility the recipient belongs to. Fax packet sends only. */
+  recipientOrganization?: string;
+  /** Follow-up voice number for the recipient. Recorded on the attempt; never dialled. */
+  recipientPhone?: string;
+  /** Page count of the packet that is being transmitted, cover sheet included. */
+  faxPacketPageCount?: number;
+  /** Titles of the documents merged into the packet, in merge order. */
+  faxPacketParts?: string[];
   parentAttemptId?: string;
   senderId: string;
 }
@@ -41,20 +49,30 @@ export async function sendFaxAttempt(
     documentReferenceId,
     userPractitioner,
     recipientName,
+    recipientOrganization,
+    recipientPhone,
+    faxPacketPageCount,
+    faxPacketParts,
     parentAttemptId,
     senderId,
   } = input;
+
   const attempt = await createOutboundDeliveryAttempt(oystehr, {
     channel: 'fax',
     patientId,
     recipientAddress: faxNumber,
     recipientName,
+    recipientOrganization,
+    recipientPhone,
+    faxPacketPageCount,
+    faxPacketParts,
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
     senderOrganizationReference: `Organization/${organizationId}`,
     parentAttemptId,
     senderId,
     senderDisplay: getFullestAvailableName(userPractitioner),
   });
+
   if (!attempt.id) throw new Error('Outbound fax attempt was created without an id');
 
   try {

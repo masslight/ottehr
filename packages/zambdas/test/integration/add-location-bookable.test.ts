@@ -1,17 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { isValidSlug, SLUG_SYSTEM, slugFromName, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
-  isValidSlug,
   LOCATION_FORM_EXTENSION_URL,
   LOCATION_IN_PERSON_CODE,
   LOCATION_MANUALLY_CREATED_EXTENSION_URL,
   LOCATION_PHYSICAL_TYPE_SYSTEM,
-  M2MClientMockType,
-  SLUG_SYSTEM,
-  slugFromName,
-  TIMEZONE_EXTENSION_URL,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/fhir/location';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

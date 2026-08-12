@@ -1,16 +1,12 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Patient, RelatedPerson } from 'fhir/r4b';
+import { Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import {
-  getPatientsForUser,
-  getSecret,
-  NOT_AUTHORIZED,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  TEST_USER_ID,
-  userMe,
-} from 'utils';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
@@ -45,6 +41,29 @@ export const requireUserWithRole = async (
 
 export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
   await requireUserWithRole(userToken, secrets, [RoleType.Administrator]);
+};
+
+/**
+ * Throws NOT_AUTHORIZED unless the given Practitioner has an NPI identifier.
+ *
+ * NPI-gated actions (signing/co-signing notes, e-prescribing, ordering external labs & imaging,
+ * submitting claims under a provider NPI, and ordering in-house medications) must be performed
+ * only by a user whose Practitioner carries an NPI. The clinical zambdas run their FHIR writes
+ * under an M2M token, so the caller's Oystehr access policy does not gate them — this check is the
+ * backend enforcement point that blocks non-NPI roles such as Clinician from reaching these actions
+ * via a direct API call.
+ */
+export const assertPractitionerHasNPI = (practitioner: Practitioner): void => {
+  if (!getNPIIdentifier(practitioner)?.value) {
+    throw NOT_AUTHORIZED;
+  }
+};
+
+/** Reads the Practitioner and asserts it has an NPI. See {@link assertPractitionerHasNPI}. */
+export const requirePractitionerNPI = async (oystehr: Oystehr, practitionerId: string): Promise<Practitioner> => {
+  const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
+  assertPractitionerHasNPI(practitioner);
+  return practitioner;
 };
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {

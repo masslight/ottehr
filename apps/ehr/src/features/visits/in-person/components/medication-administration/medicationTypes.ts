@@ -1,4 +1,4 @@
-import { MedicationOrderStatusesType } from 'utils';
+import { MedicationOrderStatusesType } from 'utils/lib/types/api/medication-administration.types';
 
 export interface MedicationHistoryItem {
   id: string;

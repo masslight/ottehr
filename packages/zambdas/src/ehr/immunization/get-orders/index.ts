@@ -1,16 +1,11 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, Extension, MedicationAdministration, Organization, RelatedPerson } from 'fhir/r4b';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getMedicationName, mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_NDC,
   CVX_CODE_SYSTEM_URL,
-  getCoding,
-  GetImmunizationOrdersRequest,
-  GetImmunizationOrdersResponse,
-  getMedicationName,
-  ImmunizationOrder,
-  mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
@@ -20,14 +15,16 @@ import {
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  GetImmunizationOrdersRequest,
+  GetImmunizationOrdersResponse,
+  ImmunizationOrder,
+} from 'utils/lib/types/data/immunization/types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CONTAINED_MANUFACTURER_ORG_ID,

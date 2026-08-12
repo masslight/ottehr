@@ -14,7 +14,8 @@ import {
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { formatDateForDisplay, MedicationDTO } from 'utils';
+import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { ExternalMedication, useExternalMedicationHistory } from '../../../hooks/useExternalMedicationHistory';
 import { ExtractObjectType } from '../../../stores/appointment/appointment.queries';
 
@@ -35,7 +36,8 @@ interface ExternalRxSuggestionsProps {
 }
 
 export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedMedications, onSelectMedication }) => {
-  const { isLoading, isAvailable, externalMedications } = useExternalMedicationHistory(chartedMedications);
+  const { isLoading, isAvailable, isPermissionDenied, externalMedications } =
+    useExternalMedicationHistory(chartedMedications);
   const [expanded, setExpanded] = useState(false);
   // Track medication IDs that were just clicked (optimistic hide).
   const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
@@ -150,7 +152,9 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           </Box>
         ) : !isAvailable ? (
           <Typography variant="body2" color="text.secondary">
-            Not available
+            {isPermissionDenied
+              ? 'Not available — your role does not have access to external medication history.'
+              : 'Not available'}
           </Typography>
         ) : visibleMedications.length === 0 ? (
           <Typography variant="body2" color="text.secondary">

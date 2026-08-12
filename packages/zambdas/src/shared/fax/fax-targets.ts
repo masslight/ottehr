@@ -1,15 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getCoding,
-  getPatientFriendlyId,
-  INVALID_INPUT_ERROR,
-  SendFaxTarget,
-  SERVICE_CATEGORY_SYSTEM,
-  VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { SendFaxTarget } from 'utils/lib/types/api/send-fax.types';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { resolveTimezone } from '../helpers';
 import { collectPatientRecordAttachments, getAllPatientDocumentReferences } from '../patient-documents';
 import { getPatientLastFirstName } from '../patients';

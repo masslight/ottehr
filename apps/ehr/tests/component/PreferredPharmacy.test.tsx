@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { PharmacyDTO, PHONE_NOT_ON_FILE } from 'utils';
+import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
 import { describe, expect, it } from 'vitest';
 import { PreferredPharmacy } from '../../src/features/visits/shared/components/PreferredPharmacy';
 

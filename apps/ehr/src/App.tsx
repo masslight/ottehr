@@ -5,8 +5,21 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { GLOBAL_ACTION_LOG_VIEWER_ROLES, parseCommaSeparatedTags, RoleType } from 'utils';
+import AdHocReport from 'src/features/report-builder/page/ReportBuilderPage';
+import AiAssistedEncounters from 'src/pages/reports/AiAssistedEncounters';
+import CompleteEncounters from 'src/pages/reports/CompleteEncounters';
+import DailyPayments from 'src/pages/reports/DailyPayments';
+import DataExports from 'src/pages/reports/DataExports';
+import IncompleteEncounters from 'src/pages/reports/IncompleteEncounters';
+import InvoiceablePatientsReportPage from 'src/pages/reports/InvoiceablePatientsReportPage';
+import MailedStatements from 'src/pages/reports/MailedStatements';
+import PracticeKpis from 'src/pages/reports/PracticeKpis';
+import RecentPatients from 'src/pages/reports/RecentPatients';
+import VisitsOverview from 'src/pages/reports/VisitsOverview';
 import { setupSentry } from 'utils/lib/frontend';
+import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
@@ -32,6 +45,7 @@ import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
@@ -70,18 +84,6 @@ import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
-import {
-  AiAssistedEncounters,
-  CompleteEncounters,
-  DailyPayments,
-  DataExports,
-  IncompleteEncounters,
-  InvoiceablePatientsReportPage,
-  MailedStatements,
-  PracticeKpis,
-  RecentPatients,
-  VisitsOverview,
-} from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';
@@ -102,6 +104,7 @@ const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Staff,
   RoleType.Manager,
   RoleType.Provider,
+  RoleType.Clinician,
   RoleType.CustomerSupport,
 ];
 
@@ -217,6 +220,7 @@ function App(): ReactElement {
             )}
             {currentUser?.hasRole([RoleType.Administrator]) && (
               <>
+                <Route path="/reports/ad-hoc" element={<AdHocReport />} />
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
@@ -296,7 +300,12 @@ function App(): ReactElement {
                 <Route path="*" element={<Navigate to={'/'} />} />
               </>
             )}
-            {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
+            {currentUser?.hasRole([
+              RoleType.Staff,
+              RoleType.Provider,
+              RoleType.Clinician,
+              RoleType.CustomerSupport,
+            ]) && (
               <>
                 <Route path="/" element={<Navigate to="/visits" />} />
                 <Route path="/logout" element={<Logout />} />
@@ -320,6 +329,8 @@ function App(): ReactElement {
                     <Route path="/admin/:adminTab" element={<AdminPage />} />
                   </Route>
                 )}
+
+                <Route path="/inbound-fax/:communicationId/match" element={<InboundFaxMatch />} />
 
                 <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />

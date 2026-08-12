@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
-import { getAllFhirSearchPages, MEDICAL_RECORD_EXPORT_CODE } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 
 /** One attachment of a patient document, reduced to what the medical-record exports need. */
 export interface PatientRecordAttachment {

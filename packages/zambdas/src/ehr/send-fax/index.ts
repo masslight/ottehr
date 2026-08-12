@@ -3,38 +3,24 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BUCKET_NAMES,
-  FaxRecipient,
-  getFullestAvailableName,
-  getSecret,
-  INVALID_INPUT_ERROR,
-  MIME_TYPES,
-  removePrefix,
-  Secrets,
-  SecretsKeys,
-  SendFaxZambdaInput,
-  SendFaxZambdaOutput,
-  standardizePhoneNumber,
-} from 'utils';
-import {
-  assembleFaxPacket,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  FaxContent,
-  FaxCoverAssets,
-  FaxSender,
-  FaxTransmission,
-  getUser,
-  loadFaxCoverAssets,
-  renderFaxContent,
-  resolveFaxSender,
-  resolveFaxTransmissions,
-  sendFaxAttempt,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { removePrefix, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { FaxRecipient } from 'utils/lib/types/api/fax.types';
+import { SendFaxZambdaInput, SendFaxZambdaOutput } from 'utils/lib/types/api/send-fax.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { MIME_TYPES } from 'utils/lib/utils/file';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { FaxCoverAssets, FaxSender, loadFaxCoverAssets } from '../../shared/fax/fax-cover-page';
+import { assembleFaxPacket, FaxContent, renderFaxContent } from '../../shared/fax/fax-packet';
+import { resolveFaxSender } from '../../shared/fax/fax-sender';
+import { FaxTransmission, resolveFaxTransmissions } from '../../shared/fax/fax-targets';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { sendFaxAttempt } from '../../shared/send-fax-attempt';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -169,6 +155,8 @@ const sendOneFax = async (input: SendOneFaxInput, oystehr: Oystehr, user: User):
       documentReferenceId: transmission.documentReferenceId,
       userPractitioner,
       recipientName: recipient.name ?? findRecipientName(transmission.patient, recipient.faxNumber),
+      recipientOrganization: recipient.organization,
+      recipientPhone: recipient.phoneNumber,
       senderId: user.id,
     },
     oystehr,

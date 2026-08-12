@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
-import { getAddressString, TIMEZONE_EXTENSION_URL, TIMEZONES } from 'utils';
+import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getAddressString } from 'utils/lib/fhir/helpers';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { FaxSender } from './fax-cover-page';
 
 export interface ResolvedFaxSender {

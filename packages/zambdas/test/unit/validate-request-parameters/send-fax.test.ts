@@ -1,4 +1,4 @@
-import { FAX_MAX_RECIPIENTS, FAX_MAX_TRANSMISSIONS } from 'utils';
+import { FAX_MAX_TRANSMISSIONS, SEND_FAX_MAX_RECIPIENTS } from 'utils/lib/types/api/send-fax.types';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/send-fax/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -155,7 +155,7 @@ describe('send-fax - validateRequestParameters', () => {
   });
 
   test('should throw when there are more recipients than supported', () => {
-    const recipients = Array.from({ length: FAX_MAX_RECIPIENTS + 1 }, () => ({ faxNumber: '2125551234' }));
+    const recipients = Array.from({ length: SEND_FAX_MAX_RECIPIENTS + 1 }, () => ({ faxNumber: '2125551234' }));
     const input = createMockZambdaInput(body({ recipients }), { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });

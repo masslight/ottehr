@@ -1,7 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { SendFaxZambdaInput } from 'utils';
+import { SendFaxZambdaInput } from 'utils/lib/types/api/send-fax.types';
 
 /**
  * Sends a fax and reports the outcome. Rejects on failure so the calling dialog can stay open with

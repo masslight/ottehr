@@ -1,7 +1,9 @@
 import { Autocomplete, Box, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { CMS_PLACE_OF_SERVICE_CODES, isCLIAValid, isNPIValidWithChecksum, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 export function ServiceFacilityFields(): ReactElement {
   const { control } = useFormContext();

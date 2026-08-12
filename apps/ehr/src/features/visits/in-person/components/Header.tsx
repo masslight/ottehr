@@ -2,6 +2,7 @@ import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
@@ -28,30 +29,30 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
+import { useSendFax } from 'src/features/fax/hooks/useSendFax';
+import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
-import { formatLabelValue } from 'src/shared/utils';
+import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  FhirAppointmentType,
-  formatDateToMDYWithTime,
-  formatWeightKg,
-  getAdmitterPractitionerId,
   getAnnotationFollowupStatusLabel,
-  getAttendingPractitionerId,
-  getCoding,
   getEncounterLocationId,
-  getFullestAvailableName,
   getInitialEncounterIdForFollowUp,
-  getInsuranceNameFromCoverage,
-  isInPersonAppointment,
   PaymentVariant,
-  PRACTITIONER_CODINGS,
-  SERVICE_CATEGORY_SYSTEM,
-  VisitStatusLabel,
-  VitalFieldNames,
-  type VitalsWeightObservationDTO,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { getCoding, getInsuranceNameFromCoverage } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
@@ -75,6 +76,7 @@ const HeaderWrapper = styled(Box)(({ theme }) => ({
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
   boxShadow: '0px 2px 4px -1px #00000033',
+  overflowX: 'hidden',
 }));
 
 const PatientName = styled(Typography)(({ theme }) => ({
@@ -328,6 +330,7 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const sendFaxDialog = useSendFax(appointmentID);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -396,8 +399,20 @@ export const Header = (): JSX.Element => {
         <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
           <Grid item xs={12}>
             <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
-              <Grid item>
-                <Grid container alignItems="center" spacing={2} wrap="nowrap">
+              <Grid item sx={{ flex: '1 1 0', minWidth: 0 }}>
+                <Grid
+                  container
+                  alignItems="center"
+                  spacing={2}
+                  wrap="nowrap"
+                  sx={{
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': { height: '4px', width: 0 },
+                    '&::-webkit-scrollbar-thumb': { borderRadius: '2px', backgroundColor: 'rgba(0,0,0,0.2)' },
+                  }}
+                >
                   <Grid item>
                     {isFollowup ? (
                       getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
@@ -597,7 +612,7 @@ export const Header = (): JSX.Element => {
                   </Grid>
                 </Grid>
               </Grid>
-              <Grid item>
+              <Grid item sx={{ flexShrink: 0 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <CommandPaletteSearchButton />
                   <IconButton onClick={() => navigate('/visits')}>
@@ -707,8 +722,23 @@ export const Header = (): JSX.Element => {
                     </ListItemIcon>
                     Create Task
                   </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setHeaderMenuAnchorEl(null);
+                      sendFaxDialog.open();
+                    }}
+                    disabled={!appointmentID}
+                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                    data-testid={dataTestIds.faxDialog.menuItem}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                      <FaxOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Fax Documents
+                  </MenuItem>
                 </Menu>
                 <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
+                <SendFaxDialog controller={sendFaxDialog} />
               </Grid>
             </Grid>
           </Grid>

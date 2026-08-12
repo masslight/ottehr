@@ -41,12 +41,11 @@ vi.mock(
   })
 );
 
-vi.mock(
-  '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/MedicationCptCodes',
-  () => ({
-    MedicationCptCodes: () => <div />,
-  })
-);
+// MedicationCptCodes was a one-line re-export of CptCodesInput; the card now imports the real
+// component directly, so stub that instead — otherwise it renders and demands a QueryClient.
+vi.mock('src/components/input/CptCodesInput', () => ({
+  CptCodesInput: () => <div />,
+}));
 
 vi.mock('../../src/features/visits/shared/components/Loader', () => ({
   Loader: () => <div />,

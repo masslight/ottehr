@@ -17,16 +17,18 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
-import { ProviderNotifications } from 'src/features';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
+import { ProviderNotifications } from 'src/features/notifications/ProviderNotifications';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
   useEnrollPractitionerToERX,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { getPractitionerMissingFields } from 'src/shared/utils';
-import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
+import { getPractitionerMissingFields } from 'src/shared/utils/practitioner.helper';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { PendingErxEnrollmentDialog } from '../dialogs/PendingErxEnrollmentDialog';
@@ -35,7 +37,10 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const [pendingReviewOpen, setPendingReviewOpen] = useState<boolean>(false);
   const user = useEvolveUser();
-  const userIsProvider = user?.hasRole([RoleType.Provider]);
+  // eRX enrollment/notifications require an NPI (DoseSpot). The provider notifications bell is a
+  // general, visit-linked inbox — not NPI-gated — so keep it on a role check.
+  const userHasNPI = user?.hasNPI;
+  const showProviderNotifications = user?.hasRole([RoleType.Provider, RoleType.Clinician]);
 
   const practitioner = user?.profileResource;
 
@@ -104,7 +109,7 @@ export const UserMenu: FC = () => {
     <>
       <CommandPaletteSearchButton sx={{ mr: 2 }} />
       <UnsolicitedResultsIcon />
-      {userIsProvider && <ProviderNotifications />}
+      {showProviderNotifications && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>
           <ListItemAvatar sx={{ minWidth: 'auto', mr: { xs: '0', sm: 2 } }}>
@@ -131,7 +136,7 @@ export const UserMenu: FC = () => {
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
+        {isPractitionerEnrollmentChecked && userHasNPI && !practitionerEnrollmentStatus?.identityVerified && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>

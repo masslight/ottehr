@@ -31,19 +31,17 @@ import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ENV_LOCATION_NAME } from 'tests/e2e-utils/resource/constants';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
+import { makeCptCodeDisplay, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import {
   checkActivityDefinitionForReflexLogic,
   convertActivityDefinitionToDataEntryTestItem,
-  CPTCodeDTO,
-  DataEntryTestItem,
-  ExternalLabsStatus,
-  getTimezone,
-  LabPaymentMethod,
-  makeCptCodeDisplay,
-  REPEAT_TEST_CPT_CODE_MODIFIER,
   repeatTestErrorMessage,
-  unbundleBatchPostOutput,
-} from 'utils';
+} from 'utils/lib/helpers/in-house-labs';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-house.constants';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import { ExternalLabsStatus, LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
 import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };

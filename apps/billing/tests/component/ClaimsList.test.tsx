@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { AR_STAGE, BillingClaimItem, emptyClaimStatusValues } from 'utils';
+import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
+import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClaimsList from '../../src/pages/ClaimsList';
 
@@ -208,5 +209,114 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
+  });
+});
+
+describe('ClaimsList — search', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [],
+      total: 0,
+    });
+  });
+
+  it('names the fields the one box searches, and which of them have to be exact', async () => {
+    renderList();
+
+    const search = await screen.findByPlaceholderText(/patient name, provider name, patient ID, PCN, or claim ID/);
+    expect(search).toBeInTheDocument();
+    const hint = screen.getByText(/Patient ID, PCN, and claim ID must be entered in full/);
+    expect(hint).toBeInTheDocument();
+  });
+
+  it('sends what was typed as one searchText once the debounce settles', async () => {
+    renderList();
+
+    const search = await screen.findByPlaceholderText(/Search by patient name/);
+    fireEvent.change(search, {
+      target: {
+        value: 'Smith',
+      },
+    });
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({
+          searchText: 'Smith',
+        })
+      )
+    );
+  });
+});
+
+const INCOMPLETE_WARNING = /Some claims may be missing from these results/;
+
+describe('ClaimsList — incomplete results', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+  });
+
+  it('warns that claims may be missing when the search could not see everything', async () => {
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      total: 1,
+      incomplete: true,
+    });
+    renderList();
+
+    expect(await screen.findByText(INCOMPLETE_WARNING)).toBeInTheDocument();
+  });
+
+  it('stays quiet when the search saw everything', async () => {
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      total: 1,
+      incomplete: false,
+    });
+    renderList();
+
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalled());
+    expect(screen.queryByText(INCOMPLETE_WARNING)).not.toBeInTheDocument();
+  });
+
+  it('stays quiet for a response that predates the flag', async () => {
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [],
+      total: 0,
+    });
+    renderList();
+
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalled());
+    expect(screen.queryByText(INCOMPLETE_WARNING)).not.toBeInTheDocument();
+  });
+
+  it('shows the error instead of the warning when the search failed', async () => {
+    searchBillingClaimsMock.mockRejectedValue(new Error('search exploded'));
+    renderList();
+
+    expect(await screen.findByText('search exploded')).toBeInTheDocument();
+    expect(screen.queryByText(INCOMPLETE_WARNING)).not.toBeInTheDocument();
+  });
+
+  it('clears the warning once a later search comes back complete', async () => {
+    searchBillingClaimsMock.mockResolvedValueOnce({
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      total: 50,
+      incomplete: true,
+    });
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      total: 50,
+      incomplete: false,
+    });
+    renderList();
+
+    expect(await screen.findByText(INCOMPLETE_WARNING)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'next page' }));
+
+    await waitFor(() => expect(screen.queryByText(INCOMPLETE_WARNING)).not.toBeInTheDocument());
   });
 });

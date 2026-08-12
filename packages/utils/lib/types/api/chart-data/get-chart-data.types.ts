@@ -1,5 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
-import { SearchParams } from '../../../fhir';
+import { SearchParams } from '../../../fhir/uri';
 import { AllChartValues, PharmacyDTO, RequestedFields, SchoolWorkNoteExcuseDocFileDTO } from './chart-data.types';
 
 export interface GetChartDataRequest {

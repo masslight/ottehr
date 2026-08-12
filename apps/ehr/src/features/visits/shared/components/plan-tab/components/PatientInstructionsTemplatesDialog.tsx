@@ -17,7 +17,8 @@ import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { CommunicationDTO, InstructionType } from 'utils';
+import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { InstructionType } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
 import {
   useDeletePatientInstruction,
   useGetPatientInstructions,

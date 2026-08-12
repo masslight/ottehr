@@ -1,7 +1,8 @@
 import { CircularProgress, Stack } from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { examConfig, INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils';
+import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useExamObservationsInitializationStore } from '../../stores/appointment/exam-observations.store';
 import { PageTitle } from '../PageTitle';

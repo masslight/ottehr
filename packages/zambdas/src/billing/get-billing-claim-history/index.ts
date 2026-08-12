@@ -1,22 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isPayerUrl } from 'utils/lib/helpers/helpers';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
-  getAllFhirSearchPages,
   GetClaimHistoryResponse,
-  getOptionalSecret,
-  isPayerUrl,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, sendErrors, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/claim-history';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createBillingClient,
   fhirName,
@@ -173,6 +176,7 @@ function toHistoryEntry(
   }
 
   const resourceType = targetRef?.split('/')[0] ?? '';
+  const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -182,6 +186,7 @@ function toHistoryEntry(
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
     changes: parseChanges(provenance, environment),
+    ...(message ? { message } : {}),
   };
 }
 
@@ -286,6 +291,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return 'Tag change';
     case CLAIM_PROVENANCE_ACTIVITY_CODES.submit:
       return `Submit ${label}`;
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.note:
+      return 'Note';
     default:
       return label;
   }

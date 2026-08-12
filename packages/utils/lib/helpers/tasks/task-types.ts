@@ -1,4 +1,4 @@
-import { TaskIndicator } from '../../types';
+import { TaskIndicator } from '../../types/common';
 
 export interface TaskTypeOption {
   value: string;

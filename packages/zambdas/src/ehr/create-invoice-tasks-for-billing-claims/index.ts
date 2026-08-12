@@ -2,27 +2,24 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Task } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   BillingInvoiceTaskClaim,
-  chunkThings,
   CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY,
   CreateInvoiceTasksForBillingClaimsResponse,
-  RcmTaskCodings,
-} from 'utils';
-import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+} from 'utils/lib/types/api/invoicing.types';
 import {
   getOrCreateInvoicingConfig,
   ParsedInvoicingConfig,
   parseInvoicingConfig,
 } from '../../rcm/invoice-config/helpers';
-import {
-  buildInvoiceTask,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendInvoiceTaskDedupeQuery,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { buildInvoiceTask, sendInvoiceTaskDedupeQuery } from '../../shared/invoice-tasks';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

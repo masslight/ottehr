@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { CSSProperties } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExtendedMedicationDataForResponse } from 'utils';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { Loader } from '../../../../shared/components/Loader';
 import { useMedicationAPI } from '../../../hooks/useMedicationOperations';
 import { MarTableRow } from './MarTableRow';

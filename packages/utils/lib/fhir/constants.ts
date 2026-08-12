@@ -10,11 +10,13 @@ import {
   PractitionerRole,
   Schedule,
 } from 'fhir/r4b';
-import type { AppointmentType, CanonicalUrl } from '../types';
+import type { AppointmentType } from '../types/api/appointment.types';
+import type { CanonicalUrl } from '../types/common';
 import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
+  FAX_PACKET_CODE,
   INSURANCE_CARD_CODE,
   MEDICAL_RECORD_EXPORT_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
@@ -615,6 +617,7 @@ export const BUCKET_NAMES = {
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
   OUTBOUND_FAXES: 'outbound-faxes',
+  FAXES: 'faxes',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -709,6 +712,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
     display: 'Medical Records',
     documentTypeCode: MEDICAL_RECORD_EXPORT_CODE,
+  },
+  {
+    title: BUCKET_NAMES.FAXES,
+    display: 'Faxes',
+    documentTypeCode: FAX_PACKET_CODE,
   },
 ];
 
@@ -1124,6 +1132,8 @@ export const OUTBOUND_DELIVERY_INPUT_SYSTEM = ottehrCodeSystemUrl('outbound-deli
 export const OUTBOUND_DELIVERY_INPUT_CODES = {
   recipientAddress: 'recipient-address',
   recipientName: 'recipient-name',
+  recipientOrganization: 'recipient-organization',
+  recipientPhone: 'recipient-phone',
   documentReference: 'document-reference',
   // Z3 URL of the exact file that was transmitted. Faxes assembled from several documents have no
   // single DocumentReference to point at, so this is what a retry re-sends.
@@ -1131,6 +1141,8 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   senderId: 'sender-id',
   senderDisplay: 'sender-display',
   senderOrganization: 'sender-organization',
+  faxPacketPageCount: 'fax-packet-page-count',
+  faxPacketParts: 'fax-packet-parts',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {

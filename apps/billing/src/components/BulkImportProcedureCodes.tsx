@@ -2,12 +2,12 @@ import { Download as DownloadIcon, Upload as UploadIcon } from '@mui/icons-mater
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, ReactElement, useCallback, useMemo, useRef, useState } from 'react';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
   ChargeItemDefinitionType,
-  getApiError,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.types';
 import { bulkAddChargeItemDefinitionProcedureCodes } from '../api/api';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';

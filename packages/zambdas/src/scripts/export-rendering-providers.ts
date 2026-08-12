@@ -3,8 +3,8 @@ import { Practitioner } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { RoleType } from 'utils';
-import { createClinicalOystehrClient } from '../shared';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 const PRACTITIONER_QUALIFICATION_EXTENSION_URL =

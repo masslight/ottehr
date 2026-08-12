@@ -1,7 +1,8 @@
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, PDFPage } from 'pdf-lib';
-import { FaxRecipient, formatPhoneNumberDisplay } from 'utils';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { FaxRecipient } from 'utils/lib/types/api/fax.types';
 import { getPdfLogo, handleBadSpaces, rgbNormalized, splitLongStringToPageSize } from '../pdf/pdf-utils';
 
 /** The practice this fax is sent on behalf of, resolved from the configured Organization. */

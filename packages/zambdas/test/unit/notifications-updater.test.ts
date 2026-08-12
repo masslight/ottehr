@@ -3,14 +3,14 @@ import { DateTime } from 'luxon';
 import {
   CATEGORY_NOTIFICATION_TAG_CODE,
   CATEGORY_NOTIFICATION_TAG_SYSTEM,
-  MANUAL_TASK,
-  normalizeNotificationPreferencesV2,
-  NotificationRowPref,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
-} from 'utils';
+} from 'utils/lib/types/api/practitioner.types';
+import { normalizeNotificationPreferencesV2, NotificationRowPref } from 'utils/lib/types/api/provider-notifications';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import {
+  buildSMSSendList,
   categoryNotifiedKey,
   communicationStatusForMethod,
   getCommunicationStatus,
@@ -20,6 +20,7 @@ import {
   resolveAssignmentDelivery,
   rowMatchesFilters,
   shouldEmitTelemedNotification,
+  SMSBufferByPractitionerId,
 } from '../../src/cron/notifications-updater';
 
 const makeRow = (overrides: Partial<NotificationRowPref> = {}): NotificationRowPref => ({
@@ -278,5 +279,138 @@ describe('getCommunicationStatus', () => {
 
   it("returns 'in-progress' for 'computer' providers so the badge still lights up", () => {
     expect(getCommunicationStatus(settings(ProviderNotificationMethod.computer))).toBe('in-progress');
+  });
+});
+
+type BufferedNotification = SMSBufferByPractitionerId[string]['communications'][number];
+
+describe('buildSMSSendList — no double-texting a handset (OTR: provider got 2 SMS for 1 notification)', () => {
+  const practitioner = (
+    id: string,
+    smsNumber: string | undefined,
+    extraTelecom: Practitioner['telecom'] = []
+  ): Practitioner => ({
+    resourceType: 'Practitioner',
+    id,
+    telecom: [...(smsNumber ? [{ system: 'sms' as const, value: smsNumber }] : []), ...(extraTelecom ?? [])],
+  });
+
+  const notification = (
+    message: string,
+    method: ProviderNotificationMethod | undefined = ProviderNotificationMethod['phone and computer']
+  ): BufferedNotification => ({
+    communication: { resourceType: 'Communication', status: 'in-progress', payload: [{ contentString: message }] },
+    method,
+  });
+
+  const WAITING = 'Jane Doe is ready in the virtual waiting room';
+
+  it('sends one SMS per buffered notification', () => {
+    expect(
+      buildSMSSendList({
+        'prac-1': { practitioner: practitioner('prac-1', '+15551234567'), communications: [notification(WAITING)] },
+      })
+    ).toEqual([{ practitionerRef: 'Practitioner/prac-1', message: WAITING }]);
+  });
+
+  it('texts a handset once when two Practitioner records share the same number', () => {
+    const sent = buildSMSSendList({
+      'prac-1': { practitioner: practitioner('prac-1', '+15551234567'), communications: [notification(WAITING)] },
+      'prac-2': { practitioner: practitioner('prac-2', '(555) 123-4567'), communications: [notification(WAITING)] },
+    });
+    expect(sent).toEqual([{ practitionerRef: 'Practitioner/prac-1', message: WAITING }]);
+  });
+
+  it('collapses a duplicate notification buffered twice for the same practitioner', () => {
+    const sent = buildSMSSendList({
+      'prac-1': {
+        practitioner: practitioner('prac-1', '+15551234567'),
+        communications: [notification(WAITING), notification(WAITING)],
+      },
+    });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('still sends distinct messages to the same handset', () => {
+    const sent = buildSMSSendList({
+      'prac-1': {
+        practitioner: practitioner('prac-1', '+15551234567'),
+        communications: [notification('Virtual visit with Jane Doe at 3:00 PM'), notification(WAITING)],
+      },
+    });
+    expect(sent.map((s) => s.message)).toEqual(['Virtual visit with Jane Doe at 3:00 PM', WAITING]);
+  });
+
+  it('skips practitioners with no sms telecom, even when a phone telecom exists', () => {
+    expect(
+      buildSMSSendList({
+        'prac-1': {
+          practitioner: practitioner('prac-1', undefined, [{ system: 'phone', value: '+15551234567' }]),
+          communications: [notification(WAITING)],
+        },
+      })
+    ).toEqual([]);
+  });
+
+  it('skips computer-only rows and payload-less communications', () => {
+    const payloadless: BufferedNotification = {
+      communication: { resourceType: 'Communication', status: 'in-progress' },
+      method: ProviderNotificationMethod['phone and computer'],
+    };
+    expect(
+      buildSMSSendList({
+        'prac-1': {
+          practitioner: practitioner('prac-1', '+15551234567'),
+          communications: [notification(WAITING, ProviderNotificationMethod.computer), payloadless],
+        },
+      })
+    ).toEqual([]);
+  });
+
+  // The reported repro: 'Phone and Computer', book a telemed visit, then enter the waiting room. Each event
+  // fans out to every matching provider, so a second provider record carrying the tester's number produced a
+  // second identical SMS while the bell (filtered by recipient) only ever showed the tester's own copy.
+  it("sends each of the booking and waiting-room texts once, even with the tester's number on two provider records", () => {
+    const BOOKING = 'Virtual visit with Jane Doe at 3:00 PM';
+    const bookingRun = buildSMSSendList({
+      'tester-prac': {
+        practitioner: practitioner('tester-prac', '+15551234567'),
+        communications: [notification(BOOKING)],
+      },
+      'stale-prac': {
+        practitioner: practitioner('stale-prac', '+15551234567'),
+        communications: [notification(BOOKING)],
+      },
+    });
+    const waitingRoomRun = buildSMSSendList({
+      'tester-prac': {
+        practitioner: practitioner('tester-prac', '+15551234567'),
+        communications: [notification(WAITING)],
+      },
+      'stale-prac': {
+        practitioner: practitioner('stale-prac', '+15551234567'),
+        communications: [notification(WAITING)],
+      },
+    });
+
+    expect(bookingRun.map((s) => s.message)).toEqual([BOOKING]);
+    expect(waitingRoomRun.map((s) => s.message)).toEqual([WAITING]);
+  });
+
+  it('de-dups per practitioner when the stored number cannot be normalized', () => {
+    const sent = buildSMSSendList({
+      'prac-1': {
+        practitioner: practitioner('prac-1', 'not-a-number'),
+        communications: [notification(WAITING), notification(WAITING)],
+      },
+      'prac-2': {
+        practitioner: practitioner('prac-2', 'not-a-number'),
+        communications: [notification(WAITING)],
+      },
+    });
+    expect(sent).toEqual([
+      { practitionerRef: 'Practitioner/prac-1', message: WAITING },
+      { practitionerRef: 'Practitioner/prac-2', message: WAITING },
+    ]);
   });
 });

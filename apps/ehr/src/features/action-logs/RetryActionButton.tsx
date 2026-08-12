@@ -1,6 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { FC, useRef, useState } from 'react';
-import { ActionLogEntry, formatPhoneNumberDisplay } from 'utils';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { ActionLogEntry } from 'utils/lib/types/api/action-logs.types';
 import { retryActionLog } from '../../api/api';
 import { ConfirmationDialog } from '../../components/ConfirmationDialog';
 import { RoundedButton } from '../../components/RoundedButton';

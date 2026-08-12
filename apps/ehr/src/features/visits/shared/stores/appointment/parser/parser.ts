@@ -1,6 +1,8 @@
 import { FhirResource } from 'fhir/r4b';
 import { getPatientName } from 'src/shared/utils/getPatientName';
-import { formatDOB, getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE } from 'utils';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { formatDOB } from 'utils/lib/utils/dateUtils';
 import { getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
 import { Gender } from './constants';
 import {

@@ -1,7 +1,8 @@
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, Typography } from '@mui/material';
 import { FC } from 'react';
-import { PHONE_NOT_ON_FILE, PlacesResult } from 'utils';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
+import { PlacesResult } from 'utils/lib/types/data/search-places';
 
 export interface PharmacyDisplayProps {
   selectedPlace: PlacesResult;

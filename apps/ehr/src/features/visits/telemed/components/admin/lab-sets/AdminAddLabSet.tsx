@@ -3,7 +3,8 @@ import { ReactElement, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { LabSetDTO, LabSetStatus, LabType } from 'utils';
+import { LabSetDTO, LabSetStatus } from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { useAdminAddLabSet } from '../admin.queries';
 import AdminLabSetForm from './AdminLabSetForm';
 

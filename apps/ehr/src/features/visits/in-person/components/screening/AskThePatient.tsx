@@ -32,15 +32,10 @@ import {
   useDeleteChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  AllChartValues,
-  Field,
-  getFhirValueOrFallback,
-  getFieldById,
-  getNoteFieldById,
-  ObservationDTO,
-  patientScreeningQuestionsConfig,
-} from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { Field, ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
+import { getFhirValueOrFallback, getFieldById, getNoteFieldById } from 'utils/lib/types/data/screening-questions/utils';
 import { useScreeningQuestionsHandler } from './useScreeningQuestionsHandler';
 
 const CustomCalendarActionBar = ({

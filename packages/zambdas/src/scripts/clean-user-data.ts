@@ -1,5 +1,5 @@
 import { Person } from 'fhir/r4b';
-import { getPatchBinary } from 'utils';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const cleanUserData = async (config: any): Promise<void> => {

@@ -1,12 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Provenance, Task } from 'fhir/r4b';
-import {
-  GetVisitFaxHistoryOutput,
-  M2MClientMockType,
-  makeOutboundDeliveryAttempt,
-  PROVENANCE_FAX_ACTIVITY_CODES,
-  PROVENANCE_FAX_SYSTEM,
-} from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { PROVENANCE_FAX_ACTIVITY_CODES, PROVENANCE_FAX_SYSTEM } from 'utils/lib/fhir/constants';
+import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   addProcessIdMetaTagToResource,

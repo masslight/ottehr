@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
-import { HourOfDay, ScheduleExtension, ScheduleOverrides } from 'utils';
+import { HourOfDay, ScheduleExtension, ScheduleOverrides } from 'utils/lib/utils/scheduleUtils';
 import { datesCompareFn, OVERRIDE_DATE_FORMAT } from '../../helpers/formatDateTime';
 import { Closure, ClosureType, Day, DOW } from '../../types/types';
 import DateSearch from '../DateSearch';

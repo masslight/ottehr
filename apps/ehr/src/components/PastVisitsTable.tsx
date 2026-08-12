@@ -1,8 +1,9 @@
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
-import { AppointmentHistoryRow, formatMinutes } from 'utils';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { AppointmentHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
+import { formatMinutes } from 'utils/lib/utils/visitUtils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 
 type PastVisitsTableProps = {

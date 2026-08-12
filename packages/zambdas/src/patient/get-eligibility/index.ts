@@ -1,18 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, CoverageEligibilityRequest } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  ELIGIBILITY_FAILED_REASON_META_TAG,
-  ELIGIBILITY_FAILED_REASONS,
-  FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
-  InsuranceCheckStatusWithDate,
-  InsuranceEligibilityCheckStatus,
-  PRIVATE_EXTENSION_BASE_URL,
-  SecretsKeys,
-} from 'utils';
-import { getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ELIGIBILITY_FAILED_REASON_META_TAG, ELIGIBILITY_FAILED_REASONS } from 'utils/lib/telemed/constants';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { lambdaResponse } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';

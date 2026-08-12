@@ -1,5 +1,5 @@
 import { Encounter, Task } from 'fhir/r4b';
-import { FollowupSubtype } from '../../fhir';
+import { FollowupSubtype } from '../../fhir/encounter';
 import { ServiceMode } from '../common';
 import { AppointmentType, VisitStatusLabel } from './appointment.types';
 

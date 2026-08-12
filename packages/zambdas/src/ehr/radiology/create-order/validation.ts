@@ -1,17 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_ICD_10,
   CreateRadiologyZambdaOrderInputSchema,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUIRED_PARAMETERS,
   RADIOLOGY_SAFETY_FLAGS,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
-  Secrets,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/radiology';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
@@ -157,12 +157,14 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
 };
 
 export const validateICD10Codes = async (diagnosisCodes: unknown, oystehr: Oystehr): Promise<ValidatedICD10Code[]> => {
+  // Diagnosis is optional at order time — an absent list yields no diagnoses. Callers that require
+  // at least one diagnosis (e.g. saving a preliminary read) enforce that before calling this helper.
   if (diagnosisCodes == null) {
-    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCodes']);
+    return [];
   }
 
-  if (!Array.isArray(diagnosisCodes) || diagnosisCodes.length < 1) {
-    throw INVALID_INPUT_ERROR('diagnosisCodes must be a non-empty array');
+  if (!Array.isArray(diagnosisCodes)) {
+    throw INVALID_INPUT_ERROR('diagnosisCodes must be an array');
   }
 
   // Validate each code sequentially so terminology lookups don't hammer the service in parallel

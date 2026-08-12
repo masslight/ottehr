@@ -2,21 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  asEraClaimStatusCode,
-  BillingPolicyHolderSummary,
-  CLAIM_TAG_SYSTEM,
-  ClaimDetailResponse,
-  getClaimStatusValues,
-  getCoveragePlanType,
-  getNPI,
-  getPayerId,
-  getResourcesFromBatchInlineRequests,
-  getTaxID,
-  SubscriberRelationship,
-} from 'utils';
+import { getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { SubscriberRelationship } from 'utils/lib/fhir/constants';
+import { getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getPayerId } from 'utils/lib/helpers/helpers';
+import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingPolicyHolderSummary, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
@@ -36,6 +32,7 @@ import {
   fetchClaimGraph,
   fhirName,
   formatAddress,
+  getClaimPcn,
   getClaimService,
   getClaimStatus,
   getClaimType,
@@ -46,8 +43,6 @@ import {
   toAddressParts,
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
-
-const PCN_IDENTIFIER = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
@@ -248,7 +243,7 @@ export async function performEffect(
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
       .map((t) => t.code ?? '')
       .filter(Boolean),
-    pcn: claim.identifier?.find((i) => i.system === PCN_IDENTIFIER)?.value ?? claim.id?.replaceAll('-', '') ?? '',
+    pcn: getClaimPcn(claim),
   };
 }
 
