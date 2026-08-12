@@ -468,18 +468,35 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   // handle assigning correct questionnaireCanonical
   // we will check if any flows have been created for this service category x visit modality
   // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
+  // UNLESS this is running in for e2e tests; in that case the questionnaireCanonical param value always wins
   // this extension is the source of truth for what the booking questionnaire response should point to
-  const flowCanonical = await resolveFlowCanonicalForServiceMode({
-    serviceCategoryCode: effectiveServiceCategoryCode,
-    serviceMode: serviceModality,
-    oystehr,
-    secrets,
-  });
-  console.log(
-    `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
-      flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
-    }`
-  );
+  let flowCanonical: CanonicalUrl | undefined;
+
+  // this should be an interim solution while booking questionnaires are still ottehr-managed,
+  // allowing us to continue to definitively test ottehr managed services x ottehr managed questionnaires
+  const runningIne2e = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
+  const serviceLivesInBookingConfig = isBookingConfigServiceCategoryCode(effectiveServiceCategoryCode);
+  const byPassPracticeManagedPaperworkFlow = runningIne2e && serviceLivesInBookingConfig;
+
+  if (byPassPracticeManagedPaperworkFlow) {
+    console.log(
+      'byPassPracticeManagedPaperworkFlow is true, we will not check for a flow questionnaire and are treating questionnaireCanonical as authority'
+    );
+  } else {
+    flowCanonical = await resolveFlowCanonicalForServiceMode({
+      serviceCategoryCode: effectiveServiceCategoryCode,
+      serviceMode: serviceModality,
+      oystehr,
+      secrets,
+    });
+
+    console.log(
+      `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
+        flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
+      }`
+    );
+  }
+
   const winningQuestionnaireCanonical = flowCanonical ?? questionnaireCanonical;
 
   if (winningQuestionnaireCanonical) {
