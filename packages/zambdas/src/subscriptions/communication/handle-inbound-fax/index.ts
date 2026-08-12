@@ -65,7 +65,7 @@ export function getPdfUrl(communication: Communication): string | undefined {
  * extension it uses to track delivery, and inbound faxes never carry it; that is the discriminator.
  *
  * Without this guard every outbound fax would file itself as an inbound one: a bogus "Inbound fax
- * from …" work item plus a notification to every provider.
+ * from …" work item in the Tasks queue for staff to match.
  */
 export function isOutboundFax(communication: Communication): boolean {
   return !!communication.extension?.some((ext) => ext.url === OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL);
@@ -116,7 +116,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Idempotency: FHIR subscriptions can re-fire for the same Communication. If an
     // inbound-fax Task already exists for it, no-op instead of duplicating the work item
-    // (a second Task would also mean a second round of notifications from the cron).
+    // (a second Task would show up as a second fax to match in the Tasks queue).
     const existingFaxTasks = (
       await oystehr.fhir.search<Task>({
         resourceType: 'Task',
@@ -202,12 +202,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Created fax task:', result.id);
 
-    // Notifying staff is deliberately NOT done here. The `notifications-updater` cron already
-    // notifies subscribers of any newly created task in a category, honoring each practitioner's V2
-    // preferences (enabled, delivery method, location filter, assigned-to) with its own idempotency
-    // tag — `FAX_TASK.category` is registered in `TASK_CODE_TO_UI_CATEGORY` so inbound faxes flow
-    // through it like every other category. Fanning out from here instead would ignore those
-    // preferences and scan every Practitioner in the project inside a subscription handler.
+    // Notifying staff is deliberately NOT done here: fanning out from a subscription handler would
+    // ignore each practitioner's preferences and scan every Practitioner in the project. Notifying is
+    // the `notifications-updater` cron's job — but inbound-fax notifications are currently switched off
+    // there (FAX_NOTIFICATIONS_DISABLED: `FAX_TASK.category` is commented out of
+    // `TASK_CODE_TO_UI_CATEGORY` and the cron gates fax tasks out of the assignment engine), so today
+    // the Task itself is the only signal and it is worked from the Tasks queue.
 
     return {
       statusCode: 200,
