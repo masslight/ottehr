@@ -117,13 +117,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: node ./scripts/print-test-run-summary.mjs
 
-      # Coveralls posts one PR status check per uploaded flag (plus one for
-      # the aggregate) and has no way to suppress checks for individual
-      # flags. To keep PR checks focused on the packages where we're
-      # actively driving coverage up, utils and zambdas get their own
-      # flags, and every other package is combined into a single
-      # "other-packages" upload. All packages still report coverage to
-      # Coveralls; the others just share one check.
+      # Coverage is collected and reported only for utils and zambdas — the
+      # packages where we're actively driving coverage up. Coveralls posts
+      # one PR status check per uploaded flag (plus the aggregate) with no
+      # way to suppress individual ones, so limiting the uploads is what
+      # keeps PR checks focused. The other packages still run their tests
+      # in CI; their :ci scripts just don't pass --coverage.
       - name: Upload utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/utils/coverage/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -142,40 +141,12 @@ jobs:
           file: ./packages/zambdas/coverage/integration/lcov.info
           fail-on-error: false
 
-      # The coveralls action errors out if any listed file is missing, so
-      # collect whichever reports were actually produced before uploading.
-      - name: Collect coverage reports from remaining packages
-        id: other-coverage
-        if: ${{ !cancelled() }}
-        run: |
-          files=""
-          for f in \
-            packages/spec/coverage/lcov.info \
-            packages/test-utils/coverage/lcov.info \
-            deploy/coverage/lcov.info \
-            apps/ehr/coverage/unit/lcov.info \
-            apps/ehr/coverage/component/lcov.info \
-            apps/intake/coverage/unit/lcov.info \
-            apps/intake/coverage/component/lcov.info; do
-            [ -f "$f" ] && files="$files $f"
-          done
-          echo "files=${files# }" >> $GITHUB_OUTPUT
-
-      - name: Upload remaining package coverage to Coveralls as one flag
-        if: ${{ !cancelled() && steps.other-coverage.outputs.files != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: other-packages
-          parallel: true
-          files: ${{ steps.other-coverage.outputs.files }}
-          fail-on-error: false
-
       - name: Coveralls parallel finished
         if: ${{ !cancelled() }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           parallel-finished: true
-          carryforward: "utils,zambdas,other-packages"
+          carryforward: "utils,zambdas"
           fail-on-error: false
 
       - name: Set GitHub Commit Status
