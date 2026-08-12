@@ -83,7 +83,9 @@ const makeExtractionFields = (
   overrides: Partial<InsuranceCardExtractionFields> = {}
 ): InsuranceCardExtractionFields => ({
   payer: null,
-  memberName: null,
+  memberFirstName: null,
+  memberMiddleName: null,
+  memberLastName: null,
   memberId: null,
   groupNumber: null,
   payerId: null,

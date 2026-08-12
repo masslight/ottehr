@@ -9,19 +9,23 @@ interface SignatureComposerInput {
   appointmentPackage: FullAppointmentResourcePackage;
   visit: VisitDetailsForProgressNote;
   signatures?: ProgressNoteSignatures;
+  signed?: boolean;
 }
+
+const PENDING_SIGNATURE_TEXT = 'Pending provider signature';
 
 export const composeSignature: DataComposer<SignatureComposerInput, SignatureData> = ({
   appointmentPackage,
   visit,
   signatures,
+  signed,
 }) => {
   const { timezone } = appointmentPackage;
 
-  // The visit-note PDF is only generated once a note is signed, so the signed line always renders.
-  // Prefer the `author` Provenance (accurate signer + original sign time, stable across re-generation
-  // after supervisor approval); fall back to the attending provider and the current time when none
-  // exists (the non-supervisor sign flow writes no Provenance).
+  if (signed === false) {
+    return { pendingSignature: PENDING_SIGNATURE_TEXT };
+  }
+
   const fallbackProviderName = visit.visitType === 'initial' ? visit.provider : visit.provider?.name ?? '';
   const signedName = signatures?.signedBy?.name || fallbackProviderName;
   const signedDateTime = formatDateTimeToZone(
@@ -48,11 +52,17 @@ export const createSignatureSection = <TData extends { signature: SignatureData 
 > => {
   return createConfiguredSection(null, () => ({
     dataSelector: (data) => data.signature,
-    shouldRender: (data) => !!(data.signedBy || data.approvedBy),
+    shouldRender: (data) => !!(data.signedBy || data.approvedBy || data.pendingSignature),
     render: (client, data, styles) => {
+      if (data.pendingSignature) {
+        drawRegularText(client, styles, data.pendingSignature);
+        return;
+      }
+
       if (data.signedBy) {
         drawRegularText(client, styles, data.signedBy);
       }
+
       if (data.approvedBy) {
         drawRegularText(client, styles, data.approvedBy);
       }
