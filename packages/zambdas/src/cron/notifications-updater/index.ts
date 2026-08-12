@@ -20,6 +20,7 @@ import {
   CATEGORY_NOTIFICATION_TAG_SYSTEM,
   checkEncounterHasPractitioner,
   ERX_TASK,
+  FAX_TASK,
   getAllFhirSearchPages,
   getFullestAvailableName,
   getInPersonVisitStatus,
@@ -941,6 +942,12 @@ export function resolveAssignmentDelivery(
   input: AssignmentDeliveryInput
 ): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
   const { task, recipient, hasExplicitPrefs, prefs, legacySettings, categoryNotifiedThisRun, taskLocationId } = input;
+
+  // FAX_NOTIFICATIONS_DISABLED: while inbound-fax notifications are off, this gate must stay — the fax
+  // category is commented out of TASK_CODE_TO_UI_CATEGORY, which would otherwise make an assigned fax
+  // task look "uncategorized" and fall through to the legacy always-on flag below. Delete it together
+  // with re-enabling the category.
+  if (task.groupIdentifier?.value === FAX_TASK.category) return { notify: false };
 
   if (task.owner && hasExplicitPrefs) {
     // Migrated staff route category task notifications through their V2 preferences.
