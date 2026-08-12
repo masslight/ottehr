@@ -1,0 +1,64 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference, List } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { createFilesDocumentReferences, FAX_PACKET_CODE } from 'utils';
+import { PdfInfo } from './pdf-utils';
+
+/**
+ * Persists a sent fax packet as a DocumentReference on the visit.
+ *
+ * Unlike the other generated visit documents, packets are an append-only audit trail: every send —
+ * including a retry and every additional recipient — is its own immutable artifact, because a retry
+ * has to re-transmit the exact bytes that were originally sent.
+ *
+ * `createFilesDocumentReferences` supersedes an existing current DocumentReference when it finds one
+ * whose `content[0].attachment.title` equals the new file's title (and reuses it outright when both
+ * title and url match). Callers must therefore pass a `pdfInfo.title` that is unique per packet —
+ * `buildAndUploadPacketForRecipient` derives it from the upload filename, which carries a timestamp
+ * and a recipient hash. With a unique title nothing older is ever patched to `superseded`.
+ */
+export async function makeFaxPacketDocumentReference(args: {
+  oystehr: Oystehr;
+  pdfInfo: PdfInfo;
+  patientId: string;
+  appointmentId: string;
+  encounterId: string;
+  listResources: List[];
+}): Promise<DocumentReference> {
+  const { oystehr, pdfInfo, patientId, appointmentId, encounterId, listResources } = args;
+
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
+    type: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: FAX_PACKET_CODE,
+          display: 'Fax packet',
+        },
+      ],
+    },
+    docStatus: 'final',
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      context: {
+        related: [{ reference: `Appointment/${appointmentId}` }],
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    searchParams: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
+    listResources,
+  });
+  return docRefs[0];
+}

@@ -1,13 +1,21 @@
 name: Synthetic Population Seed
 
-# ── Registration stub (default branch) ───────────────────────────────────────
-# GitHub only lists a workflow and lets you "Run workflow" against another branch
-# once the file exists on the DEFAULT branch. This stub does nothing on its own —
-# the REAL implementation lives on the feature branch
-# (dabrams/otr-2435-get-realistic-test-data-in-demo-and-lower-envs). When you
-# dispatch this workflow and pick that branch, GitHub runs THAT branch's version.
-# The inputs below mirror the feature-branch file so the dispatch dialog (which is
-# rendered from the default branch) shows the right fields.
+# One-time (on-request) seed of a backdated synthetic population — ~2,000 patients
+# / ~2,600 signed visits over the trailing 12 months — for environments that need
+# historical data for reports/trends. See
+# scripts/synthetic-patient-data/population/POPULATION.md.
+#
+# Manual only (workflow_dispatch). Pick the target environment below. Runs the
+# prerequisites automatically (synth staff + permissive schedules), then
+# plan → run → verify against a LOCAL zambda server pointed at the target project.
+#
+# NOTE: a full 2,000-patient run is long. A single GitHub job caps at ~6h; at
+# concurrency 4 a full run is borderline. Two ways to stay safe:
+#   • pilot first with a small `patients` (e.g. 200) or `limit` (e.g. 50), or
+#   • just re-run this workflow — resume state lives IN THE TARGET PROJECT (a
+#     Basic "manifest" pins the plan params; each seeded Appointment is tagged
+#     with its plan seq), so a re-dispatch regenerates the identical plan and
+#     skips visits already seeded. No CI cache to persist or expire.
 
 on:
   workflow_dispatch:
@@ -34,12 +42,238 @@ on:
         type: boolean
         default: false
 
+env:
+  NODE_VERSION: 22
+  ZAMBDA_PORT: "3000"
+
+concurrency:
+  group: synth-population-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
-  stub:
+  seed:
     runs-on: ubuntu-latest
+    timeout-minutes: 350 # near GitHub's 360-min cap; resume via re-dispatch if it hits the wall
     steps:
-      - name: Registration stub
+      - name: Refuse production
         run: |
-          echo "This is the default-branch registration stub."
-          echo "Run this workflow against the branch that contains the synth harness"
-          echo "to execute the real Synthetic Population Seed."
+          case "${{ inputs.environment }}" in
+            production|prod) echo "::error::the population seed must never run against production"; exit 1 ;;
+          esac
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
+
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ vars.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ vars.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: secrets
+
+      - name: Populate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: ${{ inputs.environment }}
+
+      - name: Materialize zambda env files
+        # config/.env has the M2M creds + third-party keys, but NOT terraform-
+        # generated secrets like ORGANIZATION_ID. Use it for the harness M2M creds
+        # (packages/zambdas/.env/<env>.json) and as a fallback server-secrets file;
+        # the next step overwrites the server file with the FULL project secret set.
+        run: |
+          set -euo pipefail
+          SRC="config/.env/${{ inputs.environment }}.json"
+          [ -f "$SRC" ] || { echo "::error::$SRC missing after populate-secrets"; exit 1; }
+          mkdir -p packages/zambdas/.env
+          cp "$SRC" "packages/zambdas/.env/${{ inputs.environment }}.json"
+          cp "$SRC" "packages/zambdas/.env/zambda-secrets-${{ inputs.environment }}.json"
+          chmod 600 packages/zambdas/.env/*.json
+
+      - name: Sync project secrets for the local server
+        if: ${{ inputs.dry != 'true' }}
+        # The local server needs the exact secret set the deployed zambdas use —
+        # incl. terraform-generated ORGANIZATION_ID (change-in-person-visit-status
+        # audit → Organization/<id>, else 500). Fetch them from Oystehr (IAM read)
+        # under the terraform admin pair and overwrite the server-secrets file.
+        # Values are written 0600, never logged. Skipped on --dry.
+        run: |
+          set -euo pipefail
+          CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          [ -f "$TF" ] || { echo "::error::$TF not found — needed to read project secrets"; exit 1; }
+          OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+          OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+          [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] || { echo "::error::no client pair in $TF"; exit 1; }
+          echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+          export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/sync-project-secrets.ts --env "${{ inputs.environment }}"
+
+      - name: Start local zambda server
+        # Raw stdout goes to an ephemeral-runner-only file (never echoed to the
+        # job log or an artifact); it's redacted before upload in the last step.
+        run: |
+          set -uo pipefail
+          ( cd packages/zambdas && \
+            ENV="${{ inputs.environment }}" PORT="${{ env.ZAMBDA_PORT }}" \
+            npx tsx src/local-server/index.ts -- "secrets=.env/zambda-secrets-${{ inputs.environment }}.json" \
+          ) > "$RUNNER_TEMP/zambda-server.raw.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/zambda-server.pid"
+          echo "server pid $(cat "$RUNNER_TEMP/zambda-server.pid")"
+
+      - name: Wait for server
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null "http://localhost:${{ env.ZAMBDA_PORT }}/local"; then echo "server ready"; exit 0; fi
+            kill -0 "$(cat "$RUNNER_TEMP/zambda-server.pid")" 2>/dev/null || { echo "::error::server exited during boot"; exit 1; }
+            sleep 3
+          done
+          echo "::error::server not ready after 180s"; exit 1
+
+      - name: Prerequisites (synth staff + permissive schedules)
+        run: |
+          set -euo pipefail
+          CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          # Staff creation is the one IAM-privileged step; the project M2M lacks
+          # those perms (→ Forbidden). Use the terraform provider client from the
+          # checked-out secrets repo (it provisions the project, so it HAS IAM
+          # perms) — ONLY for this step, via OYSTEHR_ADMIN_CLIENT_ID/SECRET. The
+          # harness/run-population keep the default M2M (least privilege). Mask the
+          # pair so it never lands in the job log; fall back with a warning if the
+          # tfvars isn't present.
+          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          if [ -f "$TF" ]; then
+            OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            if [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ]; then
+              echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"
+              echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+              export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+              echo "Using terraform provider client from $TF for staff creation (IAM)."
+            else
+              echo "⚠ $TF has no client_id/client_secret — staff creation uses the default M2M (may 403 on IAM)."
+            fi
+          else
+            echo "⚠ $TF not found — staff creation uses the default M2M (may 403 on IAM)."
+          fi
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/link-synth-staff-users.ts
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/fix-schedules-permissive.ts --execute
+
+      # No plan/cache steps: run-population resolves durable state from the target
+      # project itself — a Basic "manifest" pins the plan params (so it regenerates
+      # the identical plan) and per-Appointment `seq-<N>` tags are the resume set.
+      # Re-dispatching this workflow just continues where it left off.
+      #
+      # run-population provisions a dedicated Practitioner-profile M2M IN-PROCESS
+      # (so save-chart-data works) given admin creds — we pass the terraform
+      # provider pair as OYSTEHR_ADMIN_*. Nothing is written to disk or the secrets
+      # repo; the existing project M2M is untouched. On --dry we skip it (dry only
+      # reads FHIR), so the admin pair isn't required for a dry run.
+      - name: Run population seed
+        env:
+          # Route free-form inputs through env (not textual ${{ }} in the script) so
+          # a dispatched value can't inject shell — especially the unquoted --limit
+          # below. environment/dry are choice/boolean and safe to interpolate.
+          PATIENTS: ${{ inputs.patients }}
+          SEED: ${{ inputs.seed }}
+          LIMIT_IN: ${{ inputs.limit }}
+          CONCURRENCY: ${{ inputs.concurrency }}
+        run: |
+          set -uo pipefail
+          CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          if [ "${{ inputs.dry }}" != "true" ]; then
+            [ -f "$TF" ] || { echo "::error::$TF not found — needed to provision the Practitioner-profile M2M"; exit 1; }
+            OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] || { echo "::error::no client pair in $TF"; exit 1; }
+            echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+            export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+          fi
+          LIMIT=(); [ -n "$LIMIT_IN" ] && LIMIT=(--limit "$LIMIT_IN")
+          DRY=();   [ "${{ inputs.dry }}" = "true" ] && DRY=(--dry)
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/run-population.ts \
+            --seed "$SEED" --patients "$PATIENTS" \
+            --concurrency "$CONCURRENCY" "${LIMIT[@]}" "${DRY[@]}"
+
+      - name: Show failing visit logs
+        if: always()
+        # run-population records per-visit failures (exit 0) in population-progress.json.
+        # Dump the FAILED visits' harness logs (full — they carry the zambda error
+        # body, e.g. a 400 reason), so failures are diagnosable from the job log
+        # without the artifact. (Harness stdout carries no secrets; the server's
+        # secret log is a separate, redacted stream.)
+        run: |
+          set -uo pipefail
+          PROG=scripts/synthetic-patient-data/population/population-progress.json
+          [ -f "$PROG" ] || { echo "no progress file"; exit 0; }
+          mapfile -t FAILED < <(node -e "const p=require('./$PROG');for(const[s,o]of Object.entries(p))if(o.outcome==='failed')console.log(s)")
+          if [ ${#FAILED[@]} -eq 0 ]; then echo "no failed visits recorded 🎉"; exit 0; fi
+          echo "${#FAILED[@]} failed visit(s): ${FAILED[*]}"
+          for seq in "${FAILED[@]:0:20}"; do
+            f="scripts/synthetic-patient-data/population/.logs/seq-$(printf '%05d' "$seq").log"
+            echo "==================== $f ===================="
+            [ -f "$f" ] && cat "$f" || echo "(log file missing)"
+            echo
+          done
+          [ ${#FAILED[@]} -gt 20 ] && echo "… and $(( ${#FAILED[@]} - 20 )) more failed visit(s)" || true
+
+      - name: Verify population
+        if: ${{ inputs.dry != 'true' }}
+        run: |
+          CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/verify-population.ts || true
+
+      - name: Stop local zambda server
+        if: always()
+        run: |
+          PID="$(cat "$RUNNER_TEMP/zambda-server.pid" 2>/dev/null || true)"
+          [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
+
+      - name: Redact + collect server log
+        if: always()
+        # Redact into the workspace (upload-artifact wants in-workspace paths), and
+        # only the redacted copy is ever uploaded — the raw log stays on the
+        # ephemeral runner and is deleted.
+        run: |
+          REDACT_PL='s/(Bearer\s+)[\w.\-]+/$1<redacted>/gi; s/eyJ[\w\-]+\.[\w\-]+\.[\w\-]+/<redacted-jwt>/g; s/("?[\w-]*(?:secret|key|client|token|password)[\w-]*"?\s*[:=]\s*)("[^"]*"|\x27[^\x27]*\x27|[^\s,;}"\x27]+)/$1<redacted>/gi;'
+          mkdir -p scripts/synthetic-patient-data/population/.logs
+          if [ -f "$RUNNER_TEMP/zambda-server.raw.log" ]; then
+            perl -pe "$REDACT_PL" "$RUNNER_TEMP/zambda-server.raw.log" \
+              > scripts/synthetic-patient-data/population/.logs/zambda-server.log
+            rm -f "$RUNNER_TEMP/zambda-server.raw.log"
+          fi
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: population-logs-${{ inputs.environment }}
+          path: |
+            scripts/synthetic-patient-data/population/.logs/
+            scripts/synthetic-patient-data/population/population-progress.json
+          retention-days: 7
+          if-no-files-found: ignore
+          # .logs/ is a dotted dir — upload-artifact v4 skips hidden paths unless told.
+          include-hidden-files: true

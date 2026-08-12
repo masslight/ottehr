@@ -1,4 +1,5 @@
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
+import { deepStrictEqual } from 'node:assert';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig, SearchParam } from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -6,6 +7,8 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimResponse,
+  ClaimResponseItem,
   Coding,
   Coverage,
   FhirResource,
@@ -19,6 +22,7 @@ import {
   Person,
   Practitioner,
   Provenance,
+  Reference,
   RelatedPerson,
   Resource,
   Task,
@@ -46,6 +50,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   CPT_CODE_SYSTEM,
@@ -72,6 +77,7 @@ import {
   isPayerUrl,
   isValidClaimStatusValue,
   isValidUUID,
+  patchWithOptimisticLock,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RulesEngineType,
   Secrets,
@@ -81,7 +87,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { sendErrors } from '../shared';
+import { fetchAllPages, sendErrors } from '../shared';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -104,6 +110,11 @@ export const BILLING_WORKING_COPY_TAG = {
 };
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
+
+export interface ClaimSearchParam {
+  name: string;
+  value: string;
+}
 
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
@@ -218,12 +229,31 @@ export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
+const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
+export const SOURCE_FRIENDLY_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
+// CLP01 patient control number and CLP07 payer claim control number (ICN), as echoed by the payer.
+// Both arrive as ClaimResponse extensions, not identifiers.
+export const ERA_PCN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-pcn';
+export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
+// SVC01 procedure code and SVC05 units, stamped on each ClaimResponse.item. The converter never
+// writes the submitted lines onto the contained Claim, so these are the only line identity the
+// remit itself carries.
+export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
+export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+
+export function getEraExtensionString(
+  resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
+  url: string
+): string | undefined {
+  return resource.extension?.find((ext) => ext.url === url)?.valueString;
+}
 // Oystehr emits one Provenance per ERA (activity era-processing) whose targets are all resources
 // created from that ERA — the PaymentReconciliation and its ClaimResponses. This is how a single
 // ERA's resources are linked to each other.
@@ -234,6 +264,180 @@ export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
+export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+}
+
+export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+}
+
+export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier {
+  return {
+    system: SOURCE_IDENTIFIER_SYSTEM,
+    value: clinicalPatientId,
+  };
+}
+
+export function clinicalFriendlyIdIdentifier(friendlyId: string): Identifier {
+  return {
+    system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+    value: friendlyId,
+  };
+}
+
+export function identifierSearchToken(identifier: Identifier): string {
+  return `${identifier.system}|${identifier.value}`;
+}
+
+export async function searchPatientsByClinicalIds({
+  oystehr,
+  baseSearchParams,
+  offset,
+  pageSize,
+  uuid,
+  friendlyId,
+}: {
+  oystehr: Oystehr;
+  baseSearchParams: SearchParam[];
+  offset: number;
+  pageSize: number;
+  uuid?: string;
+  friendlyId?: string;
+}): Promise<{ total: number; results: Patient[] }> {
+  // creates an OR search
+  const identifierTokens = [
+    ...(uuid ? [identifierSearchToken(clinicalPatientIdentifier(uuid))] : []),
+    ...(friendlyId ? [identifierSearchToken(clinicalFriendlyIdIdentifier(friendlyId))] : []),
+  ];
+
+  if (identifierTokens.length > 0) {
+    const indexed = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: 'identifier',
+          value: identifierTokens.join(','),
+        },
+        {
+          name: '_count',
+          value: String(pageSize),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    const results = indexed.unbundle();
+    if (results.length > 0) {
+      return {
+        total: indexed.total ?? results.length,
+        results,
+      };
+    }
+  }
+
+  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+}
+
+export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
+  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+}
+
+export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
+  const friendlyId = clinicalFriendlyIdOfCopy(patient);
+  const wanted = [
+    clinicalPatientIdentifier(clinicalPatientId),
+    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
+  ];
+  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
+}
+
+export async function addClinicalPatientIdentifiers({
+  oystehr,
+  patient,
+  clinicalPatientId,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  clinicalPatientId: string;
+}): Promise<void> {
+  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
+    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
+    if (missing.length === 0) return [];
+    return current.identifier?.length
+      ? missing.map((identifier) => ({
+          op: 'add' as const,
+          path: '/identifier/-',
+          value: identifier,
+        }))
+      : [
+          {
+            op: 'add' as const,
+            path: '/identifier',
+            value: missing,
+          },
+        ];
+  });
+}
+
+export async function searchOnClinicalIDs(
+  oystehr: Oystehr,
+  baseSearchParams: SearchParam[],
+  baseOffset: number,
+  basePageSize: number,
+  uuid?: string,
+  friendlyId?: string
+): Promise<{ total: number; results: Patient[] }> {
+  let results: Patient[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const response = oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    results.push(...(await response).unbundle());
+    return response;
+  }, CLINICAL_ID_SCAN_PAGE_SIZE);
+  if (uuid || friendlyId) {
+    results = results.filter(
+      (p) =>
+        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+    );
+  }
+  const total = results.length;
+  results = results.slice(baseOffset, baseOffset + basePageSize);
+  return { total, results };
+}
+
+export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {
+  try {
+    deepStrictEqual(withoutMeta(stored), withoutMeta(copy));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function withoutMeta<T extends Resource>(resource: T): Omit<T, 'meta'> {
+  const fields = { ...resource };
+  delete fields.meta;
+  return fields;
+}
+
 // Claim.MD stamps the check number as a searchable identifier; process-era only sets
 // paymentIdentifier.
 export function getEraCheckNumber(
@@ -242,12 +446,75 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
+export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
+
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
+  return (
+    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
+    claim.id?.replaceAll('-', '') ??
+    ''
+  );
+}
+
+export function claimIdFromPcn(pcn: string): string | undefined {
+  const minified = pcn.toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
+  const claimId = [
+    minified.slice(0, 8),
+    minified.slice(8, 12),
+    minified.slice(12, 16),
+    minified.slice(16, 20),
+    minified.slice(20),
+  ].join('-');
+  return isValidUUID(claimId) ? claimId : undefined;
+}
+
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
 export function isSystemTag(tag: Basic): boolean {
   return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+}
+
+// All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
+// first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
+// validations, so the two can't diverge.
+export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
+  const bundle = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [
+      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+      { name: '_sort', value: '-_lastUpdated' },
+      { name: '_count', value: '200' },
+    ],
+  });
+  return bundle.unbundle();
+}
+
+// Names of the defined tags — used to validate tag references before they are written onto claims
+// or into rules.
+export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
+  const basics = await searchTagBasics(oystehr);
+  return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+// Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
+// and point every service line at it. The one careTeam shape both the claim editor
+// (update-billing-claim) and the rules engine write.
+export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
+  claim.careTeam = [
+    {
+      sequence: 1,
+      provider,
+      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+  ];
+  claim.item = claim.item?.map((item) => ({
+    ...item,
+    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+  }));
 }
 
 export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
@@ -1010,16 +1277,16 @@ export async function tagEraResources({
   return untagged.size;
 }
 
-// Links notices the stripe webhook stored before the claim existed. Oystehr matches
-// request:identifier by value only, the system|value form returns nothing.
+// Links notices the stripe webhook stored before the claim existed.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
   if (!claim.id || !encounterId) return;
 
   const notices = (
     await oystehr.fhir.search<PaymentNotice>({
       resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: encounterId }],
+      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
     })
   ).unbundle();
 
@@ -1041,6 +1308,40 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   }
   console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
+
+export async function resolveLinkedPatientIds({
+  oystehr,
+  patientId,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+}): Promise<string[]> {
+  const result = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [
+      {
+        name: 'link',
+        value: `Patient/${patientId}`,
+      },
+    ],
+  });
+  const persons = result.unbundle();
+  const linkedIds = persons
+    .flatMap((person) => person.link ?? [])
+    .map((entry) => entry.target?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
+    .map((ref) => ref.replace('Patient/', ''));
+  const resolved = [...new Set([patientId, ...linkedIds])];
+  console.debug(
+    `resolveLinkedPatientIds: Patient/${patientId} matched ${persons.length} Person(s), ${resolved.length} patient id(s)`
+  );
+  return resolved;
+}
+
+export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
+  name: 'patient',
+  value: patientIds.map((id) => `Patient/${id}`).join(','),
+});
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   let workingCopyReferenceResourceId: string | undefined;

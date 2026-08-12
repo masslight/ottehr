@@ -1,11 +1,15 @@
 import { DateTime } from 'luxon';
 import { CMS_PLACE_OF_SERVICE_CODES, formatZipcodeForDisplay, ServiceFacilityItem } from 'utils';
 
-export const formatCurrency = (v: number): string => `$${v.toFixed(2)}`;
-
 export function formatDate(iso: string): string {
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
+}
+
+export function formatDateTime(iso: string): string {
+  if (!iso) return '-';
+  const dateTime = DateTime.fromISO(iso);
+  return dateTime.isValid ? dateTime.toLocaleString(DateTime.DATETIME_MED) : iso;
 }
 
 const POS_LABEL_BY_CODE = new Map(CMS_PLACE_OF_SERVICE_CODES.map((pos) => [pos.code, pos.display]));

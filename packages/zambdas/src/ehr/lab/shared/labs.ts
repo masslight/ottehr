@@ -134,6 +134,10 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       value: 'DiagnosticReport:result', // observations
     },
     {
+      name: '_include',
+      value: 'DiagnosticReport:encounter', // we expect reflex tests to have encounters
+    },
+    {
       name: '_include:iterate',
       value: 'Encounter:appointment',
     },
@@ -174,6 +178,10 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       params: searchParams,
     })
   )?.unbundle();
+  console.log(
+    'these are the returned resources searching for DR based resources',
+    resourceSearch.map((res) => `${res.resourceType}/${res.id}`).sort()
+  );
 
   const patients: Patient[] = [];
   const organizations: Organization[] = [];

@@ -73,7 +73,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   });
 
   const apiClient = useOystehrAPIClient();
-  const practitioner = useEvolveUser()?.profileResource;
+  const evolveUser = useEvolveUser();
+  const practitioner = evolveUser?.profileResource;
+  const hasNPI = evolveUser?.hasNPI ?? false;
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
@@ -120,7 +122,16 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
 
-    if (completed || isFollowup) {
+    if (completed) {
+      return messages;
+    }
+
+    // Signing / co-signing a note is NPI-gated — block users without an NPI (e.g. the Clinician role).
+    if (!hasNPI) {
+      messages.push('You need an NPI on file to sign');
+    }
+
+    if (isFollowup) {
       return messages;
     }
 
@@ -192,6 +203,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return messages;
   }, [
     completed,
+    hasNPI,
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,

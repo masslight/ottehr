@@ -6,6 +6,7 @@ import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
+import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -16,6 +17,11 @@ import {
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
 const gender = z.enum(['male', 'female', 'unknown']);
+
+// When a resource is edited in the context of a claim (the claim detail screen editing the claim's
+// working copies), the edit endpoints record the change in that claim's history. Edits from the
+// master screens carry no claim context and write no history record.
+const historyClaimId = z.string().uuid().optional();
 
 export const ALLOWED_BILLING_RESOURCE_TYPES = [
   'Patient',
@@ -33,6 +39,11 @@ export const GetClaimDetailInputSchema = z.object({
 
 export const GetClaimHistoryInputSchema = z.object({
   claimId: nonEmptyString.uuid(),
+});
+
+export const AddClaimNoteInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
+  message: nonEmptyString.max(CLAIM_NOTE_MAX_LENGTH),
 });
 
 export const ExportClaimX12InputSchema = z.object({
@@ -127,8 +138,8 @@ export const GetBillingProviderInputSchema = z.object({
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-  status: nonEmptyString.optional(),
   arStage: nonEmptyString.optional(),
+  status: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
@@ -148,6 +159,10 @@ export const SearchBillingPatientARClaimsInputSchema = z.object({
   includeZeroBalance: z.boolean().optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
+});
+
+export const GetBillingPatientBalanceInputSchema = z.object({
+  encounterIds: z.array(z.string().uuid()).min(1).max(1000),
 });
 
 export const SearchBillingProvidersInputSchema = z.object({
@@ -209,6 +224,9 @@ export const SearchServiceFacilitiesInputSchema = z.object({
 
 export const SaveServiceFacilityInputSchema = z.object({
   facilityId: nonEmptyString.optional(),
+  // Only honored when updating an existing facility (a claim's working copy); creates are recorded
+  // by the subsequent claim attach.
+  claimId: historyClaimId,
   name: nonEmptyString,
   addressLine1: nonEmptyString,
   addressLine2: z.string().trim().optional(),
@@ -330,6 +348,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('individual'),
     providerId: nonEmptyString,
+    claimId: historyClaimId,
     firstName: nonEmptyString,
     lastName: nonEmptyString,
     roles: z.array(billingProviderRole).min(1),
@@ -342,6 +361,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('organization'),
     providerId: nonEmptyString,
+    claimId: historyClaimId,
     name: nonEmptyString,
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
@@ -359,6 +379,7 @@ export const DeleteBillingProviderInputSchema = z.object({
 
 export const UpdateBillingPatientInputSchema = z.object({
   patientId: nonEmptyString,
+  claimId: historyClaimId,
   firstName: nonEmptyString,
   lastName: nonEmptyString,
   dob: nonEmptyString.optional(),
@@ -406,6 +427,7 @@ export const CreateBillingCoverageInputSchema = z
 export const UpdateBillingCoverageInputSchema = z
   .object({
     coverageId: nonEmptyString,
+    claimId: historyClaimId,
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
     insuranceType: insuranceTypeSchema.optional(),
@@ -483,7 +505,6 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     claimId: nonEmptyString.uuid(),
     fields: z.object({
       subscriberId: z.string().optional(),
-      status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
       relationship: subscriberRelationshipSchema.optional(),
       policyHolder: BillingPolicyHolderSchema.optional(),
     }),
@@ -612,6 +633,10 @@ export const MatchClaimResponseToClaimInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
+export const UnmatchClaimResponseInputSchema = z.object({
+  claimResponseId: nonEmptyString,
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -628,6 +653,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
+export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
@@ -640,6 +666,7 @@ export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputS
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
+export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.output<typeof SearchBillingPatientsInputSchema>;
 export type SearchBillingLocationsInput = z.output<typeof SearchBillingLocationsInputSchema>;
@@ -677,4 +704,5 @@ export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityIn
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
 export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
+export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;

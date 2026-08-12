@@ -4,7 +4,9 @@ import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
   ClaimHistoryEntry,
@@ -97,11 +99,54 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
       reportAnomaly(`Claim-history change set is not an array on Provenance/${provenance.id}`, environment);
       return [];
     }
-    return parsed as ClaimFieldChange[];
+    const changes = parsed as ClaimFieldChange[];
+    attachEntityRefs(provenance, changes, environment);
+    return changes;
   } catch (err) {
     // One malformed record shouldn't blank the whole history view, but we want to know it happened.
     reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, environment, err);
     return [];
+  }
+}
+
+// The raw references behind reference-typed changes are stored as Provenance.entity entries tagged
+// with the linking extension ('<field>|<previous|new>|<index>' — see provenance.ts), so a creating
+// transaction gets them rewritten from urn:uuid to the real ids. Reattach them onto the parsed
+// changes, re-joining multi-ref fields with ', ' in index order (the same comma-joined form the
+// diff JSON used to carry). Records written before this format keep their inline refs and carry no
+// linked entities — an inline ref always wins.
+function attachEntityRefs(provenance: Provenance, changes: ClaimFieldChange[], environment: string): void {
+  const refsByFieldSide = new Map<string, string[]>();
+  for (const entity of provenance.entity ?? []) {
+    const marker = entity.extension?.find((e) => e.url === CLAIM_PROVENANCE_CHANGE_REF_URL)?.valueString;
+    if (!marker) continue;
+    const [field, side, indexString] = marker.split('|');
+    const index = Number(indexString);
+    const reference = entity.what?.reference;
+    if (!reference || !field || (side !== 'previous' && side !== 'new') || !Number.isInteger(index) || index < 0) {
+      reportAnomaly(`Malformed change-ref entity '${marker}' on Provenance/${provenance.id}`, environment);
+      continue;
+    }
+    const key = `${field}|${side}`;
+    const refs = refsByFieldSide.get(key) ?? [];
+    refs[index] = reference;
+    refsByFieldSide.set(key, refs);
+  }
+  if (refsByFieldSide.size === 0) return;
+
+  const joinedRefs = (field: string, side: 'previous' | 'new'): string | undefined => {
+    const refs = refsByFieldSide.get(`${field}|${side}`);
+    return refs ? refs.filter(Boolean).join(', ') : undefined;
+  };
+  for (const change of changes) {
+    if (!change.previousRef) {
+      const previousRef = joinedRefs(change.field, 'previous');
+      if (previousRef) change.previousRef = previousRef;
+    }
+    if (!change.newRef) {
+      const newRef = joinedRefs(change.field, 'new');
+      if (newRef) change.newRef = newRef;
+    }
   }
 }
 
@@ -129,6 +174,7 @@ function toHistoryEntry(
   }
 
   const resourceType = targetRef?.split('/')[0] ?? '';
+  const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -138,12 +184,14 @@ function toHistoryEntry(
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
     changes: parseChanges(provenance, environment),
+    ...(message ? { message } : {}),
   };
 }
 
 // Values are display strings captured at write time; this pass only (a) attaches screen links for
 // provider/facility references (via the master resource behind each working copy) and (b) resolves a
-// friendly name for any value that was stored as a raw reference (display missing at write time).
+// friendly name for any value whose display was missing at write time — stored as the raw reference
+// by older records, as null (with the ref in a linked entity) by newer ones.
 async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHistoryEntry[]): Promise<void> {
   const resourceIdsByType: Record<string, Set<string>> = {
     Practitioner: new Set(),
@@ -193,12 +241,13 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
     ref: string | undefined
   ): { value: string | null; link: ClaimHistoryLink | null } => {
     if (!ref) return { value, link: null };
+    const displayMissing = value === ref || value == null;
     if (isPayerUrl(ref)) {
-      const resolved = value === ref ? payerDisplay(payersByRef.get(ref)) ?? value : value;
+      const resolved = displayMissing ? payerDisplay(payersByRef.get(ref)) ?? value : value;
       return { value: resolved, link: null };
     }
     const resource = resourcesByRef.get(ref);
-    const resolved = value === ref && resource ? resourceDisplayName(resource) || value : value;
+    const resolved = displayMissing && resource ? resourceDisplayName(resource) || value : value;
     const screen = FIELD_SCREEN[field];
     const linkId = resource ? sourceId(resource) ?? resource.id : undefined;
     return { value: resolved, link: screen && linkId ? { screen, id: linkId } : null };
@@ -240,6 +289,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return 'Tag change';
     case CLAIM_PROVENANCE_ACTIVITY_CODES.submit:
       return `Submit ${label}`;
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.note:
+      return 'Note';
     default:
       return label;
   }

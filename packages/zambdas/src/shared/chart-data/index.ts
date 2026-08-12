@@ -950,16 +950,19 @@ export function makeDispositionDTO(
       ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
       : undefined;
 
-  const followUpArr = subFollowUp?.map((element) => {
-    const performerCode = element.performerType?.coding?.[0].code;
-    const followUpType = Object.keys(followUpToPerformerMap).find(
-      (keyName) => performerCode === followUpToPerformerMap[keyName as DispositionFollowUpType]?.coding?.[0].code
-    );
-
-    return {
-      type: followUpType as DispositionFollowUpType,
-      note: element.note?.[0].text,
-    };
+  // Resolve each sub-follow-up's type via the shared reverse lookup (coding code OR text,
+  // so the coding-less 'other'/'lurie-ct' performer types disambiguate correctly), and skip
+  // entries whose type can't be resolved rather than emitting a bogus type that downstream
+  // consumers (visit-note PDF, review tab) can't render.
+  const followUpArr = subFollowUp?.flatMap((element) => {
+    const followUpType = followUpTypeFromPerformerType(element.performerType);
+    if (!followUpType) return [];
+    return [
+      {
+        type: followUpType as DispositionFollowUpType,
+        note: element.note?.[0].text,
+      },
+    ];
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
@@ -989,7 +992,6 @@ export function makeDispositionDTOFromFhirResources(
   encounter?: Encounter,
   serviceRequests?: ServiceRequest[]
 ): DispositionDTO | undefined {
-  // checking and creating dispositionDTO
   if (encounter) {
     const dischargeDisposition = encounter.hospitalization?.dischargeDisposition;
     const dispositionCode = dischargeDisposition?.coding?.find(
@@ -1852,6 +1854,22 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   ]),
   'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
   other: createCodeableConcept(undefined, 'other'),
+};
+
+/**
+ * Reverse of followUpToPerformerMap: maps a sub-follow-up ServiceRequest.performerType back to its
+ * DispositionFollowUpType key. Coded types carry a SNOMED coding; 'other'/'lurie-ct' are text-only,
+ * so match on coding[0].code OR text — guarded so undefined never matches undefined.
+ */
+export const followUpTypeFromPerformerType = (
+  performerType: CodeableConcept | undefined
+): DispositionFollowUpType | undefined => {
+  const performerKey = performerType?.coding?.[0]?.code ?? performerType?.text;
+  if (!performerKey) return undefined;
+  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((key) => {
+    const performer = followUpToPerformerMap[key];
+    return performer?.coding?.[0]?.code === performerKey || performer?.text === performerKey;
+  });
 };
 
 export function makeProceduresDTOFromFhirResources(

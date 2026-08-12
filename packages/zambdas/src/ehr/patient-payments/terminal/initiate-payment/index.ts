@@ -20,6 +20,7 @@ import {
   getStripeClient,
   lambdaResponse,
   safeJsonParse,
+  stripeEncounterMetadata,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -78,10 +79,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       setup_future_usage: 'off_session',
       description:
         validatedParameters.description ?? `Terminal payment for encounter ${validatedParameters.encounterId}`,
-      metadata: {
-        oystehr_patient_id: validatedParameters.patientId,
-        oystehr_encounter_id: validatedParameters.encounterId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId: validatedParameters.encounterId,
+        patientId: validatedParameters.patientId,
+      }),
     },
     {
       stripeAccount,

@@ -53,6 +53,8 @@ const createContactInformationData = (overrides?: {
       'patient-zip': overrides?.zip || '12345',
       'patient-preferred-communication-method':
         overrides?.preferredCommunication || valueSets.preferredCommunicationMethodOptions[1].value, // 'Email'
+      'photo-id-front': 'upload',
+      'photo-id-back': 'upload',
     },
     invalid: {
       'patient-email': 'not-an-email',
@@ -535,17 +537,6 @@ const createInviteParticipantData = (): FieldTestData => {
 };
 
 /**
- * Create photo ID upload data
- */
-const createPhotoIDData = (options?: { includeFront?: boolean; includeBack?: boolean }): FieldTestData => ({
-  valid: {
-    ...(options?.includeFront !== false && { 'photo-id-front': 'upload' }),
-    ...(options?.includeBack !== false && { 'photo-id-back': 'upload' }),
-  },
-  // No invalid values for file upload
-});
-
-/**
  * Create credit card data (Stripe payment)
  *
  * This is a special case that uses Stripe iframe for PCI compliance.
@@ -634,7 +625,6 @@ const pageDataTemplateMapFactory: (context?: {
     'employer-information-page': createEmployerInformationData,
     'occupational-medicine-employer-information-page': createOccMedEmployerInformationData,
     'attorney-mva-page': () => ({ valid: {} }), // TODO: create attorney data template
-    'photo-id-page': createPhotoIDData,
     'consent-forms-page': createConsentFormsData,
     'medical-history-page': () => createMedicalHistoryData('empty'),
 

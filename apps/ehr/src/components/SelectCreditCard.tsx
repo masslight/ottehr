@@ -95,7 +95,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     return hasNone || addingOne;
   })();
 
-  const initializing = isSetupDataFetching || isSetupDataLoading;
+  const initializing = isSetupDataLoading && !isSetupDataRefetching;
 
   const cardOptions: CardOption[] = [
     ...cards.map((card) => ({ id: card.id, label: labelForCard(card), brand: card.brand })),

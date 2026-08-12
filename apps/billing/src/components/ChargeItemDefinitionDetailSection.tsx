@@ -20,6 +20,7 @@ import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
+  BillingCodeOption,
   ChargeItemDefinitionType,
   getApiError,
   UpdateChargeItemDefinitionInputSchema,
@@ -302,6 +303,8 @@ export function ChargeItemDefinitionDetailSection({
   );
 }
 
+const EMPTY_DESCRIPTION = { text: '', fromOption: false };
+
 function AddProcedureCodeDialog({
   open,
   handleSave,
@@ -313,23 +316,35 @@ function AddProcedureCodeDialog({
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
-  const [code, setCode] = useState<{ code: string; display: string } | undefined>(undefined);
+  const [code, setCode] = useState('');
+  const [description, setDescription] = useState(EMPTY_DESCRIPTION);
   const [modifier, setModifier] = useState<string | undefined>(undefined);
   const [amount, setAmount] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [procCodes, setProcCodes] = useState<{ code: string; display: string }[]>([]);
+  const [procCodes, setProcCodes] = useState<BillingCodeOption[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setCode(undefined);
+    setCode('');
+    setDescription(EMPTY_DESCRIPTION);
     setModifier(undefined);
     setAmount(undefined);
     setSaving(false);
     setError(null);
   }, [open]);
 
-  const canSave = !!code && amount !== undefined && !isNaN(amount);
+  const pickCode = (option: BillingCodeOption): void => {
+    setCode(option.code);
+    setDescription({ text: option.display, fromOption: true });
+  };
+
+  const typeCode = (value: string): void => {
+    setCode(value);
+    setDescription((prev) => (prev.fromOption ? EMPTY_DESCRIPTION : prev));
+  };
+
+  const canSave = !!code.trim() && amount !== undefined && !isNaN(amount);
 
   const searchProcCodes = useCallback(
     async (term?: string): Promise<void> => {
@@ -355,7 +370,7 @@ function AddProcedureCodeDialog({
 
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!canSave) return;
-    if (!code) {
+    if (!code.trim()) {
       throw 'Code is required';
     }
     if (!amount) {
@@ -365,9 +380,9 @@ function AddProcedureCodeDialog({
     setError(null);
     try {
       await handleSave({
-        code: code.code,
-        description: code.display,
-        modifier,
+        code: code.trim(),
+        description: description.text.trim() || undefined,
+        modifier: modifier || undefined,
         amount,
       });
       onClose();
@@ -376,7 +391,7 @@ function AddProcedureCodeDialog({
     } finally {
       setSaving(false);
     }
-  }, [amount, canSave, code, handleSave, modifier, onClose]);
+  }, [amount, canSave, code, description, handleSave, modifier, onClose]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 980, maxWidth: '95vw' } }}>
@@ -390,16 +405,21 @@ function AddProcedureCodeDialog({
         <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Field label="Code">
-              <Autocomplete
+              <Autocomplete<BillingCodeOption, false, false, true>
+                freeSolo
                 options={procCodes}
-                value={code}
-                onChange={(_, v) => setCode(v || undefined)}
+                inputValue={code}
+                value={null}
                 onInputChange={(_, val, reason) => {
+                  if (reason === 'reset') return; // option selection is handled in onChange
+                  typeCode(val);
                   if (reason === 'input') void searchProcCodes(val || undefined);
                 }}
-                // onOpen={() => searchPr()}
+                onChange={(_, v) => {
+                  if (v && typeof v !== 'string') pickCode(v);
+                }}
                 filterOptions={(x) => x}
-                getOptionLabel={(o) => (o ? `${o.code} ${o.display}` : '')}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : `${o.code} ${o.display}`)}
                 renderOption={(props, o) => (
                   <Box component="li" {...props} key={o.code}>
                     <Box>
@@ -421,7 +441,14 @@ function AddProcedureCodeDialog({
                     // helperText={fieldError?.message}
                   />
                 )}
-                isOptionEqualToValue={(o, v) => o.code === v.code}
+              />
+            </Field>
+            <Field label="Description">
+              <TextField
+                size="small"
+                fullWidth
+                value={description.text}
+                onChange={(e) => setDescription({ text: e.target.value, fromOption: false })}
               />
             </Field>
             <Field label="Modifier">
@@ -433,7 +460,7 @@ function AddProcedureCodeDialog({
                 type="number"
                 fullWidth
                 value={amount}
-                onChange={(e) => setAmount(parseInt(e.target.value, 10))}
+                onChange={(e) => setAmount(Number(e.target.value))}
               />
             </Field>
           </Box>

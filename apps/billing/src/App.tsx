@@ -17,6 +17,7 @@ import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/Ch
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
+import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
@@ -89,6 +90,7 @@ export default function App(): ReactElement {
               />
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
+              <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />

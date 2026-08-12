@@ -78,8 +78,18 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:#{var/PROJECT_ID}-faxes/*"],
+          "action": ["Z3:PutObject", "Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
           "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
           "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Z3:#{var/PROJECT_ID}-fax-received/*"],
+          "action": ["Z3:GetObject", "Z3:DeleteObject"],
           "effect": "Allow"
         },
         {

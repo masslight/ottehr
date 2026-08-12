@@ -32,6 +32,7 @@ import {
   resolveTemplatePlaceholders,
   resolveTimezone,
   sendSmsForPatient,
+  stripeEncounterMetadata,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -218,10 +219,10 @@ async function createInvoice(
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
       description: filledMemo,
-      metadata: {
-        oystehr_patient_id: oystehrPatientId,
-        oystehr_encounter_id: oystehrEncounterId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId: oystehrEncounterId,
+        patientId: oystehrPatientId,
+      }),
       currency: 'USD',
       due_date: DateTime.fromISO(dueDate, { zone: timezone }).toUnixInteger(),
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice

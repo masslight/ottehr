@@ -1068,8 +1068,8 @@ export default function ProceduresNew(): ReactElement {
             </Box>
 
             <QuickPicksButton
-              quickPicks={!procedureId ? sortedMergedQuickPicks : []}
-              loading={!procedureId && mergedQuickPicksLoading}
+              quickPicks={sortedMergedQuickPicks}
+              loading={mergedQuickPicksLoading}
               getLabel={(quickPick) => quickPick.name}
               onSelect={onQuickPickSelect}
               showAddOption

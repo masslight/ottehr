@@ -1,15 +1,17 @@
 import Oystehr from '@oystehr/sdk';
-import { Basic, List } from 'fhir/r4b';
+import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
 import { BillingRuleInput, DEFAULT_RULES_ENGINE, HOLD_TAG_NAME, RulesEngineType } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
-import { performEffect } from '../../../src/billing/save-billing-rules';
+import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const create = vi.fn();
 const update = vi.fn();
-const oystehr = { fhir: { search, create, update } } as unknown as Oystehr;
+const batch = vi.fn();
+const oystehr = { fhir: { search, create, update, batch } } as unknown as Oystehr;
 
 const rule = (name: string, id?: string): BillingRuleInput => ({
   ...(id ? { id } : {}),
@@ -100,5 +102,130 @@ describe('save-billing-rules performEffect', () => {
       code: RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].listCode,
     });
     expect(savedList.title).toBe(RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].listTitle);
+  });
+});
+
+describe('save-billing-rules complexValidation (applied tags must exist)', () => {
+  const tagRule = (name: string, tag: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [{ condition: { type: 'all' }, outcome: { type: 'actions', actions: [{ type: 'applyTag', tag }] } }],
+    },
+  });
+
+  const tagBasic = (name: string): Basic => ({
+    resourceType: 'Basic',
+    code: { text: name, coding: [{ system: 'https://fhir.ottehr.com/billing/tag', code: 'tag' }] },
+  });
+
+  const mockSearches = (tags: Basic[]): void => {
+    search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Basic' ? tags : []),
+    }));
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('passes when every applied tag is defined in the tags feature', async () => {
+    mockSearches([tagBasic('VIP')]);
+    await expect(complexValidation(oystehr, params([tagRule('Tag it', 'VIP')]))).resolves.toBeUndefined();
+    expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(1);
+  });
+
+  it('rejects an unknown tag, naming the rule and the tag', async () => {
+    mockSearches([tagBasic('VIP')]);
+    await expect(complexValidation(oystehr, params([tagRule('Bad rule', 'Nope')]))).rejects.toThrow(
+      /rule "Bad rule" applies unknown tag "Nope"/
+    );
+  });
+
+  it('always allows the Hold tag, without even searching for tag definitions', async () => {
+    mockSearches([]);
+    await expect(complexValidation(oystehr, params([tagRule('Hold it', HOLD_TAG_NAME)]))).resolves.toBeUndefined();
+    expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(0);
+  });
+
+  it('runs at most one tag search for many rules', async () => {
+    mockSearches([tagBasic('VIP'), tagBasic('Audit')]);
+    await expect(
+      complexValidation(oystehr, params([tagRule('A', 'VIP'), tagRule('B', 'Audit'), tagRule('C', 'VIP')]))
+    ).resolves.toBeUndefined();
+    expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(1);
+  });
+});
+
+describe('save-billing-rules complexValidation (provider/facility refs must exist)', () => {
+  const refRule = (name: string, field: string, ref: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field, value: ref }] },
+        },
+      ],
+    },
+  });
+
+  // The shape getResourcesFromBatchInlineRequests parses: a batch-response of searchset bundles.
+  const batchResponse = (resources: Resource[]): Bundle => ({
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: resources.map((resource) => ({
+      response: { status: '200', outcome: { resourceType: 'OperationOutcome' as const, id: 'ok', issue: [] } },
+      resource: { resourceType: 'Bundle', type: 'searchset', entry: [{ resource }] } as Bundle,
+    })),
+  });
+
+  const org = (id: string, roles: string[]): Organization => ({
+    resourceType: 'Organization',
+    id,
+    name: `Org ${id}`,
+    meta: { tag: roles.map((code) => ({ system: PROVIDER_ROLE_TAG, code })) },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    search.mockResolvedValue({ unbundle: () => [] });
+  });
+
+  it('passes when the referenced provider exists with the role the field targets', async () => {
+    batch.mockResolvedValue(batchResponse([org('org-1', ['billing'])]));
+    await expect(
+      complexValidation(oystehr, params([refRule('Swap', 'billingProvider.ref', 'Organization/org-1')]))
+    ).resolves.toBeUndefined();
+    expect(batch).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a reference to a resource that does not exist, naming the rule and field', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    await expect(
+      complexValidation(oystehr, params([refRule('Swap', 'serviceFacility.ref', 'Location/gone')]))
+    ).rejects.toThrow(/rule "Swap" sets "serviceFacility\.ref" to Location\/gone — no such resource exists/);
+  });
+
+  it('rejects a per-claim working copy — rules must reference the shared resources', async () => {
+    const copy = org('copy-1', ['billing']);
+    copy.meta!.tag!.push({ system: BILLING_WORKING_COPY_TAG.system, code: BILLING_WORKING_COPY_TAG.code });
+    batch.mockResolvedValue(batchResponse([copy]));
+    await expect(
+      complexValidation(oystehr, params([refRule('Swap', 'billingProvider.ref', 'Organization/copy-1')]))
+    ).rejects.toThrow(/working copy/);
+  });
+
+  it('rejects a provider that is not tagged with the role the field targets', async () => {
+    batch.mockResolvedValue(batchResponse([org('org-1', ['billing'])]));
+    await expect(
+      complexValidation(oystehr, params([refRule('Swap', 'renderingProvider.ref', 'Organization/org-1')]))
+    ).rejects.toThrow(/not tagged as a rendering provider/);
+  });
+
+  it('skips the lookup entirely when no rule sets a provider or facility', async () => {
+    await expect(complexValidation(oystehr, params([rule('Plain')]))).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
   });
 });

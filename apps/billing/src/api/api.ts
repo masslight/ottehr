@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  AddClaimNoteInputSchema,
   apiErrorToThrow,
   BillingChargeItemDefinition,
   BillingCodeOption,
@@ -24,6 +25,8 @@ import {
   EraDetailResponse,
   ExportClaimX12InputSchema,
   ExportClaimX12Response,
+  GetBillingPatientBalanceInputSchema,
+  GetBillingPatientBalanceResponse,
   GetBillingProviderInputSchema,
   GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
@@ -37,6 +40,7 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  OkResponse,
   PatientDetailResponse,
   RecordBillingManualPaymentInputSchema,
   RecordBillingManualPaymentResponse,
@@ -70,7 +74,7 @@ import {
   SearchServiceFacilitiesResponse,
   ServiceFacilityItem,
   TagBillingClaimInputSchema,
-  TaggedClaimResponse,
+  UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
@@ -148,6 +152,12 @@ export const searchBillingPatientARClaims = (
 ): Promise<SearchBillingPatientARClaimsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-patient-ar-claims', parameters);
 
+export const getBillingPatientBalance = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPatientBalanceInputSchema>
+): Promise<GetBillingPatientBalanceResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-patient-balance', parameters);
+
 export const getBillingClaimDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetClaimDetailInputSchema>
@@ -171,7 +181,12 @@ export const updateBillingResource = (
 export const tagBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof TagBillingClaimInputSchema>
-): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+
+export const addBillingClaimNote = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimNoteInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'add-billing-claim-note', parameters);
 
 // --- Providers ---
 
@@ -298,6 +313,28 @@ export const searchBillingDiagnosisCodes = async (
   return { codes };
 };
 
+// Display text for exact procedure codes (the ERA drill-in shows "I&D of Abscess (10060)").
+// Submitted claims store bare codes, so the terminology service is the only description source;
+// codes it doesn't know are omitted and the caller falls back to the bare code.
+export const lookupProcedureDescriptions = async (
+  oystehr: Oystehr,
+  codes: string[]
+): Promise<Record<string, string>> => {
+  const descriptions: Record<string, string> = {};
+  await Promise.all(
+    [...new Set(codes.filter(Boolean))].map(async (code) => {
+      try {
+        const { codes: found } = await searchBillingProcedureCodes(oystehr, { query: code });
+        const display = found.find((option) => option.code === code)?.display;
+        if (display) descriptions[code] = display;
+      } catch {
+        // unknown code — bare code is shown instead
+      }
+    })
+  );
+  return descriptions;
+};
+
 // --- Tags ---
 
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
@@ -332,6 +369,11 @@ export const matchClaimResponseToClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
 ): Promise<any> => executeBillingZambda(oystehr, 'match-claim-response', parameters);
+
+export const unmatchClaimResponse = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UnmatchClaimResponseInputSchema>
+): Promise<any> => executeBillingZambda(oystehr, 'unmatch-claim-response', parameters);
 
 // --- ChargeItemDefinitions --
 

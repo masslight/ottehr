@@ -68,6 +68,12 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
               <span style={{ fontWeight: 'bold' }}>Clinical History: </span>
               {order.clinicalHistory}
             </Typography>
+            {order.performedBy && (
+              <Typography>
+                <span style={{ fontWeight: 'bold' }}>Performed by: </span>
+                {order.performedBy.name}
+              </Typography>
+            )}
             {/* External orders have no read to render — the study heading above is the result. */}
             {!order.external && renderReport(order)}
           </Box>

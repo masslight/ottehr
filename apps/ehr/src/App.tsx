@@ -32,6 +32,7 @@ import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
@@ -71,6 +72,7 @@ import PatientsPage from './pages/Patients';
 import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
 import {
+  AdHocReport,
   AiAssistedEncounters,
   CompleteEncounters,
   DailyPayments,
@@ -102,6 +104,7 @@ const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Staff,
   RoleType.Manager,
   RoleType.Provider,
+  RoleType.Clinician,
   RoleType.CustomerSupport,
 ];
 
@@ -217,6 +220,7 @@ function App(): ReactElement {
             )}
             {currentUser?.hasRole([RoleType.Administrator]) && (
               <>
+                <Route path="/reports/ad-hoc" element={<AdHocReport />} />
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
@@ -296,7 +300,12 @@ function App(): ReactElement {
                 <Route path="*" element={<Navigate to={'/'} />} />
               </>
             )}
-            {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
+            {currentUser?.hasRole([
+              RoleType.Staff,
+              RoleType.Provider,
+              RoleType.Clinician,
+              RoleType.CustomerSupport,
+            ]) && (
               <>
                 <Route path="/" element={<Navigate to="/visits" />} />
                 <Route path="/logout" element={<Logout />} />
@@ -320,6 +329,8 @@ function App(): ReactElement {
                     <Route path="/admin/:adminTab" element={<AdminPage />} />
                   </Route>
                 )}
+
+                <Route path="/inbound-fax/:communicationId/match" element={<InboundFaxMatch />} />
 
                 <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />

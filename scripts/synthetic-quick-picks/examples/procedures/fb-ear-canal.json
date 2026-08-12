@@ -1,0 +1,36 @@
+{
+  "name": "Foreign Body Removal — Ear Canal",
+  "procedureType": "foreign-body-removal",
+  "cptCodes": [
+    {
+      "code": "69200",
+      "display": "Removal foreign body from external auditory canal; without general anesthesia"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "T16.1XXA",
+      "display": "Foreign body in right ear, initial encounter"
+    }
+  ],
+  "bodySite": "ear",
+  "bodySide": "left",
+  "technique": [
+    "clean"
+  ],
+  "medicationUsed": "none",
+  "suppliesUsed": [
+    "forceps",
+    "speculum",
+    "other"
+  ],
+  "otherSuppliesUsed": "Alligator forceps or curette, otoscope",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "return-if-worsening",
+    "other"
+  ],
+  "otherPostInstructions": "ENT referral if unable to remove or TM injury",
+  "timeSpent": "5-10-min"
+}

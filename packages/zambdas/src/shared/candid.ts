@@ -46,6 +46,7 @@ import {
   ServiceLineCreate,
 } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { APIResponse } from 'candidhealth/core';
+import type { FailedResponse } from 'candidhealth/core/fetcher/APIResponse';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -92,6 +93,7 @@ import {
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   Secrets,
   TIMEZONES,
 } from 'utils';
@@ -1245,7 +1247,7 @@ export async function createEncounterFromAppointment(
   let candidEncounterId: CandidApi.EncounterId | undefined;
   if (!response.ok) {
     if (response.rawResponse.status === 422) {
-      candidEncounterId = await recoverCandidEncounterAfter422(visitResources.encounter.id!, candidApiClient);
+      candidEncounterId = await recoverCandidEncounterAfter422(visitResources.encounter.id!, candidApiClient, response);
     } else {
       throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
     }
@@ -1283,25 +1285,31 @@ export async function createEncounterFromAppointment(
 
 export async function recoverCandidEncounterAfter422(
   fhirEncounterId: string,
-  candidApiClient: CandidApiClient
+  candidApiClient: CandidApiClient,
+  response: FailedResponse<CandidApi.encounters.v4.createFromPreEncounterPatient.Error>
 ): Promise<CandidApi.EncounterId | undefined> {
-  console.log(
-    `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
-  );
-  const existing = await candidApiClient.encounters.v4.getAll({
-    externalId: EncounterExternalId(fhirEncounterId),
-    limit: 1,
-  });
-  if (!existing.ok || existing.body.items.length === 0) {
-    throw new Error(
-      `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
-        existing
-      )}`
-    );
+  if (!response.ok && response.rawResponse.status === 422) {
+    if (response.error.errorName === 'EncounterExternalIdUniquenessError') {
+      console.log(
+        `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
+      );
+      const existing = await candidApiClient.encounters.v4.getAll({
+        externalId: EncounterExternalId(fhirEncounterId),
+        limit: 1,
+      });
+      if (!existing.ok || existing.body.items.length === 0) {
+        throw new Error(
+          `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
+            existing
+          )}`
+        );
+      }
+      const candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
+      console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
+      return candidEncounterId;
+    }
   }
-  const candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
-  console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
-  return candidEncounterId;
+  throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
 }
 
 export async function retryCandidCall<T, E>(
@@ -1350,7 +1358,15 @@ async function candidCreateEncounterFromAppointmentRequest(
     accident,
     emCodes,
   } = input;
-  const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
+  // Candid requires an NPI for the rendering provider, so a practitioner without one simply can't
+  // have a claim created. That's a missing-data condition rather than a code defect, so raise a
+  // typed API error callers can surface without reporting it as a bug.
+  const practitionerNpi = getNpi(practitioner.identifier);
+  if (!practitionerNpi) {
+    throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(
+      `Practitioner ${practitioner.id} has no NPI identifier, so a claim can't be created`
+    );
+  }
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
     ? await fetchBillingProviderData(
@@ -1478,7 +1494,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     renderingProvider: {
       firstName: assertDefined(practitionerName.given?.[0], 'Practitioner first name'),
       lastName: assertDefined(practitionerName.family, 'Practitioner last name'),
-      npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
+      npi: practitionerNpi,
     },
     serviceFacility: {
       organizationName: location?.name ?? assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
@@ -1650,6 +1666,11 @@ export function shouldUseCandid(secrets: Secrets): boolean {
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {
   return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION);
+}
+
+// Picks the data source for the visit-details patient balances feature
+export function shouldUseOttehrBillingForPatientBalances(secrets: Secrets): boolean {
+  return secrets.PATIENT_BALANCE_SOURCE === 'ottehr';
 }
 
 export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {

@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Encounter, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  getContainedReconciliation,
   getOrCreateCandidApiClient,
   getStripeAccountForAppointmentOrEncounter,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -162,9 +163,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           if (currency && currency !== 'USD') {
             throw new Error(`PaymentNotice ${paymentNoticeId} has unexpected currency ${currency}`);
           }
-          const reconciliation = paymentNotice.contained?.find(
-            (resource): resource is PaymentReconciliation => resource.resourceType === 'PaymentReconciliation'
-          );
+          const reconciliation = getContainedReconciliation(paymentNotice);
           const paymentMethod =
             paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '';
           const createdDateTime = DateTime.fromISO(paymentNotice.created);

@@ -141,6 +141,13 @@
       "src": "src/billing/search-billing-patient-ar-claims/index",
       "zip": ".dist/zips/search-billing-patient-ar-claims.zip"
     },
+    "GET-BILLING-PATIENT-BALANCE": {
+      "name": "get-billing-patient-balance",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-balance/index",
+      "zip": ".dist/zips/get-billing-patient-balance.zip"
+    },
     "GET-BILLING-CLAIM-DETAIL": {
       "name": "get-billing-claim-detail",
       "type": "http_auth",
@@ -154,6 +161,13 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-claim-history/index",
       "zip": ".dist/zips/get-billing-claim-history.zip"
+    },
+    "ADD-BILLING-CLAIM-NOTE": {
+      "name": "add-billing-claim-note",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/add-billing-claim-note/index",
+      "zip": ".dist/zips/add-billing-claim-note.zip"
     },
     "EXPORT-BILLING-CLAIM-X12": {
       "name": "export-billing-claim-x12",
@@ -196,6 +210,13 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/match-claim-response/index",
       "zip": ".dist/zips/match-claim-response.zip"
+    },
+    "UNMATCH-CLAIM-RESPONSE": {
+      "name": "unmatch-claim-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/unmatch-claim-response/index",
+      "zip": ".dist/zips/unmatch-claim-response.zip"
     },
     "SEARCH-BILLING-TAGS": {
       "name": "search-billing-tags",

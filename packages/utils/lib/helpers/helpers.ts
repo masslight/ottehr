@@ -426,6 +426,12 @@ export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
   return `(${phoneDigits.slice(0, 3)}) ${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
 };
 
+export const toTenDigitPhoneNumber = (value: string | undefined): string | undefined => {
+  const digits = value?.replace(/\D/g, '') ?? '';
+  const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  return local.length === 10 ? local : undefined;
+};
+
 export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {
   const { year, month, day } = dateObj;
   return `${year}-${month}-${day}`;

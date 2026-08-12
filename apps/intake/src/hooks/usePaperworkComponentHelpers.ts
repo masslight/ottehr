@@ -1,9 +1,12 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
 import api from 'src/api/ottehrApi';
 import { useOystehrAPIClient } from 'src/telemed/utils';
-import { PaperworkComponentHelpers } from 'ui-components/lib/components/paperwork/context';
+import { CardSuggestionsInput, PaperworkComponentHelpers } from 'ui-components/lib/components/paperwork/context';
 import {
   GetAnswerOptionsRequest,
+  GetInsuranceCardSuggestionsResponse,
+  GetPhotoIdSuggestionsResponse,
   HandleAnswerInput,
   PaymentMethodSetDefaultParameters,
   SearchPlacesInput,
@@ -12,10 +15,15 @@ import {
 } from 'utils';
 import { useUCZambdaClient } from './useUCZambdaClient';
 
+// cardSlot identifies which upload (e.g. 'insurance-card-front-2') a suggestions call is for; a
+// trailing '-2' means secondary insurance, so suggestions cache separately from primary.
+const insuranceOrdinalForCardSlot = (cardSlot: string): 1 | 2 => (cardSlot.endsWith('-2') ? 2 : 1);
+
 export const usePaperworkComponentHelpers = (): PaperworkComponentHelpers => {
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const oystehrApiClient = useOystehrAPIClient();
+  const queryClient = useQueryClient();
 
   const handleSearchPlaces = async (input: SearchPlacesInput): Promise<SearchPlacesOutput> => {
     if (!tokenfulZambdaClient) throw new Error('error searching, api client is undefined');
@@ -66,9 +74,32 @@ export const usePaperworkComponentHelpers = (): PaperworkComponentHelpers => {
     return await api.createZ3Object(appointmentID, fileType, fileFormat, tokenlessZambdaClient, file);
   };
 
+  const getInsuranceCardSuggestions = async (
+    input: CardSuggestionsInput
+  ): Promise<GetInsuranceCardSuggestionsResponse> => {
+    if (tokenlessZambdaClient == null) throw new Error('error fetching suggestions, api client is undefined');
+    const { cardSlot, ...zambdaInput } = input;
+    const response = await api.getInsuranceCardSuggestions(zambdaInput, tokenlessZambdaClient);
+    queryClient.setQueryData(
+      ['insurance-card-suggestions', input.appointmentID, insuranceOrdinalForCardSlot(cardSlot)],
+      response
+    );
+    return response;
+  };
+
+  const getPhotoIdSuggestions = async (input: CardSuggestionsInput): Promise<GetPhotoIdSuggestionsResponse> => {
+    if (tokenlessZambdaClient == null) throw new Error('error fetching suggestions, api client is undefined');
+    const { cardSlot: _cardSlot, ...zambdaInput } = input;
+    const response = await api.getPhotoIdSuggestions(zambdaInput, tokenlessZambdaClient);
+    queryClient.setQueryData(['photo-id-suggestions', input.appointmentID], response);
+    return response;
+  };
+
   return {
     handleSearchPlaces,
     createZ3Object,
+    getInsuranceCardSuggestions,
+    getPhotoIdSuggestions,
     aIInterviewStart,
     aIInterviewHandleAnswer,
     setDefaultPaymentMethod,

@@ -64,10 +64,6 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
             path: '/type',
             value: claim.type,
           },
-          {
-            op: 'remove',
-            path: '/contained',
-          },
         ],
       }),
     ],

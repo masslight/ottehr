@@ -1,5 +1,6 @@
 export * from './date';
 export * from './file';
+export * from './image-orientation';
 export * from './objects';
 export * from './pdf';
 export * from './timeout';

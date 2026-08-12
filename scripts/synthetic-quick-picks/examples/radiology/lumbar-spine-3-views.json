@@ -1,0 +1,8 @@
+{
+  "name": "Lumbar Spine X-Ray, 2-3 Views",
+  "cptCode": "72100",
+  "cptDisplay": "Radiologic examination, spine, lumbosacral; 2 or 3 views",
+  "studyName": "X-Ray Lumbar Spine 2-3 Views (AP, Lateral, ± Spot)",
+  "clinicalHistory": "Low back pain with red-flag features — evaluate for fracture or other structural pathology",
+  "stat": false
+}

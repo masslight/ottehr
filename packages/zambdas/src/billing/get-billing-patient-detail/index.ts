@@ -1,15 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Patient, Person } from 'fhir/r4b';
+import { Claim, Patient } from 'fhir/r4b';
 import { PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaidByClaimId,
+  summarizeClaimPayments,
+  summarizePatientBalance,
+} from '../claim-amounts';
 import {
   createBillingClient,
   fetchById,
   formatAddress,
   getClaimStatus,
   isWorkingCopy,
+  patientSearchParam,
+  resolveLinkedPatientIds,
   resolvePayersByRef,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -82,21 +89,10 @@ async function fetchPatientClaims(
   claims: PatientDetailResponse['claims'];
   balance: PatientDetailResponse['balance'];
 }> {
-  let patientIds = [patientId];
-  const personResult = await oystehr.fhir.search<Person>({
-    resourceType: 'Person',
-    params: [{ name: 'link', value: `Patient/${patientId}` }],
+  const patientIds = await resolveLinkedPatientIds({
+    oystehr,
+    patientId,
   });
-  const person = personResult.unbundle()[0];
-  if (person?.link) {
-    const linkedIds = person.link
-      .map((l) => l.target?.reference)
-      .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
-      .map((ref) => ref.replace('Patient/', ''));
-    patientIds = [...new Set([...patientIds, ...linkedIds])];
-  }
-
-  const patientParam = patientIds.map((pid) => `Patient/${pid}`).join(',');
 
   const claims: Claim[] = [];
 
@@ -104,7 +100,7 @@ async function fetchPatientClaims(
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
-        { name: 'patient', value: patientParam },
+        patientSearchParam(patientIds),
         { name: '_sort', value: '-created' },
         { name: '_count', value: String(count) },
         { name: '_offset', value: String(offset) },
@@ -114,16 +110,24 @@ async function fetchPatientClaims(
     return bundle;
   }, 100);
 
-  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaidByClaimId({
+      oystehr,
+      claims,
+    }),
   ]);
 
   const summaries = claims.map((c) =>
-    summarizeClaimPayments(claimResponsesByClaimId.get(c.id ?? '') ?? [], c.total?.value ?? 0)
+    summarizeClaimPayments(
+      claimResponsesByClaimId.get(c.id ?? '') ?? [],
+      c.total?.value ?? 0,
+      patientPaidByClaimId.get(c.id ?? '') ?? 0
+    )
   );
 
   const claimItems = claims.map((c, idx) => {
@@ -141,14 +145,7 @@ async function fetchPatientClaims(
     };
   });
 
-  // only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
-  // amount is pending insurance, not patient-owed
-  const adjudicatedBalances = summaries.filter((s) => s.adjudicated).map((s) => s.balance);
-  const balance = {
-    claimsWithPatientBalance: adjudicatedBalances.filter((b) => b > 0).length,
-    pendingPayments: 0,
-    currentBalance: adjudicatedBalances.reduce((sum, b) => sum + b, 0),
-  };
+  const balance = summarizePatientBalance(summaries);
 
   return {
     claims: claimItems,

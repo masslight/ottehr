@@ -47,6 +47,15 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
     input: [
       input(OUTBOUND_DELIVERY_INPUT_CODES.recipientAddress, data.recipientAddress),
       ...(data.recipientName ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientName, data.recipientName)] : []),
+      ...(data.recipientOrganization
+        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization, data.recipientOrganization)]
+        : []),
+      ...(data.recipientPhone ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientPhone, data.recipientPhone)] : []),
+      ...(data.faxPacketPageCount !== undefined
+        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.faxPacketPageCount, String(data.faxPacketPageCount))]
+        : []),
+      // One entry per document so the packet composition stays readable without a delimiter convention.
+      ...(data.faxPacketParts ?? []).map((part) => input(OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts, part)),
       ...(data.documentReferenceId
         ? [
             input(
@@ -79,6 +88,14 @@ export function getOutboundDeliveryChannel(task: Task): ActionLogChannel | undef
 
 export function getOutboundDeliveryInput(task: Task, code: string): TaskInput | undefined {
   return task.input?.find(
+    (item) =>
+      item.type.coding?.some((coding) => coding.system === OUTBOUND_DELIVERY_INPUT_SYSTEM && coding.code === code)
+  );
+}
+
+/** Every input entry carrying `code`. Use for repeating codes such as the fax packet part list. */
+export function getOutboundDeliveryInputs(task: Task, code: string): TaskInput[] {
+  return (task.input ?? []).filter(
     (item) =>
       item.type.coding?.some((coding) => coding.system === OUTBOUND_DELIVERY_INPUT_SYSTEM && coding.code === code)
   );
