@@ -1,12 +1,12 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Alert, Box, Snackbar, Typography } from '@mui/material';
 import { FC, useContext, useMemo, useState } from 'react';
-import { InvitedParticipantInfo } from 'utils';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { useCancelInviteMutation } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { InvitedParticipantInfo } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import { dataTestIds } from '../../../../src/helpers/data-test-ids';
 import { ConfirmationDialog } from '../../../components/ConfirmationDialog';
 import PageForm from '../../../components/PageForm';
-import { IntakeThemeContext } from '../../../contexts';
-import { useCancelInviteMutation } from '../waiting-room';
 
 type InvitedParticipantListProps = {
   items: InvitedParticipantInfo[];

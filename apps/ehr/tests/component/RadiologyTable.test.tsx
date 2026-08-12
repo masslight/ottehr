@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
-import { GetRadiologyOrderListZambdaOrder, RadiologyOrderStatus } from 'utils';
+import { GetRadiologyOrderListZambdaOrder, RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RadiologyTable } from '../../src/features/radiology/components/RadiologyTable';
 

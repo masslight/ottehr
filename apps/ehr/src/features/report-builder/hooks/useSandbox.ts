@@ -5,7 +5,8 @@
 //   - only JSON crosses the boundary; events are validated against AdHocFrameEventSchema.
 import { captureException } from '@sentry/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AdHocFrameEventSchema, AdHocRow, LlmDatasetSchema } from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { AdHocFrameEventSchema } from 'utils/lib/types/adhoc/sandbox/events';
 import { showAdHocDebugLog } from '../debug';
 import { hrefForOpenLink } from './links';
 

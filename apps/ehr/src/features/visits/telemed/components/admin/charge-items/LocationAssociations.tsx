@@ -42,7 +42,7 @@ import {
   useAssociatePayerMutation,
   useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { isLocationVirtual } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { ChargeItemMode } from '../ChargeItemList';
 
 const VENUE_USE_CONTEXT_CODE = 'venue';

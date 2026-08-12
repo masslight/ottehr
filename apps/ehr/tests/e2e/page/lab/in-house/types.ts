@@ -1,4 +1,4 @@
-import { DataEntryTestItem } from 'utils';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 
 export type SelectableOption = {
   testId: string;

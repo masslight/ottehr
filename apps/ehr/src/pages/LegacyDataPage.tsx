@@ -18,7 +18,7 @@ import { useMutation } from '@tanstack/react-query';
 import { lazy, ReactElement, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { searchLegacyRecords } from 'src/api/api';
-import { FileType, FileTypeMap, SearchLegacyRecordsOutput } from 'utils';
+import { FileType, FileTypeMap, SearchLegacyRecordsOutput } from 'utils/lib/types/data/legacy-data/legacy-data.types';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 

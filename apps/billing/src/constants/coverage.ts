@@ -1,12 +1,11 @@
 import {
-  BillingCoverageOption,
   BillingInsuranceType,
   BillingSubscriberRelationship,
-  ClaimDetailResponse,
   CreateBillingCoverageInput,
   GenderOption,
   UpdateBillingCoverageInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingCoverageOption, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export interface CoverageForm {

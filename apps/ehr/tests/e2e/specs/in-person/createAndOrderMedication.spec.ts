@@ -26,7 +26,8 @@ let createdMedicationName: string | null = null;
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
-  await resourceHandler.setResources();
+  // Medication creation and ordering only; no paperwork answer is read.
+  await resourceHandler.setResources({ skipPaperwork: true });
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   await prepareAppointment(page);
 });

@@ -1,6 +1,6 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FieldValues } from 'react-hook-form';
-import { type QuestionnaireItemExtension } from 'utils';
+import type { QuestionnaireItemExtension } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { useQRState } from './useFormHelpers';
 
 const OPERATORS = ['=', '!='];

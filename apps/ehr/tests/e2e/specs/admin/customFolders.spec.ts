@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { navigateToDocsFoldersAdmin } from 'tests/e2e/page/DocsFoldersAdminPage';
-import { FOLDERS_CONFIG } from 'utils';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 
 const DEFAULT_TIMEOUT = { timeout: 30_000 };
 const TIMESTAMP = DateTime.now().toMillis();

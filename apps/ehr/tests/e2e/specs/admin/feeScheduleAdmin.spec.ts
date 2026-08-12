@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { expect, test } from '@playwright/test';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL, RCM_TAG_SYSTEM } from 'utils';
+import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL, RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { FeeSchedulePage } from '../../page/FeeSchedulePage';
 

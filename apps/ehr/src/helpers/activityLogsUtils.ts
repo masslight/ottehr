@@ -2,16 +2,12 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Bundle, Coding, Flag, Patient, Resource } from 'fhir/r4b';
 import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
-import {
-  CRITICAL_CHANGE_SYSTEM,
-  FhirAppointmentType,
-  formatDateForDisplay,
-  formatPhoneNumberDisplay,
-  getCriticalUpdateTagOp,
-  getFullName,
-  GetVisitFaxHistoryOutput,
-  STATUS_UPDATE_TAG_SYSTEM,
-} from 'utils';
+import { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp, STATUS_UPDATE_TAG_SYSTEM } from 'utils/lib/fhir/helpers';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { HOP_QUEUE_URI } from '../constants';
 import { appointmentTypeLabels } from '../types/types';
 

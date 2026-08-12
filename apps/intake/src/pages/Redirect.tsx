@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageContainer } from '../components';
+import { PageContainer } from 'src/components/CustomContainer';
 
 const Redirect = (): JSX.Element => {
   const { handleRedirectCallback } = useAuth0();

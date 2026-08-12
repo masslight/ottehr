@@ -1,5 +1,5 @@
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
+import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 
 export interface TrackingBoardPrimaryAction {
   dataTestId: string;

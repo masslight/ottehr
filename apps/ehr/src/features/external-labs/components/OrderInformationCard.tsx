@@ -2,7 +2,7 @@ import { Button, Grid } from '@mui/material';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';
-import { openPdf } from 'utils';
+import { openPdf } from 'utils/lib/helpers/labs/helpers';
 interface OrderInfoProps {
   serviceRequestId: string;
   labelPdfUrl: string | undefined;

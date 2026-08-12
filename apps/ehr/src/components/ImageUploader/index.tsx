@@ -10,9 +10,10 @@ import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 import { createZ3Object } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { convertHeicToJpegIfNeeded } from 'ui-components';
-import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
+import { convertHeicToJpegIfNeeded } from 'ui-components/lib/utils/heic';
 import { downscaleImageForUpload } from 'utils/lib/frontend';
+import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 
 interface UploadComponentProps {
   fileName: string;

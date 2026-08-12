@@ -1,4 +1,4 @@
-import { formDataTestIds } from 'utils';
+import { formDataTestIds } from 'utils/lib/helpers/paperwork/data-test-ids';
 
 export const dataTestIds = {
   ...formDataTestIds,

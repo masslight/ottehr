@@ -1,7 +1,7 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExternalLabsStatus, LabOrderUnreceivedHistoryRow } from 'utils';
+import { ExternalLabsStatus, LabOrderUnreceivedHistoryRow } from 'utils/lib/types/data/labs/labs.types';
 
 interface LabsOrderStatusChipProps {
   status: keyof typeof ExternalLabsStatus | LabOrderUnreceivedHistoryRow['action'];

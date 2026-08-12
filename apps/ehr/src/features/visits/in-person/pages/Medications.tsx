@@ -1,9 +1,9 @@
 import { Stack, Typography } from '@mui/material';
 import React, { useCallback } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { MedicationDTO } from 'utils';
+import { MedicalHistoryDoubleCard } from 'src/features/visits/shared/components/medical-history-tab/MedicalHistoryDoubleCard';
+import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { Loader } from '../../shared/components/Loader';
-import { MedicalHistoryDoubleCard } from '../../shared/components/medical-history-tab';
 import { CurrentMedicationsPatientColumn } from '../../shared/components/medical-history-tab/CurrentMedications/CurrentMedicationsPatientColumn';
 import { CurrentMedicationsProviderColumn } from '../../shared/components/medical-history-tab/CurrentMedications/CurrentMedicationsProviderColumn';
 import { ExternalMedicationSelection } from '../../shared/components/medical-history-tab/CurrentMedications/ExternalRxSuggestions';

@@ -2,7 +2,7 @@ import { Autocomplete, Skeleton, Stack, TextField, Typography } from '@mui/mater
 import { Coding, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { ProviderDetails } from 'utils';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { usePractitionerActions } from '../features/visits/shared/hooks/usePractitioner';
 
 interface AppointmentTablePractitionerSelectProps {

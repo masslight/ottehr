@@ -1,6 +1,8 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AVAILABLE_EMPLOYEE_ROLES, formatPhoneNumberDisplay, PractitionerQualificationCode, RoleType } from 'utils';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 import {

@@ -44,7 +44,8 @@ import {
   useAssociatePayerMutation,
   useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { extractPayerIdFromUrl, isPayerUrl, ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
+import { extractPayerIdFromUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
 import { useInsurancesQuery } from '../admin.queries';
 import { ChargeItemMode } from '../ChargeItemList';
 

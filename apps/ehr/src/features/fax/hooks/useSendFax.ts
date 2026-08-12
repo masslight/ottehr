@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FaxRecipientResult, GetFaxPacketPreviewOutput, GetFaxPacketStatusOutput } from 'utils';
+import { FaxRecipientResult, GetFaxPacketPreviewOutput, GetFaxPacketStatusOutput } from 'utils/lib/types/api/fax.types';
 import { FAX_STATUS_POLL_TIMEOUT_MS } from '../model/faxPolling';
 import { toSendFaxPacketInput } from '../model/faxRecipients';
 import { FaxFormValues } from '../model/types';

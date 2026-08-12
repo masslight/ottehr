@@ -32,20 +32,18 @@ import {
   withFollowUpEncounterId,
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
-import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import styled from 'styled-components';
+import { getAnnotationFollowupStatusLabel, getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
+import { AppointmentType, visitStatusArray } from 'utils/lib/types/api/appointment.types';
 import {
   AppointmentHistoryRow,
-  AppointmentType,
   FollowUpVisitHistoryRow,
-  formatMinutes,
-  getAnnotationFollowupStatusLabel,
-  getFollowUpProgressNotePathSegment,
   PatientVisitListResponse,
-  ServiceMode,
-  visitStatusArray,
-} from 'utils';
+} from 'utils/lib/types/api/patient-visit-history.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { formatMinutes } from 'utils/lib/utils/visitUtils';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';

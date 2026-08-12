@@ -1,7 +1,7 @@
 import { InsertDriveFileOutlined as FileIcon } from '@mui/icons-material';
 import { Box, Link } from '@mui/material';
 import { FC } from 'react';
-import { VitalsDotVisionScreeningDocument } from 'utils';
+import { VitalsDotVisionScreeningDocument } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useOpenDotVisionDocument } from './useOpenDotVisionDocument';
 
 interface DotVisionDocumentChipProps {

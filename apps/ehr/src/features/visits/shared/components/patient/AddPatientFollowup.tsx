@@ -4,7 +4,8 @@ import { useLocation, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import PageContainer from 'src/layout/PageContainer';
-import { FollowupSubtype, getFullName } from 'utils';
+import { FollowupSubtype } from 'utils/lib/fhir/encounter';
+import { getFullName } from 'utils/lib/fhir/patient';
 import PatientFollowupForm from './PatientFollowupForm';
 import ScheduledFollowupParentSelector from './ScheduledFollowupParentSelector';
 

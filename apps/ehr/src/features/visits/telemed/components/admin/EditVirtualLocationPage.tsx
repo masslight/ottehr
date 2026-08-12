@@ -25,8 +25,9 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { VIRTUAL_LOCATIONS_URL } from 'src/features/admin/adminRoutes';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { AllStates, isLocationVirtual } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { AllStates } from 'utils/lib/types/common';
 
 const displayStates = AllStates.map((state) => state.value);
 

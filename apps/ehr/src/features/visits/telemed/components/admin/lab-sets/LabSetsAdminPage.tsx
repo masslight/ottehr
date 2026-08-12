@@ -21,7 +21,8 @@ import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useAdminGetLabSetsList } from 'src/features/visits/telemed/components/admin/admin.queries';
-import { LabSetDTO, LabSetStatus, LabTypeDisplay } from 'utils';
+import { LabSetDTO, LabSetStatus } from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabTypeDisplay } from 'utils/lib/types/data/labs/labs.types';
 
 const DEFAULT_ROWS_PER_PAGE = 10;
 

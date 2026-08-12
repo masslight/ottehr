@@ -3,7 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { EmployeeDetails, GetEmployeesResponse, RoleType } from 'utils';
+import { EmployeeDetails, GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------

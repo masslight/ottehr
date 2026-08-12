@@ -3,10 +3,10 @@ import { createTheme } from '@mui/material';
 import * as customTheme from '@theme/index';
 import _ from 'lodash';
 import { FC } from 'react';
-import { BRANDING_CONFIG } from 'utils';
+import { IntakeThemeProviderBase } from 'src/providers/IntakeThemeProviderBase';
+import { PropsWithChildren } from 'src/types/props-with-children';
 import { i18n } from 'utils/lib/frontend';
-import { IntakeThemeProviderBase } from './providers';
-import { PropsWithChildren } from './types';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 
 const { palette: p } = createTheme();
 

@@ -1,6 +1,6 @@
 import { FormControl, MenuItem, Select, useTheme } from '@mui/material';
 import { ControllerRenderProps, FieldValues } from 'react-hook-form';
-import { DataEntryComponent, LabComponentValueSetConfig } from 'utils';
+import { DataEntryComponent, LabComponentValueSetConfig } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface ResultEntrySelectProps {
   testItemComponent: DataEntryComponent;

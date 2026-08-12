@@ -1,6 +1,6 @@
 import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { SendFaxPacketInput, SendFaxPacketOutput } from 'utils';
+import { SendFaxPacketInput, SendFaxPacketOutput } from 'utils/lib/types/api/fax.types';
 import { useOystehrAPIClient } from '../../visits/shared/hooks/useOystehrAPIClient';
 import { sendFaxPacket } from '../api/faxApi';
 

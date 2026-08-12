@@ -1,5 +1,8 @@
-import { checkEnable, FileURLs, PaperworkPage, Question, SCHOOL_WORK_NOTE } from 'utils';
-import { FormInputType } from '../../types';
+import { FormInputType } from 'src/types/form/form-input-type';
+import { checkEnable } from 'utils/lib/helpers/paperwork/paperwork';
+import { FileURLs } from 'utils/lib/types/common';
+import { PaperworkPage, Question } from 'utils/lib/types/data/paperwork.types';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 
 interface CompletedPaperwork {
   [fieldName: string]: any;

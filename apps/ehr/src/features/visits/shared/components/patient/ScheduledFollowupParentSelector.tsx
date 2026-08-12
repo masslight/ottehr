@@ -17,7 +17,11 @@ import { Patient, Person } from 'fhir/r4b';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { CopyableFollowupField, FollowUpOptions, getFirstName, getLastName } from 'utils';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import {
+  CopyableFollowupField,
+  FollowUpOptions,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
 import { useParentEncounters } from './useParentEncounters';

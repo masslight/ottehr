@@ -4,13 +4,13 @@ import { randomUUID } from 'crypto';
 import { Location, Schedule } from 'fhir/r4b';
 import {
   BILLING_RESOURCE_TAG,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-  unbundleBatchPostOutput,
-  VirtualLocationBody,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
+import { VirtualLocationBody } from 'utils/lib/types/common';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 
 const globalSetup = async (_config: FullConfig): Promise<void> => {
   // Global setup logic here

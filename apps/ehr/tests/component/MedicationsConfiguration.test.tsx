@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM, RoleType } from 'utils';
+import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('src/api/api', () => ({

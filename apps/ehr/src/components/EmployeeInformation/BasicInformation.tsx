@@ -4,8 +4,8 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import { Controller } from 'react-hook-form';
-import { InputMask } from 'ui-components';
-import { phoneRegex, zipRegex } from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { phoneRegex, zipRegex } from 'utils/lib/validation/regex';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { BasicInformationProps } from './types';
 
