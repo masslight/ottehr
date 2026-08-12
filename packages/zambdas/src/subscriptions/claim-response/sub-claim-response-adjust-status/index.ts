@@ -1,7 +1,7 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, getPatchOperationForNewMetaTag } from 'utils';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, getPatchOperationForNewMetaTag, patchWithOptimisticLock } from 'utils';
 import { createBillingClient, getTag } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -68,14 +68,10 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
   if (insuranceArStatus === 'adjudicated') {
     return;
   }
-  await oystehr.fhir.patch({
-    resourceType: 'Claim',
-    id: claim.id,
-    operations: [
-      getPatchOperationForNewMetaTag(claim, {
-        system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
-        code: 'adjudicated',
-      }),
-    ],
-  });
+  await patchWithOptimisticLock(oystehr, claim, (claim) => [
+    getPatchOperationForNewMetaTag(claim, {
+      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+      code: 'adjudicated',
+    }),
+  ]);
 }
