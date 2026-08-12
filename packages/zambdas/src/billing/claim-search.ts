@@ -70,9 +70,11 @@ export type ClaimFilterInput = Pick<
 export async function buildClaimFilterParams({
   oystehr,
   params,
+  sort = '-_lastUpdated',
 }: {
   oystehr: Oystehr;
   params: ClaimFilterInput;
+  sort?: string;
 }): Promise<ClaimSearchParam[] | null> {
   let insurerFilter: string | undefined;
   if (params.payerId) {
@@ -90,7 +92,7 @@ export async function buildClaimFilterParams({
   const filterParams: ClaimSearchParam[] = [
     {
       name: '_sort',
-      value: '-_lastUpdated',
+      value: sort,
     },
   ];
 

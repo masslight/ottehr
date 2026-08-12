@@ -62,7 +62,12 @@ const bundleOf = (resources: Resource[], total = resources.length): any => ({
   resourceType: 'Bundle',
   type: 'searchset',
   total,
-  entry: resources.map((resource) => ({ resource })),
+  entry: resources.map((resource) => ({
+    resource,
+    search: {
+      mode: resource.resourceType === 'Claim' ? 'match' : 'include',
+    },
+  })),
   unbundle: () => resources,
 });
 
@@ -154,7 +159,15 @@ const stubSearches = ({
     const named = (name: string): string | undefined => params?.find((param: any) => param.name === name)?.value;
     if (resourceType !== 'Claim') return bundleOf([]);
     if (named('_elements')) return bundleOf(searchTextMatches, searchTextTotal ?? searchTextMatches.length);
-    if (named('_id')) return bundleOf(hydrated);
+    if (named('_id')) {
+      if (hydrated.length > 0) return bundleOf(hydrated);
+      return bundleOf([
+        ...named('_id')!
+          .split(',')
+          .map((id) => makeClaim(id)),
+        patient,
+      ]);
+    }
     return pages.length > 0 ? bundleOf(pages.shift()!, claimTotal) : bundleOf([], 0);
   });
 };
@@ -176,12 +189,13 @@ const outputValue = (code: string): string | undefined =>
 
 describe('sub-export-billing-claims-csv', () => {
   let exportPageSize: number;
+  let exportMatchLimit: number;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     mockOystehrClient.z3.uploadFile.mockResolvedValue(undefined);
     mockOystehrClient.fhir.patch.mockResolvedValue({});
-    ({ EXPORT_PAGE_SIZE: exportPageSize } = await import(
+    ({ EXPORT_PAGE_SIZE: exportPageSize, EXPORT_MATCH_LIMIT: exportMatchLimit } = await import(
       '../../../src/subscriptions/task/sub-export-billing-claims-csv/index'
     ));
   });
@@ -240,6 +254,67 @@ describe('sub-export-billing-claims-csv', () => {
       name: '_offset',
       value: String(exportPageSize),
     });
+  });
+
+  // A recency sort would reshuffle the pages every time a claim is edited mid-export.
+  it('pages by a sort that cannot shift while the export runs', async () => {
+    stubSearches({ claimPages: [[makeClaim('claim-1'), patient]] });
+
+    await runExport(makeTask({}));
+
+    expect(claimSearches()[0].params).toContainEqual({
+      name: '_sort',
+      value: '_id',
+    });
+  });
+
+  // A clause that overflows the match limit should give up the same claims the list would.
+  it('leaves search text clauses on the order the claims list uses', async () => {
+    stubSearches({ searchTextMatches: [makeClaim('claim-1')] });
+
+    await runExport(makeTask({ searchText: 'Smith' }));
+
+    expect(claimSearches()[0].params).toContainEqual({
+      name: '_sort',
+      value: '-_lastUpdated',
+    });
+  });
+
+  it('writes a claim once even if it comes back on two pages', async () => {
+    stubSearches({
+      claimPages: [
+        [makeClaim('claim-1'), makeClaim('claim-2'), patient],
+        [makeClaim('claim-2'), makeClaim('claim-3'), patient],
+      ],
+    });
+
+    await runExport(makeTask({}));
+
+    const rows = await csvRows();
+    expect(rows).toHaveLength(4);
+    expect(rows.filter((row) => row.includes('claim-2'))).toHaveLength(1);
+  });
+
+  // Paging on past the limit would run the lambda out of time and leave the Task stuck in-progress.
+  it('stops at the row limit and flags the CSV as partial', async () => {
+    const overLimit = Array.from({ length: exportMatchLimit + 1 }, (_, index) => makeClaim(`claim-${index}`));
+    stubSearches({ claimPages: [[...overLimit, patient]] });
+
+    await runExport(makeTask({}));
+
+    expect(await csvRows()).toHaveLength(exportMatchLimit + 1);
+    expect(outputValue(EXPORT_CLAIMS_INCOMPLETE_CODE)).toBe('true');
+  });
+
+  it('stops a search-text export at the row limit too', async () => {
+    stubSearches({
+      searchTextMatches: Array.from({ length: exportMatchLimit + 1 }, (_, index) => makeClaim(`claim-${index}`)),
+    });
+
+    await runExport(makeTask({ searchText: 'Smith' }));
+
+    expect(await csvRows()).toHaveLength(exportMatchLimit + 1);
+    expect(outputValue(EXPORT_CLAIMS_INCOMPLETE_CODE)).toBe('true');
   });
 
   it('uploads the CSV to the billing export bucket and records where it went', async () => {

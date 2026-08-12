@@ -25,6 +25,7 @@ import { wrapTaskHandler } from '../helpers';
 import { ExportBillingClaimsCsvParams, validateRequestParameters } from './validateRequestParameters';
 
 export const EXPORT_PAGE_SIZE = 100;
+export const EXPORT_MATCH_LIMIT = 10_000;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'sub-export-billing-claims-csv';
@@ -95,6 +96,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
   const filterParams = await buildClaimFilterParams({
     oystehr,
     params: filters,
+    // Only the offset-paged branch below needs a sort an edit can't shift mid-export. The search
+    // text clauses truncate at a match limit, so they keep the list's order to take the newest.
+    sort: filters.searchText ? undefined : '_id',
   });
   if (!filterParams) {
     return {
@@ -105,15 +109,26 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
 
   const filteringByServiceDate = Boolean(filters.serviceDateFrom || filters.serviceDateTo);
   const rows: string[][] = [];
+  const exported = new Set<string>();
 
   const addPage = async (claims: Claim[], includedResources: Resource[]): Promise<void> => {
-    if (claims.length === 0) return;
+    const fresh = claims.filter((claim): claim is Claim & { id: string } => !!claim.id && !exported.has(claim.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((claim) => exported.add(claim.id));
     const items = await enrichAndMapClaims({
       oystehr,
-      claims,
+      claims: fresh,
       includedResources,
     });
     rows.push(...items.map(claimExportRow));
+  };
+
+  const truncated = (): ClaimExportRows => {
+    console.warn(`Export hit the ${EXPORT_MATCH_LIMIT} row limit, so the CSV is partial`);
+    return {
+      rows: rows.slice(0, EXPORT_MATCH_LIMIT),
+      incomplete: true,
+    };
   };
 
   if (filters.searchText) {
@@ -129,14 +144,17 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
         )
       : matched.claims;
     const claimIds = matching.map((claim) => claim.id).filter(Boolean) as string[];
+    const withinLimit = claimIds.slice(0, EXPORT_MATCH_LIMIT);
 
-    for (let start = 0; start < claimIds.length; start += EXPORT_PAGE_SIZE) {
+    for (let start = 0; start < withinLimit.length; start += EXPORT_PAGE_SIZE) {
       const page = await fetchClaimsPageByIds({
         oystehr,
-        claimIds: claimIds.slice(start, start + EXPORT_PAGE_SIZE),
+        claimIds: withinLimit.slice(start, start + EXPORT_PAGE_SIZE),
       });
       await addPage(page.claims, page.includedResources);
     }
+
+    if (withinLimit.length < claimIds.length) return truncated();
 
     return {
       rows,
@@ -168,8 +186,12 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     });
     total = bundle.total ?? 0;
 
-    const includedResources = (bundle.entry ?? []).map((entry) => entry.resource).filter(Boolean) as Resource[];
-    const claims = includedResources.filter((resource): resource is Claim => resource.resourceType === 'Claim');
+    const entries = bundle.entry ?? [];
+    const includedResources = entries.map((entry) => entry.resource).filter(Boolean) as Resource[];
+    const claims = entries
+      .filter((entry) => entry.search?.mode !== 'include')
+      .map((entry) => entry.resource)
+      .filter((resource): resource is Claim => resource?.resourceType === 'Claim');
     if (claims.length === 0) break;
 
     await addPage(
@@ -179,6 +201,8 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
       includedResources
     );
     offset += claims.length;
+
+    if (rows.length >= EXPORT_MATCH_LIMIT) return truncated();
   } while (offset < total);
 
   return {
