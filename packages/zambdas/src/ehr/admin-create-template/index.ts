@@ -522,13 +522,6 @@ const performEffect = async (
   console.log('Creating template with', listToCreate.contained!.length, 'contained resources');
   const listToCreateFullUrl = `urn:uuid:${uuidV4()}`;
 
-  // The holder PATCH carries If-Match, so racing template creates/deletes surface as a version
-  // conflict (412) instead of silently overwriting each other's holder entries. The transaction
-  // is atomic — a conflicted attempt leaves nothing behind — so re-read the holder and retry.
-  // Retries re-read by id: findHolderList goes through search, which can keep serving the same
-  // stale holder version under write load, while a direct read always returns the current one.
-  // (patchWithOptimisticLock can't be used here: the guarded PATCH must land in the same
-  // transaction as the template POST so a failure can never orphan the new template.)
   let holderId: string | undefined;
 
   const createdList = await withVersionConflictRetries(

@@ -53,17 +53,6 @@ const performEffect = async (
   verifyIsTemplate(templateList, templateId);
 
   // Remove the template reference from the holder list.
-  //
-  // The holder is shared, mutable state: admin-create-template links new templates into it
-  // (PATCH + If-Match) while deletes unlink theirs, and both can run concurrently. This used
-  // to read the holder through search and PUT the whole filtered resource back with no version
-  // guard, so a stale read could silently erase an entry another process had just added — after
-  // which apply-template could no longer discover that template by name. Two guards close that:
-  //   1. re-read the holder by id: findHolderList goes through search, which can serve a stale
-  //      version under write load, and computing the removal from a stale entry array could
-  //      skip the removal entirely (leaving a dangling reference to the deleted template);
-  //   2. patchWithOptimisticLock: removes by index with If-Match, re-fetching and recomputing
-  //      on a version conflict — so a concurrent holder write means retry, not clobber.
   const holderList = await findHolderList(oystehr);
 
   if (holderList?.id) {
