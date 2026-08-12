@@ -105,6 +105,11 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
   }
 }
 
+export const isM2MClient = (token: string): boolean => {
+  const decoded = decodeJwt(token);
+  return decoded.sub?.endsWith('@clients') || false;
+};
+
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {
   const decoded = decodeJwt(token);
 
