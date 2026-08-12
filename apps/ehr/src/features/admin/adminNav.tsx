@@ -1,4 +1,5 @@
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
@@ -51,6 +52,7 @@ import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 
 /** Context derived from the URL that the deeper-nested admin pages still rely on. */
@@ -288,6 +290,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/questionnaires',
         icon: <ListAltIcon />,
         render: () => <QuestionnaireAdminPage />,
+      },
+      {
+        label: 'Paperwork Flows',
+        path: '/admin/paperwork-flows',
+        icon: <AccountTreeOutlinedIcon />,
+        render: () => <PaperworkFlowsAdminPage />,
       },
     ],
   },

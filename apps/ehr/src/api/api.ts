@@ -327,6 +327,12 @@ import {
 } from 'utils/lib/types/data/orders/types';
 import { PaperworkToPDFInput } from 'utils/lib/types/data/paperwork.types';
 import {
+  PaperworkFlowCreateInput,
+  PaperworkFlowDeleteInput,
+  PaperworkFlowListOutput,
+  PaperworkFlowUpdateInput,
+} from 'utils/lib/types/data/paperwork-flows';
+import {
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
 } from 'utils/lib/types/data/payment/payment-method-types';
@@ -487,6 +493,10 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
+const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
+const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
+const PAPERWORK_FLOW_DELETE_ZAMBDA_ID = 'paperwork-flow-delete';
 const SEND_PATIENT_FORM = 'send-patient-form';
 const FILE_INBOUND_FAX_ZAMBDA_ID = 'file-inbound-fax';
 const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
@@ -3434,6 +3444,46 @@ export const practiceManagedQuestionnaireCreate = async (
       id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export async function listPaperworkFlows(oystehr: Oystehr): Promise<PaperworkFlowListOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_LIST_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export const createPaperworkFlow = async (oystehr: Oystehr, parameters: PaperworkFlowCreateInput): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_CREATE_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updatePaperworkFlow = async (oystehr: Oystehr, parameters: PaperworkFlowUpdateInput): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_UPDATE_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deletePaperworkFlow = async (oystehr: Oystehr, parameters: PaperworkFlowDeleteInput): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_DELETE_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

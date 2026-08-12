@@ -25,7 +25,8 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
   let conditionWasAdded = false;
 
   test.beforeAll(async ({ browser }) => {
-    await resourceHandler.setResources();
+    // Allergies and medical-conditions tabs only; no paperwork answer is read.
+    await resourceHandler.setResources({ skipPaperwork: true });
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     context = await browser.newContext();

@@ -86,6 +86,11 @@ const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
 test.describe('Insurance Information Section non-mutating tests', () => {
+  // Serial so the shared appointment is created once. Without it, fullyParallel spreads these tests
+  // across workers and beforeAll — an appointment creation plus the harvest wait — runs once per
+  // worker. These tests only read, so serializing them costs far less than the extra setups.
+  test.describe.configure({ mode: 'serial' });
+
   let resourceHandler: ResourceHandler;
   let primaryInsuranceCarrier: string;
   let secondaryInsuranceCarrier: string;
@@ -254,26 +259,11 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].city.key);
     await secondaryInsuranceCard.verifyValidationErrorShown(insuranceSection.items[1].zip.key);
   });
-});
 
-test.describe('Insurance Information Section mutating tests', () => {
-  let resourceHandler: ResourceHandler;
-
-  test.beforeAll(async () => {
-    const [createdResourceHandler, _createdPrimaryInsuranceCarrier, _createdSecondaryInsuranceCarrier] =
-      await createResourceHandler();
-    resourceHandler = createdResourceHandler;
-  });
-
-  test.beforeEach(async () => {
-    await resourceHandler.setResources();
-    await waitForAppointmentReady(resourceHandler);
-  });
-
-  test.afterEach(async () => {
-    await resourceHandler.cleanupResources();
-  });
-
+  // Kept with the read-only tests: every save here is rejected by field validation, so nothing is
+  // persisted and the shared appointment survives it — the same reasoning as the required-field
+  // test above. Declared last so that even if a save ever did get through, it cannot affect the
+  // tests that read the seeded values.
   test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
@@ -294,6 +284,26 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].zip.key, '11223344');
     await patientInformationPage.clickSaveChangesButton();
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+  });
+});
+
+test.describe('Insurance Information Section mutating tests', () => {
+  let resourceHandler: ResourceHandler;
+
+  test.beforeAll(async () => {
+    // No appointment here — beforeEach creates a fresh one for every test in this describe, so one
+    // made here would be immediately replaced and paid for once per worker.
+    const [createdResourceHandler] = await buildResourceHandler();
+    resourceHandler = createdResourceHandler;
+  });
+
+  test.beforeEach(async () => {
+    await resourceHandler.setResources();
+    await waitForAppointmentReady(resourceHandler);
+  });
+
+  test.afterEach(async () => {
+    await resourceHandler.cleanupResources();
   });
 
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
@@ -589,28 +599,40 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
   });
 
-  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
+  // Both removals in one test, on one appointment. They were two tests, and each paid its own
+  // ~14.4s beforeEach appointment to assert one line about the same screen. Merging is safe rather
+  // than merely cheaper because the app derives the pre-filled type from a single predicate:
+  //   const newInsuranceOrdinal = coverages.some((c) => c.startingPriority === 1) ? 2 : 1;
+  // Only the presence of a primary matters, not how many coverages remain, so removing primary last
+  // (leaving none) exercises the same branch the old test reached by removing it first (leaving the
+  // secondary). No case is lost.
+  test('[Add insurance] is hidden while both insurances are present, and the new insurance Type is pre-filled with whichever priority is missing', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyAddInsuranceButtonIsHidden();
-    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
-    await inlineInsuranceCard.verifyInsuranceType('Primary');
-  });
 
-  test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
-    page,
-  }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    // Nothing to add while both priorities are filled.
+    await patientInformationPage.verifyAddInsuranceButtonIsHidden();
+
+    // Remove the secondary while the primary stays: the gap is Secondary.
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
-    await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
-    await inlineInsuranceCard.verifyInsuranceType('Secondary');
+    await patientInformationPage.verifySavedInsuranceCount(1);
+    const secondaryGapCard = await patientInformationPage.clickAddInsuranceButton();
+    await secondaryGapCard.verifyInsuranceType('Secondary');
+    await patientInformationPage.clickCancelAddInsuranceButton();
+    await patientInformationPage.verifySavedInsuranceCount(1);
+
+    // Now remove the primary as well: with no primary on the account the gap is Primary. Both
+    // removals are confirmed by the saved count rather than the toast, which the first attempt at
+    // this test relied on -- the first toast was still on screen, so it reported success while the
+    // primary was in fact still there, and the run failed further down with a pre-filled 'Secondary'.
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifySavedInsuranceCount(0);
+    const primaryGapCard = await patientInformationPage.clickAddInsuranceButton();
+    await primaryGapCard.verifyInsuranceType('Primary');
   });
 });
 
@@ -627,10 +649,18 @@ function waitForAppointmentReady(resourceHandler: ResourceHandler): Promise<unkn
     resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
     resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
     resourceHandler.waitTillCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
+    // The Coverages existing is not enough: the insurance cards read the billing Account's coverage
+    // array, which harvest populates separately. Waiting only on the Coverages let the page load with
+    // the secondary card missing, and since it only fetches on mount the card never arrived — the
+    // "#insurance-carrier-2 element(s) not found" flake.
+    resourceHandler.waitTillAccountCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
   ]);
 }
 
-async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
+// Builds the handler and resolves the payer names its paperwork answers use. Deliberately does not
+// create an appointment: a describe whose every test creates its own in beforeEach would otherwise
+// pay for an extra unused one in beforeAll — once per worker that picks up any of its tests.
+async function buildResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
   const PROCESS_ID = `patientRecordInsuranceSection-${DateTime.now().toMillis()}`;
@@ -726,7 +756,13 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   const insuranceCarrier2ForResult = `${ic2?.name} (historical)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
-  await resourceHandler.setResources();
-  await waitForAppointmentReady(resourceHandler);
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
+}
+
+// For the describes that share one appointment across their tests.
+async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
+  const built = await buildResourceHandler();
+  await built[0].setResources();
+  await waitForAppointmentReady(built[0]);
+  return built;
 }

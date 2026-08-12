@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { List } from 'fhir/r4b';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { AdminDeleteTemplateInput } from 'utils/lib/types/data/admin-template.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -50,15 +52,15 @@ const performEffect = async (
 
   verifyIsTemplate(templateList, templateId);
 
-  // Remove the template reference from the holder list
+  // Remove the template reference from the holder list.
   const holderList = await findHolderList(oystehr);
 
-  if (holderList) {
-    const updatedEntries = (holderList.entry ?? []).filter((entry) => entry.item.reference !== `List/${templateId}`);
-    await oystehr.fhir.update<List>({
-      ...holderList,
-      entry: updatedEntries,
-    });
+  if (holderList?.id) {
+    const holderId = holderList.id;
+    const currentHolder = await oystehr.fhir.get<List>({ resourceType: 'List', id: holderId });
+    await patchWithOptimisticLock(oystehr, { ...currentHolder, id: holderId }, (holder) =>
+      makeRemoveTemplateFromHolderOps(holder, templateId)
+    );
     console.log('Removed template from holder list');
   }
 
@@ -70,4 +72,18 @@ const performEffect = async (
   return {
     message: `Template "${templateList.title}" deleted successfully`,
   };
+};
+
+// JSON Patch removes by array index, so the ops must be computed against the exact holder
+// version the If-Match header pins (patchWithOptimisticLock recomputes them on retry).
+// Indices are emitted in descending order so each remove leaves the earlier ones valid.
+export const makeRemoveTemplateFromHolderOps = (holderList: List, templateId: string): Operation[] => {
+  const entries = holderList.entry ?? [];
+  const ops: Operation[] = [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (entries[i].item.reference === `List/${templateId}`) {
+      ops.push({ op: 'remove', path: `/entry/${i}` });
+    }
+  }
+  return ops;
 };
