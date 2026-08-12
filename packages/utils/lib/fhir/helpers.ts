@@ -1644,6 +1644,18 @@ export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
 const OPTIMISTIC_LOCK_MAX_RETRIES = 3;
 
 /**
+ * True when an error thrown by the Oystehr SDK represents an optimistic-locking version
+ * conflict (HTTP 412 Precondition Failed from an If-Match header), meaning the resource
+ * changed between read and write and the operation can be safely re-read and retried.
+ */
+export function isVersionConflictError(error: unknown): boolean {
+  const err = error as { code?: unknown; statusCode?: unknown; message?: unknown } | null | undefined;
+  return (
+    err?.code === 412 || err?.statusCode === 412 || (typeof err?.message === 'string' && err.message.includes('412'))
+  );
+}
+
+/**
  * Patches a FHIR resource with optimistic locking (E-tag).
  *
  * Uses the resource's versionId as an If-Match header so the FHIR server
@@ -1671,8 +1683,7 @@ export async function patchWithOptimisticLock<T extends FhirResource & { id: str
       );
       return;
     } catch (error: any) {
-      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
-      if (!is412 || attempt === OPTIMISTIC_LOCK_MAX_RETRIES - 1) {
+      if (!isVersionConflictError(error) || attempt === OPTIMISTIC_LOCK_MAX_RETRIES - 1) {
         throw error;
       }
       console.log(

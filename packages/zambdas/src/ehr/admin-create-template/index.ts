@@ -16,6 +16,7 @@ import {
 import { DateTime } from 'luxon';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import {
+  isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
   resourceHasTagSystem,
   transactionWasSuccessful,
@@ -520,38 +521,70 @@ const performEffect = async (
   // Add the new template to the global templates holder list so it's discoverable and create the template itself. No orphaned templates
   console.log('Creating template with', listToCreate.contained!.length, 'contained resources');
   const listToCreateFullUrl = `urn:uuid:${uuidV4()}`;
-  const holderList = await findHolderList(oystehr);
-  if (!holderList) throw new Error('No global templates holder list found — cannot link template');
 
-  const transactionResponse = await oystehr.fhir.transaction<List>({
-    requests: [
-      {
-        method: 'POST',
-        url: '/List',
-        resource: listToCreate,
-        fullUrl: listToCreateFullUrl,
-      },
-      {
-        method: 'PATCH',
-        url: `List/${holderList.id}`,
-        operations: [
+  // The holder PATCH carries If-Match, so racing template creates/deletes surface as a version
+  // conflict (412) instead of silently overwriting each other's holder entries. The transaction
+  // is atomic — a conflicted attempt leaves nothing behind — so re-read the holder and retry.
+  // Retries re-read by id: findHolderList goes through search, which can keep serving the same
+  // stale holder version under write load, while a direct read always returns the current one.
+  const MAX_HOLDER_LINK_ATTEMPTS = 3;
+  let createdList: List | undefined;
+  let holderId: string | undefined;
+
+  for (let attempt = 1; attempt <= MAX_HOLDER_LINK_ATTEMPTS; attempt++) {
+    const holderList = holderId
+      ? await oystehr.fhir.get<List>({ resourceType: 'List', id: holderId })
+      : await findHolderList(oystehr);
+    if (!holderList?.id) throw new Error('No global templates holder list found — cannot link template');
+    holderId = holderList.id;
+
+    try {
+      const transactionResponse = await oystehr.fhir.transaction<List>({
+        requests: [
           {
-            op: 'add',
-            path: holderList.entry ? '/entry/-' : '/entry',
-            value: { item: { reference: listToCreateFullUrl } },
+            method: 'POST',
+            url: '/List',
+            resource: listToCreate,
+            fullUrl: listToCreateFullUrl,
+          },
+          {
+            method: 'PATCH',
+            url: `List/${holderList.id}`,
+            operations: [
+              {
+                op: 'add',
+                path: holderList.entry ? '/entry/-' : '/entry',
+                value: { item: { reference: listToCreateFullUrl } },
+              },
+            ],
+            ifMatch: makeOptimisticLockIfMatchHeader(holderList),
           },
         ],
-        ifMatch: makeOptimisticLockIfMatchHeader(holderList),
-      },
-    ],
-  });
+      });
 
-  if (!transactionWasSuccessful(transactionResponse)) {
-    console.error(`This was failed transactionResponse: `, JSON.stringify(transactionResponse));
-    throw new Error('Unable to create template or add it to template holder');
+      if (!transactionWasSuccessful(transactionResponse)) {
+        // Some failure surfaces put the per-entry status in the bundle instead of throwing;
+        // classify an embedded 412 as a retryable conflict like a thrown one.
+        if (transactionResponse.entry?.some((entry) => entry.response?.status?.startsWith('412'))) {
+          throw new Error('Holder list version conflict (412) while linking template');
+        }
+        console.error(`This was failed transactionResponse: `, JSON.stringify(transactionResponse));
+        throw new Error('Unable to create template or add it to template holder');
+      }
+
+      createdList = transactionResponse.unbundle().find((list) => list.id !== holderList.id);
+      break;
+    } catch (error) {
+      if (attempt === MAX_HOLDER_LINK_ATTEMPTS || !isVersionConflictError(error)) throw error;
+      console.log(
+        `Holder list version conflict while linking template (attempt ${attempt}/${MAX_HOLDER_LINK_ATTEMPTS}), re-reading and retrying`
+      );
+    }
   }
 
-  const createdList = transactionResponse.unbundle().find((list) => list.id !== holderList.id)!;
+  if (!createdList) {
+    throw new Error('Unable to create template or add it to template holder');
+  }
 
   console.log('Created template:', createdList.id, createdList.title);
   console.log('Added template to holder list');
