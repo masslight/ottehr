@@ -117,13 +117,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: node ./scripts/print-test-run-summary.mjs
 
-      # Coverage is collected and reported only for utils and zambdas (unit
-      # coverage here, integration coverage in the integration-tests job) —
-      # the packages where we're actively driving coverage up. Coveralls
-      # posts one PR status check per uploaded flag (plus the aggregate)
-      # with no way to suppress individual ones, so limiting the uploads is
-      # what keeps PR checks focused. The other packages still run their
-      # tests in CI; their :ci scripts just don't pass --coverage.
       - name: Upload utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/utils/coverage/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
