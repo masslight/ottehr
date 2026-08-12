@@ -20,7 +20,7 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
-import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
+import { createTask, TaskInput } from '../../../shared/tasks';
 import { fetchRelatedResources, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -65,7 +65,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
-  const { tasks, patient, labOrg, encounter, attachments } = await fetchRelatedResources(diagnosticReport, oystehr);
+  const { tasks, patient, labOrg, encounter, attachments, location } = await fetchRelatedResources(
+    diagnosticReport,
+    { drType: specificDrTypeFromTag, isUnsolicited, isUnsolicitedAndMatched },
+    oystehr
+  );
 
   const requests: BatchInputRequest<Task>[] = [];
 
@@ -194,12 +198,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         system: LAB_ORDER_TASK.system,
         code,
       },
-      encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
+      encounterId: encounter?.id ?? '', // only unsolicited results might not have an encounter (if not matched to an existing order)
       basedOn: [
         `DiagnosticReport/${diagnosticReport.id}`,
         ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
       ],
-      location: preSubmissionTask ? getTaskLocation(preSubmissionTask) : undefined,
+      location: location && location.id ? { id: location.id, name: location.name } : undefined,
       input: taskInput,
     },
     showTaskOnBoard
