@@ -397,9 +397,35 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/payment-reconciliation/sub-tag-era-resources/index",
       "zip": ".dist/zips/sub-tag-era-resources.zip"
+    },
+    "SUB-EXPORT-BILLING-CLAIMS-CSV": {
+      "name": "sub-export-billing-claims-csv",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-export-billing-claims-csv/index",
+      "zip": ".dist/zips/sub-export-billing-claims-csv.zip"
     }
   },
   "fhirResources": {
+    "SUB_EXPORT_BILLING_CLAIMS_CSV_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Export every claim matching a claims list search as CSV",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|export-billing-claims-csv&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-BILLING-CLAIMS-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "SUB_PRESUBMISSION_RULES_ENGINE_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",

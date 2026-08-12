@@ -383,16 +383,18 @@ export async function fetchClaimsPageByIds({
 export async function enrichAndMapClaims({
   oystehr,
   claims,
-  patients,
-  locations,
-  providers,
+  includedResources,
 }: {
   oystehr: Oystehr;
   claims: Claim[];
-  patients: Patient[];
-  locations: Location[];
-  providers: (Practitioner | Organization)[];
+  includedResources: Resource[];
 }): Promise<BillingClaimItem[]> {
+  const patients = includedResources.filter((r): r is Patient => r.resourceType === 'Patient');
+  const locations = includedResources.filter((r): r is Location => r.resourceType === 'Location');
+  const providers = includedResources.filter(
+    (r): r is Practitioner | Organization => r.resourceType === 'Practitioner' || r.resourceType === 'Organization'
+  );
+
   const coverageIds = claims
     .map((c) => sortClaimInsurance(c)[0]?.coverage?.reference?.replace('Coverage/', ''))
     .filter(Boolean) as string[];

@@ -255,6 +255,14 @@ export function formatClaimStatusValue(field: ClaimStatusFieldDef, code: string 
   return field.options.find((o) => o.code === code)?.label ?? code;
 }
 
+export function formatAntCaseString(value?: string): string {
+  if (!value) return '';
+  return value
+    .split('-')
+    .map((substr) => substr.charAt(0).toUpperCase() + substr.slice(1))
+    .join(' ');
+}
+
 // Whether `code` is a valid selection for the field. Empty/null (clear back to default) is allowed.
 export function isValidClaimStatusValue(field: ClaimStatusFieldDef, code: string | null | undefined): boolean {
   if (code == null || code === '') return true;

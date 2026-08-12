@@ -615,6 +615,7 @@ export const BUCKET_NAMES = {
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
+  BILLING_CLAIM_EXPORTS: 'billing-claim-exports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
   FAXES: 'faxes',

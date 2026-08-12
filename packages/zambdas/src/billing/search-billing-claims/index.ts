@@ -107,18 +107,10 @@ async function performEffect(
     pageClaims = includedResources.filter((r) => r.resourceType === 'Claim') as Claim[];
   }
 
-  const patients = includedResources.filter((r) => r.resourceType === 'Patient') as Patient[];
-  const locations = includedResources.filter((r) => r.resourceType === 'Location') as Location[];
-  const providers = includedResources.filter(
-    (r): r is Practitioner | Organization => r.resourceType === 'Practitioner' || r.resourceType === 'Organization'
-  );
-
   const items = await enrichAndMapClaims({
     oystehr,
     claims: pageClaims,
-    patients,
-    locations,
-    providers,
+    includedResources,
   });
 
   return {
