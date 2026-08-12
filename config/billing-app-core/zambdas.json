@@ -405,6 +405,16 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-export-billing-claims-csv/index",
       "zip": ".dist/zips/sub-export-billing-claims-csv.zip"
+    },
+    "CLEANUP-BILLING-CLAIM-EXPORTS": {
+      "name": "cleanup-billing-claim-exports",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/cleanup-billing-claim-exports/index",
+      "zip": ".dist/zips/cleanup-billing-claim-exports.zip",
+      "schedule": {
+        "expression": "cron(*/30 * * * ? *)"
+      }
     }
   },
   "fhirResources": {
