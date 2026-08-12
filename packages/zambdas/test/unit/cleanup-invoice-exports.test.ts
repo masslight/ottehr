@@ -13,6 +13,7 @@ const mockOystehrClient = {
   fhir: {
     search: vi.fn(),
     delete: vi.fn(),
+    patch: vi.fn(),
   },
   z3: {
     deleteObject: vi.fn(),
@@ -63,6 +64,7 @@ describe('cleanup-invoice-exports', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    mockOystehrClient.fhir.patch.mockResolvedValue({});
     ({ index: handler } = (await import('../../src/cron/cleanup-invoice-exports/index')) as {
       index: ZambdaHandler;
     });

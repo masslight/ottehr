@@ -20,6 +20,7 @@ function makeInput(): ZambdaInput {
 const mockOystehrClient = {
   fhir: {
     search: vi.fn(),
+    patch: vi.fn(),
   },
   z3: {
     deleteObject: vi.fn(),
@@ -81,6 +82,24 @@ const stubTasks = (tasks: Task[]): void => {
   });
 };
 
+const stubTaskPages = (pages: Task[][]): void => {
+  const total = pages.flat().length;
+  const queue = [...pages];
+  mockOystehrClient.fhir.search.mockImplementation(async () => {
+    const page = queue.shift() ?? [];
+    return {
+      total,
+      entry: page.map((task) => ({
+        resource: task,
+        search: {
+          mode: 'match',
+        },
+      })),
+      unbundle: () => page,
+    };
+  });
+};
+
 const searchParams = (): { name: string; value: string }[] => mockOystehrClient.fhir.search.mock.calls[0][0].params;
 
 const paramValue = (name: string): string | undefined => searchParams().find((param) => param.name === name)?.value;
@@ -90,6 +109,7 @@ describe('cleanup-billing-claim-exports', () => {
     vi.clearAllMocks();
     vi.resetModules();
     mockOystehrClient.z3.deleteObject.mockResolvedValue(undefined);
+    mockOystehrClient.fhir.patch.mockResolvedValue({});
     ({ index: handler } = (await import('../../../src/cron/cleanup-billing-claim-exports/index')) as {
       index: ZambdaHandler;
     });
@@ -102,7 +122,6 @@ describe('cleanup-billing-claim-exports', () => {
 
     expect(paramValue('code')).toBe(`${EXPORT_TASK_SYSTEM}|${EXPORT_CLAIMS_CSV_TASK_CODE}`);
     expect(paramValue('status')).toBe('completed,failed');
-    expect(paramValue('_lastUpdated')).toMatch(/^gt/);
   });
 
   it('deletes the CSV of an export that has had time to be downloaded', async () => {
@@ -115,6 +134,35 @@ describe('cleanup-billing-claim-exports', () => {
       'objectPath+': 'billing-claims-export-task-1.csv',
     });
     expect(JSON.parse(result.body).deletedFiles).toBe(1);
+  });
+
+  it('drops the download url from the task it cleaned', async () => {
+    stubTasks([finishedTask('task-1', minutesAgo(30), 'billing-claims-export-task-1.csv')]);
+
+    await handler(makeInput());
+
+    expect(mockOystehrClient.fhir.patch).toHaveBeenCalledWith({
+      resourceType: 'Task',
+      id: 'task-1',
+      operations: [
+        {
+          op: 'remove',
+          path: '/output/0',
+        },
+      ],
+    });
+  });
+
+  it('reaches exports past the first page of results', async () => {
+    stubTaskPages([
+      [finishedTask('task-1', minutesAgo(30), 'billing-claims-export-task-1.csv')],
+      [finishedTask('task-2', minutesAgo(30), 'billing-claims-export-task-2.csv')],
+    ]);
+
+    const result = await handler(makeInput());
+
+    expect(mockOystehrClient.z3.deleteObject).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(result.body).deletedFiles).toBe(2);
   });
 
   it('leaves a just-finished export alone', async () => {
@@ -145,5 +193,7 @@ describe('cleanup-billing-claim-exports', () => {
 
     expect(mockOystehrClient.z3.deleteObject).toHaveBeenCalledTimes(2);
     expect(JSON.parse(result.body).deletedFiles).toBe(1);
+    expect(mockOystehrClient.fhir.patch).toHaveBeenCalledTimes(1);
+    expect(mockOystehrClient.fhir.patch.mock.calls[0][0].id).toBe('task-2');
   });
 });
