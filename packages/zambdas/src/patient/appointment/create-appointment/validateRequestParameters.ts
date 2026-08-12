@@ -442,9 +442,11 @@ export const createAppointmentComplexValidation = async (
   // Check if the Slot has a questionnaire canonical extension
   // This allows slots to specify which questionnaire should be used for appointments booked on them
   let questionnaireCanonical: CanonicalUrl;
+
   const slotQuestionnaireExtension = slot.extension?.find(
     (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
   );
+
   if (slotQuestionnaireExtension?.valueString) {
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);

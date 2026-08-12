@@ -63,6 +63,7 @@ export enum APIErrorCode {
   RADIOLOGY_GENERAL = 4406,
   MANAGED_QUESTIONNAIRE_GENERAL = 4407,
   INSURANCE_CARD_IMAGE_GENERAL = 4408,
+  PAPERWORK_FLOW_GENERAL = 4409,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -548,5 +549,12 @@ export const INSURANCE_CARD_IMAGE_ERROR = (message: string): APIError => {
     code: APIErrorCode.INSURANCE_CARD_IMAGE_GENERAL,
     message,
     statusCode: 500,
+  };
+};
+
+export const PAPERWORK_FLOW_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.PAPERWORK_FLOW_GENERAL,
+    message,
   };
 };
