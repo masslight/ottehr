@@ -133,7 +133,6 @@ export function buildBillingSuggestionInput(params: {
   }
 
   return {
-    patientId: patient?.id,
     newPatient,
     patientAge,
     patientSex: patient?.gender,
@@ -152,6 +151,8 @@ export function buildBillingSuggestionInput(params: {
     procedures: proceduresParts.join('\n'),
     rosFindings: rosFindings || '',
     prescribedMedications: chartDataFields?.prescribedMedications,
+    // the provider-reconciled medication list, i.e. what the chart shows under Current medications
+    currentMedications: chartData?.medications,
   };
 }
 

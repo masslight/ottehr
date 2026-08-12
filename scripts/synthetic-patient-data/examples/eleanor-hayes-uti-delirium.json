@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Eleanor Hayes — 82yo UTI with delirium superimposed on dementia",
+
+  "patient": {
+    "firstName": "Eleanor",
+    "lastName": "Hayes",
+    "dateOfBirth": "1943-10-08",
+    "sex": "female",
+    "email": "susan.hayes@example.com",
+    "phoneNumber": "+19735550421",
+    "address": {
+      "line1": "100 Maple Drive",
+      "line2": "Apt 14",
+      "city": "Maplewood",
+      "state": "NJ",
+      "postalCode": "07040"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Other",
+      "firstName": "Susan",
+      "lastName": "Hayes",
+      "phone": "+19735550421",
+      "email": "susan.hayes@example.com",
+      "addressAsPatient": false,
+      "address": {
+        "line1": "27 Oakwood Lane",
+        "city": "South Orange",
+        "state": "NJ",
+        "postalCode": "07079"
+      }
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signatureName": "Susan Hayes (healthcare proxy)",
+      "signerRelationship": "Other"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Medicare",
+        "memberId": "5MC9XY8ZW21",
+        "planName": "Medicare Part B",
+        "subscriberRelationship": "self"
+      },
+      "secondary": {
+        "carrier": "Anthem",
+        "memberId": "ANT554433221",
+        "planName": "Anthem Medicare Supplement Plan F",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Other - increased confusion + decreased PO intake × 2 days, daughter concerned for UTI",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "provider"
+  },
+
+  "template": {
+    "name": "UTI",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99214", "display": "Office visit, established, moderate complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [
+      { "name": "Donepezil 10mg Oral Tablet", "status": "active", "dose": "10 mg", "frequency": "once nightly", "route": "PO" },
+      { "name": "Memantine 10mg Oral Tablet", "status": "active", "dose": "10 mg", "frequency": "twice daily", "route": "PO" },
+      { "name": "Amlodipine 5mg Oral Tablet", "status": "active", "dose": "5 mg", "frequency": "once daily", "route": "PO" },
+      { "name": "Levothyroxine 50mcg Oral Tablet", "status": "active", "dose": "50 mcg", "frequency": "once daily in the morning", "route": "PO" },
+      { "name": "Cholecalciferol (Vitamin D3) 1000 IU Oral Capsule", "status": "active", "dose": "1000 IU", "frequency": "once daily", "route": "PO" }
+    ],
+    "conditions": [
+      { "code": "G30.9", "display": "Alzheimer's disease, unspecified (moderate)", "current": true },
+      { "code": "I10", "display": "Essential hypertension", "current": true },
+      { "code": "E03.9", "display": "Hypothyroidism, unspecified", "current": true },
+      { "code": "M19.90", "display": "Osteoarthritis, unspecified", "current": true }
+    ],
+    "surgicalHistory": [
+      { "code": "27130", "display": "Total hip replacement, left (age 76)" }
+    ],
+    "hospitalizations": [
+      { "code": "68566005", "display": "UTI with delirium (hospitalized ~8 months ago)" }
+    ],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "82yo female from Maplewood Senior Living with 2-day increased confusion + decreased PO intake on background of moderate Alzheimer's. Chronic urinary incontinence, no falls, no fever at home. UA + reflex culture sent. BMP shows mild hyponatremia (Na 132), Cr 1.0 (baseline 0.9). Daughter Susan is healthcare proxy and on-site for consent." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.7, "unit": "C" },
+    "heartRate": { "value": 96 },
+    "bloodPressure": { "systolic": 118, "diastolic": 68 },
+    "respirationRate": { "value": 18 },
+    "oxygenSaturation": { "value": 97 },
+    "weight": { "value": 56, "unit": "kg" },
+    "height": { "value": 155, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseLabs": [
+      {
+        "testName": "Urinalysis",
+        "diagnoses": [
+          { "code": "N30.00", "display": "Acute cystitis without hematuria", "isPrimary": true }
+        ],
+        "results": [
+          { "analyte": "Leukocyte Esterase", "value": "positive", "flag": "abnormal" },
+          { "analyte": "Nitrites", "value": "positive", "flag": "abnormal" },
+          { "analyte": "WBC", "value": ">50/hpf", "flag": "abnormal" },
+          { "analyte": "Bacteria", "value": "moderate", "flag": "abnormal" }
+        ]
+      }
+    ],
+    "inHouseMedications": [
+      { "medicationName": "Sodium Chloride 0.9% IV Solution 500mL", "dose": "500", "units": "mL", "route": "IV", "administered": true, "effectiveDateTime": "2026-04-25T14:15:00Z" }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Medicare Part B + Anthem Medicare Supplement Plan F",
+    "coverageActive": true,
+    "deductible": { "individual": 240, "family": 0, "met": 240 },
+    "outOfPocketMax": { "individual": 0, "family": 0 },
+    "copays": { "officeVisit": 0, "urgentCare": 0, "specialist": 0, "emergencyRoom": 0 },
+    "coinsurancePercent": 0,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99214",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 145,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 145
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Medicare Part B",
+    "cptPrices": [
+      { "cpt": "99214", "chargedAmount": 220, "allowedAmount": 145 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [
+      { "text": "Susan called at 8 PM — Eleanor took first dose of cefdinir, more alert; will monitor and bring back if not improving in 48h.", "authorName": "Demo Admin" }
+    ],
+    "patientEducationDocs": [
+      { "topic": "UTI in elderly", "title": "UTI and Confusion in Older Adults" },
+      { "topic": "delirium", "title": "Delirium Superimposed on Dementia" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Cefdinir 300 mg PO BID × 7 days (NKDA, prior tolerance with cefdinir per chart). 500 mL NS bolus given for mild dehydration. Susan (daughter, healthcare proxy) instructed on hydration, mental-status monitoring, and signs of worsening. PCP follow-up within 48h. Strict return precautions: persistent confusion beyond 48h of antibiotics, fever >101°F, vomiting, flank pain, inability to take PO fluids.",
+    "followUpIn": 2
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

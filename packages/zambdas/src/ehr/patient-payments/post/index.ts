@@ -29,7 +29,11 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStripeClient, makeBusinessIdentifierForStripePayment } from '../../../shared/stripeIntegration';
+import {
+  getStripeClient,
+  makeBusinessIdentifierForStripePayment,
+  stripeEncounterMetadata,
+} from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
@@ -162,11 +166,10 @@ const performEffect = async (
       payment_method: paymentMethodId,
       description: description || `Payment for encounter ${encounterId}`,
       confirm: true,
-      metadata: {
-        oystehr_encounter_id: encounterId,
-        // added later. if it's undefined, add conditional check to get patient id from fhir
-        oystehr_patient_id: patientId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId,
+        patientId,
+      }),
       automatic_payment_methods: {
         enabled: true,
         allow_redirects: 'never',

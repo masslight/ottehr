@@ -17,8 +17,7 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { createBillingProvider } from '../api/api';
 import { emptyProviderForm, ProviderForm, ProviderRole, providerToCreateInput } from '../constants/provider';
 import { useApiClients } from '../hooks/useAppClients';
-import { AddressFields } from './AddressFields';
-import { ProviderFields } from './ProviderFields';
+import { ProviderAddressFields, ProviderFields } from './ProviderFields';
 
 interface AddProviderDialogProps {
   open: boolean;
@@ -95,7 +94,7 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
                 pl: 5,
               }}
             >
-              <AddressFields />
+              <ProviderAddressFields />
             </Box>
           </Box>
         </FormProvider>

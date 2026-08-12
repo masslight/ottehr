@@ -22,7 +22,7 @@ import { getAuth0Token } from '../../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { lambdaResponse } from '../../../../shared/lambda';
 import { wrapHandler } from '../../../../shared/sentry';
-import { getStripeClient } from '../../../../shared/stripeIntegration';
+import { getStripeClient, stripeEncounterMetadata } from '../../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harvest';
@@ -80,10 +80,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       setup_future_usage: 'off_session',
       description:
         validatedParameters.description ?? `Terminal payment for encounter ${validatedParameters.encounterId}`,
-      metadata: {
-        oystehr_patient_id: validatedParameters.patientId,
-        oystehr_encounter_id: validatedParameters.encounterId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId: validatedParameters.encounterId,
+        patientId: validatedParameters.patientId,
+      }),
     },
     {
       stripeAccount,

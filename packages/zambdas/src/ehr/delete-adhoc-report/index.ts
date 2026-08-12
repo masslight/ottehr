@@ -1,7 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DeleteAdHocReportOutput, DeleteAdHocReportOutputSchema } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { savedAdHocReportExists } from '../../shared/saved-adhoc-report';
 import { wrapHandler } from '../../shared/sentry';
@@ -15,6 +16,8 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { reportId, secrets } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

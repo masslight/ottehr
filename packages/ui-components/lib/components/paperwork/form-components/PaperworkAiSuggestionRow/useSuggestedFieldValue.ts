@@ -7,43 +7,13 @@ interface FieldSuggestionConfig {
   ocrKey: string;
   /** insurance only: which card (primary vs secondary) this field belongs to; defaults to 1 */
   ordinal?: 1 | 2;
-  /**
-   * The card OCR only returns a single memberName string (e.g. "DOE, JANE" or "JANE DOE") — no
-   * EHR precedent splits it, so this split is a new, simple heuristic, not a port.
-   */
-  derive?: 'memberNameFirst' | 'memberNameLast';
-}
-
-/**
- * Splits a printed member name into first/last. Handles "LAST, FIRST" (comma present — first
- * name is just the first word after the comma, ignoring any middle name) and "FIRST ... LAST"
- * (no comma — last word is the last name, everything else folds into "first"). Not foolproof for
- * unusual name formats, but good enough for a one-click suggestion the patient can still edit.
- */
-function splitMemberName(memberName: string): { first: string | null; last: string | null } {
-  const trimmed = memberName.trim();
-  if (!trimmed) return { first: null, last: null };
-
-  const commaIndex = trimmed.indexOf(',');
-  if (commaIndex >= 0) {
-    const last = trimmed.slice(0, commaIndex).trim();
-    const first = trimmed
-      .slice(commaIndex + 1)
-      .trim()
-      .split(/\s+/)[0];
-    return { first: first || null, last: last || null };
-  }
-
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return { first: parts[0], last: null };
-  return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] };
 }
 
 /**
  * The intake paperwork fields we can suggest a value for, and which OCR'd card field feeds each
  * one. Deliberately small: intake's paperwork has no destination field for most extracted card
- * fields (group number, payer ID, rx fields, plan type, effective date, member name, suffix,
- * license number, expiration date).
+ * fields (group number, payer ID, rx fields, plan type, effective date, license number,
+ * expiration date).
  *
  * Photo-ID name/DOB/sex are NOT included here even though the backend extracts them: their only
  * candidate destinations (contact-information-page's patientFirstName/patientLastName/
@@ -51,17 +21,20 @@ function splitMemberName(memberName: string): { first: string | null; last: stri
  * useStyleItems.tsx's filterHiddenItems, so a suggestion row there can never render — the real
  * editable versions of those fields live on the booking-time PatientInformation page, which
  * happens before paperwork (and any upload) even starts. Address fields don't have that problem:
- * patient-street-address/city/state/zip are real, visible, editable items on the SAME page as the
- * photo-ID upload, so a suggestion there is actually reachable.
+ * patient-street-address/street-address-2/city/state/zip are real, visible, editable items on the
+ * SAME page as the photo-ID upload, so a suggestion there is actually reachable.
  */
 export const PAPERWORK_AI_SUGGESTION_FIELDS: Record<string, FieldSuggestionConfig> = {
   'insurance-member-id': { source: 'insurance', ocrKey: 'memberId', ordinal: 1 },
   'insurance-member-id-2': { source: 'insurance', ocrKey: 'memberId', ordinal: 2 },
-  'policy-holder-first-name': { source: 'insurance', ocrKey: 'memberName', ordinal: 1, derive: 'memberNameFirst' },
-  'policy-holder-last-name': { source: 'insurance', ocrKey: 'memberName', ordinal: 1, derive: 'memberNameLast' },
-  'policy-holder-first-name-2': { source: 'insurance', ocrKey: 'memberName', ordinal: 2, derive: 'memberNameFirst' },
-  'policy-holder-last-name-2': { source: 'insurance', ocrKey: 'memberName', ordinal: 2, derive: 'memberNameLast' },
+  'policy-holder-first-name': { source: 'insurance', ocrKey: 'memberFirstName', ordinal: 1 },
+  'policy-holder-middle-name': { source: 'insurance', ocrKey: 'memberMiddleName', ordinal: 1 },
+  'policy-holder-last-name': { source: 'insurance', ocrKey: 'memberLastName', ordinal: 1 },
+  'policy-holder-first-name-2': { source: 'insurance', ocrKey: 'memberFirstName', ordinal: 2 },
+  'policy-holder-middle-name-2': { source: 'insurance', ocrKey: 'memberMiddleName', ordinal: 2 },
+  'policy-holder-last-name-2': { source: 'insurance', ocrKey: 'memberLastName', ordinal: 2 },
   'patient-street-address': { source: 'photoId', ocrKey: 'addressLine1' },
+  'patient-street-address-2': { source: 'photoId', ocrKey: 'addressLine2' },
   'patient-city': { source: 'photoId', ocrKey: 'addressCity' },
   'patient-state': { source: 'photoId', ocrKey: 'addressState' },
   'patient-zip': { source: 'photoId', ocrKey: 'addressZip' },
@@ -97,12 +70,6 @@ export function useSuggestedFieldValue(linkId: string, appointmentId: string | u
   const fields = response?.fields as Record<string, string | null> | null | undefined;
   const rawValue = fields?.[config.ocrKey];
   if (!rawValue) return undefined;
-
-  if (config.derive) {
-    const { first, last } = splitMemberName(rawValue);
-    const derived = config.derive === 'memberNameFirst' ? first : last;
-    return derived ?? undefined;
-  }
 
   return rawValue;
 }

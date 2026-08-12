@@ -38,6 +38,7 @@ import {
   AdHocEncountersInput,
   AdHocEncountersOutputSchema,
 } from 'utils/lib/types/adhoc/datasets/encounters';
+import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -52,7 +53,7 @@ import {
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../../shared/adhoc-report';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { followUpTypeFromPerformerType } from '../../shared/chart-data';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -150,6 +151,8 @@ const orderDisplay = (sr: ServiceRequest): string =>
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
