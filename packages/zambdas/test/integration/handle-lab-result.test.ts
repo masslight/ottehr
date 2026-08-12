@@ -125,6 +125,11 @@ describe('fetchRelatedResources integration', () => {
       expect(result.encounter?.id).toBe(base.encounter.id);
     });
 
+    it('returns the encounter location', () => {
+      const expectedLocationId = base.encounter.location?.[0].location?.reference?.split('/')[1];
+      expect(result.location?.id).toBe(expectedLocationId);
+    });
+
     it('includes the pre-submission task', () => {
       expect(result.tasks.map((t) => t.id)).toContain(preSubmissionTask.id);
     });
@@ -261,6 +266,10 @@ describe('fetchRelatedResources integration', () => {
     it('returns no tasks', () => {
       expect(result.tasks).toHaveLength(0);
     });
+
+    it('returns no location', () => {
+      expect(result.location).toBeUndefined();
+    });
   });
 
   describe('matched unsolicited result — patient only, no existing order', () => {
@@ -293,6 +302,67 @@ describe('fetchRelatedResources integration', () => {
 
     it('returns no encounter (DR has no encounter reference)', () => {
       expect(result.encounter).toBeUndefined();
+    });
+
+    it("returns the location from the patient's most recent appointment", () => {
+      // The code searches for the patient's most recent Appointment and resolves its location.
+      // The base appointment references the same location as the base encounter.
+      const expectedLocationId = base.encounter.location?.[0]?.location?.reference?.replace('Location/', '');
+      expect(expectedLocationId).toBeTruthy();
+      expect(result.location?.id).toBe(expectedLocationId);
+    });
+  });
+
+  describe('matched unsolicited result — matched to existing order (SR resolves location via encounter)', () => {
+    let dr: DiagnosticReport;
+    let sr: ServiceRequest;
+    let result: Awaited<ReturnType<typeof fetchRelatedResources>>;
+    let expectedLocationId: string;
+
+    beforeAll(async () => {
+      // The base encounter already has a location. The SR references that encounter so
+      // the SR → Encounter → Location chain resolves the location.
+      const encounterLocationRef = base.encounter.location?.[0]?.location?.reference;
+      expectedLocationId = encounterLocationRef?.replace('Location/', '') ?? '';
+
+      sr = await oystehr.fhir.create<ServiceRequest>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'ServiceRequest',
+            status: 'completed',
+            intent: 'order',
+            code: { text: 'CBC' },
+            subject: { reference: `Patient/${base.patient.id}` },
+            encounter: { reference: `Encounter/${base.encounter.id}` },
+          },
+          processId
+        ) as ServiceRequest
+      );
+      extraRefs.push(`ServiceRequest/${sr.id}`);
+
+      const drInput: DiagnosticReport = {
+        resourceType: 'DiagnosticReport',
+        status: 'final',
+        code: { text: 'Matched Unsolicited With SR Panel' },
+        subject: { reference: `Patient/${base.patient.id}` },
+        basedOn: [{ reference: `ServiceRequest/${sr.id}` }],
+        meta: { tag: [{ system: LAB_DR_TYPE_TAG.system, code: LAB_DR_TYPE_TAG.code.unsolicited }] },
+      };
+      addProcessIdMetaTagToResource(drInput, processId);
+
+      dr = await oystehr.fhir.create<DiagnosticReport>(drInput);
+      extraRefs.push(`DiagnosticReport/${dr.id}`);
+
+      result = await fetchRelatedResources(
+        dr,
+        { drType: LAB_DR_TYPE_TAG.code.unsolicited, isUnsolicited: true, isUnsolicitedAndMatched: true },
+        oystehr
+      );
+    }, 30_000);
+
+    it('returns the location resolved from the matched ServiceRequest encounter', () => {
+      expect(expectedLocationId).toBeTruthy();
+      expect(result.location?.id).toBe(expectedLocationId);
     });
   });
 });

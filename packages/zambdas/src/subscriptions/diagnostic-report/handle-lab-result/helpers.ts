@@ -102,8 +102,6 @@ export async function fetchRelatedResources(
     location?: Location;
   } = { tasks: [] };
 
-  let diagnosticReportLocation: Location | undefined = undefined;
-
   resources.forEach((resource) => {
     if (resource.resourceType === 'Task') {
       result.tasks.push(resource);
@@ -128,10 +126,16 @@ export async function fetchRelatedResources(
       if (result.attachments) result.attachments.push(resource);
       else result.attachments = [resource];
     }
-    if (resource.resourceType === 'Location') diagnosticReportLocation = resource;
   });
 
-  result.location = drDetails.isUnsolicited ? unsolicitedResultLocation : diagnosticReportLocation;
+  const encounterLocationRef = result.encounter?.location?.[0]?.location?.reference;
+  const encounterLocation = encounterLocationRef
+    ? resources.find(
+        (res): res is Location => res.resourceType === 'Location' && `Location/${res.id}` === encounterLocationRef
+      )
+    : undefined;
+
+  result.location = drDetails.isUnsolicited ? unsolicitedResultLocation : encounterLocation;
 
   return result;
 }
@@ -171,6 +175,12 @@ const getLocationForUnsolicitedResult = async (
       ).unbundle();
 
       const latestAppointment = resources.filter((res): res is Appointment => res.resourceType === 'Appointment')[0];
+      if (!latestAppointment) {
+        console.warn(
+          `No appointments found for patient ${patientRef} when resolving location for DiagnosticReport/${diagnosticReport.id}`
+        );
+        return;
+      }
 
       const locationRefFromAppointment = latestAppointment.participant.find(
         (part) => part.actor?.reference?.startsWith('Location/')
@@ -197,7 +207,11 @@ const getLocationForUnsolicitedResult = async (
             { name: '_id', value: serviceRequestRef.split('/')[1] ?? '' },
             {
               name: '_include',
-              value: 'ServiceRequest:location',
+              value: 'ServiceRequest:encounter',
+            },
+            {
+              name: '_include:iterate',
+              value: 'Encounter:location',
             },
           ],
         })
@@ -205,10 +219,12 @@ const getLocationForUnsolicitedResult = async (
         .unbundle()
         .filter((res): res is Location => res.resourceType === 'Location');
 
-      if (!locations.length)
+      if (!locations.length) {
         console.warn(
           `No location found for existing-order-matched unsolicited result DiagnosticReport/${diagnosticReport.id}`
         );
+        return;
+      }
 
       return locations[0];
     }
