@@ -35,10 +35,8 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const [pendingReviewOpen, setPendingReviewOpen] = useState<boolean>(false);
   const user = useEvolveUser();
-  // eRX enrollment/notifications require an NPI (DoseSpot). The provider notifications bell is a
-  // general, visit-linked inbox — not NPI-gated — so keep it on a role check.
-  const userHasNPI = user?.hasNPI;
   const showProviderNotifications = user?.hasRole([RoleType.Provider, RoleType.Clinician]);
+  const userIsProvider = user?.hasRole([RoleType.Provider]);
 
   const practitioner = user?.profileResource;
 
@@ -134,7 +132,7 @@ export const UserMenu: FC = () => {
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userHasNPI && !practitionerEnrollmentStatus?.identityVerified && (
+        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>
