@@ -84,7 +84,7 @@
         },
         {
           "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
-          "action": ["Z3:GetObject"],
+          "action": ["Z3:GetObject", "Z3:DeleteObject"],
           "effect": "Allow"
         },
         {
