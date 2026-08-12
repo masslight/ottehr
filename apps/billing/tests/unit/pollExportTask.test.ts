@@ -16,6 +16,19 @@ const poll = (
   });
 
 describe('pollExportTask', () => {
+  it('asks once before waiting at all', async () => {
+    const result = await pollExportTask({
+      checkStatus: vi.fn().mockResolvedValue({
+        status: 'completed',
+        downloadUrl: 'https://signed.example/claims.csv',
+      }),
+      intervalMs: 60_000,
+      timeoutMs: 60_000,
+    });
+
+    expect(result.status).toBe('completed');
+  });
+
   it('waits for the export to finish before resolving', async () => {
     const checkStatus = vi
       .fn()
