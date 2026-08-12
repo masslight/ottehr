@@ -1,5 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
-import { createClinicalOystehrClient } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 
 export const ensureM2MPractitionerProfile = async (token: string): Promise<void> => {

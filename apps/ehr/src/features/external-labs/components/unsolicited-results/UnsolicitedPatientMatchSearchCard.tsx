@@ -2,7 +2,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { LoadingButton } from '@mui/lab';
 import { Box, FormControl, TextField } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import DateSearch from 'src/components/DateSearch';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
 import { usePatientsSearch } from 'src/features/visits/shared/components/patients-search/usePatientsSearch';
@@ -20,10 +20,12 @@ export const UnsolicitedPatientMatchSearchCard: FC<UnsolicitedPatientMatchSearch
 }) => {
   const { searchResult, arePatientsLoading, searchOptions, setSearchField, search } = usePatientsSearch();
   const searchFilters = searchOptions.filters;
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handlePatientSearch = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     setSelectedPatient(undefined);
+    setHasSearched(true);
     search({ pagination: { pageSize: 5, offset: 0 } });
   };
 
@@ -76,6 +78,7 @@ export const UnsolicitedPatientMatchSearchCard: FC<UnsolicitedPatientMatchSearch
         selectedPatient={selectedPatient}
         setSelectedPatient={setSelectedPatient}
         handleConfirmPatientMatch={handleConfirmPatientMatch}
+        hasSearched={hasSearched}
       />
     </FormControl>
   );

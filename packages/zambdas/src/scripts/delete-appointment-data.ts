@@ -10,7 +10,7 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getParticipantIdFromAppointment } from 'utils';
+import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {

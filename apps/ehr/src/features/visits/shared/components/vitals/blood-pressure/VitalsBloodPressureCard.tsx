@@ -1,10 +1,12 @@
-import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import { Box, Button, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalBloodPressureObservationMethod, VitalsBloodPressureObservationDTO } from 'utils';
+import { VitalBloodPressureObservationMethod } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsBloodPressureObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
@@ -98,6 +100,21 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({ field
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
         dataTestId={dataTestIds.vitalsPage.bloodPressureHeader}
+        headerItem={
+          field.hasData && !isReadOnly ? (
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<ClearIcon fontSize="small" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                field.onClearForm?.();
+              }}
+            >
+              Clear draft
+            </Button>
+          ) : undefined
+        }
       >
         {isReadOnly ? (
           renderRightColumn()

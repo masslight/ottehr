@@ -1,6 +1,8 @@
 import { RelatedPerson } from 'fhir/r4b';
 import { capitalize } from 'lodash-es';
-import { formatDateForDisplay, getFullName, standardizePhoneNumber } from 'utils';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PdfSection, ResponsiblePartyInfo, ResponsiblePartyInput } from '../types';
 

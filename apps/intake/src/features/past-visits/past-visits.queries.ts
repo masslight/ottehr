@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { OystehrAPIClient } from 'ui-components';
-import { PromiseReturnType } from 'utils';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
+import { PromiseReturnType } from 'utils/lib/types/common';
 
 export const useGetPastVisits = (
   apiClient: OystehrAPIClient | null,

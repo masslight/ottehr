@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material';
 import { FC } from 'react';
-import { ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 type ExamReviewCommentProps = {
   item: ExamObservationDTO;

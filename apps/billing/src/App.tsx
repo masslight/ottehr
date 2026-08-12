@@ -4,7 +4,8 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { DEFAULT_RULES_ENGINE, RoleType } from 'utils';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { DEFAULT_RULES_ENGINE } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { Layout } from './components/Layout';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -17,7 +18,6 @@ import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/Ch
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
-import Dashboard from './pages/Dashboard';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
@@ -67,7 +67,8 @@ export default function App(): ReactElement {
                 />
               }
             >
-              <Route path="/" element={<Dashboard />} />
+              {/* <Route path="/" element={<Dashboard />} /> */}
+              <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />

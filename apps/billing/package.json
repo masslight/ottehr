@@ -1,6 +1,6 @@
 {
   "name": "billing-ui",
-  "version": "1.38.21",
+  "version": "1.40.6",
   "private": true,
   "type": "module",
   "engines": {
@@ -40,12 +40,14 @@
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
     "test:unit:ci": "vitest run --config ./vitest.config.ts --passWithNoTests --reporter=dot --reporter=github-actions",
-    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --passWithNoTests --reporter=dot --reporter=github-actions"
+    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --maxWorkers=3 --passWithNoTests --reporter=dot --reporter=github-actions"
   },
   "dependencies": {
     "@mui/icons-material": "^5.14.9",
     "@mui/lab": "^5.0.0-alpha.170",
     "@mui/x-data-grid-pro": "^6.3.0",
+    "@mui/x-date-pickers-pro": "^6.3.0",
+    "csv-parse": "^6.2.1",
     "notistack": "^3.0.1",
     "tsconfig": "*",
     "utils": "*"

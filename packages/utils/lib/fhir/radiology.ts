@@ -1,15 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getScheduleOwnerFromAppointmentOrEncounter,
-  getSecret,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { getSecret, Secrets, SecretsKeys } from '../secrets';
+import { SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL } from './constants';
+import { getScheduleOwnerFromAppointmentOrEncounter } from './helpers';
 
 // cSpell:ignore: ACSN, PLAC
+/** contained-resource id for the free-text performing organization on an external radiology order */
+export const RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID = 'performing-organization';
+/** Identifier system for the contained performing organization, stamped so it satisfies org-1 even with no name. */
+export const RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM =
+  'https://fhir.ottehr.com/Identifier/radiology-performing-organization';
+/** DocumentReference type coding for manually-attached radiology result files (external orders) */
+export const RADIOLOGY_RESULT_DOC_REF_DOCTYPE = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/radiology-result',
+  code: 'radiology-result',
+  display: 'Radiology Result',
+};
 export const ADVAPACS_FHIR_BASE_URL = 'https://usa1.api.integration.advapacs.com/fhir/R5';
 export const ADVAPACS_VIEWER_LAUNCH_URL = 'https://usa1.api.integration.advapacs.com/viewer/launch';
 export const ORDER_TYPE_CODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/order-type-tag';

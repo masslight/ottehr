@@ -1,21 +1,20 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, List } from 'fhir/r4b';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   DeleteApprovedPatientEducationInput,
   DeleteApprovedPatientEducationOutput,
-  getSecret,
+} from 'utils/lib/types/api/approved-patient-education.types';
+import {
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

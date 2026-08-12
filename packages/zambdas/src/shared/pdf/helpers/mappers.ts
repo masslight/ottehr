@@ -1,4 +1,5 @@
-import { CPTCodeDTO, GetChartDataResponse } from 'utils';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 
 export function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): string[] {
   const result: string[] = [];

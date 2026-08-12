@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["ENV", "PLAYWRIGHT_SUITE_ID", "PLAYWRIGHT_REPORT_SUFFIX", "PLAYWRIGHT_EXTRA_ARGS", "IS_LOGIN_TEST", "INTEGRATION_TEST", "SMOKE_TEST"],
+  "globalPassThroughEnv": ["ENV", "PLAYWRIGHT_SUITE_ID", "PLAYWRIGHT_REPORT_SUFFIX", "PLAYWRIGHT_EXTRA_ARGS", "IS_LOGIN_TEST", "INTEGRATION_TEST", "SMOKE_TEST", "E2E_SERVE_MODE", "RUNNER_NAME", "GITHUB_SHA"],
   "tasks": {
     "start": {
       "cache": false,
@@ -68,6 +68,28 @@
       "dependsOn": ["^build"],
       "env": ["ENV", "CI"],
       "outputs": ["coverage/unit/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:integration:ci": {
+      "dependsOn": ["^build"],
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/integration/**"],
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",

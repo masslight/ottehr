@@ -1,16 +1,13 @@
 import { List } from 'fhir/r4b';
+import { ExternalLabSetDTO, InHouseLabSetDTO, LabSetDTO, LabSetStatus } from 'utils/lib/types/data/labs/lab-set.schema';
 import {
-  ExternalLabSetDTO,
-  InHouseLabSetDTO,
   LAB_LIST_CODE_CODING,
   LAB_LIST_IDENTIFIER_SYSTEM,
   LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
-  LabSetDTO,
-  LabSetStatus,
-  LabType,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { describe, expect, it } from 'vitest';
 import { configFhirListForLabSet, formatLabListDTOs, formatListEntry } from '../../src/ehr/lab/shared/helpers';
 

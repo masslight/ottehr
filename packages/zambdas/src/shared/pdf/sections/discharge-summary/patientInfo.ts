@@ -1,5 +1,8 @@
 import { ContactPoint } from 'fhir/r4b';
-import { formatDOB, genderMap, getPatientFriendlyId, standardizePhoneNumber } from 'utils';
+import { genderMap } from 'utils/lib/fhir/helpers';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { formatDOB } from 'utils/lib/utils/dateUtils';
 import { getPatientLastFirstName } from '../../../patients';
 import { DataComposer } from '../../pdf-common';
 import { ICON_STYLE } from '../../pdf-consts';
@@ -29,9 +32,10 @@ export const composePatientInformationForDischargeSummary: DataComposer<
   };
 };
 
-export const createPatientHeaderForDischargeSummary = <
-  TData extends { patient?: PatientInfoForDischargeSummary },
->(): PdfSection<TData, PatientInfoForDischargeSummary> => ({
+export const createCompactPatientHeader = <TData extends { patient?: PatientInfoForDischargeSummary }>(): PdfSection<
+  TData,
+  PatientInfoForDischargeSummary
+> => ({
   dataSelector: (data) => data.patient,
   render: (client, data, styles, assets) => {
     client.drawText(data.fullName, styles.textStyles.patientName);

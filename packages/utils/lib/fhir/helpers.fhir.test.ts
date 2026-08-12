@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CPTCodeDTO } from '../types';
+import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
 import { convertFhirNameToDisplayName } from './convertFhirNameToDisplayName';
 import { makeCptCodeDisplay, sanitizeStringForFhirCode } from './helpers';
 

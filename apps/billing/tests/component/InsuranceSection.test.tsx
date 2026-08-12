@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ClaimDetailResponse } from 'utils';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { InsuranceSection } from '../../src/pages/ClaimDetail';
 
@@ -27,7 +27,6 @@ const claim = {
   payerName: 'Acme',
   payerId: 'ACME',
   memberId: 'M1',
-  coverageStatus: 'active',
   planType: '',
   relationship: 'Self',
   policyHolder: null,

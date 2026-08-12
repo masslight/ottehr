@@ -2,13 +2,14 @@ import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternate
 import CloseSharpIcon from '@mui/icons-material/CloseSharp';
 import { Box, Button, IconButton, Typography } from '@mui/material';
 import { ChangeEvent, FC, useContext, useState } from 'react';
-import { convertHeicToJpegIfNeeded } from 'ui-components';
-import { FileURLs, PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils';
-import { IntakeThemeContext } from '../../contexts';
-import { findMissingNumber } from '../../helpers/form';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { findMissingNumber } from 'src/helpers/form/photos-upload.helper';
+import { MultipleFileUploadOptions } from 'src/types/file-upload-options';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { convertHeicToJpegIfNeeded } from 'ui-components/lib/utils/heic';
+import { FileURLs } from 'utils/lib/types/common';
+import { PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { filterObject } from '../../helpers/objects.helper';
-import { MultipleFileUploadOptions } from '../../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { VisuallyHiddenInput } from './VisuallyHiddenInput';
 
 interface PatientPhotoUploadProps {

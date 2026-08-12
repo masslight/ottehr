@@ -3,31 +3,29 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Appointment, CodeableConcept, ContactPoint, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences, genderMap } from 'utils/lib/fhir/helpers';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  formatDOB,
-  genderMap,
-  getPresignedURL,
   MEDICATION_HISTORY_DOC_REF_CODING,
   MedicationInfoForPrinting,
-  Secrets,
-  standardizePhoneNumber,
-  uploadPDF,
-} from 'utils';
-import { checkOrCreateM2MClientToken, getPatientLastFirstName, wrapHandler } from '../../../shared';
+} from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import { formatDOB } from 'utils/lib/utils/dateUtils';
+import { uploadPDF } from 'utils/lib/utils/pdf';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getPatientLastFirstName } from '../../../shared/patients';
 import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pdf-common';
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
-import {
-  composeVisitData,
-  createMedicationsSectionForDischargeSummary,
-  createPatientHeaderForDischargeSummary,
-  createVisitInfoSection,
-} from '../../../shared/pdf/sections';
+import { createMedicationsSectionForDischargeSummary } from '../../../shared/pdf/sections/discharge-summary/currentMedications';
+import { createCompactPatientHeader } from '../../../shared/pdf/sections/discharge-summary/patientInfo';
+import { composeVisitData, createVisitInfoSection } from '../../../shared/pdf/sections/visitInfo';
 import { AssetPaths, MedicationHistoryInput, PatientInfoForDischargeSummary } from '../../../shared/pdf/types';
-import { makeZ3Url } from '../../../shared/presigned-file-urls';
-import { ZambdaInput } from '../../../shared/types';
+import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -261,7 +259,7 @@ const styles: StyleFactory = (assets) => ({
 const medicationHistoryRenderConfig: PdfRenderConfig<MedicationHistoryInput> = {
   header: {
     title: 'Medication History',
-    leftSection: createPatientHeaderForDischargeSummary(),
+    leftSection: createCompactPatientHeader(),
     rightSection: createVisitInfoSection(),
   },
   headerBodySeparator: true,

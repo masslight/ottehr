@@ -31,7 +31,7 @@
 // are intentionally not duplicated here.
 
 import { CodeableConcept, Coding, HealthcareService, Location, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
-import { ServiceMode, ServiceVisitType } from '../types';
+import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   GROUP_ALL_LOCATIONS_SYSTEM,
   GROUP_ASSIGNMENT_MODE_SYSTEM,

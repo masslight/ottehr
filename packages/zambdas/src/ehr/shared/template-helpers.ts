@@ -18,14 +18,14 @@ import {
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
+import { extractCptCodeModifiersFromCoding } from 'utils/lib/fhir/billing';
 import {
   chartDataTagSystem,
-  extractCptCodeModifiersFromCoding,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  REPEAT_TEST_CPT_CODE_MODIFIER,
-  resourceHasTagSystem,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-house.constants';
 import { getLatestInHouseLabActivityDefinitionsForTemplatePlan } from '../apply-template/apply-in-house-labs';
 
 // Meta-tag systems that mark a resource as belonging in a global template.

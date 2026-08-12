@@ -13,25 +13,26 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
-  chartDataTagSystem,
-  chunkThings,
-  CODE_SYSTEM_ICD_10,
-  DiagnosisDTO,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   ResolvedSectionActions,
-  resourceHasTagSystem,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionKey,
   TemplateWarning,
-} from 'utils';
+} from 'utils/lib/types/data/apply-template.types';
 import { v4 as uuidV4 } from 'uuid';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,

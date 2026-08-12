@@ -2,8 +2,8 @@ import { Button } from '@mui/material';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
 import { intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { PhoneNumberMessage, useVisitContext } from './ThankYou';
 
 const CancellationConfirmation = (): JSX.Element => {

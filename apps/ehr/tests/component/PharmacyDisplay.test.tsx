@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PharmacyDisplay } from 'ui-components';
-import { PHONE_NOT_ON_FILE, PlacesResult } from 'utils';
+import { PharmacyDisplay } from 'ui-components/lib/components/PharmacyDisplay';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
+import { PlacesResult } from 'utils/lib/types/data/search-places';
 import { describe, expect, it, vi } from 'vitest';
 
 const dataTestIds = {

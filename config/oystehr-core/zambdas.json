@@ -75,6 +75,13 @@
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
+    "SEND-PATIENT-FORM": {
+      "name": "send-patient-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-patient-form/index",
+      "zip": ".dist/zips/send-patient-form.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
@@ -509,6 +516,13 @@
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
     },
+    "GET-STANDALONE-PAPERWORK": {
+      "name": "get-standalone-paperwork",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/get-standalone-paperwork/index",
+      "zip": ".dist/zips/get-standalone-paperwork.zip"
+    },
     "CREATE-IN-HOUSE-MEDICATION": {
       "name": "create-in-house-medication",
       "type": "http_auth",
@@ -543,6 +557,20 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/get-presigned-file-url/index",
       "zip": ".dist/zips/get-presigned-file-url.zip"
+    },
+    "GET-INSURANCE-CARD-SUGGESTIONS": {
+      "name": "get-insurance-card-suggestions",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-insurance-card-suggestions/index",
+      "zip": ".dist/zips/get-insurance-card-suggestions.zip"
+    },
+    "GET-PHOTO-ID-SUGGESTIONS": {
+      "name": "get-photo-id-suggestions",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-photo-id-suggestions/index",
+      "zip": ".dist/zips/get-photo-id-suggestions.zip"
     },
     "GET-APPOINTMENT-DETAILS": {
       "name": "get-appointment-details",
@@ -738,12 +766,40 @@
         "expression": "cron(4,33 * * * ? *)"
       }
     },
+    "HANDLE-INBOUND-FAX": {
+      "name": "handle-inbound-fax",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/handle-inbound-fax/index",
+      "zip": ".dist/zips/handle-inbound-fax.zip"
+    },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/communication/communication-subscription/index",
       "zip": ".dist/zips/communication-subscription.zip"
+    },
+    "EXTRACT-INSURANCE-CARD": {
+      "name": "extract-insurance-card",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/extract-insurance-card/index",
+      "zip": ".dist/zips/extract-insurance-card.zip"
+    },
+    "EXTRACT-PHOTO-ID": {
+      "name": "extract-photo-id",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/extract-photo-id/index",
+      "zip": ".dist/zips/extract-photo-id.zip"
+    },
+    "ROTATE-INSURANCE-CARD-IMAGE": {
+      "name": "rotate-insurance-card-image",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/rotate-insurance-card-image/index",
+      "zip": ".dist/zips/rotate-insurance-card-image.zip"
     },
     "PROCESS-ERX-RESOURCES": {
       "name": "process-erx-resources",
@@ -929,6 +985,41 @@
       "src": "src/ehr/radiology/update-order/index",
       "zip": ".dist/zips/radiology-update-order.zip"
     },
+    "RADIOLOGY-GET-ORDER-PDF": {
+      "name": "radiology-get-order-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/get-order-pdf/index",
+      "zip": ".dist/zips/radiology-get-order-pdf.zip"
+    },
+    "RADIOLOGY-SEND-FAX": {
+      "name": "radiology-send-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/send-fax/index",
+      "zip": ".dist/zips/radiology-send-fax.zip"
+    },
+    "RADIOLOGY-LIST-RESULTS": {
+      "name": "radiology-list-results",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/list-results/index",
+      "zip": ".dist/zips/radiology-list-results.zip"
+    },
+    "RADIOLOGY-UPLOAD-RESULT": {
+      "name": "radiology-upload-result",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/upload-result/index",
+      "zip": ".dist/zips/radiology-upload-result.zip"
+    },
+    "RADIOLOGY-DELETE-RESULT": {
+      "name": "radiology-delete-result",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/delete-result/index",
+      "zip": ".dist/zips/radiology-delete-result.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",
@@ -1041,6 +1132,62 @@
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
     },
+    "GENERATE-ADHOC-REPORT": {
+      "name": "generate-adhoc-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-adhoc-report/index",
+      "zip": ".dist/zips/generate-adhoc-report.zip"
+    },
+    "INFER-ADHOC-REPORT-LAYERS": {
+      "name": "infer-adhoc-report-layers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/infer-adhoc-report-layers/index",
+      "zip": ".dist/zips/infer-adhoc-report-layers.zip"
+    },
+    "ADHOC-ENCOUNTERS": {
+      "name": "adhoc-encounters",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-encounters/index",
+      "zip": ".dist/zips/adhoc-encounters.zip"
+    },
+    "ADHOC-PATIENTS": {
+      "name": "adhoc-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-patients/index",
+      "zip": ".dist/zips/adhoc-patients.zip"
+    },
+    "ADHOC-BILLING": {
+      "name": "adhoc-billing",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-billing/index",
+      "zip": ".dist/zips/adhoc-billing.zip"
+    },
+    "SAVE-ADHOC-REPORT": {
+      "name": "save-adhoc-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-adhoc-report/index",
+      "zip": ".dist/zips/save-adhoc-report.zip"
+    },
+    "LIST-ADHOC-REPORTS": {
+      "name": "list-adhoc-reports",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/list-adhoc-reports/index",
+      "zip": ".dist/zips/list-adhoc-reports.zip"
+    },
+    "DELETE-ADHOC-REPORT": {
+      "name": "delete-adhoc-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-adhoc-report/index",
+      "zip": ".dist/zips/delete-adhoc-report.zip"
+    },
     "GENERATE-PATIENT-EDUCATION": {
       "name": "generate-patient-education",
       "type": "http_auth",
@@ -1091,12 +1238,56 @@
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
       "zip": ".dist/zips/ai-interview-summary.zip"
     },
+    "FILE-INBOUND-FAX": {
+      "name": "file-inbound-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/file-inbound-fax/index",
+      "zip": ".dist/zips/file-inbound-fax.zip"
+    },
+    "DELETE-INBOUND-FAX": {
+      "name": "delete-inbound-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-inbound-fax/index",
+      "zip": ".dist/zips/delete-inbound-fax.zip"
+    },
     "SEND-FAX": {
       "name": "send-fax",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
+    },
+    "SEND-FAX-PACKET": {
+      "name": "send-fax-packet",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-fax-packet/index",
+      "zip": ".dist/zips/send-fax-packet.zip"
+    },
+    "GET-FAX-PACKET-STATUS": {
+      "name": "get-fax-packet-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-fax-packet-status/index",
+      "zip": ".dist/zips/get-fax-packet-status.zip"
+    },
+    "SUB-SEND-FAX-PACKET": {
+      "name": "sub-send-fax-packet",
+      "type": "subscription",
+      "timeout": "300",
+      "memorySize": "3008",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-send-fax-packet/index",
+      "zip": ".dist/zips/sub-send-fax-packet.zip"
+    },
+    "GET-FAX-PACKET-PREVIEW": {
+      "name": "get-fax-packet-preview",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-fax-packet-preview/index",
+      "zip": ".dist/zips/get-fax-packet-preview.zip"
     },
     "CREATE-SLOT": {
       "name": "create-slot",
@@ -1340,6 +1531,7 @@
       "name": "get-patient-medical-record",
       "type": "http_auth",
       "runtime": "nodejs22.x",
+      "memorySize": "3008",
       "src": "src/ehr/get-patient-medical-record/index",
       "zip": ".dist/zips/get-patient-medical-record.zip"
     },
@@ -1459,6 +1651,13 @@
       "src": "src/ehr/get-invoices-tasks/index",
       "zip": ".dist/zips/get-invoices-tasks.zip"
     },
+    "CREATE-INVOICE-TASKS-FOR-BILLING-CLAIMS": {
+      "name": "create-invoice-tasks-for-billing-claims",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-invoice-tasks-for-billing-claims/index",
+      "zip": ".dist/zips/create-invoice-tasks-for-billing-claims.zip"
+    },
     "EXPORT-INVOICES": {
       "name": "export-invoices",
       "type": "http_auth",
@@ -1561,6 +1760,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-fax-history/index",
       "zip": ".dist/zips/get-visit-fax-history.zip"
+    },
+    "GET_ACTION_LOGS": {
+      "name": "get-action-logs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-action-logs/index",
+      "zip": ".dist/zips/get-action-logs.zip"
+    },
+    "RETRY_ACTION_LOG": {
+      "name": "retry-action-log",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/retry-action-log/index",
+      "zip": ".dist/zips/retry-action-log.zip"
     },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
@@ -2143,6 +2356,34 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-custom-folder/index",
       "zip": ".dist/zips/delete-custom-folder.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_GET": {
+      "name": "practice-managed-questionnaire-get",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/get/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-get.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_LIST": {
+      "name": "practice-managed-questionnaire-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/list/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-list.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_UPDATE": {
+      "name": "practice-managed-questionnaire-update",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/update/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-update.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_CREATE": {
+      "name": "practice-managed-questionnaire-create",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/create/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     }
   },
   "fhirResources": {
@@ -2156,6 +2397,24 @@
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-LAB-RESULT/id}"
         }
+      }
+    },
+    "HANDLE_INBOUND_FAX_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Inbound fax received",
+        "criteria": "Communication?medium=FAXWRIT&status=completed",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-INBOUND-FAX/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
       }
     },
     "PROCESS_TELEMED_RECORDING_SUBSCRIPTION": {
@@ -2395,6 +2654,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-MERGE-PATIENTS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_SEND_FAX_PACKET_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "background outbound fax packet send",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|send-fax-packet&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-FAX-PACKET/id}"
         },
         "extension": [
           {

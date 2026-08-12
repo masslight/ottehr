@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DomainResource } from 'fhir/r4b';
-import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, M2MClientMockType } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput } from 'utils/lib/types/api/radiology';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,
@@ -45,7 +46,7 @@ describe('radiology integration tests', () => {
     it('should create a radiology order -- success', async () => {
       const createOrderInput: CreateRadiologyZambdaOrderInput = {
         encounterId: baseResources.encounter.id!,
-        diagnosisCode: 'W21.89XA',
+        diagnosisCodes: ['W21.89XA'],
         cptCode: '73562',
         lateralityModifier: undefined,
         stat: true,

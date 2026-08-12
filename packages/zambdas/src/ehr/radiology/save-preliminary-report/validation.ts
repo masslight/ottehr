@@ -1,13 +1,26 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, SaveRadiologyReportZambdaInput, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  SavePreliminaryRadiologyReportZambdaInput,
+  SavePreliminaryRadiologyReportZambdaInputSchema,
+} from 'utils/lib/types/api/radiology';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface ValidatedInput {
-  body: SaveRadiologyReportZambdaInput;
+  body: SavePreliminaryRadiologyReportZambdaInput;
   callerAccessToken: string;
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = validateBody(input);
+  const body = safeValidate(SavePreliminaryRadiologyReportZambdaInputSchema, validateJsonBody(input));
+
+  // Diagnosis is optional at order time but required when saving a preliminary read. The shared input
+  // schema keeps diagnosisCodes optional (the final-report flow ignores it), so enforce it here.
+  if (body.diagnosisCodes == null || body.diagnosisCodes.length === 0) {
+    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCodes']);
+  }
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -17,31 +30,6 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   return {
     body,
     callerAccessToken,
-  };
-};
-
-const validateBody = (input: ZambdaInput): SaveRadiologyReportZambdaInput => {
-  const { serviceRequestId, report } = validateJsonBody(input);
-
-  if (!serviceRequestId) {
-    throw MISSING_REQUIRED_PARAMETERS(['serviceRequestId']);
-  }
-
-  if (!report) {
-    throw MISSING_REQUIRED_PARAMETERS(['report']);
-  }
-
-  if (typeof serviceRequestId !== 'string') {
-    throw INVALID_INPUT_ERROR('serviceRequestId must be a string');
-  }
-
-  if (typeof report !== 'string') {
-    throw INVALID_INPUT_ERROR('report must be a string');
-  }
-
-  return {
-    serviceRequestId,
-    report,
   };
 };
 

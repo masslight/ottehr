@@ -8,33 +8,28 @@ import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { AiChatBanner } from 'src/components/AiChatBanner';
-import {
-  APIError,
-  APPOINTMENT_NOT_FOUND_ERROR,
-  AppointmentData,
-  BRANDING_CONFIG,
-  FEATURE_FLAGS_CONFIG,
-  formatPhoneNumberDisplay,
-  getSelectors,
-  getSlugAndStateFromLocation,
-  ServiceMode,
-  UCGetPaperworkResponse,
-  VisitType,
-} from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import { breakpoints } from 'src/providers/IntakeThemeProviderBase';
+import { i18n } from 'utils/lib/frontend';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { getSelectors } from 'utils/lib/store';
+import { getSlugAndStateFromLocation, ServiceMode } from 'utils/lib/types/common';
+import { AppointmentData, UCGetPaperworkResponse } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { primaryIcon } from '../branding/assets';
 import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
-import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
-import { breakpoints } from '../providers';
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 

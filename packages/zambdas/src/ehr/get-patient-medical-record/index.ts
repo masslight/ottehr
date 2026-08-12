@@ -4,21 +4,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  getAllFhirSearchPages,
-  getFileNameFromUrl,
-  GetPatientMedicalRecordOutput,
-  MEDICAL_RECORD_EXPORT_CODE,
-  MIME_TYPES,
-  OTTEHR_CODE_SYSTEM_BASE_URL,
-  PATIENT_FOLDERS_CODE,
-  sanitizeFileNameForZ3,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { BUCKET_NAMES, OTTEHR_CODE_SYSTEM_BASE_URL } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
+import { Secrets } from 'utils/lib/secrets';
+import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
+import { MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { MEDICAL_RECORD_TOO_LARGE_ERROR } from 'utils/lib/types/errors';
+import { getFileNameFromUrl, MIME_TYPES, sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -247,7 +246,7 @@ const buildMedicalRecordZip = async (
       totalBytes += buffer.length;
       if (totalBytes > MAX_MEDICAL_RECORD_BYTES) {
         aborted = true;
-        throw new Error(`Medical record exceeds the maximum supported size of ${MAX_MEDICAL_RECORD_BYTES} bytes`);
+        throw MEDICAL_RECORD_TOO_LARGE_ERROR(Math.floor(MAX_MEDICAL_RECORD_BYTES / (1024 * 1024)));
       }
 
       archive.append(buffer, { name });

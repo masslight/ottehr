@@ -10,9 +10,9 @@ import {
   Person,
   RelatedPerson,
 } from 'fhir/r4b';
-import { chunkThings } from '../fhir';
+import { chunkThings } from '../fhir/chat';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
-import { sleep } from '../helpers';
+import { sleep } from '../helpers/helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);

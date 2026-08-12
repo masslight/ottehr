@@ -3,8 +3,8 @@ import {
   Account,
   Address,
   Basic,
-  Bundle,
   ChargeItemDefinition,
+  ChargeItemDefinitionPropertyGroup,
   Claim,
   Coding,
   Coverage,
@@ -19,65 +19,77 @@ import {
   Person,
   Practitioner,
   Provenance,
+  Reference,
   RelatedPerson,
   Resource,
   Task,
 } from 'fhir/r4b';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  AR_STAGE,
-  BILLING_INSURANCE_TYPE_LABELS,
   BILLING_RESOURCE_TAG,
-  BillingInsuranceType,
-  BillingPolicyHolderInput,
-  BillingProviderOption,
-  BillingRule,
-  BillingSubscriberRelationship,
-  buildCoverageSubscriberRelatedPerson,
-  ChargeItemDefinitionDefault,
-  ChargeItemDefinitionType,
-  CLAIM_STATUS_FIELDS,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimStatusFieldKey,
-  ClaimStatusValues,
-  claimStatusValuesToTags,
-  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
-  CODE_SYSTEM_CLAIM_TYPE,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  convertFhirNameToDisplayName,
-  createCoverageMemberIdentifier,
+  CPT_CODE_SYSTEM,
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
-  getClaimStatusFieldValue,
-  getClaimStatusValues,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  WORKERS_COMP_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
+import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import {
+  buildCoverageSubscriberRelatedPerson,
+  createCoverageMemberIdentifier,
   getNPI,
-  getPatchBinary,
-  getPayerId,
-  getPayerUrl,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
-  INVALID_INPUT_ERROR,
-  isPayerUrl,
-  isValidClaimStatusValue,
-  isValidUUID,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RulesEngineType,
-  Secrets,
-  SecretsKeys,
-  setCoveragePlanType,
-  withArStageInitialization,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { sendErrors } from '../shared';
+import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import {
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_URL_CPT_MODIFIER,
+} from 'utils/lib/helpers/rcm/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  BillingInsuranceType,
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BILLING_INSURANCE_TYPE_LABELS,
+  BillingChargeItemDefinitionProcedureCode,
+  BillingProviderOption,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
+  getClaimStatusFieldValue,
+  getClaimStatusValues,
+  isValidClaimStatusValue,
+  withArStageInitialization,
+} from 'utils/lib/types/data/billing/claim-status';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
+import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { sendErrors } from '../shared/errors';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -100,6 +112,11 @@ export const BILLING_WORKING_COPY_TAG = {
 };
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
+
+export interface ClaimSearchParam {
+  name: string;
+  value: string;
+}
 
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
@@ -215,6 +232,8 @@ export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billi
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
+export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
+  'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
@@ -236,16 +255,103 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
+export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
+
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
+  return (
+    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
+    claim.id?.replaceAll('-', '') ??
+    ''
+  );
+}
+
+export function claimIdFromPcn(pcn: string): string | undefined {
+  const minified = pcn.toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
+  const claimId = [
+    minified.slice(0, 8),
+    minified.slice(8, 12),
+    minified.slice(12, 16),
+    minified.slice(16, 20),
+    minified.slice(20),
+  ].join('-');
+  return isValidUUID(claimId) ? claimId : undefined;
+}
+
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
+// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
+// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
+// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
+// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
+// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
+// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
-  return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+  return isSystemManagedTagName(tag.code?.text);
 }
 
-export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
-export const AUTO_ACCIDENT_TAG_DESCRIPTION = 'Claim is for a clinical encounter resulting from an auto accident';
+// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
+export function systemTagBasic(def: SystemManagedTag): Basic {
+  return {
+    resourceType: 'Basic',
+    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+    extension: [
+      { url: TAG_DESCRIPTION_URL, valueString: def.description },
+      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+    ],
+  };
+}
+
+// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
+// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
+// whether or not their Basics exist).
+export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
+  const defined = await fetchDefinedTagNames(oystehr);
+  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
+  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
+}
+
+// All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
+// first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
+// validations, so the two can't diverge.
+export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
+  const bundle = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [
+      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+      { name: '_sort', value: '-_lastUpdated' },
+      { name: '_count', value: '200' },
+    ],
+  });
+  return bundle.unbundle();
+}
+
+// Names of the defined tags — used to validate tag references before they are written onto claims
+// or into rules.
+export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
+  const basics = await searchTagBasics(oystehr);
+  return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+// Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
+// and point every service line at it. The one careTeam shape both the claim editor
+// (update-billing-claim) and the rules engine write.
+export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
+  claim.careTeam = [
+    {
+      sequence: 1,
+      provider,
+      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+  ];
+  claim.item = claim.item?.map((item) => ({
+    ...item,
+    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+  }));
+}
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -963,37 +1069,57 @@ export function getDefaultSettingForChargeItemDefinition(
   return defaultValue;
 }
 
-export function untaggedEraResources(bundle: Bundle): FhirResource[] {
-  return (bundle.entry ?? [])
-    .map((entry) => entry.resource)
-    .filter(
-      (resource): resource is FhirResource =>
-        !!resource && !!resource.id && !hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
-    );
+export function procedureCodesToPropertyGroups(
+  procedureCodes: BillingChargeItemDefinitionProcedureCode[]
+): ChargeItemDefinitionPropertyGroup[] {
+  return procedureCodes.map<ChargeItemDefinitionPropertyGroup>((pc) => ({
+    priceComponent: [
+      {
+        type: 'base',
+        code: {
+          coding: [{ system: CPT_CODE_SYSTEM, code: pc.code, ...(pc.description ? { display: pc.description } : {}) }],
+        },
+        amount: { value: pc.amount, currency: 'USD' },
+        ...(pc.modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: pc.modifier }] } : {}),
+      },
+    ],
+  }));
 }
 
-export function addBillingTagOperation(resource: FhirResource): {
-  op: 'add';
-  path: string;
-  value: Coding[];
-} {
-  return {
-    op: 'add',
-    path: '/meta/tag',
-    value: [...(resource.meta?.tag ?? []), BILLING_RESOURCE_TAG],
-  };
+export async function tagEraResources({
+  oystehr,
+  resources,
+}: {
+  oystehr: Oystehr;
+  resources: FhirResource[];
+}): Promise<number> {
+  const untagged = new Map<string, FhirResource>();
+  for (const resource of resources) {
+    if (!resource.id || hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) continue;
+    untagged.set(`${resource.resourceType}/${resource.id}`, resource);
+  }
+  if (untagged.size === 0) return 0;
+  const requests = [...untagged.values()].map((resource) =>
+    getPatchBinary({
+      resourceType: resource.resourceType,
+      resourceId: resource.id!,
+      patchOperations: [getPatchOperationForNewMetaTag(resource, BILLING_RESOURCE_TAG)],
+    })
+  );
+  await oystehr.fhir.transaction({ requests });
+  return untagged.size;
 }
 
-// Links notices the stripe webhook stored before the claim existed. Oystehr matches
-// request:identifier by value only, the system|value form returns nothing.
+// Links notices the stripe webhook stored before the claim existed.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
   if (!claim.id || !encounterId) return;
 
   const notices = (
     await oystehr.fhir.search<PaymentNotice>({
       resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: encounterId }],
+      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
     })
   ).unbundle();
 
@@ -1016,7 +1142,48 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
 
+export async function resolveLinkedPatientIds({
+  oystehr,
+  patientId,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+}): Promise<string[]> {
+  const result = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [
+      {
+        name: 'link',
+        value: `Patient/${patientId}`,
+      },
+    ],
+  });
+  const persons = result.unbundle();
+  const linkedIds = persons
+    .flatMap((person) => person.link ?? [])
+    .map((entry) => entry.target?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
+    .map((ref) => ref.replace('Patient/', ''));
+  const resolved = [...new Set([patientId, ...linkedIds])];
+  console.debug(
+    `resolveLinkedPatientIds: Patient/${patientId} matched ${persons.length} Person(s), ${resolved.length} patient id(s)`
+  );
+  return resolved;
+}
+
+export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
+  name: 'patient',
+  value: patientIds.map((id) => `Patient/${id}`).join(','),
+});
+
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(resource)) {
+    workingCopyReferenceResourceId = resource.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Practitioner/', '')
+      ?.replace('Organization/', '');
+  }
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',
@@ -1035,6 +1202,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
     bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
     isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
+    workingCopyReferenceResourceId,
   };
   if (resource.resourceType === 'Practitioner') {
     return {

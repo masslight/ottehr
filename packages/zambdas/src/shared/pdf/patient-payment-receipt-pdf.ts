@@ -18,22 +18,15 @@ import { capitalize } from 'lodash';
 import { DateTime } from 'luxon';
 import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';
-import {
-  CashOrCardPayment,
-  createFilesDocumentReferences,
-  FhirAppointmentType,
-  getFullName,
-  getPatientAddress,
-  getPhoneNumberForIndividual,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  OTTEHR_MODULE,
-  PAYMENT_METHOD_EXTENSION_URL,
-  RECEIPT_CODE,
-  removePrefix,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';

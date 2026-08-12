@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 function makeInput(body: Record<string, unknown>): ZambdaInput {
@@ -21,15 +21,20 @@ const mockCreateCandidEmployerPayer = vi.fn();
 const mockUpdateCandidEmployerPayer = vi.fn();
 const mockToggleCandidEmployerPayer = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+}));
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 vi.mock('../../src/rcm/employers/candid-sync', () => ({
   createCandidClientIfConfigured: mockCreateCandidClientIfConfigured,
@@ -71,11 +76,11 @@ function makeEmployer(overrides?: Partial<Organization>): Organization {
 }
 
 describe('RCM employer zambdas', () => {
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    vi.resetModules();
-    mockCreateCandidClientIfConfigured.mockReturnValue(null);
-
+  // Import the handlers once. The handlers' only module-scoped state is a cached m2mToken, and
+  // checkOrCreateM2MClientToken is mocked to a constant, so there is nothing to reset between tests.
+  // Re-importing them per-test (with vi.resetModules) forces the whole ../../src/shared barrel to be
+  // reloaded on every test — cold, that reload can exceed the default 10s hook timeout.
+  beforeAll(async () => {
     ({ index: createEmployerHandler } = (await import('../../src/rcm/employers/create-employer/index')) as {
       index: ZambdaHandler;
     });
@@ -85,6 +90,11 @@ describe('RCM employer zambdas', () => {
     ({ index: listEmployersHandler } = (await import('../../src/rcm/employers/list-employers/index')) as {
       index: ZambdaHandler;
     });
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateCandidClientIfConfigured.mockReturnValue(null);
   });
 
   it('create-employer creates org and persists Candid payer id when Candid sync succeeds', async () => {

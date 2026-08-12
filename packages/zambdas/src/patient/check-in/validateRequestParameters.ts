@@ -1,6 +1,7 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { CheckInInputValidated } from '.';
 
 const CheckInBodySchema = z.object({

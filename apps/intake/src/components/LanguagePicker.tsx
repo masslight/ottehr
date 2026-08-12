@@ -3,8 +3,8 @@ import { Popover, ToggleButton, ToggleButtonGroup, Typography } from '@mui/mater
 import { Box, useTheme } from '@mui/system';
 import { FC, MouseEvent, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../contexts';
-import { languages } from '../lib/i18n';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { languages } from 'utils/lib/frontend';
 
 export const LanguagePicker: FC = () => {
   const theme = useTheme();

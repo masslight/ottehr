@@ -2,50 +2,47 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Appointment, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  AllStates,
-  APPOINTMENT_ALREADY_EXISTS_ERROR,
-  BOOKING_CONFIG,
-  CanonicalUrl,
-  CHARACTER_LIMIT_EXCEEDED_ERROR,
-  checkSlotAvailable,
+  makeSlotAtLocationExtensionEntry,
+  parseQuestionnaireCanonicalExtension,
+  SERVICE_CATEGORY_SYSTEM,
+  SLOT_FALLBACK_REROUTED_TAG,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { isLocationVirtual, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { Secrets } from 'utils/lib/secrets';
+import {
   CreateAppointmentInputParams,
-  FHIR_RESOURCE_NOT_FOUND,
   FollowUpOptions,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { AllStates, CanonicalUrl, PersonSex, ServiceMode } from 'utils/lib/types/common';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import {
+  APPOINTMENT_ALREADY_EXISTS_ERROR,
+  CHARACTER_LIMIT_EXCEEDED_ERROR,
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUIRED_PARAMETERS,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  SLOT_UNAVAILABLE_ERROR,
+} from 'utils/lib/types/errors';
+import {
+  checkSlotAvailable,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  INVALID_INPUT_ERROR,
-  isLocationVirtual,
-  makeSlotAtLocationExtensionEntry,
-  MISSING_REQUIRED_PARAMETERS,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  parseQuestionnaireCanonicalExtension,
-  PatientInfo,
-  PersonSex,
-  REASON_FOR_VISIT_SEPARATOR,
-  REASON_MAXIMUM_CHAR_LIMIT,
-  resolveServiceCategory,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-  SLOT_FALLBACK_REROUTED_TAG,
-  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
-  SLOT_UNAVAILABLE_ERROR,
-  VisitType,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { REASON_MAXIMUM_CHAR_LIMIT } from 'utils/lib/validation/constants';
 import { z } from 'zod';
-import {
-  checkIsEHRUser,
-  isTestUser,
-  phoneRegex,
-  resolveBookingLocationId,
-  safeJsonParse,
-  safeValidate,
-  userHasAccessToPatient,
-  ZambdaInput,
-} from '../../../shared';
+import { checkIsEHRUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 import { tryGroupMemberFallback } from './groupMemberFallback';
 
@@ -117,7 +114,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     (patient as Record<string, unknown>).emailUser = undefined;
   }
 
-  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber as string)) {
+  // Accept any format the downstream storage step (formatPhoneNumber) can normalize.
+  // formatPhoneNumber strips separators before validating, so the gate must do the same —
+  // otherwise formatted values like "(202) 123-4567" or "202-123-4567" are rejected here
+  // even though they'd store fine as "+12021234567".
+  if (patient?.phoneNumber && !isPhoneNumberValid((patient.phoneNumber as string).replace(/[^0-9+]/g, ''))) {
     throw INVALID_INPUT_ERROR('patient phone number is not valid');
   }
 
@@ -491,6 +492,24 @@ export const createAppointmentComplexValidation = async (
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
     }
     bookingLocation = resolved as ResolvedBookingLocation | undefined;
+  }
+
+  // Reconcile the slot's service mode against what the resolved booking Location
+  // can actually fulfill. A group may offer a mode that a given member's paired
+  // Location doesn't support (e.g. a virtual slot booked through a group whose
+  // provider is only paired with an in-person Location, or vice versa). This is
+  // the backstop for the surfacing filter in get-schedule: without it, the
+  // virtual mismatch fails further down with a confusing "locationState is
+  // required" error, and — worse — the in-person mismatch (in-person slot on a
+  // virtual-only Location) slips through entirely and books a broken visit.
+  // Skipped when no Location resolves (Practitioner/HS actors with no
+  // at-location stamp); mode capability is delegated to the location.ts seam.
+  if (bookingLocation && !locationSupportsServiceMode(bookingLocation, serviceMode)) {
+    throw INVALID_INPUT_ERROR(
+      `The selected time is not available for ${
+        serviceMode === ServiceMode.virtual ? 'virtual' : 'in-person'
+      } visits at this location.`
+    );
   }
 
   // When the caller didn't pass locationState explicitly, derive it from a virtual

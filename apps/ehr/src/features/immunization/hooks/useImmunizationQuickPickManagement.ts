@@ -5,7 +5,7 @@ import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizat
 import { useApiClients } from 'src/hooks/useAppClients';
 import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
-import { ImmunizationQuickPickData } from 'utils';
+import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 
 interface UseImmunizationQuickPickManagementProps {
   methods: UseFormReturn;

@@ -1,38 +1,43 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Location, PractitionerRole, Schedule } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import {
-  BLANK_SCHEDULE_JSON_TEMPLATE,
-  getPractitionerRoleAllCategories,
-  getScheduleExtension,
-  getSlugForBookableResource,
-  getTimezone,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  ROOM_EXTENSION_URL,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { isLocationInPerson, isLocationManuallyCreated, isLocationVirtual } from 'utils/lib/fhir/location';
+import { Secrets } from 'utils/lib/secrets';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import {
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
-  isLocationInPerson,
-  isLocationManuallyCreated,
-  isLocationVirtual,
-  isValidUUID,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
-  RoleType,
-  ROOM_EXTENSION_URL,
-  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_NOT_FOUND_ERROR,
-  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
+} from 'utils/lib/types/errors';
+import {
+  BLANK_SCHEDULE_JSON_TEMPLATE,
+  getScheduleExtension,
+  getTimezone,
   ScheduleDTO,
   ScheduleDTOOwner,
   ScheduleExtension,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  TIMEZONES,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { addressStringFromAddress, getNameForOwner, getNameForPractitionerRole } from '../shared';
 
 let m2mToken: string;

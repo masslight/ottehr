@@ -7,7 +7,7 @@ import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { CommandPaletteItem } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import useEvolveUser from './useEvolveUser';
@@ -39,6 +39,7 @@ const VISIT_CREATION_ROLES = [
   RoleType.CustomerSupport,
   RoleType.Staff,
   RoleType.Provider,
+  RoleType.Clinician,
 ];
 
 const NAVIGATION_DESTINATIONS: NavigationDestination[] = [

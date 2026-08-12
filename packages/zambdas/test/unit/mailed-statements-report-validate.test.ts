@@ -1,4 +1,4 @@
-import { APIErrorCode } from 'utils';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it } from 'vitest';
 import { validateRequestParameters } from '../../src/ehr/mailed-statements-report/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';

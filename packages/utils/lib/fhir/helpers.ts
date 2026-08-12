@@ -38,42 +38,27 @@ import {
   TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  createPatientDocumentList,
-  docRefIsLabGeneratedResult,
-  docRefIsOgHl7Transmission,
-  findExistingListByDocumentTypeCode,
-  getMimeType,
-  getPatchOperationsForNewMetaTags,
-  getPatchOperationToRemoveMetaTags,
-  getPayerId,
-  getPayerUrl,
-  isValidUUID,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  PatientMasterRecordResourceType,
-  replaceOperation,
-  TaskCoding,
-  TELEMED_VIDEO_ROOM_CODE,
-  User,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { getPayerId, getPayerUrl } from '../helpers/helpers';
+import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../helpers/labs/helpers';
+import { addOperation, replaceOperation } from '../helpers/operations';
+import { CODE_SYSTEM_COVERAGE_CLASS } from '../helpers/rcm/constants';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BookableResource,
-  CPTCodeDTO,
-  EncounterVirtualServiceExtension,
-  FHIR_CODE_REGEX,
-  HealthcareServiceWithLocationContext,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  VisitType,
-} from '../types';
+import { VisitStatusWithoutUnknown } from '../types/api/appointment.types';
+import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
+import { PractitionerLicense, PractitionerQualificationCode } from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { User } from '../types/api/user.types';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskCoding } from '../types/common';
+import { BookableResource, ServiceMode } from '../types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { FHIR_CODE_REGEX } from '../types/constants';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from '../types/data/labs/labs.constants';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { HealthcareServiceWithLocationContext } from '../types/data/paperwork.types';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from '../types/errors';
+import { getMimeType } from '../utils/file';
+import { isValidUUID } from '../validation/helper';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
@@ -103,6 +88,9 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from './constants';
+import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
+import { PatientMasterRecordResourceType } from './patientMasterRecord';
+import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -282,6 +270,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
 export interface FileDocDataForDocReference {
   url: string;
   title: string;
+  language?: string;
 }
 
 export interface CreateDocumentReferenceInput {
@@ -337,7 +326,10 @@ export async function createFilesDocumentReferences(
       // If different version exists, mark it as superseded
       const oldDoc = docsJson.find((doc) => {
         if (!isLabsResultDoc) {
-          return doc.content[0]?.attachment.title === file.title;
+          return (
+            doc.content[0]?.attachment.title === file.title &&
+            (doc.content[0]?.attachment.language ?? 'en') === (file.language ?? 'en')
+          );
         } else {
           console.log('isLabsResultDoc');
           const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
@@ -378,6 +370,7 @@ export async function createFilesDocumentReferences(
                 url: file.url,
                 contentType,
                 title: file.title,
+                language: file.language,
               },
             },
           ],
@@ -719,6 +712,18 @@ export function getTaskResource(coding: TaskCoding, title: string, appointmentID
     code: {
       coding: [coding],
     },
+  };
+}
+
+// Task.input that tells the visit-note-pdf-and-email subscription handler to regenerate the PDF but
+// skip the patient completion email (used when the email was already sent on an earlier sign/save).
+// The producer contract here is the counterpart to `resolveSkipEmail` in the subscription handler.
+export function getSkipEmailTaskInput(): TaskInput {
+  return {
+    type: {
+      coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.SKIP_EMAIL }],
+    },
+    valueString: 'true',
   };
 }
 export const getStartTimeFromEncounterStatusHistory = (encounter: Encounter): string | undefined => {

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { DATE_FORMAT, DISPLAY_DATE_FORMAT } from 'utils';
+import { DATE_FORMAT, DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { LBS_TO_KG_FACTOR, WEIGHT_ROUNDING_PRECISION } from './constants';
 import { PatientValues, QuestionnaireResponseValues, VisitMappedData } from './types';
 

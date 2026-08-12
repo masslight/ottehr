@@ -1,11 +1,31 @@
-import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, DocumentReference, Extension, Organization, ServiceRequest } from 'fhir/r4b';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import {
-  RadiologyDTO,
+  LATERALITY_SELECTORS,
+  LateralityValue,
+  RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
+  RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
+import {
+  RadiologyDTO,
+  RadiologyPerformedBy,
+  RadiologyPerformingOrganization,
+  RadiologySafetyFlag,
+} from 'utils/lib/types/api/radiology';
+
+// The single definition of "this radiology order has an uploaded result": a current DocumentReference
+// with the radiology-result type coding, related to the ServiceRequest. All radiology consumers must agree.
+export const isCurrentRadiologyResultDocRef = (docRef: DocumentReference, serviceRequestId: string): boolean =>
+  docRef.status === 'current' &&
+  !!docRef.type?.coding?.some(
+    (coding) =>
+      coding.system === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.system && coding.code === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.code
+  ) &&
+  !!docRef.context?.related?.some((related) => related.reference === `ServiceRequest/${serviceRequestId}`);
 
 export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!reports.length) return undefined;
@@ -61,9 +81,18 @@ export const makeRadiologyDTO = (
 ): RadiologyDTO => {
   const cptCode = serviceRequest.code?.coding?.[0]?.code ?? '';
 
-  const diagnosisCode = serviceRequest.reasonCode?.[0]?.coding?.[0]?.code ?? '';
+  // The SR code embeds laterality as a `<cpt>-<modifier>` suffix; split it back out, deriving the
+  // modifier alternation from the canonical selectors so it stays in sync if modifiers change.
+  const lateralitySuffix = new RegExp(`-(${Object.keys(LATERALITY_SELECTORS).join('|')})$`);
+  const lateralityMatch = lateralitySuffix.exec(cptCode);
+  const laterality = lateralityMatch ? (lateralityMatch[1] as LateralityValue) : undefined;
+  const baseCptCode = laterality ? cptCode.slice(0, -(laterality.length + 1)) : cptCode;
 
-  const diagnosisDisplay = serviceRequest.reasonCode?.[0]?.coding?.[0]?.display ?? '';
+  const diagnoses = (serviceRequest.reasonCode ?? []).map((reason) => ({
+    code: reason.coding?.[0]?.code ?? '',
+    display: reason.coding?.[0]?.display ?? '',
+  }));
+  const diagnosis = diagnoses.map(({ code, display }) => `${code} — ${display}`).join('; ');
 
   const cptCodeDisplay = serviceRequest.code?.coding?.[0]?.display ?? '';
 
@@ -78,18 +107,64 @@ export const makeRadiologyDTO = (
   const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
   const studyName = extractOrderDetailValue(serviceRequest, 'requested-procedure-description');
 
+  const findExt = (url: string): Extension | undefined => serviceRequest.extension?.find((ext) => ext.url === url);
+
+  const external = findExt(FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)?.valueBoolean;
+  const timeWindow = findExt(FHIR_EXTENSION.ServiceRequest.radiologyTimeWindow.url)?.valueString;
+  const safetyFlags = serviceRequest.extension
+    ?.filter((ext) => ext.url === FHIR_EXTENSION.ServiceRequest.radiologySafetyFlag.url)
+    .map((ext) => ext.valueCode)
+    .filter((code): code is RadiologySafetyFlag => code != null);
+
+  const performingOrganization = extractPerformingOrganization(serviceRequest);
+  const performedBy = extractPerformedBy(serviceRequest);
+
   const dto: RadiologyDTO = {
     serviceRequestId: serviceRequest.id!,
     cptCodeDisplay,
-    studyType: `${cptCode} — ${cptCodeDisplay}`,
-    diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
+    cptCode: baseCptCode,
+    laterality,
+    studyType: `${baseCptCode} — ${cptCodeDisplay}`,
+    diagnosis,
+    diagnoses,
     clinicalHistory,
     preliminaryReport: preliminaryReportData,
     finalReport: finalReportData,
     studyName,
+    external: external || undefined,
+    performingOrganization,
+    timeWindow,
+    safetyFlags: safetyFlags && safetyFlags.length > 0 ? safetyFlags : undefined,
+    performedBy,
   };
 
   return dto;
+};
+
+const extractPerformedBy = (serviceRequest: ServiceRequest): RadiologyPerformedBy | undefined => {
+  const performer = serviceRequest.performer?.find((ref) => ref.reference?.startsWith('Practitioner/'));
+  const id = performer?.reference?.split('/')[1];
+  if (!id) {
+    return undefined;
+  }
+  // `display` is written from the Practitioner's name; fall back to the id rather than rendering nothing.
+  return { id, name: performer?.display || id };
+};
+
+const extractPerformingOrganization = (serviceRequest: ServiceRequest): RadiologyPerformingOrganization | undefined => {
+  const org = serviceRequest.contained?.find(
+    (resource): resource is Organization =>
+      resource.resourceType === 'Organization' && resource.id === RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID
+  );
+  if (!org) {
+    return undefined;
+  }
+  return {
+    name: org.name,
+    address: org.address?.[0]?.text,
+    phone: org.telecom?.find((t) => t.system === 'phone')?.value,
+    fax: org.telecom?.find((t) => t.system === 'fax')?.value,
+  };
 };
 
 const extractOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined => {

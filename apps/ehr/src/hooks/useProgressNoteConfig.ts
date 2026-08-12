@@ -1,7 +1,10 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { GetProgressNoteConfigOutput, UpdateProgressNoteConfigInput } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import {
+  GetProgressNoteConfigOutput,
+  UpdateProgressNoteConfigInput,
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { adminUpdateProgressNoteConfig, getProgressNoteConfig } from '../api/api';
 import { useApiClients } from './useAppClients';
 

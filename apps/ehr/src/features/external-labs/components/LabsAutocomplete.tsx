@@ -5,15 +5,11 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  LabSetDTO,
-  LabType,
-  ModifiedOrderingLocation,
-  nameLabTest,
-  OrderableItemSearchResult,
-  STATIC_COMPENDIUM_LAB_GUID,
-} from 'utils';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { STATIC_COMPENDIUM_LAB_GUID } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType, ModifiedOrderingLocation, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
@@ -27,7 +23,7 @@ type LabsAutocompleteProps = {
         selectedOrderingLocationId: string;
       };
   labOrgIdsString: string;
-  setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
+  setSelectedLabs: (labs: OrderableItemSearchResult[]) => void;
   labSets: LabSetDTO[] | undefined;
 };
 
@@ -68,17 +64,13 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       const labs = res?.labs;
 
       if (labs) {
-        setSelectedLabs((currentLabs) => {
-          const existingCodes = new Set(
-            currentLabs.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
-          );
-
-          const newLabs = labs.filter(
-            (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
-          );
-
-          return [...currentLabs, ...newLabs];
-        });
+        const existingCodes = new Set(
+          selectedLabs.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+        );
+        const newLabs = labs.filter(
+          (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+        );
+        setSelectedLabs([...selectedLabs, ...newLabs]);
       }
     }
   };

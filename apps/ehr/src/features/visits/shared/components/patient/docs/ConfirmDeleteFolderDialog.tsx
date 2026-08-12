@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 
 type ConfirmDeleteFolderDialogProps = {

@@ -1,6 +1,7 @@
 import { completeIntakeWorkflow } from 'src/helpers/completeIntakeWorkflow';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getAdmitterPractitionerId, PRACTITIONER_CODINGS } from 'utils';
+import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 

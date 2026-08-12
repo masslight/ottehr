@@ -1,13 +1,13 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
-  SaveServiceFacilityInput,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
+import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
 import { applyServiceFacilityInput, mapServiceFacility } from '../../src/billing/service-facility.helpers';
@@ -30,11 +30,18 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
@@ -522,7 +529,7 @@ describe('save-billing-service-facility handler', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
-    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as {
+    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as unknown as {
       index: ZambdaHandler;
     });
   });

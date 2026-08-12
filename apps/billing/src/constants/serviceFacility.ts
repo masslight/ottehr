@@ -1,4 +1,5 @@
-import { SaveServiceFacilityInput, ServiceFacilityItem } from 'utils';
+import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 
 export interface ServiceFacilityForm {
   name: string;

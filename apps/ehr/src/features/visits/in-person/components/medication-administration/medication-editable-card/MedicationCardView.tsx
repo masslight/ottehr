@@ -8,17 +8,17 @@ import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { CptCodesInput as MedicationCptCodes } from 'src/components/input/CptCodesInput';
+import { computeBillableUnits, makeMedicationOrderUpdateRequestInput } from 'utils/lib/fhir/medication-administration';
+import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import {
-  computeBillableUnits,
   ExtendedMedicationDataForResponse,
-  IN_HOUSE_CONTAINED_MEDICATION_ID,
-  InHouseMedicationQuickPickData,
-  makeMedicationOrderUpdateRequestInput,
-  MEDICAL_HISTORY_CONFIG,
   MedicationData,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.types';
+import { InHouseMedicationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { Loader } from '../../../../shared/components/Loader';
 import { QuickPicksButton } from '../../../../shared/components/QuickPicksButton';
@@ -28,7 +28,6 @@ import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { getFieldLabel, MedicationFieldType, MedicationOrderType, XsVariants } from './fieldsConfig';
 import { MedicationCardField } from './MedicationCardField';
-import { MedicationCptCodes } from './MedicationCptCodes';
 import { InHouseMedicationFieldType, isLikelyMedicationCode } from './utils';
 
 export interface InteractionsMessage {
@@ -69,6 +68,8 @@ type MedicationCardViewProps = {
   onInteractionsMessageClick: () => void;
   onDelete?: () => void;
   isReadOnly?: boolean;
+  onBack?: () => void;
+  onClearForm?: () => void;
   onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
   fhirQuickPicks?: InHouseMedicationQuickPickData[];
   fhirQuickPicksLoading?: boolean;
@@ -100,6 +101,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onInteractionsMessageClick,
   onDelete,
   isReadOnly,
+  onBack,
+  onClearForm,
   onQuickPickSelect,
   fhirQuickPicks,
   fhirQuickPicksLoading = false,
@@ -230,13 +233,18 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           <ButtonRounded
             data-testid={dataTestIds.orderMedicationPage.backButton}
             variant="outlined"
-            onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
+            onClick={() => (onBack ? onBack() : navigate(getInHouseMedicationMARUrl(appointmentId!)))}
             color="primary"
             size="large"
             startIcon={<ArrowBackIcon />}
           >
             Back
           </ButtonRounded>
+          {onClearForm && (
+            <ButtonRounded variant="outlined" color="primary" size="large" onClick={onClearForm}>
+              Clear Form
+            </ButtonRounded>
+          )}
           {!isReadOnly && onDelete && type !== 'order-new' && (
             <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
               Delete Order

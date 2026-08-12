@@ -19,14 +19,14 @@ import {
 import { ReactElement, useEffect } from 'react';
 import { Control, Controller, useForm } from 'react-hook-form';
 import { useProgressNoteConfig, useUpdateProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
+import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
 import {
-  DEFAULT_PROGRESS_NOTE_CONFIG,
-  mapDispositionTypeToLabel,
   ProgressNoteConfig,
   UpdateProgressNoteConfigInputSchema,
   VITALS_UNIT_INPUT_ORDER_LABELS,
   VITALS_UNIT_INPUT_ORDERS,
-} from 'utils';
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 
 type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired' | 'vitalsUnitInputOrder'>;
 

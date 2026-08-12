@@ -13,9 +13,10 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { GetRadiologyOrderListZambdaOrder } from 'utils';
+import { GetRadiologyOrderListZambdaOrder } from 'utils/lib/types/api/radiology';
 import {
   FollowUpAppointmentLookup,
+  getRadiologyExternalOrderDetailsUrl,
   getRadiologyOrderEditUrl,
   resolveOrderRoutingFromFollowUpLookup,
 } from '../../visits/in-person/routing/helpers';
@@ -65,18 +66,23 @@ export const RadiologyTable = ({
     encounterIds: encounterId,
   });
 
+  const buildDetailsUrl = (appointmentId: string, order: GetRadiologyOrderListZambdaOrder): string =>
+    order.external
+      ? getRadiologyExternalOrderDetailsUrl(appointmentId, order.serviceRequestId)
+      : getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
     if (followUpAppointmentLookup) {
       const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
         order.appointmentId,
         followUpAppointmentLookup
       );
-      const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+      const url = buildDetailsUrl(appointmentId, order);
       navigateTo(encounterIdQuery ? `${url}?encounterId=${encounterIdQuery}` : url);
       return;
     }
     const appointmentId = appointmentIdFromUrl || order.appointmentId;
-    const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+    const url = buildDetailsUrl(appointmentId, order);
     navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 

@@ -1,9 +1,14 @@
 import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
+import { BillingSuggestionOutput, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -13,6 +18,30 @@ type ErxMedicationHistoryItem = ErxGetMedicationHistoryResponse[number];
 
 const EXCLUDED_PRESCRIPTION_STATUSES = new Set(['cancelled', 'entered-in-error', 'stopped']);
 const ERX_HISTORY_PROMPT_LIMIT = 10;
+
+// The eRx service populates a patient's medication history asynchronously on the DoseSpot side, so
+// getMedicationHistory can take tens of seconds on a patient whose history hasn't been pulled yet.
+// sub-erx-patient-sync pre-warms it in the background under a 300s timeout, and the chart's
+// useExternalMedicationHistory hook polls every 10s waiting for it to populate. This endpoint is
+// synchronous and user-facing, and the history is only supporting context for medication burden, so
+// give it a short budget and build the prompt without it rather than letting the request time out.
+// Responding while that call is still in flight only shortens the response because wrapHandler (via
+// @sentry/aws-serverless) leaves callbackWaitsForEmptyEventLoop false; if that ever changes, the
+// runtime waits for the abandoned request to settle and this budget stops buying anything. Grep the
+// timeout warning below for how often the budget is actually missed before retuning it.
+export const ERX_HISTORY_TIMEOUT_MS = 2000;
+const ERX_HISTORY_TIMED_OUT = Symbol('erx-history-timed-out');
+
+// Logs how long an async step takes. Used to pinpoint which part of the endpoint dominates latency
+// in production (eRx medication history vs. the LLM call vs. the terminology lookups).
+const timed = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    console.log(`[recommend-billing-suggestions] ${label} took ${Date.now() - start}ms`);
+  }
+};
 
 function formatRenewalStatus(isRenewal: boolean | undefined): string {
   if (isRenewal === true) return 'refill/renewal';
@@ -80,15 +109,52 @@ export function formatErxMedicationHistoryForBillingPrompt(history: ErxGetMedica
     .join('\n');
 }
 
-async function getErxMedicationHistoryContext(oystehr: Oystehr, patientId?: string): Promise<string> {
+export async function getErxMedicationHistoryContext(oystehr: Oystehr, patientId?: string): Promise<string> {
   if (!patientId) return '';
 
+  // Attach the catch up front: when the race below times out this promise outlives it, and a late
+  // rejection with no handler would take down the whole invocation. The timed() log still fires
+  // whenever the call eventually settles, so the logs show how long it would have taken — after a
+  // timeout that lands in a *later* invocation's logs, which is why the label carries the patient.
+  const historyPromise = timed(`erx.getMedicationHistory (patient ${patientId})`, () =>
+    oystehr.erx.getMedicationHistory({ patientId })
+  ).catch((error) => {
+    console.warn(
+      `[recommend-billing-suggestions] unable to fetch eRx medication history for patient ${patientId}:`,
+      error
+    );
+    return undefined;
+  });
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<typeof ERX_HISTORY_TIMED_OUT>((resolve) => {
+    timer = setTimeout(() => resolve(ERX_HISTORY_TIMED_OUT), ERX_HISTORY_TIMEOUT_MS);
+  });
+
   try {
-    const history = await oystehr.erx.getMedicationHistory({ patientId });
-    return formatErxMedicationHistoryForBillingPrompt(history);
-  } catch (error) {
-    console.warn(`Unable to fetch eRx medication history for billing suggestions for patient ${patientId}:`, error);
-    return '';
+    const history = await Promise.race([historyPromise, timeout]);
+
+    if (history === ERX_HISTORY_TIMED_OUT) {
+      console.warn(
+        `[recommend-billing-suggestions] eRx medication history exceeded its ${ERX_HISTORY_TIMEOUT_MS}ms budget for patient ${patientId}; building billing suggestions without it`
+      );
+      return '';
+    }
+    if (!history) return ''; // fetch failed — already logged above
+
+    try {
+      return formatErxMedicationHistoryForBillingPrompt(history);
+    } catch (error) {
+      // Supporting context only: a malformed payload must degrade the prompt, not fail the request.
+      console.warn(
+        `[recommend-billing-suggestions] unable to format eRx medication history for patient ${patientId}:`,
+        error
+      );
+      return '';
+    }
+  } finally {
+    // Don't let the pending timer hold the event loop open after we've responded.
+    clearTimeout(timer);
   }
 }
 
@@ -118,11 +184,13 @@ export const index = wrapHandler(
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const handlerStart = Date.now();
+
+    m2mToken = await timed('checkOrCreateM2MClientToken', () => checkOrCreateM2MClientToken(m2mToken, secrets));
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     const [emCodeOptions, erxMedicationHistoryContext] = await Promise.all([
-      getEmCodes(oystehr),
+      timed('getEmCodes', () => getEmCodes(oystehr)),
       getErxMedicationHistoryContext(oystehr, patientId),
     ]);
     const prescribedMedicationContext = formatPrescribedMedicationsForBillingPrompt(prescribedMedications);
@@ -311,7 +379,11 @@ export const index = wrapHandler(
       required: ['icdCodes', 'cptCodes', 'emCode', 'codingSuggestions'],
     };
 
-    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, billingSuggestionsSchema);
+    console.log(`[recommend-billing-suggestions] prompt length ${prompt.length} chars`);
+
+    const aiResponseString = await timed('invokeChatbotVertexAI', () =>
+      invokeChatbotVertexAI([{ text: prompt }], secrets, billingSuggestionsSchema)
+    );
     // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
     let suggestions: BillingSuggestionOutput | undefined;
@@ -325,6 +397,8 @@ export const index = wrapHandler(
     const icdSuggestions: { code: string; description: string; reason: string }[] = [];
     const cptSuggestions: { code: string; description: string; reason: string }[] = [];
     const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
+
+    const codeValidationStart = Date.now();
 
     // Validate ICD codes and get the descriptions for the codes.
     // Look the codes up concurrently but preserve the AI's original ordering: Promise.all
@@ -418,6 +492,11 @@ export const index = wrapHandler(
       });
     }
 
+    console.log(
+      `[recommend-billing-suggestions] code validation took ${Date.now() - codeValidationStart}ms ` +
+        `(icd=${suggestions?.icdCodes?.length ?? 0}, cpt=${suggestions?.cptCodes?.length ?? 0})`
+    );
+
     if (suggestions?.icdCodes) {
       suggestions.icdCodes = icdSuggestions;
     }
@@ -427,6 +506,10 @@ export const index = wrapHandler(
     if (suggestions?.emCode) {
       suggestions.emCode = emCodeSuggestions;
     }
+
+    // Success-path total. Failed invocations are covered by the per-step timed() logs above (they
+    // log from a finally) and by the Sentry transaction wrapHandler opens for this zambda.
+    console.log(`[recommend-billing-suggestions] total handler time ${Date.now() - handlerStart}ms`);
 
     return {
       statusCode: 200,

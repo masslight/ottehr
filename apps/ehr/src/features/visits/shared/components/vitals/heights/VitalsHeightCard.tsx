@@ -1,10 +1,12 @@
-import { Box, Grid, Typography } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import { Box, Button, Grid, Typography } from '@mui/material';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement, VitalsHeightObservationDTO } from 'utils';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { VitalsHeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
@@ -67,6 +69,21 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
         dataTestId={dataTestIds.vitalsPage.heightHeader}
+        headerItem={
+          field.hasData && !isReadOnly ? (
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<ClearIcon fontSize="small" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                field.onClearForm?.();
+              }}
+            >
+              Clear draft
+            </Button>
+          ) : undefined
+        }
       >
         {isReadOnly ? (
           renderRightColumn()

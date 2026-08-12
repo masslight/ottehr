@@ -1,14 +1,13 @@
+import { dispositionCheckboxOptions, OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import {
-  BRANDING_CONFIG,
-  dispositionCheckboxOptions,
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OTHER_SPECIALTY_TRANSFER_OPTION,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {
   pcp: ['followUpIn', 'followUpType'],

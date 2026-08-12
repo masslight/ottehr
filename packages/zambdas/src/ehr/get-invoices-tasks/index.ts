@@ -14,33 +14,42 @@ import {
 import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
-  formatDateConfigurable,
-  GET_INVOICES_TASKS_ZAMBDA_KEY,
-  getAddressForIndividual,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
+} from 'utils/lib/fhir/constants';
+import {
   getAddressString,
+  getPatientReferenceFromAccount,
+  getResponsiblePartyFromAccount,
+} from 'utils/lib/fhir/helpers';
+import {
+  getAddressForIndividual,
   getEmailForIndividual,
   getFullName,
+  getPhoneNumberForIndividual,
+  mapGenderToLabel,
+} from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { invoiceTaskSourceSearchParam, parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import {
+  GET_INVOICES_TASKS_ZAMBDA_KEY,
   GetInvoicesTasksInput,
   GetInvoicesTasksResponse,
-  getPatientReferenceFromAccount,
-  getPhoneNumberForIndividual,
-  getResponsiblePartyFromAccount,
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  mapGenderToLabel,
-  parseInvoiceTaskInput,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
-  standardizePhoneNumber,
-  TIMEZONES,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/invoicing.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { accountMatchesType } from '../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -158,7 +167,7 @@ async function getFhirResourcesGrouped(
   oystehr: Oystehr,
   complexValidatedInput: GetInvoicesTasksInput
 ): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
-  const { page, status, patientId, sortField, sortDirection, hideZeroBalance } = complexValidatedInput;
+  const { page, status, patientId, sortField, sortDirection, hideZeroBalance, source } = complexValidatedInput;
   const resolvedSortField = sortField ?? InvoiceSortFieldValues.finalizationDate;
   const resolvedSortDirection = sortDirection ?? InvoiceSortDirectionValues.desc;
   const sortPrefix = resolvedSortDirection === InvoiceSortDirectionValues.desc ? '-' : '';
@@ -245,6 +254,10 @@ async function getFhirResourcesGrouped(
       name: 'business-status:not',
       value: `${INVOICE_TASK_BUSINESS_STATUS_SYSTEM}|${ZERO_BALANCE_BUSINESS_STATUS_CODE}`,
     });
+  }
+  const sourceParam = invoiceTaskSourceSearchParam(source);
+  if (sourceParam) {
+    params.push(sourceParam);
   }
   const bundle = await oystehr.fhir.search({
     resourceType: 'Task',

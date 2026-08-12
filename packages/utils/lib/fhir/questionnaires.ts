@@ -2,12 +2,10 @@ import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
-import {
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from '../ottehr-config';
-import { CanonicalUrl } from '../types';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork-virtual';
+import { PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config/patient-record';
+import { CanonicalUrl } from '../types/common';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
@@ -83,4 +81,23 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
       (questionnaire: Questionnaire) => questionnaireUrl.startsWith(questionnaire.url!)
     );
   }) as QuestionnaireResponse | undefined;
+};
+
+/** uses the canonical url (QuestionnaireResponse.questionnaire) to fetch the related Questionnaire resource */
+export const getQuestionnaireForQR = async (qr: QuestionnaireResponse, oystehr: Oystehr): Promise<Questionnaire> => {
+  const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr.questionnaire?.split('|') ?? [null, null];
+
+  if (!sourceQuestionnaireUrl || !sourceQuestionnaireVersion) {
+    throw new Error(
+      `Questionnaire for QR is not well defined: ${sourceQuestionnaireUrl}|${sourceQuestionnaireVersion}`
+    );
+  }
+  console.log('currentQuestionnaireUrl', sourceQuestionnaireUrl, sourceQuestionnaireVersion);
+
+  const questionnaire = await getCanonicalQuestionnaire(
+    { version: sourceQuestionnaireVersion, url: sourceQuestionnaireUrl },
+    oystehr
+  );
+
+  return questionnaire;
 };

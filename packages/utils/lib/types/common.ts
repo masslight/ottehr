@@ -15,7 +15,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from '../fhir/systemUrls';
-import { ScheduleExtension } from '../utils';
+import { ScheduleExtension } from '../utils/scheduleUtils';
 import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
@@ -520,6 +520,7 @@ type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
 type Task_Patient_Payment_Candid_Sync_And_Receipt_Codes = 'patient-payment-candid-sync-and-receipt';
 type Task_Harvest_Paperwork_Codes = 'harvest-paperwork';
 type Task_Merge_Patients_Codes = 'merge-patients';
+type Task_Send_Fax_Packet_Codes = 'send-fax-packet';
 type Task_Generate_Patient_Statement_Codes = 'generate-statement' | 'send-invoice-to-patient';
 type Task_Send_Patient_Statement_By_Mail_Codes = 'send-patient-statement-by-mail';
 type Task_Codes =
@@ -531,7 +532,8 @@ type Task_Codes =
   | Task_Visit_Note_PDF_And_Email_Codes
   | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes
   | Task_Harvest_Paperwork_Codes
-  | Task_Merge_Patients_Codes;
+  | Task_Merge_Patients_Codes
+  | Task_Send_Fax_Packet_Codes;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';
@@ -575,7 +577,8 @@ type TaskId =
   | 'harvestPaperwork'
   | 'mergePatients'
   | 'generatePatientStatement'
-  | 'sendPatientStatementByMail';
+  | 'sendPatientStatementByMail'
+  | 'sendFaxPacket';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };
@@ -628,6 +631,10 @@ export const TaskIndicator: TaskIndicator = {
   sendPatientStatementByMail: {
     system: Task_Send_Patient_Statement_By_Mail_Url,
     code: 'send-patient-statement-by-mail',
+  },
+  sendFaxPacket: {
+    system: OttehrTaskSystem,
+    code: 'send-fax-packet',
   },
 };
 

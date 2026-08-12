@@ -2,11 +2,12 @@ import { Grid, Typography } from '@mui/material';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { nameLabTest, OrderableItemSearchResult } from 'utils';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 
 interface ExternalSelectedTestsProps {
   selectedLabs: OrderableItemSearchResult[];
-  setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
+  setSelectedLabs: (labs: OrderableItemSearchResult[]) => void;
 }
 
 export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ selectedLabs, setSelectedLabs }) => {
@@ -21,16 +22,15 @@ export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ se
           )}
           renderActions={(lab) => (
             <DeleteIconButton
-              onClick={() =>
-                setSelectedLabs((prev) =>
-                  prev.filter((tempLab) => {
-                    // we need the lab name for generic compendium labs (unique name will be the same)
-                    const selectedUniqueNameWithLab = `${lab.item.uniqueName}${lab.lab.labName}`;
-                    const tempLabUniqueNameWithLab = `${tempLab.item.uniqueName}${tempLab.lab.labName}`;
-                    return tempLabUniqueNameWithLab !== selectedUniqueNameWithLab;
-                  })
-                )
-              }
+              onClick={() => {
+                // we need the lab name for generic compendium labs (unique name will be the same)
+                const selectedUniqueNameWithLab = `${lab.item.uniqueName}${lab.lab.labName}`;
+                setSelectedLabs(
+                  selectedLabs.filter(
+                    (tempLab) => `${tempLab.item.uniqueName}${tempLab.lab.labName}` !== selectedUniqueNameWithLab
+                  )
+                );
+              }}
             />
           )}
         />

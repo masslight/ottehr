@@ -4,21 +4,17 @@ import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  APIError,
-  BookableItem,
-  BOOKING_CONFIG,
-  CreateSlotParams,
-  createSlotParamsFromSlotAndOptions,
-  GetScheduleResponse,
-  isApiError,
-  ScheduleType,
-  ServiceCategoryCode,
-  ServiceCategoryCodeSchema,
-  ServiceMode,
-  shouldShowServiceCategorySelectionPage,
-  SlotListItem,
-} from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import Schedule from 'src/components/Schedule';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { shouldShowServiceCategorySelectionPage } from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG, ServiceCategoryCode, ServiceCategoryCodeSchema } from 'utils/lib/ottehr-config/booking';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { BookableItem, ScheduleType, ServiceMode } from 'utils/lib/types/common';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { createSlotParamsFromSlotAndOptions, SlotListItem } from 'utils/lib/utils/scheduleUtils';
 import ottehrApi from '../api/ottehrApi';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
@@ -29,15 +25,12 @@ import {
   bookingBasePath,
   intakeFlowPageRoute,
 } from '../App';
-import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
-import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useServiceCategories } from '../hooks/useServiceCategories';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
-import { useOystehrAPIClient } from '../telemed/utils';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -174,6 +167,7 @@ const useBookingData = (
       slug: slugToFetch ?? '',
       scheduleType: scheduleType ?? ScheduleType.location,
       serviceCategoryCode,
+      serviceMode,
       ...(atLocationSlug && { atLocationSlug }),
     }
   );
@@ -562,6 +556,12 @@ const PrebookVisit: FC = () => {
               forceClosedToday={false}
               forceClosedTomorrow={false}
               handleSlotSelected={noop}
+              // Enable on-demand "Other dates": picking a far-future date fetches
+              // that day's slots (up to BOOKING_CONFIG.prebookMaxMonthsAhead).
+              bookableSlug={slugToFetch}
+              bookableScheduleType={scheduleType ?? undefined}
+              serviceCategoryCode={serviceCategoryCode}
+              atLocationSlug={atLocationSlug ?? undefined}
             />
           ))}
       </SelectionContainer>

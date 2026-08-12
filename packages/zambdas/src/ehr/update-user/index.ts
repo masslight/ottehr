@@ -1,16 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import {
-  FHIR_IDENTIFIER_NPI,
-  getSecret,
   getSuffixFromProviderTypeExtension,
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
-  UpdateUserZambdaOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/practitioners';
+import { getSecret } from 'utils/lib/secrets';
+import { UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-user';
@@ -41,6 +45,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
+
+  // Editing users / assigning roles is an admin-only operation, matching the EHR's employee-management
+  // gate (Administrator or Customer Support). Enforcing it here prevents a non-admin (e.g. a Clinician)
+  // from calling this zambda directly to grant themselves the Provider role or an NPI and thereby
+  // bypass every NPI-gated action check.
+  const userToken = input.headers.Authorization?.replace('Bearer ', '');
+  if (!userToken) {
+    throw NOT_AUTHORIZED;
+  }
+  await requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.CustomerSupport]);
+
   const PROJECT_API = getSecret('PROJECT_API', secrets);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const headers = {
@@ -180,17 +195,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'fax');
       }
 
-      if (npi) {
+      // NPI belongs to Providers only. If the user is not being (re)assigned the Provider role, never
+      // persist an NPI on their Practitioner — even if the client still sends a stale value (e.g. when an
+      // existing Provider is switched to Clinician and the hidden NPI field keeps its old value). This
+      // upholds the "a non-Provider (e.g. Clinician) has no NPI" invariant that the NPI-gated action
+      // checks rely on; otherwise such a user would keep an NPI and slip past every gate.
+      const effectiveNpi = selectedRoles?.includes(RoleType.Provider) ? npi : undefined;
+      if (effectiveNpi) {
         if (!existingPractitionerResource.identifier) {
           existingPractitionerResource.identifier = [];
         }
         const npiIndex = existingPractitionerResource.identifier.findIndex((id) => id.system === FHIR_IDENTIFIER_NPI);
         if (npiIndex >= 0) {
-          existingPractitionerResource.identifier[npiIndex].value = npi;
+          existingPractitionerResource.identifier[npiIndex].value = effectiveNpi;
         } else {
           existingPractitionerResource.identifier.push({
             system: FHIR_IDENTIFIER_NPI,
-            value: npi,
+            value: effectiveNpi,
           });
         }
       } else {

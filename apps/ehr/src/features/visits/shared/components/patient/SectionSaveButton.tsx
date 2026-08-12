@@ -7,13 +7,10 @@ import { FC, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { updatePatientVisitDetails } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  createQuestionnaireItemsMap,
-  PATIENT_RECORD_CONFIG,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  pruneEmptySections,
-  UpdateVisitDetailsInput,
-} from 'utils';
+import { pruneEmptySections } from 'utils/lib/helpers/paperwork/paperwork';
+import { PATIENT_RECORD_CONFIG, PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
+import { createQuestionnaireItemsMap } from 'utils/lib/types/data/paperwork/createQuestionnaireItemsMap';
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
 import { buildVisitEmployerUpdate, OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';

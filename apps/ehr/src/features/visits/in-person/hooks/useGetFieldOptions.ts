@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PROVIDERS_FILTER } from 'src/shared/utils';
-import { DiagnosisDTO, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType, UNIT_OPTIONS } from 'utils';
+import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  MedicationApplianceRoutes,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';

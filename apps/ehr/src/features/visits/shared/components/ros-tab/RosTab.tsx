@@ -1,7 +1,7 @@
 import { CircularProgress, Stack } from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { InPersonRosConfig } from 'utils';
+import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useRosObservationsInitializationStore } from '../../stores/appointment/ros-observations.store';
 import { PageTitle } from '../PageTitle';

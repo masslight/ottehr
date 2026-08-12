@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FORMS_CONFIG } from 'utils';
+import { FORMS_CONFIG } from 'utils/lib/ottehr-config/forms';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { ExcuseLink } from './plan-tab/components/ExcuseLink';

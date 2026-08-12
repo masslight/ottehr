@@ -4,23 +4,23 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
+import Schedule from 'src/components/Schedule';
+import { i18n } from 'utils/lib/frontend';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { GetAppointmentResponseAppointmentDetails } from 'utils/lib/types/api/appointment.types';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
 import {
   APIError,
-  AvailableLocationInformation,
-  BRANDING_CONFIG,
   CANT_UPDATE_CANCELED_APT_ERROR,
-  GetAppointmentResponseAppointmentDetails,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  PROJECT_WEBSITE,
-  SlotListItem,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { SlotListItem } from 'utils/lib/utils/scheduleUtils';
 import ottehrApi from '../api/ottehrApi';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
-import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
 
 const Reschedule = (): JSX.Element => {

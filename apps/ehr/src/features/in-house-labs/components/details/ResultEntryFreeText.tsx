@@ -1,6 +1,6 @@
 import { FormControl, TextField, useTheme } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
-import { DataEntryComponent } from 'utils';
+import { DataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface ResultEntryFreeTextProps {
   testItemComponent: DataEntryComponent;

@@ -1,28 +1,27 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
+import { CodeableConcept, DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  BUCKET_NAMES,
-  createCustomPatientDocumentList,
-  createPatientDocumentList,
-  fetchCustomFoldersCatalog,
-  FOLDERS_CONFIG,
-  isCustomFolderList,
-  isSyntheticFolderId,
-  OTTEHR_MODULE,
-  parseSyntheticFolderId,
-  replaceOperation,
-  sanitizeFileNameForZ3,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { isCustomFolderList } from 'utils/lib/fhir/list';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { addOperation, replaceOperation } from 'utils/lib/helpers/operations';
+import { Secrets } from 'utils/lib/secrets';
+import { isSyntheticFolderId, parseSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
+import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
+import {
+  findOrCreatePatientCustomFolderList,
+  findOrCreatePatientSystemFolderList,
+  getListAndPatientResource,
+} from '../shared/patient-document-folders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const logIt = (msg: string): void => {
@@ -227,123 +226,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     body: JSON.stringify(response),
   };
 });
-
-type ListAndPatientResource = {
-  list?: List;
-  patient?: Patient;
-};
-
-// Creates the real per-patient List on first upload for a system folder (FOLDERS_CONFIG)
-// that was only ever shown synthetically (see the read path in useGetPatientDocs). Returns
-// undefined when internalName isn't a known system folder, so the caller falls through to
-// the custom-folder path.
-async function findOrCreatePatientSystemFolderList(args: {
-  patientId: string;
-  internalName: string;
-  oystehr: Oystehr;
-}): Promise<List | undefined> {
-  const { patientId, internalName, oystehr } = args;
-
-  const config = FOLDERS_CONFIG.find((c) => c.title === internalName);
-  if (!config) {
-    return undefined;
-  }
-
-  // FHIR string search on `title` is prefix-match, so confirm an exact, non-custom title
-  // match before reusing an existing List.
-  const existing = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: 'title', value: internalName },
-      ],
-    })
-  )
-    .unbundle()
-    .find((l) => l.title === internalName && !isCustomFolderList(l));
-  if (existing) {
-    logIt(`findOrCreatePatientSystemFolderList: found existing List ${existing.id} for "${internalName}"`);
-    return existing;
-  }
-
-  // Plain create; same small race window as the custom-folder path (the SDK lacks conditional
-  // create). Worst case is a duplicate List that the read path de-dupes by internalName.
-  const created = await oystehr.fhir.create<List>(createPatientDocumentList(`Patient/${patientId}`, config));
-  logIt(`findOrCreatePatientSystemFolderList: created List ${created.id} for "${internalName}"`);
-  return created;
-}
-
-async function findOrCreatePatientCustomFolderList(args: {
-  patientId: string;
-  internalName: string;
-  oystehr: Oystehr;
-}): Promise<List | undefined> {
-  const { patientId, internalName, oystehr } = args;
-
-  const existing = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: 'title', value: internalName },
-      ],
-    })
-  ).unbundle()[0];
-  if (existing) {
-    logIt(`findOrCreatePatientCustomFolderList: found existing List ${existing.id} for "${internalName}"`);
-    return existing;
-  }
-
-  // Resolve display name from the catalog rather than trusting the client.
-  const catalog = await fetchCustomFoldersCatalog(oystehr);
-  const def = catalog.find((d) => d.internalName === internalName);
-  if (!def) {
-    logIt(`findOrCreatePatientCustomFolderList: "${internalName}" not in catalog — refusing to create`);
-    return undefined;
-  }
-
-  // Plain create: the SDK has no support for FHIR conditional create (If-None-Exist),
-  // so the search-above + create-here pair is technically racy. In practice the race
-  // window is tiny and only matters if the same admin uploads twice to the same lazy
-  // folder concurrently. Worst case is two Lists with the same title; the read path
-  // de-dupes by internalName so the user sees one folder, but one of the two upload
-  // entries can be briefly hidden until reconciled. Acceptable for now.
-  const created = await oystehr.fhir.create<List>(
-    createCustomPatientDocumentList(`Patient/${patientId}`, def.internalName)
-  );
-  logIt(`findOrCreatePatientCustomFolderList: created List ${created.id} for "${internalName}"`);
-  return created;
-}
-
-async function getListAndPatientResource(listId: string, oystehr: Oystehr): Promise<ListAndPatientResource> {
-  const resources = (
-    await oystehr.fhir.search<List | Patient>({
-      resourceType: 'List',
-      params: [
-        {
-          name: '_id',
-          value: listId!,
-        },
-        {
-          name: '_include',
-          value: 'List:subject',
-        },
-      ],
-    })
-  ).unbundle();
-
-  const lists: List[] = resources.filter((resource) => resource.resourceType === 'List') as List[];
-  const listItem = lists?.at(0);
-
-  const patients: Patient[] = resources.filter((resource) => resource.resourceType === 'Patient') as Patient[];
-  const patientItem = patients?.at(0);
-
-  return {
-    list: listItem,
-    patient: patientItem,
-  };
-}
 
 type CreateDocRefInput = {
   patientId: string;

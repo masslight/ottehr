@@ -1,6 +1,6 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useRef } from 'react';
-import { ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
 import {
   useExamObservationsInitializationStore,

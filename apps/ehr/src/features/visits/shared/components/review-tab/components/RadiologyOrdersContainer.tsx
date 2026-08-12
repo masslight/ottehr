@@ -2,7 +2,7 @@ import { Box, Divider, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
-import { RadiologyDTO } from 'utils';
+import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
   radiologyOrders: RadiologyDTO[];
@@ -12,7 +12,10 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
   const { radiologyOrders } = props;
   const { ordersWithReads, pendingPerformedOrders } = radiologyOrders.reduce(
     (acc: { ordersWithReads: RadiologyDTO[]; pendingPerformedOrders: RadiologyDTO[] }, order) => {
-      if (order.preliminaryReport || order.finalReport) {
+      // External orders never produce reads; they're resulted once their upload sets externalResultReviewed.
+      const hasReads = Boolean(order.preliminaryReport || order.finalReport);
+      const externalResulted = Boolean(order.external && order.externalResultReviewed);
+      if (hasReads || externalResulted) {
         acc.ordersWithReads.push(order);
       } else {
         acc.pendingPerformedOrders.push(order);
@@ -59,17 +62,27 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
       {ordersWithReads.map((order, idx) => (
         <Box key={`radiology-order-${order.serviceRequestId}`}>
           <Box display="flex" flexDirection="column" gap={0.5}>
-            <AssessmentTitle>{order.cptCodeDisplay}</AssessmentTitle>
+            <AssessmentTitle>{order.studyType}</AssessmentTitle>
             <Typography>{order.diagnosis}</Typography>
             <Typography>
               <span style={{ fontWeight: 'bold' }}>Clinical History: </span>
               {order.clinicalHistory}
             </Typography>
-            {renderReport(order)}
+            {order.performedBy && (
+              <Typography>
+                <span style={{ fontWeight: 'bold' }}>Performed by: </span>
+                {order.performedBy.name}
+              </Typography>
+            )}
+            {/* External orders have no read to render — the study heading above is the result. */}
+            {!order.external && renderReport(order)}
           </Box>
-          <Box width="30%">
-            <RadiologyViewImageBtn serviceRequestId={order.serviceRequestId} disabled={false} displaySmall={true} />
-          </Box>
+          {/* AdvaPACS viewer doesn't apply to external orders. */}
+          {!order.external && (
+            <Box width="30%">
+              <RadiologyViewImageBtn serviceRequestId={order.serviceRequestId} disabled={false} displaySmall={true} />
+            </Box>
+          )}
           {idx + 1 < ordersWithReads.length && <Divider />}
         </Box>
       ))}

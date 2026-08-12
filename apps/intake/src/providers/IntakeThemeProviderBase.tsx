@@ -10,9 +10,9 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { i18n } from 'i18next';
 import { FC } from 'react';
-import { BRANDING_CONFIG } from 'utils';
-import { IntakeThemeContext } from '../contexts';
-import { PropsWithChildren } from '../types';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { PropsWithChildren } from 'src/types/props-with-children';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 
 export const breakpoints: BreakpointsOptions = {
   values: {
@@ -32,7 +32,7 @@ declare module '@mui/material/styles' {
   }
   interface PaletteOptions {
     tertiary: PaletteColor;
-    destructive: PaletteColor;
+    destructive?: PaletteColor;
   }
 }
 

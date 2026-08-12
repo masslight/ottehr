@@ -2,9 +2,8 @@ import { Checkbox, FormControlLabel } from '@mui/material';
 import { FC, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
-import { IntakeThemeContext } from '../../contexts';
-import { DescriptionRenderer } from './DescriptionRenderer';
-import { LinkRenderer } from './LinkRenderer';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { DescriptionRenderer, LinkRenderer } from 'ui-components/lib/components/paperwork/form-components';
 
 interface ControlledCheckBoxProps {
   name: string;

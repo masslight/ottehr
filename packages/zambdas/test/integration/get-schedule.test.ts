@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Location, Schedule } from 'fhir/r4b';
-import { M2MClientMockType, SLUG_SYSTEM } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { buildSimpleScheduleExt, makeSchedule } from '../helpers/testScheduleUtils';

@@ -9,12 +9,15 @@ import { palette } from '@theme/index';
 import { useLocalVideo, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { CallSettings } from 'src/telemed/components/CallSettings/CallSettings';
+import { CallSettingsTooltip } from 'src/telemed/components/CallSettingsTooltip';
+import { IconButtonContained } from 'src/telemed/components/IconButtonContained';
+import { SideCardList } from 'src/telemed/components/SideCardList';
+import { ConfirmEndCallDialog } from 'src/telemed/features/video-call/ConfirmEndCallDialog';
+import { CustomDialog } from 'ui-components/lib/components/intake/CustomDialog';
 import { intakeFlowPageRoute } from '../../../App';
-import { CustomDialog } from '../../../components/CustomDialog';
 import { otherColors } from '../../../IntakeThemeProvider';
-import { CallSettings, CallSettingsTooltip, IconButtonContained, SideCardList } from '../../components';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { ConfirmEndCallDialog } from '.';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();

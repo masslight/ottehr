@@ -12,14 +12,17 @@ import { Box, CircularProgress, Divider, Grid, Typography } from '@mui/material'
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PatientAppointmentDTO, ServiceMode, VisitType } from 'utils';
-import { ottehrApi } from '../api';
-import { LinkedButtonWithIcon, PageContainer } from '../components';
-import { useIntakeCommonStore } from '../features/common';
+import ottehrApi from 'src/api/ottehrApi';
+import { PageContainer } from 'src/components/CustomContainer';
+import LinkedButtonWithIcon from 'src/components/LinkedButtonWithIcon';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { i18n } from 'utils/lib/frontend';
+import { PatientAppointmentDTO } from 'utils/lib/types/api/appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors, palette } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
 
 const Appointments = (): JSX.Element => {
   const [appointments, setAppointments] = useState<PatientAppointmentDTO[] | undefined>(undefined);

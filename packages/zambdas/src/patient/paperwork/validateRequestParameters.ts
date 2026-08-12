@@ -1,16 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   filterDisabledPages,
-  getQuestionnaireItemsAndProgress,
   makeValidationSchema,
-  PatchPaperworkParameters,
-  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   recursiveGroupTransform,
-} from 'utils';
+} from 'utils/lib/helpers/paperwork/validation';
+import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
 import { ValidationError } from 'yup';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 interface BasicInput extends PatchPaperworkParameters {
   appointmentId?: string;
@@ -37,6 +39,7 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
   updatedAnswers: QuestionnaireResponseItem[];
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  createReviewTaskAndPdf: boolean;
 }
 
 const PaperworkBodySchema = z.object({
@@ -197,6 +200,7 @@ const complexSubmitValidation = async (
     questionnaireResponseId,
     updatedAnswers: filteredAnswers,
     currentQRStatus: fullQRResource.status,
+    createReviewTaskAndPdf: qrSentManually(fullQRResource),
   };
 };
 const complexPatchValidation = async (
@@ -265,6 +269,7 @@ export const validateSubmitInputs = async (
 ): Promise<SubmitPaperworkEffectInput> => {
   const basic = basicValidation(input);
   const { answers } = basic;
+
   if (!Array.isArray(answers)) {
     throw new Error(`"answers" must be an array`);
   }

@@ -21,7 +21,7 @@ import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useAdminListInHouseLabs } from 'src/features/visits/telemed/components/admin/admin.queries';
-import { InHouseLabsAdminListItem } from 'utils';
+import { InHouseLabsAdminListItem } from 'utils/lib/types/data/in-house/in-house.types';
 
 const DEFAULT_ROWS_PER_PAGE = 10;
 

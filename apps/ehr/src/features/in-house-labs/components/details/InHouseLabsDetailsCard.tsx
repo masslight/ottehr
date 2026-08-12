@@ -1,7 +1,8 @@
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Box, Collapse, IconButton, Typography } from '@mui/material';
-import { InHouseOrderDetailPageItemDTO, PageName } from 'utils';
+import { PageName } from 'utils/lib/types/data/in-house/in-house.constants';
+import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 import { InHouseLabsNotesCard } from './InHouseLabsNotesCard';
 

@@ -1,33 +1,46 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  DiagnosticReport,
+  DocumentReference,
+  Encounter,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
+import { FHIR_EXTENSION, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getExtension } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  FHIR_EXTENSION,
-  formatDate,
-  getExtension,
-  getFullestAvailableName,
-  GetRadiologyOrderListZambdaInput,
-  GetRadiologyOrderListZambdaOrder,
-  GetRadiologyOrderListZambdaOutput,
-  isPositiveNumberOrZero,
   ORDER_TYPE_CODE_SYSTEM,
-  Pagination,
-  RADIOLOGY_TASK,
-  RadiologyOrderHistoryRow,
-  RadiologyOrderStatus,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-  Task as OttehrTask,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import {
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOrder,
+  GetRadiologyOrderListZambdaOutput,
+  RadiologyOrderHistoryRow,
+  RadiologyOrderStatus,
+} from 'utils/lib/types/api/radiology';
+import { Pagination } from 'utils/lib/types/data/pagination.types';
+import { RADIOLOGY_TASK, Task as OttehrTask } from 'utils/lib/types/data/tasks/types';
+import { formatDate } from 'utils/lib/utils/date';
+import { isPositiveNumberOrZero } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import {
   makeRadiologyDTO,
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -107,8 +120,11 @@ export const getRadiologyOrders = async (
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+    { name: '_revinclude', value: 'DocumentReference:related' },
     { name: '_include', value: 'ServiceRequest:requester' },
     { name: '_include', value: 'ServiceRequest:encounter' },
+    // The visit's attending provider is the ordering provider we display; see `resolveOrderingProvider`.
+    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
     { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
     { name: 'status:not', value: 'revoked' },
   ];
@@ -135,9 +151,12 @@ export const getRadiologyOrders = async (
 
   const resources = (searchResponse.entry || [])
     .map((entry) => entry.resource)
-    .filter((res): res is ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter => Boolean(res));
+    .filter((res): res is ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | DocumentReference =>
+      Boolean(res)
+    );
 
-  const { serviceRequests, tasks, diagnosticReports, practitioners, encounters } = extractResources(resources);
+  const { serviceRequests, tasks, diagnosticReports, practitioners, encounters, documentReferences } =
+    extractResources(resources);
 
   if (!serviceRequests.length) {
     return {
@@ -147,7 +166,7 @@ export const getRadiologyOrders = async (
   }
 
   const orders = serviceRequests.map((serviceRequest) =>
-    parseResultsToOrder(serviceRequest, tasks, diagnosticReports, practitioners, encounters)
+    parseResultsToOrder(serviceRequest, tasks, diagnosticReports, practitioners, encounters, documentReferences)
   );
 
   return {
@@ -161,7 +180,8 @@ const parseResultsToOrder = (
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],
   practitioners: Practitioner[],
-  encounters: Encounter[]
+  encounters: Encounter[],
+  documentReferences: DocumentReference[]
 ): GetRadiologyOrderListZambdaOrder => {
   if (serviceRequest.id == null) {
     throw new Error('ServiceRequest ID is unexpectedly null');
@@ -172,13 +192,13 @@ const parseResultsToOrder = (
     throw new Error('Order added date time is unexpectedly null');
   }
 
-  const myRequestingProvider = practitioners.find(
-    (practitioner) => practitioner.id === serviceRequest.requester?.reference?.split('/')[1]
-  );
-  if (!myRequestingProvider) {
+  const encounter = encounters.find((enc) => enc.id === parseEncounterId(serviceRequest));
+
+  const orderingProvider = resolveOrderingProvider(serviceRequest, encounter, practitioners);
+  if (!orderingProvider) {
     throw new Error('Service Request has no requesting provider');
   }
-  const providerName = getFullestAvailableName(myRequestingProvider);
+  const providerName = getFullestAvailableName(orderingProvider);
   if (!providerName) {
     throw new Error('Provider name is unexpectedly null');
   }
@@ -254,20 +274,36 @@ const parseResultsToOrder = (
     throw new Error('Order is in an invalid state, could not determine status.');
   }
 
+  // External (print-only) orders never flow through AdvaPACS; they use a simplified lifecycle driven by
+  // manually-attached result DocumentReferences: `ordered` until a result exists, then `reviewed`. Deriving
+  // it here (rather than persisting on the SR) keeps the status and history in sync as results are added
+  // or deleted. The AdvaPACS-derived status/history above is overridden entirely for these orders.
+  const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+    ?.valueBoolean;
+  const resultDocRefs = documentReferences.filter((docRef) =>
+    isCurrentRadiologyResultDocRef(docRef, serviceRequest.id ?? '')
+  );
+  if (isExternal) {
+    status = resultDocRefs.length > 0 ? RadiologyOrderStatus.reviewed : RadiologyOrderStatus.ordered;
+  }
+
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(
-    serviceRequest,
-    bestFinalReport,
-    preliminaryDiagnosticReport,
-    providerName,
-    finalReviewTask
-  );
+  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
+
+  const history = isExternal
+    ? buildExternalHistory(serviceRequest, providerName, resultDocRefs)
+    : buildHistory(
+        serviceRequest,
+        bestFinalReport,
+        preliminaryDiagnosticReport,
+        providerName,
+        radiologyDTO.performedBy?.name,
+        finalReviewTask
+      );
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
-
-  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
 
   return {
     ...radiologyDTO,
@@ -276,6 +312,7 @@ const parseResultsToOrder = (
     visitDateTime: '', // TODO
     orderAddedDateTime,
     providerName,
+    providerId: orderingProvider.id ?? '',
     status,
     isStat: serviceRequest.priority === 'stat',
     history,
@@ -284,11 +321,64 @@ const parseResultsToOrder = (
   };
 };
 
+/**
+ * The ordering provider shown on an order is the provider assigned to the visit — orders are often placed by
+ * a nurse or MA on the provider's behalf, and `ServiceRequest.requester` is only whoever placed the order.
+ * Falls back to the requester when the encounter has no attender (or the attender didn't come back in the
+ * bundle). Matches how the order form PDF picks its ordering provider.
+ */
+export const resolveOrderingProvider = (
+  serviceRequest: ServiceRequest,
+  encounter: Encounter | undefined,
+  practitioners: Practitioner[]
+): Practitioner | undefined => {
+  const findPractitioner = (id: string | undefined): Practitioner | undefined =>
+    id ? practitioners.find((practitioner) => practitioner.id === id) : undefined;
+
+  const attendingProvider = findPractitioner(encounter ? getAttendingPractitionerId(encounter) : undefined);
+  const requester = findPractitioner(serviceRequest.requester?.reference?.split('/')[1]);
+
+  // A Practitioner without a name would make the order's provider column blank, so prefer one that has one.
+  return [attendingProvider, requester].find((practitioner) => practitioner && getFullestAvailableName(practitioner));
+};
+
+// External (print-only) orders: a two-row history mirroring the ordered -> reviewed lifecycle.
+const buildExternalHistory = (
+  serviceRequest: ServiceRequest,
+  orderingProviderName: string,
+  resultDocRefs: DocumentReference[]
+): RadiologyOrderHistoryRow[] => {
+  const history: RadiologyOrderHistoryRow[] = [];
+
+  const orderedDate =
+    serviceRequest.extension?.find((ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL)?.valueDateTime ??
+    serviceRequest.authoredOn ??
+    '';
+  history.push({ status: RadiologyOrderStatus.ordered, performer: orderingProviderName, date: orderedDate });
+
+  const latestResultDocRef = resultDocRefs
+    .filter((docRef) => docRef.date ?? docRef.meta?.lastUpdated)
+    .sort((a, b) => (a.date ?? a.meta?.lastUpdated ?? '').localeCompare(b.date ?? b.meta?.lastUpdated ?? ''))
+    .pop();
+  if (latestResultDocRef) {
+    history.push({
+      status: RadiologyOrderStatus.reviewed,
+      // The provider reviews and signs the result before uploading it, so the uploader
+      // (recorded as the DocumentReference author) is the reviewer.
+      performer: latestResultDocRef.author?.[0]?.display ?? '',
+      date: latestResultDocRef.date ?? latestResultDocRef.meta?.lastUpdated ?? '',
+    });
+  }
+
+  return history;
+};
+
 const buildHistory = (
   serviceRequest: ServiceRequest,
   bestDiagnosticReport: DiagnosticReport | undefined,
   preliminaryDiagnosticReport: DiagnosticReport | undefined,
   orderingProviderName: string,
+  performedByName: string | undefined,
   finalReviewTask?: Task
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -310,7 +400,7 @@ const buildHistory = (
   if (performedHistoryExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.performed,
-      performer: '',
+      performer: performedByName ?? '',
       date: performedHistoryExtensionValue,
     });
   }
@@ -376,19 +466,21 @@ const buildHistory = (
 };
 
 const extractResources = (
-  resources: (ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | Appointment)[]
+  resources: (ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | Appointment | DocumentReference)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   practitioners: Practitioner[];
   encounters: Encounter[];
+  documentReferences: DocumentReference[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
   const results: DiagnosticReport[] = [];
   const practitioners: Practitioner[] = [];
   const encounters: Encounter[] = [];
+  const documentReferences: DocumentReference[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -401,6 +493,8 @@ const extractResources = (
       practitioners.push(resource as Practitioner);
     } else if (resource.resourceType === 'Encounter') {
       encounters.push(resource as Encounter);
+    } else if (resource.resourceType === 'DocumentReference') {
+      documentReferences.push(resource as DocumentReference);
     }
   }
 
@@ -410,6 +504,7 @@ const extractResources = (
     diagnosticReports: results,
     practitioners,
     encounters,
+    documentReferences,
   };
 };
 

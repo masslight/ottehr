@@ -3,7 +3,9 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, Chip, TableCell, TableRow, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { formatDate, GetRadiologyOrderListZambdaOrder } from 'utils';
+import { GetRadiologyOrderListZambdaOrder } from 'utils/lib/types/api/radiology';
+import { formatDate } from 'utils/lib/utils/date';
+import { RadiologyExternalOrderChip } from './RadiologyExternalOrderChip';
 import { RadiologyTableColumn } from './RadiologyTable';
 import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 
@@ -34,7 +36,16 @@ export const RadiologyTableRow = ({
   const renderCellContent = (column: RadiologyTableColumn): React.ReactNode => {
     switch (column) {
       case 'studyType':
-        return <Typography variant="body2">{order.studyType}</Typography>;
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
+            <Typography variant="body2">{order.studyType}</Typography>
+            {order.external && (
+              <RadiologyExternalOrderChip
+                dataTestId={dataTestIds.radiologyPage.externalOrderLabel(order.serviceRequestId)}
+              />
+            )}
+          </Box>
+        );
       case 'studyName':
         return <Typography variant="body2">{order.studyName ?? '—'}</Typography>;
       case 'dx': {

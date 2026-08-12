@@ -2,15 +2,15 @@ import { Box, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui
 import { Patient } from 'fhir/r4b';
 import { forwardRef, ReactElement, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   CancelTerminalReaderActionResponse,
   CheckPatientPaymentTerminalStatusResponse,
-  chooseJson,
   FinalizePatientPaymentTerminalResponse,
   GetPatientPaymentTerminalConfigResponse,
   InitiatePatientPaymentTerminalResponse,
   TerminalReaderDTO,
-} from 'utils';
+} from 'utils/lib/types/api/patient-payment-types';
 
 type PaymentResultState =
   | { status: 'idle' }

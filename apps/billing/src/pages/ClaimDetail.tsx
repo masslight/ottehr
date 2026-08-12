@@ -4,6 +4,7 @@ import {
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
   OpenInNew as OpenInNewIcon,
+  StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -18,6 +19,7 @@ import {
   IconButton,
   MenuItem,
   Select,
+  Stack,
   Tab,
   Table,
   TableBody,
@@ -29,33 +31,40 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  AR_STAGE,
-  BillingCoverageOption,
-  BillingProviderOption,
-  BillingTag,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimDetailResponse,
-  ClaimRemitAdjustment,
-  ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+} from 'utils/lib/helpers/rcm/constants';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { ERA_CLAIM_STATUS_CODE, EraClaimStatusCode } from 'utils/lib/types/data/billing/billing.constants';
+import {
   CreateBillingProviderInput,
-  ERA_CLAIM_STATUS_CODE,
-  EraClaimStatusCode,
-  formatClaimStatusValue,
-  getApiError,
-  RULES_ENGINES,
-  RulesEngineDef,
   SaveServiceFacilityInput,
-  ServiceFacilityItem,
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
-  VALUE_SETS,
-} from 'utils';
+  UpdateBillingResourceInputSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingCoverageOption,
+  BillingProviderOption,
+  BillingTag,
+  ClaimDetailResponse,
+  ClaimRemitAdjustment,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
+} from 'utils/lib/types/data/billing/claim-status';
+import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { formatCurrency } from 'utils/lib/utils/convert';
+import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
@@ -63,8 +72,6 @@ import {
   getPatientCoverages,
   runBillingRulesEngine,
   saveBillingServiceFacility,
-  searchBillingProviders,
-  searchBillingServiceFacilities,
   searchBillingTags,
   tagBillingClaim,
   updateBillingCoverage,
@@ -73,17 +80,20 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
+import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
@@ -91,14 +101,19 @@ import {
   defaultCoverageFormValues,
 } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
+import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatDate } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
-type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
+type UpdateFn = (
+  resourceType: string,
+  resourceId: string,
+  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+) => Promise<string | null>;
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
@@ -123,6 +138,8 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -149,7 +166,11 @@ export default function ClaimDetail(): ReactElement {
   }, [fetchDetail]);
 
   const updateResource = useCallback(
-    async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
+    async (
+      resourceType: string,
+      resourceId: string,
+      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+    ): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
         await updateBillingResource(oystehrZambda, {
@@ -216,7 +237,7 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
       enqueueSnackbar(
         `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
         { variant: 'info' }
@@ -270,8 +291,8 @@ export default function ClaimDetail(): ReactElement {
   };
 
   const saveHeader = async (): Promise<void> => {
-    const fields: { type?: string; service?: string; serviceDate?: string } = {};
-    if (claimType && claimType !== claim.type) fields.type = claimType;
+    const fields: { type?: 'professional' | 'institutional'; service?: string; serviceDate?: string } = {};
+    if (claimType && claimType !== claim.type) fields.type = claimType as 'professional' | 'institutional';
     if (service && service !== claim.service) fields.service = service;
     if (serviceDate && serviceDate !== dos) fields.serviceDate = serviceDate;
     if (Object.keys(fields).length === 0) {
@@ -309,8 +330,9 @@ export default function ClaimDetail(): ReactElement {
           {!editingHeader ? (
             <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
               <Meta label="Date of Service" value={dos} />
-              <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+              <Meta label="Claim ID" value={claim.id} copyable={true} />
               <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+              <Meta label="PCN" value={claim.pcn} copyable={true} />
               <Meta label="Service" value={formatAntCaseString(claim.service)} />
               <Meta label="Patient DOB" value={claim.patientDob} />
             </Box>
@@ -329,7 +351,7 @@ export default function ClaimDetail(): ReactElement {
                     sx={{ width: 165 }}
                   />
                 </Box>
-                <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+                <Meta label="Claim ID" value={claim.id} />
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Claim Type
@@ -347,6 +369,7 @@ export default function ClaimDetail(): ReactElement {
                     ))}
                   </Select>
                 </Box>
+                <Meta label="PCN" value={claim.pcn} />
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Service
@@ -392,9 +415,18 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
-        {runEngine && (
-          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-            {runEngine.runButtonLabel}
+
+        {EHR_URL && claim.appointmentId && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<OpenInNewIcon />}
+            href={`${EHR_URL}/visit/${claim.appointmentId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ mt: 0.5, flexShrink: 0 }}
+          >
+            View in EHR
           </Button>
         )}
         <Button
@@ -406,26 +438,35 @@ export default function ClaimDetail(): ReactElement {
         >
           Export X12
         </Button>
-      </Box>
-      {EHR_URL && claim.appointmentId && (
         <Button
-          variant="outlined"
           size="small"
-          startIcon={<OpenInNewIcon />}
-          href={`${EHR_URL}/visit/${claim.appointmentId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{ mt: 0.5, flexShrink: 0 }}
+          variant="outlined"
+          startIcon={<StickyNote2Icon />}
+          onClick={() => setNotesOpen(true)}
+          sx={{ mt: 0.5 }}
         >
-          View in EHR
+          Notes
         </Button>
-      )}
+        {runEngine && (
+          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
+            {runEngine.runButtonLabel}
+          </Button>
+        )}
+      </Box>
 
       <ExportX12Dialog
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         claimId={claim.id}
         claimType={claim.type}
+      />
+
+      <ClaimNotesDrawer
+        key={claim.id}
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        claimId={claim.id}
+        onNoteAdded={() => setHistoryVersion((version) => version + 1)}
       />
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -460,7 +501,12 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Billed" value={claim.billed} />
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Primary Ins Paid" value={claim.insurancePaid} />
-            <Amount label="Balance" value={claim.balance} />
+            <Amount label="Patient Paid" value={claim.patientPaid} />
+            <Amount
+              label="Balance"
+              value={claim.balance}
+              hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
+            />
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Responsible Party
@@ -513,7 +559,7 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
             <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
-            <ReadOnlySection title="Patient payments">No patient payments</ReadOnlySection>
+            <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
@@ -521,7 +567,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
-            <ClaimHistory claimId={claim.id} />
+            <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
       </Box>
@@ -549,7 +595,8 @@ function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement
 
   const handleSave = async (payload: UpdateBillingPatientInput): Promise<string | null> => {
     if (!oystehrZambda) return 'Client not ready';
-    await updateBillingPatient(oystehrZambda, payload);
+    // claimId scopes the edit to this claim so it lands in the claim's history.
+    await updateBillingPatient(oystehrZambda, { ...payload, claimId: claim.id });
     await refetchPatient();
     return null;
   };
@@ -558,7 +605,7 @@ function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement
     return <EditableSectionSkeleton title="Patient" />;
   }
 
-  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} />;
+  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} showSourceLink />;
 }
 
 const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
@@ -638,7 +685,7 @@ export function InsuranceSection({
         const err = await updateResource('Claim', claim.id, claimFields);
         if (err) return err;
       }
-      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(data, coverageId));
+      await updateBillingCoverage(oystehrZambda, { ...coverageToUpdateInput(data, coverageId), claimId: claim.id });
       resetFields();
       return null;
     } catch (err) {
@@ -704,7 +751,6 @@ export function InsuranceSection({
               value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()}
             />
           )}
-          <Row label="Coverage Status" value={claim.coverageStatus} />
           <Row label="Plan type" value={planTypeLabel(claim.planType)} hideBorder />
         </>
       ) : (
@@ -771,9 +817,8 @@ function RenderingProviderSection({
     onError: setError,
   });
 
-  const [options, setOptions] = useState<BillingProviderOption[]>([]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('rendering');
   const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelectedProvider(null);
@@ -785,43 +830,26 @@ function RenderingProviderSection({
     resetFields();
   }, [resetFields]);
 
-  const searchProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingProviders(oystehrZambda, {
-          providerType: 'rendering',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
   const handleSave = async (
     payload: CreateBillingProviderInput | UpdateBillingProviderInput
   ): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
-      // By default, update existing provider below, taking into account that the payload
-      // may include the selected provider's ID at this point
+      // A selected reference provider is an attach/swap — even when the claim already has one:
+      // point the claim at a fresh working copy of the selection (recording the reference change,
+      // with its link, in the claim history), then apply the form's fields to that copy below.
+      // Without a selection, this is a field edit of the current working copy.
       let providerId =
-        'providerId' in payload && payload.providerId
-          ? selectedProvider
-            ? claim.renderingProviderId
-            : payload.providerId
-          : undefined;
+        'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, {
+          const attachError = await updateResource('Claim', claim.id, {
             renderingProvider: {
               id: selectedProvider.id,
               type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
             },
           });
+          if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.renderingProviderId;
         } else {
@@ -836,7 +864,7 @@ function RenderingProviderSection({
         }
       }
       // Update provider
-      await updateBillingProvider(oystehrZambda, { ...payload, providerId });
+      await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
       resetFields();
       await refetchClaimProvider();
       return null;
@@ -848,7 +876,7 @@ function RenderingProviderSection({
   return (
     <ProviderDetailForm
       provider={selectedProvider ?? claimProvider}
-      role="billing"
+      role="rendering"
       onSave={handleSave}
       onCancel={resetFields}
       selector={{
@@ -857,6 +885,7 @@ function RenderingProviderSection({
         onSelectOption: setSelectedProvider,
         fetchOptions: searchProviders,
       }}
+      showSourceLink
     />
   );
 }
@@ -874,9 +903,8 @@ function FacilitySection({
     id: claim.serviceFacilityId,
   });
 
-  const [options, setOptions] = useState<ServiceFacilityItem[]>([]);
+  const { options, search: searchServiceFacilities } = useFacilityOptionsSearch();
   const [selected, setSelected] = useState<ServiceFacilityItem | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelected(null);
@@ -886,46 +914,32 @@ function FacilitySection({
     resetFields();
   }, [resetFields]);
 
-  const searchServiceFacilities = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingServiceFacilities(oystehrZambda, query ? { name: query } : {});
-        setOptions(res.facilities ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
   const handleSave = async (payload: SaveServiceFacilityInput): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
-      // By default, update existing facility below, taking into account that the payload
-      // may include the selected facility's ID at this point
-      let facilityId = payload.facilityId ? (selected ? claim.serviceFacilityId : payload.facilityId) : undefined;
+      // A selected reference facility is an attach/swap — even when the claim already has one:
+      // point the claim at a fresh working copy of the selection (recording the reference change,
+      // with its link, in the claim history), then apply the form's fields to that copy below.
+      // Without a selection, this is a field edit of the current working copy.
+      let facilityId = payload.facilityId && !selected ? payload.facilityId : undefined;
       if (!facilityId) {
         if (selected?.id) {
-          // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, {
-            serviceFacility: {
-              id: selected.id,
-            },
+          const attachError = await updateResource('Claim', claim.id, {
+            facilityId: selected.id,
           });
+          if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await saveBillingServiceFacility(oystehrZambda, payload);
           return updateResource('Claim', claim.id, {
-            serviceFacility: {
-              id: result.id,
-            },
+            facilityId: result.id,
           });
         }
       }
       // Update provider
-      await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId });
+      await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId, claimId: claim.id });
       resetFields();
       await refetchServiceFacility();
       return null;
@@ -945,6 +959,7 @@ function FacilitySection({
         onSelectOption: setSelected,
         fetchOptions: searchServiceFacilities,
       }}
+      showSourceLink
     />
   );
 }
@@ -967,9 +982,8 @@ function BillingProviderSection({
     onError: setError,
   });
 
-  const [options, setOptions] = useState<BillingProviderOption[]>([]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('billing');
   const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelectedProvider(null);
@@ -981,43 +995,26 @@ function BillingProviderSection({
     resetFields();
   }, [resetFields]);
 
-  const searchProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingProviders(oystehrZambda, {
-          providerType: 'billing',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
   const handleSave = async (
     payload: CreateBillingProviderInput | UpdateBillingProviderInput
   ): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
-      // By default, update existing provider below, taking into account that the payload
-      // may include the selected provider's ID at this point
+      // A selected reference provider is an attach/swap — even when the claim already has one:
+      // point the claim at a fresh working copy of the selection (recording the reference change,
+      // with its link, in the claim history), then apply the form's fields to that copy below.
+      // Without a selection, this is a field edit of the current working copy.
       let providerId =
-        'providerId' in payload && payload.providerId
-          ? selectedProvider
-            ? claim.billingProviderFhirId
-            : payload.providerId
-          : undefined;
+        'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, {
+          const attachError = await updateResource('Claim', claim.id, {
             billingProvider: {
               id: selectedProvider.id,
               type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
             },
           });
+          if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.billingProviderFhirId;
         } else {
@@ -1032,7 +1029,7 @@ function BillingProviderSection({
         }
       }
       // Update provider
-      await updateBillingProvider(oystehrZambda, { ...payload, providerId });
+      await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
       resetFields();
       await refetchClaimProvider();
       return null;
@@ -1053,6 +1050,7 @@ function BillingProviderSection({
         onSelectOption: setSelectedProvider,
         fetchOptions: searchProviders,
       }}
+      showSourceLink
     />
   );
 }
@@ -1402,6 +1400,45 @@ function InsurancePaymentsSection({
   );
 }
 
+function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['patientPayments'] }): ReactElement {
+  return (
+    <ReadOnlySection title="Patient payments">
+      {payments.length === 0 ? (
+        'No patient payments yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Method</TableCell>
+                <TableCell sx={thSx}>Description</TableCell>
+                <TableCell sx={thSx}>Check Number</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.paymentNoticeId}>
+                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
+                  <TableCell>{payment.method || '-'}</TableCell>
+                  <TableCell>{payment.description || '-'}</TableCell>
+                  <TableCell>{payment.checkNumber || '-'}</TableCell>
+                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
+  );
+}
+
 function ReadOnlySection({ title, children }: { title: string; children: React.ReactNode }): ReactElement {
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -1421,20 +1458,40 @@ function ReadOnlySection({ title, children }: { title: string; children: React.R
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }): ReactElement {
+export function Meta({ label, value, copyable }: { label: string; value: string; copyable?: boolean }): ReactElement {
+  const displayedValue = (
+    <Typography variant="body2" fontWeight={500}>
+      {value || '-'}
+    </Typography>
+  );
+
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" fontWeight={500}>
-        {value || '-'}
-      </Typography>
+      {copyable && value ? (
+        <CopyButton value={value} label={label}>
+          {displayedValue}
+        </CopyButton>
+      ) : (
+        displayedValue
+      )}
     </Box>
   );
 }
 
-function Amount({ label, sublabel, value }: { label: string; sublabel?: string; value: number }): ReactElement {
+function Amount({
+  label,
+  sublabel,
+  value,
+  hint,
+}: {
+  label: string;
+  sublabel?: string;
+  value: number;
+  hint?: string;
+}): ReactElement {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 48 }}>
       <Box>
@@ -1447,9 +1504,12 @@ function Amount({ label, sublabel, value }: { label: string; sublabel?: string; 
           </Typography>
         )}
       </Box>
-      <Typography variant="body1" fontWeight={600}>
-        {formatCurrency(value)}
-      </Typography>
+      <Stack direction="row" alignItems="center" gap={0.5}>
+        <Typography variant="body1" fontWeight={600}>
+          {formatCurrency(value)}
+        </Typography>
+        {hint && <WarningIconWithTooltip tooltipText={hint} />}
+      </Stack>
     </Box>
   );
 }
@@ -1515,7 +1575,7 @@ function TagAdder({
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {available.map((t) => (
             <Chip
-              key={t.id}
+              key={t.id || t.name}
               label={t.name}
               size="small"
               color="primary"

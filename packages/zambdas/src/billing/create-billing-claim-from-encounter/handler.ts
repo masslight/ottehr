@@ -11,7 +11,6 @@ import {
   AccountCoverage,
   Appointment,
   Basic,
-  ChargeItemDefinition,
   Claim,
   ClaimDiagnosis,
   ClaimItem,
@@ -33,14 +32,23 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
+import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  AR_STAGE,
   BILLING_RESOURCE_TAG,
-  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
-  ChargeItemDefinitionDefault,
-  CLAIM_TAG_SYSTEM,
-  claimStatusValuesToTags,
+  FHIR_IDENTIFIER_NPI,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
+  PARTICIPATION_CODE_SYSTEM,
+  SERVICE_CATEGORY_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import { InternalError } from 'utils/lib/helpers/oystehrApi';
+import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
@@ -50,50 +58,34 @@ import {
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  CPT_CODE_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
-  FHIR_IDENTIFIER_NPI,
-  FHIR_RESOURCE_NOT_FOUND,
-  getCandidPlanTypeCodeFromCoverage,
-  getCoding,
-  getDefaultClaimSubmissionExtensions,
-  getNPIIdentifier,
-  getPayerId,
-  getPaymentVariantFromEncounter,
-  getSecret,
-  getTimezone,
-  InternalError,
-  INVALID_INPUT_ERROR,
-  isAppointmentOccupationalMedicine,
-  isValidUUID,
-  PARTICIPATION_CODE_SYSTEM,
-  PaymentVariant,
-  Secrets,
-  SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
-  setCoveragePlanType,
-  TIMEZONES,
-  withArStageInitialization,
-} from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+} from 'utils/lib/helpers/rcm/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
-  assertDefined,
-  chartDataResourceHasMetaTagByCode,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendErrors,
-  ZambdaInput,
-} from '../../shared';
+  AR_STAGE,
+  claimStatusValuesToTags,
+  withArStageInitialization,
+} from 'utils/lib/types/data/billing/claim-status';
+import { AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data';
+import { sendErrors } from '../../shared/errors';
+import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
-  AUTO_ACCIDENT_TAG_DESCRIPTION,
-  AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
+  ensureSystemManagedTags,
   findRef,
   getClaimTypeCoding,
   kickOffRulesEngine,
@@ -104,10 +96,8 @@ import {
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -142,9 +132,7 @@ interface BillingResources {
   renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
-  autoAccidentTag?: Basic;
   billingService?: Basic;
-  chargeMaster?: ChargeItemDefinition;
 }
 
 interface ClaimResources {
@@ -160,7 +148,6 @@ interface ClaimResources {
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
   billingProvider?: Organization;
-  chargeMaster?: ChargeItemDefinition;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
   billingTags?: Array<string>;
@@ -204,12 +191,12 @@ export async function performEffect(
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
   if (!mainPatient) {
-    mainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
+    mainPatient = copyPatient(clinicalResources.patient);
     mainPatient.id = 'urn:uuid:main-patient';
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
-    const updatedMainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
+    const updatedMainPatient = copyPatient(clinicalResources.patient);
     updatedMainPatient.id = mainPatient.id;
     try {
       deepStrictEqual(mainPatient, updatedMainPatient);
@@ -222,7 +209,7 @@ export async function performEffect(
   }
 
   // Create working copy from main patient
-  const claimPatient = prepareWorkingCopy(mainPatient, mainPatient.id!);
+  const claimPatient = copyPatient(mainPatient, true);
   claimPatient.id = 'urn:uuid:claim-patient';
   requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatient.id });
   order.push('patient');
@@ -444,21 +431,11 @@ export async function performEffect(
 
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
-    billingTags.push('auto-accident');
-    if (!billingResources.autoAccidentTag) {
-      requests.push({
-        method: 'POST',
-        url: '/Basic',
-        resource: {
-          resourceType: 'Basic',
-          code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-          extension: [
-            { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
-            { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-          ],
-        },
-      });
-      order.push('auto-accident-tag');
+    billingTags.push(AUTO_ACCIDENT_TAG_NAME);
+    try {
+      await ensureSystemManagedTags(billingOystehr);
+    } catch (error) {
+      console.error('Failed to ensure system-managed tags exist:', error);
     }
   }
 
@@ -473,7 +450,6 @@ export async function performEffect(
     serviceFacility: claimServiceFacility,
     billingProvider: claimBillingProvider,
     billingTags,
-    chargeMaster: billingResources.chargeMaster,
   });
   const claimUrn = 'urn:uuid:claim';
   requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
@@ -643,6 +619,19 @@ export function getClaimCoveragesForEncounter(
       return [];
     }
   }
+}
+
+function copyPatient(patient: Patient, workingCopy?: boolean): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  let friendlyId = patient.identifier?.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value;
+  friendlyId ??= patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+  if (friendlyId) {
+    copy.extension ??= [];
+    copy.extension.push({ url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: friendlyId });
+  }
+  return copy;
 }
 
 export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {
@@ -884,7 +873,9 @@ async function getClinicalResources(
       })
     ).unbundle();
   }
-  if (coverageIds.length && !coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
+  coverages = coverages.filter(
+    (c) => c.payor?.[0]?.reference && c.payor[0].reference !== oystehr.rcm.constructPayerUrl({ id: '00000' })
+  );
 
   // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
   const payors = await Promise.all(
@@ -1075,15 +1066,6 @@ async function findExistingBillingResources(
   ).unbundle();
   const matchingBillingProvider = billingProviderSearch.length > 0 ? billingProviderSearch[0] : undefined;
 
-  // Look for the auto-accident tag
-  const tagSearch = (
-    await billingOystehr.fhir.search<Basic>({
-      resourceType: 'Basic',
-      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
-    })
-  ).unbundle();
-  const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
-
   // Look for the "billing service" (urgent-care, workers-comp, etc) matching the appointment's serviceCategory
   let billingService: Basic | undefined;
   const appointmentService = getService(clinicalResources.appointment);
@@ -1099,44 +1081,6 @@ async function findExistingBillingResources(
     }
   }
 
-  // Determine the payment variant and look up the correct charge master to use for service line prices
-  const paymentVariant = getPaymentVariantFromEncounter(clinicalResources.encounter);
-  let chargeMasterDefault: ChargeItemDefinitionDefault | undefined;
-  if (paymentVariant === PaymentVariant.insurance) {
-    chargeMasterDefault = 'insurance';
-  } else if (paymentVariant === PaymentVariant.selfPay) {
-    chargeMasterDefault = 'self-pay';
-  }
-  let chargeMaster: ChargeItemDefinition | undefined;
-  if (chargeMasterDefault) {
-    const cidSearch = (
-      await billingOystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: [
-          {
-            name: 'status',
-            value: 'active',
-          },
-          {
-            name: 'date',
-            value: `lt${new Date().toISOString()}`,
-          },
-          {
-            name: '_tag',
-            value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|${chargeMasterDefault}`,
-          },
-          {
-            name: '_sort',
-            value: 'date',
-          },
-        ],
-      })
-    ).unbundle();
-    if (cidSearch.length) {
-      chargeMaster = cidSearch[0];
-    }
-  }
-
   return {
     person: existingPerson,
     mainPatient: existingMainPatient,
@@ -1147,9 +1091,7 @@ async function findExistingBillingResources(
     renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
-    autoAccidentTag,
     billingService,
-    chargeMaster,
   };
 }
 
@@ -1172,7 +1114,6 @@ function buildClaim(resources: ClaimResources): Claim {
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
 
-  let total = 0;
   const claim: Claim = {
     resourceType: 'Claim',
     identifier: [
@@ -1255,8 +1196,6 @@ function buildClaim(resources: ClaimResources): Claim {
               })),
             ...(procedureCode.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_HCPCS),
           ];
-          const amount = getPriceForProcedure(p, resources.chargeMaster);
-          total += amount;
           return {
             sequence: i + 1,
             careTeamSequence: resources.renderingProvider ? [1] : undefined,
@@ -1298,8 +1237,11 @@ function buildClaim(resources: ClaimResources): Claim {
                     ],
                   }
                 : undefined,
+            // Lines are created unpriced: charge master prices are applied by the rules engine's
+            // applyChargeMasterPrices action (rule sets run automatically on creation), or entered
+            // by the biller in the claim editor.
             net: {
-              value: amount,
+              value: 0,
               currency: 'USD',
             },
             quantity: { value: 1, unit: 'UN' },
@@ -1307,7 +1249,7 @@ function buildClaim(resources: ClaimResources): Claim {
         })
       : [],
     total: {
-      value: total,
+      value: 0,
       currency: 'USD',
     },
   };
@@ -1329,49 +1271,6 @@ function getServiceCoding(appointment: Appointment): Coding | undefined {
     system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
     code: service,
   };
-}
-
-function getPriceForProcedure(procedure: Procedure, chargeMaster?: ChargeItemDefinition): number {
-  // Return early if nothing to check against
-  if (!chargeMaster) {
-    return 0;
-  }
-  // Find CPT code and CPT modifier
-  const procedureCodeCoding = procedure.code?.coding?.find((coding) => coding.system === CPT_CODE_SYSTEM);
-  const procedureCode = procedureCodeCoding?.code;
-  const procedureCodeModifierExt = procedureCodeCoding?.extension?.find(
-    (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER
-  );
-  const procedureCodeModifier = procedureCodeModifierExt?.valueCodeableConcept?.coding?.find(
-    (coding) => (coding.system = CODE_SYSTEM_CPT_MODIFIER)
-  )?.code;
-  // Return early if nothing to check
-  if (!procedureCode) {
-    return 0;
-  }
-  // Find price definition for CPT code
-  const priceDefinition = chargeMaster.propertyGroup?.find((pg) => {
-    const pc = pg.priceComponent?.[0];
-    // No price component, no match
-    if (!pc) return false;
-    // Not a base price component, no match
-    if (pc.type !== 'base') return false;
-    // Coding doesn't match, no match
-    if (!pc.code?.coding?.some((coding) => coding.system === CPT_CODE_SYSTEM && coding.code === procedureCode))
-      return false;
-    // If there's a modifier and it doesn't match, no match
-    if (
-      procedureCodeModifier &&
-      !pc.extension?.some((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCode === procedureCodeModifier)
-    )
-      return false;
-    return true;
-  });
-  if (!priceDefinition) {
-    return 0;
-  }
-  const price = priceDefinition.priceComponent?.[0].amount?.value;
-  return price ?? 0;
 }
 
 export async function complexValidation(

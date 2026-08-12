@@ -1,11 +1,12 @@
 import SearchIcon from '@mui/icons-material/Search';
 import { Autocomplete, Box, debounce, InputAdornment, ListItem, Skeleton, TextField, Typography } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { PharmacyCollectionAnswerSetInput, PlacesResult, SearchPlacesInput, SearchPlacesOutput } from 'utils';
+import { PharmacyCollectionAnswerSetInput } from 'utils/lib/helpers/paperwork/pharmacy.helpers';
+import { PlacesResult, SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
 
 interface PharmacySearchProps {
   handlePharmacySelection: (input: PharmacyCollectionAnswerSetInput) => void;
-  searchPlaces: (input: SearchPlacesInput) => Promise<SearchPlacesOutput>;
+  searchPlaces: ((input: SearchPlacesInput) => Promise<SearchPlacesOutput>) | undefined;
   dataTestId: string;
 }
 
@@ -64,6 +65,8 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
     }
 
     const handleSearchPlaces = async (): Promise<void> => {
+      if (!searchPlaces) return;
+
       try {
         setSearching(true);
         const searchResponse = await searchPlaces({ searchTerm: debouncedSearchTerm, locationBias: userLocation });
@@ -82,6 +85,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
 
   const handlePharmSelect = async (placesId: string | undefined): Promise<void> => {
     if (!placesId) return;
+    if (!searchPlaces) return;
 
     try {
       setLoading(true);

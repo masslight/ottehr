@@ -29,11 +29,12 @@ import {
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
+  VIEW_FAX,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils';
+import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
@@ -69,7 +70,9 @@ export const Tasks: React.FC = () => {
   const { oystehr } = useApiClients();
 
   const renderActionButton = (task: Task): ReactElement | null => {
-    if (task.status === COMPLETED) {
+    // Completed tasks normally have no action, except read-only "View" actions (e.g. a filed
+    // inbound fax, where the PDF can still be opened) which fall through to the generic button.
+    if (task.status === COMPLETED && task.action?.name !== VIEW_FAX) {
       return null;
     }
     if (task.action) {
@@ -125,7 +128,7 @@ export const Tasks: React.FC = () => {
             id: searchParams.get('location'),
           }
         : null,
-      status: searchParams.get('status'),
+      status: searchParams.get('status')?.split(','),
     };
     methods.reset(filtersValues);
   }, [searchParams, methods]);
@@ -137,19 +140,24 @@ export const Tasks: React.FC = () => {
       },
       callback: ({ values }) => {
         const queryParams = new URLSearchParams();
-        const filtersToPersist: Record<string, string> = {};
+        const filtersToPersist: Record<string, string | string[]> = {};
         for (const key in values) {
           const value = values[key]?.id ?? values[key];
           if (value) {
-            queryParams.set(key, value);
-            filtersToPersist[key] = value;
+            if (!Array.isArray(value)) {
+              queryParams.set(key, value);
+              filtersToPersist[key] = value;
+            } else if (value.length > 0) {
+              queryParams.set(key, value.join(','));
+              filtersToPersist[key] = value;
+            }
           }
         }
         setSearchParams(queryParams);
         if (Object.keys(filtersToPersist).length > 0) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
         } else {
-          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({}));
         }
       },
     });
@@ -162,8 +170,14 @@ export const Tasks: React.FC = () => {
       const filters = JSON.parse(persistedFilters);
       const queryParams = new URLSearchParams();
       for (const key in filters) {
-        queryParams.set(key, filters[key]);
+        const value = filters[key];
+        queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
       }
+      setSearchParams(queryParams);
+    }
+    if (searchParams.size === 0 && persistedFilters == null) {
+      const queryParams = new URLSearchParams();
+      queryParams.set('status', 'ready,in-progress');
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
@@ -225,6 +239,7 @@ export const Tasks: React.FC = () => {
               <SelectInput
                 name="status"
                 label="Status"
+                multiple={true}
                 options={Object.keys(TASK_STATUS_LABEL)}
                 getOptionLabel={(option) => TASK_STATUS_LABEL[option]}
               />
@@ -352,12 +367,10 @@ export const Tasks: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {task.status !== COMPLETED ? (
-                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                              {renderActionButton(task)}
-                              {renderCompleteButton(task)}
-                            </Stack>
-                          ) : null}
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
+                            {renderActionButton(task)}
+                            {renderCompleteButton(task)}
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           <MoreTaskActions task={task} currentUser={currentUser} />

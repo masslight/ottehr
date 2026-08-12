@@ -1,20 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService, Location, QuestionnaireItem, Slot } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
-  CreateSlotParams,
-  getSlugForBookableResource,
-  getTimezone,
-  INTEGRATION_TEST_TAG_SYSTEM,
-  M2MClientMockType,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-  serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
   SLUG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { buildSimpleScheduleExt, persistSchedule, startOfDayWithTimezone } from '../helpers/testScheduleUtils';

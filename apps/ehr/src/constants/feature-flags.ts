@@ -1,4 +1,4 @@
-import { FEATURE_FLAGS_CONFIG } from 'utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 
 // todo: use FEATURE_FLAGS_CONFIG directly instead of re-exporting it
 export const FEATURE_FLAGS = {
@@ -14,6 +14,7 @@ export const FEATURE_FLAGS = {
   LEGACY_PATIENT_FOLLOWUPS_ENABLED: FEATURE_FLAGS_CONFIG.legacyPatientFollowupsEnabled,
   MAILING_PAPER_STATEMENTS_ENABLED: FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled,
   AUTOMATED_PATIENT_OUTREACH_ENABLED: FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled,
+  OTTEHR_BILLING_INVOICING_ENABLED: FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled ?? false,
   SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG:
     FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled,
 };

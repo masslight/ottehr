@@ -1,6 +1,17 @@
+import { Patient } from 'fhir/r4b';
+
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
+
+// FHIR administrative gender, labeled the way the billing app displays it. The demographics forms,
+// the rules field catalog, and the engine's gender writer all share this one list.
+export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; label: string }[] = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+  { value: 'unknown', label: 'Unknown' },
+];
 
 export const X12_ADJUSTMENT_GROUP_CODE = {
   contractualObligation: 'CO',
@@ -33,3 +44,12 @@ const ERA_CLAIM_STATUS_CODES = new Set<string>(Object.values(ERA_CLAIM_STATUS_CO
 export function asEraClaimStatusCode(value: string | undefined): EraClaimStatusCode | '' {
   return value && ERA_CLAIM_STATUS_CODES.has(value) ? (value as EraClaimStatusCode) : '';
 }
+
+// what record-billing-manual-payment callers may send
+export const BILLING_MANUAL_PAYMENT_METHODS = ['cash', 'check', 'other'] as const;
+
+export const BILLING_RECORDABLE_PAYMENT_METHODS = [
+  ...BILLING_MANUAL_PAYMENT_METHODS,
+  'card-reader',
+  'external-card-reader',
+] as const;

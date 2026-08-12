@@ -1,6 +1,7 @@
-import { AppointmentHistoryRow, InPersonAppointmentInformation } from 'utils';
+import { AppointmentHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 
-export const getNewOrderUrl = (appointmentId: string): string => {
+export const getNewMedicationOrderUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/in-house-medication/order/new`;
 };
 
@@ -24,6 +25,10 @@ export const getExternalLabOrdersUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/external-lab-orders/`;
 };
 
+export const getExternalLabOrderCreateUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/external-lab-orders/create`;
+};
+
 export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: string): string => {
   return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };
@@ -38,6 +43,18 @@ export const getRadiologyUrl = (appointmentId: string): string => {
 
 export const getRadiologyOrderEditUrl = (appointmentId: string, orderId: string): string => {
   return `/in-person/${appointmentId}/radiology/${orderId}/order-details`;
+};
+
+export const getRadiologyOrderCreateUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/radiology/create`;
+};
+
+export const getRadiologyExternalOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/radiology/${serviceRequestId}/external-order-details`;
+};
+
+export const getRadiologyExternalOrderEditUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/radiology/${serviceRequestId}/edit-external`;
 };
 
 export const getInHouseLabsUrl = (appointmentId: string): string => {
@@ -74,6 +91,10 @@ export const getImmunizationVaccineDetailsUrl = (appointmentId: string): string 
 
 export const getImmunizationOrderEditUrl = (appointmentId: string, orderId: string): string => {
   return `/in-person/${appointmentId}/immunization/order/${orderId}`;
+};
+
+export const getImmunizationNewOrderUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/immunization/order`;
 };
 
 export const getInPersonVisitDetailsUrl = (appointmentId: string): string => {
@@ -148,6 +169,14 @@ export const getProceduresUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/procedures`;
 };
 
+export const getNewProceduresUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/procedures/new`;
+};
+
 export const getProcedureDetailsUrl = (appointmentId: string, procedureId: string): string => {
   return `${getProceduresUrl(appointmentId)}/${procedureId}`;
+};
+
+export const getVitalsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/vitals`;
 };

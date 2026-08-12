@@ -1,6 +1,10 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task as FhirTask } from 'fhir/r4b';
-import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils';
+import {
+  EXPORT_CSV_OUTPUT_URL_CODE,
+  EXPORT_INVOICES_CSV_TASK_CODE,
+  EXPORT_INVOICES_CSV_TASK_SYSTEM,
+} from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -15,15 +19,20 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+}));
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 const mockCreatePresignedUrl = vi.fn();
 vi.mock('../../src/shared/z3Utils', () => ({
@@ -95,6 +104,32 @@ describe('export-invoices', () => {
           expect.objectContaining({ valueString: 'finalizationDate' }),
           expect.objectContaining({ valueString: 'desc' }),
           expect.objectContaining({ valueBoolean: true }),
+        ])
+      );
+    });
+
+    it('passes filter-source input when source is provided', async () => {
+      mockOystehrClient.fhir.create.mockResolvedValue({
+        resourceType: 'Task',
+        id: 'task-source',
+      } as FhirTask);
+
+      await handler(makeInput({ source: 'ottehr-billing' }));
+
+      const createCall = mockOystehrClient.fhir.create.mock.calls[0][0] as FhirTask;
+      expect(createCall.input).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: {
+              coding: [
+                {
+                  system: EXPORT_INVOICES_CSV_TASK_SYSTEM,
+                  code: 'filter-source',
+                },
+              ],
+            },
+            valueString: 'ottehr-billing',
+          }),
         ])
       );
     });

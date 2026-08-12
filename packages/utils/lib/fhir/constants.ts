@@ -10,11 +10,13 @@ import {
   PractitionerRole,
   Schedule,
 } from 'fhir/r4b';
-import type { AppointmentType, CanonicalUrl } from '../types';
+import type { AppointmentType } from '../types/api/appointment.types';
+import type { CanonicalUrl } from '../types/common';
 import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
+  FAX_PACKET_CODE,
   INSURANCE_CARD_CODE,
   MEDICAL_RECORD_EXPORT_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
@@ -227,6 +229,15 @@ export const FHIR_EXTENSION = {
     },
     consentObtained: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
+    },
+    externalRadiologyOrder: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/external-radiology-order`,
+    },
+    radiologyTimeWindow: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-time-window`,
+    },
+    radiologySafetyFlag: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-safety-flag`,
     },
   },
   RelatedPerson: {
@@ -474,6 +485,21 @@ export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 /** Extension URL for the JSON-blob runtime config on service-category resources. */
 export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
 
+/** meta.tag identifying a Questionnaire as practice-managed (admin-authored custom form). */
+export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'practice-managed',
+};
+
+/** meta.tag identifying how a one off QR was triggered */
+export const QR_DISTRIBUTION_TAG = {
+  system: ottehrCodeSystemUrl('qr-distribution'),
+  code: 'practitioner', // right now only triggered by users sending from visit details but this could be expanded in the future
+};
+
+/** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
+export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-practitioner-distribution-by');
+
 // ── Service-category characteristic systems (one per dimension) ─────────────
 
 /** Service-mode characteristic for a service-category HealthcareService. Codes match the ServiceMode enum. */
@@ -590,6 +616,7 @@ export const BUCKET_NAMES = {
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
+  FAXES: 'faxes',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -684,6 +711,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
     display: 'Medical Records',
     documentTypeCode: MEDICAL_RECORD_EXPORT_CODE,
+  },
+  {
+    title: BUCKET_NAMES.FAXES,
+    display: 'Faxes',
+    documentTypeCode: FAX_PACKET_CODE,
   },
 ];
 
@@ -1080,6 +1112,42 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
   display: PROVENANCE_FAX_ACTIVITY_DISPLAY.faxSent,
   system: PROVENANCE_FAX_SYSTEM,
 };
+
+/** Identifier system Oystehr stamps on the Communication resources it creates for outbound faxes. */
+export const OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM = 'https://identifiers.oystehr.com/fax';
+/** Extension on those Communications whose CodeableConcept code Oystehr updates as the fax progresses. */
+export const OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/outbound-fax-status';
+export const OYSTEHR_OUTBOUND_FAX_STATUS_CODES = {
+  delivered: 'DELIVERED',
+  stopped: 'STOPPED',
+} as const;
+
+export const OUTBOUND_DELIVERY_TASK_SYSTEM = ottehrCodeSystemUrl('outbound-delivery');
+export const OUTBOUND_DELIVERY_TASK_CODES = {
+  fax: 'fax',
+  email: 'email',
+} as const;
+export const OUTBOUND_DELIVERY_INPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-input');
+export const OUTBOUND_DELIVERY_INPUT_CODES = {
+  recipientAddress: 'recipient-address',
+  recipientName: 'recipient-name',
+  recipientOrganization: 'recipient-organization',
+  recipientPhone: 'recipient-phone',
+  documentReference: 'document-reference',
+  senderId: 'sender-id',
+  senderDisplay: 'sender-display',
+  senderOrganization: 'sender-organization',
+  faxPacketPageCount: 'fax-packet-page-count',
+  faxPacketParts: 'fax-packet-parts',
+} as const;
+export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
+export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
+  communication: 'communication',
+  error: 'error',
+} as const;
+export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
+export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');
+export const OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-claim');
 
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
 

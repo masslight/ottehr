@@ -17,8 +17,8 @@ import {
   buildReasonForVisitFromConfig,
   createQuestionnaireFromConfig,
 } from '../../config-helpers/shared-questionnaire';
-import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
-import { CanonicalUrl } from '../../types';
+import { SERVICE_CATEGORY_SYSTEM } from '../../fhir/constants';
+import { CanonicalUrl } from '../../types/common';
 import { BRANDING_CONFIG } from '../branding';
 import { VALUE_SETS } from '../value-sets';
 
@@ -376,6 +376,10 @@ export interface BookingConfig {
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;
+  // Prebook "Other dates" calendar range, in months. EHR shows the calendar and
+  // uses this (default 1 when unset). Patient app shows the extended calendar
+  // only when set (e.g. beam=12); unset = Today/Tomorrow only.
+  prebookMaxMonthsAhead?: number;
   // Questionnaire-related fields used for building the form
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;

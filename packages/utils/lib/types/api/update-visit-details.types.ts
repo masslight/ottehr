@@ -1,8 +1,8 @@
 import { Attachment, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { isValidUUID } from '../../validation';
 import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
+import { isValidUUID } from '../../validation/helper';
 import {
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -132,6 +132,10 @@ export interface UpdateVisitFilesInput {
   appointmentId?: string;
   fileType: EHRImageUploadType;
   attachment: Attachment;
+}
+
+export interface UpdateVisitFilesOutput {
+  documentReferenceId: string;
 }
 
 export interface DeleteVisitFilesInput {

@@ -1,5 +1,8 @@
-import { Secrets, SendForFinalReadZambdaInput } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { SendForFinalReadZambdaInput, SendForFinalReadZambdaInputSchema } from 'utils/lib/types/api/radiology';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface ValidatedInput {
   body: SendForFinalReadZambdaInput;
@@ -7,7 +10,7 @@ export interface ValidatedInput {
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = validateBody(input);
+  const body = safeValidate(SendForFinalReadZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -17,22 +20,6 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   return {
     body,
     callerAccessToken,
-  };
-};
-
-const validateBody = (input: ZambdaInput): SendForFinalReadZambdaInput => {
-  const { serviceRequestId } = validateJsonBody(input);
-
-  if (!serviceRequestId) {
-    throw new Error('serviceRequestId is required');
-  }
-
-  if (typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId must be a string');
-  }
-
-  return {
-    serviceRequestId,
   };
 };
 

@@ -1,18 +1,32 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail from '../../src/pages/ClaimDetail';
 
-const { getBillingClaimDetailMock, runBillingRulesEngineMock } = vi.hoisted(() => ({
+const {
+  getBillingClaimDetailMock,
+  runBillingRulesEngineMock,
+  getBillingClaimHistoryMock,
+  addBillingClaimNoteMock,
+  oystehrZambdaStub,
+} = vi.hoisted(() => ({
   getBillingClaimDetailMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
+  getBillingClaimHistoryMock: vi.fn(),
+  addBillingClaimNoteMock: vi.fn(),
+  oystehrZambdaStub: {},
 }));
 
 vi.mock('../../src/api/api', () => ({
   getBillingClaimDetail: getBillingClaimDetailMock,
   runBillingRulesEngine: runBillingRulesEngineMock,
+  getBillingClaimHistory: getBillingClaimHistoryMock,
+  addBillingClaimNote: addBillingClaimNoteMock,
   getPatientCoverages: vi.fn(),
   searchBillingLocations: vi.fn(),
   searchBillingPayers: vi.fn(),
@@ -24,7 +38,7 @@ vi.mock('../../src/api/api', () => ({
 
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
-    oystehrZambda: {},
+    oystehrZambda: oystehrZambdaStub,
   }),
 }));
 
@@ -54,8 +68,6 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
     arStage,
   },
   created: '2026-01-01',
-  billingType: '',
-  billableStatus: '',
   patientName: 'Jane Doe',
   patientDob: '1990-01-01',
   patientGender: 'female',
@@ -69,7 +81,6 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   payerId: '',
   memberId: '',
   subscriberId: '',
-  coverageStatus: '',
   planType: '',
   relationship: 'Self',
   policyHolder: null,
@@ -105,10 +116,13 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   patientResp: 0,
   patientPaid: 0,
   balance: 0,
+  adjudicated: false,
   remits: [],
   insurancePayments: [],
+  patientPayments: [],
   otherClaims: [],
   tags: [],
+  pcn: '',
 });
 
 function renderDetail(): void {
@@ -290,7 +304,9 @@ describe('ClaimDetail — run rules engine button', () => {
 
   it('runs the claim submission rules through the confirm dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
-    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1', engine: 'claim-submission' });
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'claim-submission' }],
+    });
     renderDetail();
 
     const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
@@ -299,7 +315,7 @@ describe('ClaimDetail — run rules engine button', () => {
     const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
@@ -308,16 +324,235 @@ describe('ClaimDetail — run rules engine button', () => {
 
   it('runs the pre-invoice rules through the Prepare for invoice dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
-    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1', engine: 'non-insurance-payer-pre-invoice' });
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'non-insurance-payer-pre-invoice' }],
+    });
     renderDetail();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
     );
+  });
+});
+
+describe('ClaimDetail — patient payments', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('lists patient payments, including a negative refund', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      patientPayments: [
+        {
+          paymentNoticeId: 'pn-1',
+          paymentDate: '2026-07-10',
+          amount: 60,
+          method: 'check',
+          description: 'check collected at front desk',
+          checkNumber: '1234',
+          status: 'active',
+        },
+        {
+          paymentNoticeId: 'pn-2',
+          paymentDate: '2026-07-11',
+          amount: -20,
+          method: 'card',
+          description: 'partial refund',
+          status: 'active',
+        },
+      ],
+    });
+    renderDetail();
+
+    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    fireEvent.click(paymentsTab);
+
+    const paymentRow = (await screen.findByText('check collected at front desk')).closest('tr');
+    expect(paymentRow).not.toBeNull();
+    const paymentCells = within(paymentRow as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(paymentCells).toEqual(['07/10/2026', 'check', 'check collected at front desk', '1234', 'active', '$60.00']);
+
+    const refundRow = (await screen.findByText('partial refund')).closest('tr');
+    const refundCells = within(refundRow as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'active', '-$20.00']);
+  });
+
+  it('shows the empty state when the claim has no patient payments', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
+    renderDetail();
+
+    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    fireEvent.click(paymentsTab);
+
+    expect(await screen.findByText('No patient payments yet')).toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — provisional balance indicator', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('flags the balance as provisional when the claim is not adjudicated', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: false,
+    });
+    renderDetail();
+
+    expect(await screen.findByRole('img', { name: PROVISIONAL_BALANCE_HINT })).toBeInTheDocument();
+  });
+
+  it('does not flag the balance once the claim is adjudicated', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: true,
+    });
+    renderDetail();
+
+    await screen.findAllByText('Jane Doe');
+    expect(screen.queryByRole('img', { name: PROVISIONAL_BALANCE_HINT })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — header copy buttons', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('copies the claim id and the pcn from the header', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      pcn: 'claim1',
+    });
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText,
+      },
+      writable: true,
+      configurable: true,
+    });
+    renderDetail();
+
+    const copyClaimId = await screen.findByRole('button', { name: 'Copy Claim ID' });
+    await user.click(copyClaimId);
+    expect(writeText).toHaveBeenCalledWith('claim-1');
+
+    const copyPcn = screen.getByRole('button', { name: 'Copy PCN' });
+    await user.click(copyPcn);
+    expect(writeText).toHaveBeenCalledWith('claim1');
+  });
+
+  it('offers no copy button for an empty pcn', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      pcn: '',
+    });
+    renderDetail();
+
+    expect(await screen.findByRole('button', { name: 'Copy Claim ID' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy PCN' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail: notes drawer', () => {
+  const noteMessage = 'Called payer, on hold pending medical records';
+  const noteEntry = {
+    id: 'prov-note',
+    recorded: '2026-06-01T12:00:00Z',
+    activity: 'Note',
+    actor: {
+      display: 'Jane Doe',
+      type: 'user' as const,
+    },
+    changes: [],
+    message: noteMessage,
+  };
+
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
+    getBillingClaimHistoryMock.mockReset();
+    getBillingClaimHistoryMock.mockResolvedValue({ entries: [] });
+    addBillingClaimNoteMock.mockReset();
+    addBillingClaimNoteMock.mockResolvedValue({ ok: true });
+  });
+
+  it('opens the notes drawer from the header button', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    const notesButton = await screen.findByRole('button', { name: 'Notes' });
+    await user.click(notesButton);
+
+    expect(await screen.findByLabelText('Add a note')).toBeInTheDocument();
+  });
+
+  it('drops an unsent draft when the user moves to another claim', async () => {
+    const otherClaim = {
+      id: 'claim-2',
+      status: '',
+      arStage: AR_STAGE.patient,
+      serviceDate: '2026-01-02',
+      payerName: 'Acme Health',
+      billed: 100,
+      cptCodes: ['99213'],
+    };
+    getBillingClaimDetailMock.mockImplementation((_client: unknown, { claimId }: { claimId: string }) =>
+      Promise.resolve({
+        ...makeClaim(AR_STAGE.patient),
+        id: claimId,
+        otherClaims: claimId === 'claim-1' ? [otherClaim] : [],
+      })
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Notes' }));
+    const draft = await screen.findByLabelText('Add a note');
+    fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    await user.click(screen.getByRole('tab', { name: 'Other claims' }));
+    await user.click(await screen.findByText('claim-2'));
+
+    await user.click(await screen.findByRole('button', { name: 'Notes' }));
+    expect(await screen.findByLabelText('Add a note')).toHaveValue('');
+  });
+
+  it('shows a note posted from the drawer on the already-open History tab', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    const historyTab = await screen.findByRole('tab', { name: 'History' });
+    await user.click(historyTab);
+    await waitFor(() => expect(getBillingClaimHistoryMock).toHaveBeenCalled());
+    expect(screen.getByText('No history recorded for this claim yet.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Notes' }));
+    const input = await screen.findByLabelText('Add a note');
+    fireEvent.change(input, { target: { value: noteMessage } });
+
+    getBillingClaimHistoryMock.mockResolvedValue({ entries: [noteEntry] });
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(addBillingClaimNoteMock).toHaveBeenCalled());
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    const historyTable = await screen.findByRole('table');
+    expect(within(historyTable).getByText(noteMessage)).toBeInTheDocument();
+    expect(within(historyTable).getByText('Note')).toBeInTheDocument();
   });
 });

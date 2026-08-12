@@ -1,5 +1,5 @@
 import { Identifier } from 'fhir/r4b';
-import { formatPhoneNumberDisplay, getPayerId } from 'utils';
+import { formatPhoneNumberDisplay, getPayerId } from 'utils/lib/helpers/helpers';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EmployerDataInput, EmployerInfo, PdfSection } from '../types';
 

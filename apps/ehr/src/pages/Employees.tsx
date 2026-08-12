@@ -32,17 +32,13 @@ import { enqueueSnackbar } from 'notistack';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import {
-  AllStates,
-  AVAILABLE_EMPLOYEE_ROLES,
-  EmployeeDetails,
-  formatDateForDisplay,
-  getApiError,
-  GetEmployeesResponse,
-  RoleType,
-  State,
-} from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { State } from 'utils/lib/helpers/states';
+import { EmployeeDetails, GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
+import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils/lib/types/api/user.types';
+import { AllStates } from 'utils/lib/types/common';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { deleteUser, getEmployees, updateUser } from '../api/api';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { CustomDialog } from '../components/dialogs/CustomDialog';

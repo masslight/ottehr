@@ -7,7 +7,8 @@ import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import PageContainer from 'src/layout/PageContainer';
-import { formatFhirEncounterToPatientFollowupDetails, getFullName } from 'utils';
+import { formatFhirEncounterToPatientFollowupDetails } from 'utils/lib/fhir/encounter';
+import { getFullName } from 'utils/lib/fhir/patient';
 import OldFollowupView, { OldPatientFollowupDetails } from './OldFollowupView';
 
 export default function PatientFollowup(): JSX.Element {

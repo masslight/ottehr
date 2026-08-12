@@ -1,7 +1,8 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { IN_PERSON_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { IN_PERSON_NOTE_ID, NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartFields } from '../../hooks/useChartFields';
 import { BoxStyled } from '../generic-notes-list/components/ui/BoxStyled';
 import { defaultNoteLocales } from '../generic-notes-list/default-note-locales.helper';

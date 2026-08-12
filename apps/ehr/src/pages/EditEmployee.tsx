@@ -3,7 +3,10 @@ import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { allLicensesForPractitioner, PractitionerLicense, User, UserActivationMode } from 'utils';
+import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
+import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
+import { User } from 'utils/lib/types/api/user.types';
+import { UserActivationMode } from 'utils/lib/types/api/user-activation.types';
 import { getUserDetails, userActivation } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
@@ -103,11 +106,24 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      await userActivation(oystehrZambda, { userId: user.id, userActivationMode });
+      const { erxUnenrollment } = await userActivation(oystehrZambda, { userId: user.id, userActivationMode });
       await getUserAndUpdatePage();
-      enqueueSnackbar(`User was ${userActivationMode}d successfully`, {
-        variant: 'success',
-      });
+      if (erxUnenrollment === 'failed') {
+        // Access has already been revoked by the time the zambda reports this — only the eRx side
+        // failed — so it's a warning rather than an error. But it has to be said out loud: the copy
+        // above promises the prescriber enrollment is removed, and a plain success toast would leave
+        // the operator believing a departed clinician can no longer prescribe when they still can.
+        // Persisted (and keyed) because it needs follow-up, unlike the transient success toast.
+        enqueueSnackbar(
+          `User was ${userActivationMode}d, but their eRx prescriber enrollment could not be removed. ` +
+            `The failure has been reported — please contact support to have the enrollment removed.`,
+          { variant: 'warning', persist: true, preventDuplicate: true, key: 'erx-unenroll-failed' }
+        );
+      } else {
+        enqueueSnackbar(`User was ${userActivationMode}d successfully`, {
+          variant: 'success',
+        });
+      }
     } catch {
       const errorString = `Failed to ${userActivationMode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
@@ -180,7 +196,7 @@ export default function EditEmployeePage(): JSX.Element {
                   </Typography>
                   <Typography variant="body1" marginTop={1}>
                     {isActive
-                      ? 'When you deactivate this account, this employee will not have access to the system anymore.'
+                      ? 'When you deactivate this account, this employee will not have access to the system anymore. If they are enrolled in eRx, their prescriber enrollment is removed as well.'
                       : 'Activate this user account. This will immediately give the user the Staff role.'}
                   </Typography>
 

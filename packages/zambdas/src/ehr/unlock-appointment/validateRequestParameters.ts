@@ -1,12 +1,9 @@
-import {
-  getSecret,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  SecretsKeys,
-  UnlockAppointmentZambdaInputValidated,
-} from 'utils';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { UnlockAppointmentZambdaInputValidated } from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 const UnlockAppointmentBodySchema = z
   .object({

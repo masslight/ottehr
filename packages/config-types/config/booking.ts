@@ -83,6 +83,10 @@ export const BookingConfigSchema = z.object({
     })
   ),
   defaultWalkinLocationName: z.string().optional(),
+  // Patient-app "Other dates" calendar range, in months. Optional: when set
+  // (e.g. beam=12) the calendar is enabled that many months out; when unset,
+  // only Today/Tomorrow are bookable. (The EHR slot picker is unaffected.)
+  prebookMaxMonthsAhead: z.number().int().positive().max(60).optional(),
   FormFields: z.record(z.string(), z.union([FormSectionSimpleSchema, FormSectionArraySchema])).optional(),
   questionnaireBase: QuestionnaireBaseSchema.optional(),
   hiddenFormSections: z.array(z.string()).optional(),

@@ -3,7 +3,6 @@ import {
   Apartment as ApartmentIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
-  Home as HomeIcon,
   Label as LabelIcon,
   List as ListIcon,
   Logout as LogoutIcon,
@@ -15,14 +14,14 @@ import {
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils';
+import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
 
 const DRAWER_WIDTH = 220;
 
 const navItems = [
-  { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
+  // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },

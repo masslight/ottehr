@@ -11,12 +11,14 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
-import { CPTCodeDTO, DataEntryTestItem, REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-house.constants';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import { configCptCodeTestId, configRunAsRepeatBtnTestId } from '../../utils/test-ids';
 
 interface InHouseSelectedTestTableProps {
   selectedTests: DataEntryTestItem[];
-  setSelectedTests: (value: React.SetStateAction<DataEntryTestItem[]>) => void;
+  setSelectedTests: (value: DataEntryTestItem[]) => void;
   displayRunAsRepeat: boolean;
 }
 
@@ -114,8 +116,8 @@ export const InHouseSelectedTestTable: React.FC<InHouseSelectedTestTableProps> =
 
                         const orderMode = checked ? 'repeat' : 'standard';
 
-                        setSelectedTests((prev) =>
-                          prev.map((item) => (item.name === test.name ? { ...item, orderMode } : item))
+                        setSelectedTests(
+                          selectedTests.map((item) => (item.name === test.name ? { ...item, orderMode } : item))
                         );
                       }}
                     />
@@ -125,8 +127,8 @@ export const InHouseSelectedTestTable: React.FC<InHouseSelectedTestTableProps> =
               <TableCell align="right">
                 <DeleteIconButton
                   onClick={() =>
-                    setSelectedTests((prev) =>
-                      prev.filter((tempLab) => {
+                    setSelectedTests(
+                      selectedTests.filter((tempLab) => {
                         const tempLabName = tempLab.name;
                         const labName = test.name;
 

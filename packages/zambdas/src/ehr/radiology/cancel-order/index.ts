@@ -1,17 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
-  CancelRadiologyOrderZambdaInput,
-  createCancellationTagOperations,
   fetchServiceRequestFromAdvaPACS,
-  getSecret,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CancelRadiologyOrderZambdaInput } from 'utils/lib/types/api/radiology';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -47,6 +49,15 @@ const performEffect = async (validatedInput: ValidatedInput, secrets: Secrets, o
     validatedInput.body.serviceRequestId,
     oystehr
   );
+
+  // External (print-only) orders are never transmitted to AdvaPACS, so there is nothing to revoke there.
+  const isExternal =
+    oystehrServiceRequest.extension?.find((ext) => ext.url === FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+      ?.valueBoolean === true;
+  if (isExternal) {
+    return;
+  }
+
   await updateServiceRequestToRevokedInAdvaPacs(oystehrServiceRequest, secrets);
 };
 

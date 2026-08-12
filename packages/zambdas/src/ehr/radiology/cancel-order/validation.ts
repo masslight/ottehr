@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
-import { CancelRadiologyOrderZambdaInput, isDeletedServiceRequest, isValidUUID, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { isDeletedServiceRequest } from 'utils/lib/helpers/order-status.helper';
+import { Secrets } from 'utils/lib/secrets';
+import { CancelRadiologyOrderZambdaInput, CancelRadiologyOrderZambdaInputSchema } from 'utils/lib/types/api/radiology';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 import { ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
@@ -19,11 +23,7 @@ export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promi
 };
 
 const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<CancelRadiologyOrderZambdaInput> => {
-  const { serviceRequestId } = validateJsonBody(input);
-
-  if (!isValidUUID(serviceRequestId)) {
-    throw new Error('serviceRequestId is required and must be a uuid');
-  }
+  const { serviceRequestId } = safeValidate(CancelRadiologyOrderZambdaInputSchema, validateJsonBody(input));
 
   let serviceRequest: ServiceRequest;
   try {

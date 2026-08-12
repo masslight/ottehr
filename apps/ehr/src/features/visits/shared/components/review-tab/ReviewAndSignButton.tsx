@@ -9,14 +9,20 @@ import { usePractitionerActions } from 'src/features/visits/shared/hooks/usePrac
 import { usePendingSupervisorApproval } from 'src/features/visits/telemed/hooks/usePendingSupervisorApproval';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { getPatientName } from 'src/shared/utils';
+import { getPatientName } from 'src/shared/utils/getPatientName';
 import {
-  getInPersonVisitStatus,
-  getProviderType,
-  getSupervisorApprovalStatus,
-  isPhysicianProviderType,
-  PRACTITIONER_CODINGS,
-} from 'utils';
+  useCreateExternalLabStore,
+  useCreateInHouseLabStore,
+  useCreateRadiologyOrderStore,
+  useImmunizationOrderStore,
+  useInHouseMedicationOrderStore,
+  useNursingOrderStore,
+  useProcedureStore,
+  useVitalsDraftStore,
+} from 'src/state/draft-data.store';
+import { getProviderType, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useChartFields } from '../../hooks/useChartFields';
@@ -34,6 +40,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { chartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isFollowup = appointmentAccessibility.visitType === 'follow-up';
+  const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
+  const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
+  const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
+  const { hasDraft: hasProcedureDraft } = useProcedureStore();
+  const { hasDraft: hasNursingOrderDraft } = useNursingOrderStore();
+  const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
+  const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
+  const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
@@ -55,7 +69,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   });
 
   const apiClient = useOystehrAPIClient();
-  const practitioner = useEvolveUser()?.profileResource;
+  const evolveUser = useEvolveUser();
+  const practitioner = evolveUser?.profileResource;
+  const hasNPI = evolveUser?.hasNPI ?? false;
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
@@ -102,7 +118,16 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
 
-    if (completed || isFollowup) {
+    if (completed) {
+      return messages;
+    }
+
+    // Signing / co-signing a note is NPI-gated — block users without an NPI (e.g. the Clinician role).
+    if (!hasNPI) {
+      messages.push('You need an NPI on file to sign');
+    }
+
+    if (isFollowup) {
       return messages;
     }
 
@@ -139,9 +164,42 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       );
     }
 
+    if (encounter.id) {
+      const makeDraftWarningMessage = (infoType: string): string => {
+        return `Complete or clear the in-progress ${infoType} to sign`;
+      };
+      if (hasExternalLabDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('external lab order'));
+      }
+
+      if (hasInHouseLabDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('in house lab order'));
+      }
+
+      if (hasRadiologyDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('radiology order'));
+      }
+      if (hasProcedureDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('procedure'));
+      }
+      if (hasNursingOrderDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('nursing order'));
+      }
+      if (hasImmunizationDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('immunization'));
+      }
+      if (hasMedDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('in house medication order'));
+      }
+      if (hasVitalsDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('vitals'));
+      }
+    }
+
     return messages;
   }, [
     completed,
+    hasNPI,
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
@@ -154,6 +212,15 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     inHouseLabResultsPending,
     isFollowup,
     inHouseLabReflexTestPending,
+    hasExternalLabDraft,
+    hasInHouseLabDraft,
+    hasRadiologyDraft,
+    hasProcedureDraft,
+    hasNursingOrderDraft,
+    hasImmunizationDraft,
+    hasMedDraft,
+    hasVitalsDraft,
+    encounter.id,
   ]);
 
   const handleCloseTooltip = (): void => {

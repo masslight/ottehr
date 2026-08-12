@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, MoreVert as MoreVertIcon, Search as SearchIcon } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -10,8 +10,14 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
   MenuItem,
+  Popover,
   Select,
+  Stack,
   Tab,
   TextField,
   Typography,
@@ -19,13 +25,16 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { EraDetailResponse, getApiError } from 'utils';
-import { getBillingEraDetail } from '../api/api';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency } from 'utils/lib/utils/convert';
+import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency } from '../utils/format';
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
@@ -35,37 +44,6 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   headerAlign: 'right',
   valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
-
-const claimColumns: GridColDef[] = [
-  {
-    field: 'claimId',
-    headerName: 'Claim ID',
-    width: 320,
-  },
-  { field: 'patientName', headerName: 'Patient', flex: 1, minWidth: 150 },
-  { field: 'dos', headerName: 'Date of Service', width: 130 },
-  currencyCol('billed', 'Billed', 100),
-  currencyCol('allowed', 'Allowed', 100),
-  currencyCol('paid', 'Ins Paid', 110),
-  currencyCol('posted', 'Posted', 100),
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 140,
-    renderCell: ({ value }) =>
-      value ? (
-        <Chip
-          label={String(value)}
-          color={value === 'complete' ? 'success' : 'warning'}
-          variant="outlined"
-          size="small"
-          sx={{ borderRadius: '4px', fontSize: 12 }}
-        />
-      ) : (
-        '—'
-      ),
-  },
-];
 
 export default function ERADetail(): ReactElement {
   const { id } = useParams();
@@ -78,6 +56,72 @@ export default function ERADetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [claimSearch, setClaimSearch] = useState('');
   const [claimStatusFilter, setClaimStatusFilter] = useState('');
+  const [claimResponseToMatch, setClaimResponseToMatch] = useState<string | null>(null);
+  const [claimResponsesToUnmatch, setClaimResponsesToUnmatch] = useState<string[] | null>(null);
+  const [unmatching, setUnmatching] = useState(false);
+  const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
+    element: HTMLButtonElement;
+    claimResponseIds: string[];
+  } | null>(null);
+
+  const claimColumns: GridColDef[] = [
+    {
+      field: 'claimId',
+      headerName: 'Claim ID',
+      width: 320,
+      renderCell: ({ value, row }) => {
+        if (!row.matched) {
+          return (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                setClaimResponseToMatch(row.claimResponseIds[0]);
+              }}
+            >
+              Match
+            </Button>
+          );
+        } else {
+          return <>{value}</>;
+        }
+      },
+    },
+    { field: 'patientName', headerName: 'Patient', flex: 1, minWidth: 150 },
+    { field: 'dos', headerName: 'Date of Service', width: 130 },
+    currencyCol('billed', 'Billed', 100),
+    currencyCol('allowed', 'Allowed', 100),
+    currencyCol('paid', 'Ins Paid', 110),
+    currencyCol('posted', 'Posted', 100),
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 140,
+      renderCell: ({ value, row }) =>
+        value ? (
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Chip
+              label={!row.matched ? 'unmatched' : String(value)}
+              color={value === 'complete' && row.matched ? 'success' : 'warning'}
+              variant="outlined"
+              size="small"
+              sx={{ borderRadius: '4px', fontSize: 12 }}
+            />
+            {row.matched && (
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
+                }}
+              >
+                <MoreVertIcon fontSize="medium" />
+              </IconButton>
+            )}
+          </Stack>
+        ) : (
+          '—'
+        ),
+    },
+  ];
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -220,18 +264,75 @@ export default function ERADetail(): ReactElement {
               rows={filteredClaims}
               columns={claimColumns}
               getRowId={(row) => row.claimId}
-              onRowClick={(params) => navigate(`/claims/${params.id}`)}
+              onRowClick={(params) => (params.row.matched ? navigate(`/claims/${params.id}`) : {})}
               disableRowSelectionOnClick
               disableColumnMenu
               autoHeight
               pageSizeOptions={[25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              slots={dataGridSlots}
+              slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
           </TabPanel>
         </TabContext>
       </Box>
+      {claimResponseToMatch && (
+        <MatchClaimDialog
+          claimResponseId={claimResponseToMatch}
+          onMatched={() => fetchDetail()}
+          onClose={() => setClaimResponseToMatch(null)}
+        />
+      )}
+      {claimResponsesToUnmatch && (
+        <ConfirmDialog
+          open={true}
+          title="Unmatch"
+          confirmLabel="Unmatch"
+          loading={unmatching}
+          onConfirm={async () => {
+            if (!oystehrZambda) return;
+            setUnmatching(true);
+            try {
+              for (const claimResponseId of claimResponsesToUnmatch) {
+                await unmatchClaimResponse(oystehrZambda, {
+                  claimResponseId,
+                });
+              }
+            } finally {
+              setUnmatching(false);
+              setClaimResponsesToUnmatch(null);
+              await fetchDetail();
+            }
+          }}
+          onCancel={() => setClaimResponsesToUnmatch(null)}
+        >
+          Do you really want to unmatch?
+        </ConfirmDialog>
+      )}
+      {moreActionsPopoverData ? (
+        <Popover
+          open={true}
+          anchorEl={moreActionsPopoverData.element}
+          onClose={() => setMoreActionsPopoverData(null)}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+        >
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={async () => {
+                  setMoreActionsPopoverData(null);
+                  setClaimResponsesToUnmatch(moreActionsPopoverData.claimResponseIds);
+                }}
+              >
+                <ListItemText primary="Unmatch" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Popover>
+      ) : null}
     </Box>
   );
 }

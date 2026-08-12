@@ -13,31 +13,33 @@ import {
   Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
+import { getEmailForIndividual, getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getQuestionnaireForQR, selectIntakeQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
+import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import { makeStandaloneFormDTO, qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { Secrets } from 'utils/lib/secrets';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { PersistedFhirResource, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { ConsentDetails, EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import {
-  ConsentDetails,
-  DISPLAY_DATE_FORMAT,
-  EHRVisitDetails,
   FHIR_RESOURCE_NOT_FOUND,
-  flattenQuestionnaireAnswers,
-  getAttestedConsentFromEncounter,
-  getConsentAndRelatedDocRefsForAppointment,
-  getEmailForIndividual,
-  getFullestAvailableName,
-  getNameFromScheduleResource,
-  getTimezone,
   INVALID_RESOURCE_ID_ERROR,
-  isAnnotationFollowupEncounter,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  PersistedFhirResource,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  selectIntakeQuestionnaireResponse,
-  Timezone,
-  TIMEZONES,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/errors';
+import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';
@@ -65,8 +67,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = (input: EffectInput): EHRVisitDetails => {
-  const { appointment, patient, encounter, flags, consents, qr, location, schedule, scheduleOwner, guarantorResource } =
-    input;
+  const {
+    appointment,
+    patient,
+    encounter,
+    flags,
+    consents,
+    qr,
+    location,
+    schedule,
+    scheduleOwner,
+    guarantorResource,
+    standAloneForms,
+  } = input;
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
 
@@ -100,6 +113,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyName,
     responsiblePartyEmail,
     consentIsAttested,
+    standAloneForms,
   };
 
   if (schedule) {
@@ -127,6 +141,7 @@ interface EffectInput {
   scheduleOwner?: ScheduleOwnerFhirResource;
   location?: Location;
   guarantorResource?: Patient | RelatedPerson | undefined;
+  standAloneForms?: StandaloneFormDTO[];
 }
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
@@ -198,7 +213,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
-  const [docRefsAndConsents, accountResources] = await Promise.all([
+  const [docRefsAndConsents, accountResources, standAloneForms] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment(
       {
         appointmentId,
@@ -207,6 +222,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
       oystehr
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+    getStandaloneFormsForAppointment(appointment, oystehr),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -220,6 +236,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     scheduleOwner,
     guarantorResource,
     ...docRefsAndConsents,
+    standAloneForms,
   };
 };
 
@@ -292,4 +309,40 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     userToken,
     appointmentId,
   };
+};
+
+const getStandaloneFormsForAppointment = async (
+  appointment: Appointment,
+  oystehr: Oystehr
+): Promise<StandaloneFormDTO[] | undefined> => {
+  const appointmentId = appointment.id!;
+
+  const resources = (
+    await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'appointment', value: `Appointment/${appointmentId}` },
+        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponses = resources
+    .filter((r) => r.resourceType === 'QuestionnaireResponse')
+    .filter((qr) => qrSentManually(qr));
+
+  if (!questionnaireResponses || questionnaireResponses.length === 0) return;
+
+  const results = await Promise.allSettled(
+    questionnaireResponses.map(async (qr) => {
+      const questionnaire = await getQuestionnaireForQR(qr, oystehr);
+      return makeStandaloneFormDTO(questionnaire, qr);
+    })
+  );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
+    .map((r) => r.value);
 };

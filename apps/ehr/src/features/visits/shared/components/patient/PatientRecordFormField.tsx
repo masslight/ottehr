@@ -3,21 +3,24 @@ import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField } from 'src/components/form';
-import { Row } from 'src/components/layout';
+import { BasicDatePicker } from 'src/components/form/DatePicker';
+import { FormGroupPharmacyCollection } from 'src/components/form/FormGroupPharmacyCollection';
+import { FormSelect } from 'src/components/form/FormSelect';
+import { FormTextField } from 'src/components/form/FormTextField';
+import { Row } from 'src/components/layout/Row';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { InputMask } from 'ui-components';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { isRemovableField } from 'utils/lib/helpers/paperwork/paperwork';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { QuestionnaireItemGroupType } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { dedupeObjectsByKey } from 'utils/lib/utils/objects';
+import { AnswerOptionSource } from '../../../../../../../../packages/config-types/config/fhir';
 import {
-  AnswerOptionSource,
-  dedupeObjectsByKey,
-  evaluateFieldTriggers,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
-  isRemovableField,
-  PATIENT_RECORD_CONFIG,
-  QuestionnaireItemGroupType,
-} from 'utils';
+} from '../../../../../../../../packages/config-types/config/form-fields';
 
 // Flat map of linkId → field config, built once at module load for source-field lookup.
 const allFieldConfigs = new Map<string, FormFieldsInputItem>();
@@ -353,6 +356,56 @@ type AnswerSourceStrategy = {
   answerSource: AnswerOptionSource;
 };
 
+export interface AnswerOptionsQueryInput {
+  id: string;
+  valueSet?: string;
+  answerSource?: AnswerOptionSource;
+}
+
+/**
+ * Builds the get-answer-options input for an answerSource-driven reference field. Exported so
+ * other consumers (e.g. the insurance-card carrier suggestion) can share the exact same query
+ * key — and therefore the same React Query cache entry — as the field's own options load.
+ */
+export const buildAnswerSourceOptionsInput = (answerSource: AnswerOptionSource): AnswerOptionsQueryInput => ({
+  id: answerSource.zambdaId,
+  answerSource,
+});
+
+/**
+ * Loads the answer options a DynamicReferenceField offers (deduped `Reference[]`). Keyed by the
+ * serialized input, so any two callers with the same input share one fetch.
+ */
+export const useAnswerOptionsQuery = (
+  optionsInput: AnswerOptionsQueryInput | undefined,
+  enabled = true
+): { data: Reference[] | undefined; isLoading: boolean; isRefetching: boolean } => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: [JSON.stringify(optionsInput ?? null)],
+
+    queryFn: async () => {
+      if (!oystehrZambda || !optionsInput) {
+        throw new Error('API client not available');
+      }
+      return await oystehrZambda?.zambda
+        .execute({
+          ...optionsInput,
+        })
+        .then((res) => {
+          const output = (res.output as Partial<QuestionnaireItemAnswerOption>[]).map((option) => {
+            return {
+              ...option.valueReference,
+            };
+          }) as Reference[];
+          return dedupeObjectsByKey(output, 'display');
+        });
+    },
+
+    enabled: !!oystehrZambda && !!optionsInput && enabled,
+  });
+};
+
 interface DynamicReferenceFieldProps {
   item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
@@ -373,50 +426,13 @@ function ensureSelectedOptionVisible(options: Reference[], selected: Reference |
 }
 
 const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
-  const { oystehrZambda } = useApiClients();
   const { control, setValue } = useFormContext();
-  const optionsInput = (() => {
-    const base = { id: 'get-answer-options' };
-    if (optionStrategy.type === 'valueSet') {
-      return {
-        ...base,
-        valueSet: optionStrategy.valueSet,
-      };
-    }
-    return {
-      ...base,
-      id: optionStrategy.answerSource.zambdaId,
-      answerSource: optionStrategy.answerSource,
-    };
-  })();
+  const optionsInput: AnswerOptionsQueryInput =
+    optionStrategy.type === 'valueSet'
+      ? { id: 'get-answer-options', valueSet: optionStrategy.valueSet }
+      : buildAnswerSourceOptionsInput(optionStrategy.answerSource);
 
-  const {
-    data: answerOptions,
-    isLoading,
-    isRefetching,
-  } = useQuery({
-    queryKey: [JSON.stringify(optionsInput)],
-
-    queryFn: async () => {
-      if (!oystehrZambda) {
-        throw new Error('API client not available');
-      }
-      return await oystehrZambda?.zambda
-        .execute({
-          ...optionsInput,
-        })
-        .then((res) => {
-          const output = (res.output as Partial<QuestionnaireItemAnswerOption>[]).map((option) => {
-            return {
-              ...option.valueReference,
-            };
-          }) as Reference[];
-          return dedupeObjectsByKey(output, 'display');
-        });
-    },
-
-    enabled: !!oystehrZambda,
-  });
+  const { data: answerOptions, isLoading, isRefetching } = useAnswerOptionsQuery(optionsInput);
   // console.log('Insurance options from query:', insuranceOptions);
 
   return (

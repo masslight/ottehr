@@ -1,5 +1,5 @@
 import { Practitioner, Provenance } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { describe, expect, test } from 'vitest';
 import { getEncounterSignatures } from '../../src/shared/pdf/get-encounter-signatures';
 import { composeSignature } from '../../src/shared/pdf/sections/visit-note/signature';

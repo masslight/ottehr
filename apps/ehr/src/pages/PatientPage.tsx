@@ -1,6 +1,7 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -24,7 +25,9 @@ import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { getFirstName, getLastName, GetMergePatientsTaskResponse, MergePatientsResponse, RoleType } from 'utils';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import GoToButton from '../components/GoToButton';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
@@ -270,6 +273,13 @@ export default function PatientPage(): JSX.Element {
                     onClick={downloadMedicalRecord}
                   >
                     <Inventory2OutlinedIcon />
+                  </GoToButton>
+                  <GoToButton
+                    text="Action Logs"
+                    backgroundColor={otherColors.lightBlue}
+                    onClick={() => navigate(`/patient/${id}/action-logs`)}
+                  >
+                    <HistoryOutlinedIcon />
                   </GoToButton>
                 </>
               )}

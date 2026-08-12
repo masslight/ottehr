@@ -5,16 +5,18 @@ import { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   isValidSlug,
-  LOCATION_FORM_EXTENSION_URL,
-  LOCATION_IN_PERSON_CODE,
-  LOCATION_MANUALLY_CREATED_EXTENSION_URL,
-  LOCATION_PHYSICAL_TYPE_SYSTEM,
   ScheduleStrategyCoding,
   SLUG_SYSTEM,
   slugFromName,
   TIMEZONE_EXTENSION_URL,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import {
+  LOCATION_FORM_EXTENSION_URL,
+  LOCATION_IN_PERSON_CODE,
+  LOCATION_MANUALLY_CREATED_EXTENSION_URL,
+  LOCATION_PHYSICAL_TYPE_SYSTEM,
+} from 'utils/lib/fhir/location';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';

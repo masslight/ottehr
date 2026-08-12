@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Page } from '@playwright/test';
 import {
+  Account,
   Address,
   Appointment,
   ContactPoint,
@@ -17,21 +18,22 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
-  cleanAppointmentGraph,
-  CreateAppointmentResponse,
-  createFetchClientWithOystehrAuth,
-  createSampleAppointments,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
-  formatPhoneNumber,
-  genderMap,
+} from 'utils/lib/fhir/constants';
+import { genderMap } from 'utils/lib/fhir/helpers';
+import { RelationshipOption } from 'utils/lib/fhir/patientMasterRecord';
+import {
+  createSampleAppointments,
   GetPaperworkAnswers,
-  RelationshipOption,
   SampleAppointmentResponse,
-  ServiceMode,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/helpers/create-demo-visits';
+import { createFetchClientWithOystehrAuth, formatPhoneNumber } from 'utils/lib/helpers/helpers';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
+import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { createE2eTestOystehrClient } from './helpers/tests-utils';
@@ -262,6 +264,7 @@ export class ResourceHandler {
       console.log(formatPhoneNumber(PATIENT_PHONE_NUMBER)!, phoneNumber);
 
       // Create appointment and related resources using zambda
+      const createStartedAt = Date.now();
       const appointmentData = await createSampleAppointments({
         oystehr: await this.apiClient,
         authToken: getAccessTokenFromUserJson(),
@@ -278,12 +281,22 @@ export class ResourceHandler {
         skipPaperwork: inputParams?.skipPaperwork,
         serviceCategory: inputParams?.serviceCategory,
       });
+      // Hooks are the largest single category in the EHR profile, and the readiness polls inside them
+      // turned out to cost almost nothing — nearly every one succeeds on its first attempt. That
+      // leaves the create-appointment call itself as the candidate, so time it explicitly rather than
+      // inferring it from what is left over.
+      console.log(`⏱ create-appointment took ${((Date.now() - createStartedAt) / 1000).toFixed(1)}s`);
+
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
 
+      // Tag the log line with the suite process id and worker so a run's appointment creations can be
+      // attributed to a spec and a worker — that is what shows whether a describe's beforeAll is being
+      // re-run once per worker rather than once per file.
+      const creationContext = `[${this.#processId} worker=${process.env.TEST_WORKER_INDEX ?? '?'}]`;
       Object.values(appointmentData.resources).forEach((resource) => {
-        console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
+        console.log(`✅ created ${resource.resourceType}: ${resource.id} ${creationContext}`);
       });
 
       if (appointmentData.relatedPersonId) {
@@ -327,10 +340,14 @@ export class ResourceHandler {
     console.log('Starting resource cleanup');
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
+    const cleanupStartedAt = Date.now();
     const metaTagCoding = getProcessMetaTag(this.#processId!);
     if (metaTagCoding?.tag?.[0]) {
       await cleanAppointmentGraph(metaTagCoding.tag[0], await this.apiClient);
     }
+    // Teardown is hook time too, and it is paid on exactly the same schedule as setup. If it turns
+    // out to rival creation, moving work off the critical path is as valuable as making it faster.
+    console.log(`⏱ cleanup took ${((Date.now() - cleanupStartedAt) / 1000).toFixed(1)}s`);
   }
 
   async waitTillAppointmentPreprocessed(id: string): Promise<void> {
@@ -476,7 +493,7 @@ export class ResourceHandler {
   // harvest bug) rather than an opaque downstream UI timeout.
   async waitTillCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
     const apiClient = await this.apiClient;
-    const maxAttempts = 15;
+    const maxAttempts = 30;
     const delayMs = 2_000;
     const startTime = Date.now();
     let count = 0;
@@ -502,6 +519,58 @@ export class ResourceHandler {
       `Patient ${patientId} only had ${count}/${expectedCount} active coverages after ${
         (maxAttempts * delayMs) / 1000
       }s — harvest did not create the expected Coverage resources`
+    );
+  }
+
+  // The patient record's insurance cards are rendered from the billing Account's coverage array —
+  // priority 1 is primary, priority 2 is secondary (see getCoverageUpdateResourcesFromUnbundled) —
+  // not from a Coverage search. Harvest writes the Coverage resources and the Account's entries
+  // separately, so the Coverages can be queryable while the Account still lists none; the page then
+  // renders fewer cards than the test expects, and the missing card never appears because the page
+  // only fetches on mount. Poll what the read path actually reads.
+  async waitTillAccountCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
+    const apiClient = await this.apiClient;
+    // 150s, matching waitTillHarvestingDone. Harvest attaches these entries, so this step cannot
+    // finish before harvesting does — giving it a shorter ceiling than harvesting's own only produces
+    // spurious failures while the work is still legitimately in flight. It first shipped at 60s and
+    // timed out on a loaded runner for exactly that reason.
+    const maxAttempts = 30;
+    const delayMs = 5_000;
+    const startTime = Date.now();
+    let count = 0;
+    let accountCount = 0;
+    for (let i = 0; i < maxAttempts; i++) {
+      const accounts = (
+        await apiClient.fhir.search<Account>({
+          resourceType: 'Account',
+          params: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'status', value: 'active' },
+          ],
+        })
+      ).unbundle();
+      // Concurrent harvest Tasks can briefly leave more than one active Account, one populated and the
+      // rest empty, so take the best-populated one rather than assuming a single Account.
+      accountCount = accounts.length;
+      count = accounts.reduce((max, account) => Math.max(max, account.coverage?.length ?? 0), 0);
+      if (count >= expectedCount) {
+        console.log(
+          `Patient ${patientId} account lists ${count} coverage(s) after ${((Date.now() - startTime) / 1000).toFixed(
+            1
+          )}s`
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    throw new Error(
+      accountCount === 0
+        ? `Patient ${patientId} had no active billing Account after ${
+            (maxAttempts * delayMs) / 1000
+          }s — harvest never created one`
+        : `Patient ${patientId} had ${accountCount} active billing Account(s), the best listing ${count}/${expectedCount} coverages after ${
+            (maxAttempts * delayMs) / 1000
+          }s — harvest created the Account but did not attach the expected Coverages`
     );
   }
 

@@ -1,5 +1,5 @@
 import { CodeableConcept, Coding, Provenance } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 
 export function createProvenanceForEncounter(
   encounterId: string,

@@ -1,4 +1,4 @@
-import { OystehrAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
 import { describe, expect, test } from 'vitest';
 import { isJoinCallEnabled } from './video-call.queries';
 

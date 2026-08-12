@@ -1,6 +1,6 @@
 import { Chip, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { PrescribedMedicationDTO } from 'utils';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const PrescribedMedicationReviewItem: FC<{ medication: PrescribedMedicationDTO }> = (props) => {
   const { medication } = props;

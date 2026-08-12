@@ -1,15 +1,12 @@
 import fs from 'node:fs';
 import { FormFieldsDisplayItem, FormFieldSection } from 'config-types';
 import { PDFImage } from 'pdf-lib';
-import {
-  AppointmentContext,
-  evaluateFieldTriggers,
-  getPresignedURL,
-  PATIENT_RECORD_CONFIG,
-  Secrets,
-  uploadPDF,
-} from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
+import { AppointmentContext, evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { Secrets } from 'utils/lib/secrets';
+import { uploadPDF } from 'utils/lib/utils/pdf';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import {
@@ -31,6 +28,11 @@ export type StyleFactory = (assets: PdfAssets) => PdfStyles;
 
 export interface PdfHeaderConfig<TData extends PdfData> {
   title: string | ((data: TData) => string);
+  /**
+   * `'right'` (default): title in the right column, right section beneath it.
+   * `'banner'`: full-width title on its own row (aligned per the `header` style), sections below it.
+   */
+  titleLayout?: 'right' | 'banner';
   logo?: {
     maxWidth: number;
     maxHeight: number;
@@ -178,70 +180,62 @@ const renderPdfHeader = <TData extends PdfData>(
     });
   }
 
-  pdfClient.setLeftBound(rightX + 10);
-  pdfClient.setRightBound(originalRight);
-
-  console.log('Drawing header title:', config.title);
-  console.log('Header text style:', styles.textStyles.header);
-
   const title = typeof config.title === 'function' ? config.title(data) : config.title;
 
-  try {
-    pdfClient.drawText(title, styles.textStyles.header);
-    console.log('Header title drawn successfully');
-  } catch (error) {
-    console.error('ERROR drawing header title:', error);
-    console.error('Text style was:', styles.textStyles.header);
-    throw error;
-  }
-
-  if (config.rightSection) {
-    console.log('Rendering right section...');
+  const renderRightSection = (): void => {
+    if (!config.rightSection) return;
     const rightData = config.rightSection.dataSelector(data);
-    console.log('Right section data:', rightData);
-    if (rightData !== undefined) {
-      const shouldRender = config.rightSection.shouldRender ? config.rightSection.shouldRender(rightData) : true;
+    if (rightData === undefined) return;
+    if (config.rightSection.shouldRender && !config.rightSection.shouldRender(rightData)) return;
+    config.rightSection.render(pdfClient, rightData, createRightAlignedStyles(styles), assets);
+  };
 
-      if (shouldRender) {
-        const rightAlignedStyles = createRightAlignedStyles(styles);
-        config.rightSection.render(pdfClient, rightData, rightAlignedStyles, assets);
-      }
-    }
-  }
-
-  rightHeight = headerStartY - pdfClient.getY();
-
-  if (config.leftSection) {
-    console.log('Rendering left section...');
+  const renderLeftSection = (columnsStartY: number): void => {
+    if (!config.leftSection) return;
     const leftData = config.leftSection.dataSelector(data);
-    console.log('Left section data:', leftData);
-    if (leftData !== undefined) {
-      const shouldRender = config.leftSection.shouldRender ? config.leftSection.shouldRender(leftData) : true;
+    if (leftData === undefined) return;
+    if (config.leftSection.shouldRender && !config.leftSection.shouldRender(leftData)) return;
+    pdfClient.setLeftBound(leftX);
+    pdfClient.setRightBound(leftX + columnWidth - 10);
+    pdfClient.setY(columnsStartY);
+    config.leftSection.render(pdfClient, leftData, styles, assets);
+    leftHeight = columnsStartY - pdfClient.getY();
+  };
 
-      if (shouldRender) {
-        pdfClient.setLeftBound(leftX);
-        pdfClient.setRightBound(leftX + columnWidth - 10);
-        pdfClient.setY(headerStartY);
-
-        try {
-          config.leftSection.render(pdfClient, leftData, styles, assets);
-          console.log('Left section rendered successfully');
-        } catch (error) {
-          console.error('ERROR rendering left section:', error);
-          throw error;
-        }
-
-        leftHeight = headerStartY - pdfClient.getY();
-      }
+  if (config.titleLayout === 'banner') {
+    pdfClient.setLeftBound(originalLeft);
+    pdfClient.setRightBound(originalRight);
+    if (title) {
+      pdfClient.drawText(title, styles.textStyles.header);
     }
+
+    const columnsStartY = pdfClient.getY();
+
+    pdfClient.setLeftBound(rightX + 10);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.setY(columnsStartY);
+    renderRightSection();
+    rightHeight = columnsStartY - pdfClient.getY();
+
+    renderLeftSection(columnsStartY);
+
+    pdfClient.setLeftBound(originalLeft);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.setY(columnsStartY - Math.max(leftHeight, rightHeight));
+  } else {
+    pdfClient.setLeftBound(rightX + 10);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.drawText(title, styles.textStyles.header);
+
+    renderRightSection();
+    rightHeight = headerStartY - pdfClient.getY();
+
+    renderLeftSection(headerStartY);
+
+    pdfClient.setLeftBound(originalLeft);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.setY(headerStartY - Math.max(leftHeight, rightHeight));
   }
-
-  pdfClient.setLeftBound(originalLeft);
-  pdfClient.setRightBound(originalRight);
-
-  const maxHeight = Math.max(leftHeight, rightHeight);
-  pdfClient.setY(headerStartY - maxHeight);
-  console.log('Header rendering complete');
 };
 
 const createRightAlignedStyles = (styles: PdfStyles): PdfStyles => {
@@ -366,7 +360,10 @@ const renderBodySections = <TData extends PdfData>(
 
       let targetY;
       if (leftColumnPage === rightColumnPage) {
-        targetY = Math.max(leftColumnY, rightColumnY);
+        // Y decreases down the page, so the point below BOTH columns is the smaller Y
+        // (the taller column). Using max here would start at the shorter column's baseline
+        // and overlap the taller one by the height delta.
+        targetY = Math.min(leftColumnY, rightColumnY);
       } else if (leftColumnPage > rightColumnPage) {
         targetY = leftColumnY;
       } else {
@@ -444,7 +441,8 @@ const renderBodySections = <TData extends PdfData>(
 
   let finalY;
   if (leftColumnPage === rightColumnPage) {
-    finalY = Math.max(leftColumnY, rightColumnY);
+    // Below both columns is the smaller Y (taller column); see the same-page note above.
+    finalY = Math.min(leftColumnY, rightColumnY);
   } else if (leftColumnPage > rightColumnPage) {
     finalY = leftColumnY;
   } else {
@@ -454,7 +452,7 @@ const renderBodySections = <TData extends PdfData>(
   pdfClient.setY(finalY);
 };
 
-const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
+export const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
   const fonts: PdfAssets['fonts'] = {};
   let icons: PdfAssets['icons'];
   let logo: PdfAssets['logo'];
@@ -480,7 +478,7 @@ const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<P
   return { fonts, icons, logo };
 };
 
-const uploadPdfToStorage = async (
+export const uploadPdfToStorage = async (
   pdfBytes: Uint8Array,
   metadata: UploadMetadata,
   secrets: Secrets | null,

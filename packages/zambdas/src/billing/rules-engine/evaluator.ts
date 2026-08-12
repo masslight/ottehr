@@ -1,8 +1,9 @@
+import { resourceHasTag } from 'utils/lib/fhir/helpers';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
+import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
-  CLAIM_TAG_SYSTEM,
-  HOLD_TAG_NAME,
-  resourceHasTag,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_OUTCOME_TYPE,
@@ -12,8 +13,21 @@ import {
   RuleConditionValue,
   RuleOperator,
   RuleOutcome,
-} from 'utils';
-import { readField, RulesEngineClaimModel, writeField } from './claim-model';
+  SERVICE_LINE_MATCH_TYPE,
+  ServiceLineMatch,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
+import { claimHasRealCoverage } from '../shared';
+import {
+  ClaimServiceLine,
+  readField,
+  readServiceLineProperty,
+  recomputeClaimTotal,
+  RulesEngineClaimModel,
+  writeField,
+  writeServiceLineProperty,
+} from './claim-model';
 
 // ---------------------------------------------------------------------------
 // Pure evaluator
@@ -33,25 +47,57 @@ const valueExists = (actual: string | string[] | undefined): boolean => {
 const asScalar = (v: string | string[] | undefined): string | undefined =>
   Array.isArray(v) ? undefined : v ?? undefined;
 
+const asFiniteNumber = (value: string): number | undefined => {
+  if (value.trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export const evaluateOperator = (
   operator: RuleOperator,
   actual: string | string[] | undefined,
-  expected?: RuleConditionValue
+  expected?: RuleConditionValue,
+  // numeric: eq/neq/in/notIn compare numerically when both sides parse ('100' matches '100.00' —
+  // readers normalize amounts but rule values keep the author's formatting). Only number-typed
+  // properties opt in: ids like member IDs must stay distinct strings ('00123' ≠ '123').
+  opts?: { numeric?: boolean }
 ): boolean => {
   const expectedScalar = Array.isArray(expected) ? expected[0] : expected;
 
+  const scalarsEqual = (a: string, e: string): boolean => {
+    if (a === e) return true;
+    if (!opts?.numeric) return false;
+    const aNum = asFiniteNumber(a);
+    const eNum = asFiniteNumber(e);
+    return aNum != null && eNum != null && aNum === eNum;
+  };
   const equals = (): boolean => {
     const a = asScalar(actual);
-    return a != null && expectedScalar != null && a === expectedScalar;
+    return a != null && expectedScalar != null && scalarsEqual(a, expectedScalar);
   };
   const includedIn = (): boolean => {
     const a = asScalar(actual);
-    return a != null && asArray(expected).includes(a);
+    return a != null && asArray(expected).some((e) => scalarsEqual(a, e));
   };
   const contains = (): boolean => {
     if (expectedScalar == null) return false;
     if (Array.isArray(actual)) return actual.includes(expectedScalar);
     return typeof actual === 'string' && actual.includes(expectedScalar);
+  };
+  const startsWith = (): boolean => {
+    if (expectedScalar == null) return false;
+    return typeof actual === 'string' && actual.startsWith(expectedScalar);
+  };
+  // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
+  // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition
+  // false either way) when either side is missing/empty.
+  const compared = (): number | undefined => {
+    const a = asScalar(actual);
+    if (a == null || a === '' || expectedScalar == null || expectedScalar === '') return undefined;
+    const aNum = Number(a);
+    const eNum = Number(expectedScalar);
+    if (Number.isFinite(aNum) && Number.isFinite(eNum)) return aNum < eNum ? -1 : aNum > eNum ? 1 : 0;
+    return a < expectedScalar ? -1 : a > expectedScalar ? 1 : 0;
   };
 
   switch (operator) {
@@ -67,10 +113,30 @@ export const evaluateOperator = (
       return includedIn();
     case 'notIn':
       return !includedIn();
+    case 'gt': {
+      const order = compared();
+      return order != null && order > 0;
+    }
+    case 'gte': {
+      const order = compared();
+      return order != null && order >= 0;
+    }
+    case 'lt': {
+      const order = compared();
+      return order != null && order < 0;
+    }
+    case 'lte': {
+      const order = compared();
+      return order != null && order <= 0;
+    }
     case 'contains':
       return contains();
     case 'notContains':
       return !contains();
+    case 'startsWith':
+      return startsWith();
+    case 'notStartsWith':
+      return !startsWith();
     default:
       return false;
   }
@@ -85,7 +151,9 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
       return condition.logic === 'and' ? results.every(Boolean) : results.some(Boolean);
     }
     case RULE_CONDITION_TYPE.field:
-      return evaluateOperator(condition.operator, readField(model, condition.field), condition.value);
+      return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
+        numeric: getRuleFieldDef(condition.field)?.valueType === 'number',
+      });
     default:
       return false;
   }
@@ -120,10 +188,182 @@ export function resolveOutcomeActions(outcome: RuleOutcome, model: RulesEngineCl
 export const isHoldAction = (action: RuleAction): boolean =>
   action.type === RULE_ACTION_TYPE.applyTag && action.tag === HOLD_TAG_NAME;
 
-// Mutate the model by applying a single action. setField delegates to the claim-model writer;
-// applyTag adds the tag to Claim.meta.tag (deduped); noop does nothing. Returns an error message
-// when the action could not be applied — the engine holds the claim rather than submit it with a
-// silently skipped change.
+// Whether a service line satisfies an action's line predicate. Reuses evaluateOperator so operators
+// mean the same thing in line matches as in rule conditions.
+export const serviceLineMatches = (line: ClaimServiceLine, match: ServiceLineMatch): boolean => {
+  if (match.type === SERVICE_LINE_MATCH_TYPE.all) return true;
+  return evaluateOperator(match.operator, readServiceLineProperty(line, match.property), match.value, {
+    numeric: getServiceLinePropertyDef(match.property)?.valueType === 'number',
+  });
+};
+
+// Resolve the diagnosis pointers for a new line: explicit pointers are validated strictly against
+// the claim's diagnosis list (a rule must never silently re-point a line), while a blank input falls
+// back to the claim editor's default — the first diagnosis, or none when the claim has none.
+const resolveDiagnosisPointers = (
+  raw: string | undefined,
+  diagnosisCount: number
+): { pointers?: number[]; error?: string } => {
+  const trimmed = raw?.trim() ?? '';
+  if (!trimmed) return { pointers: diagnosisCount > 0 ? [1] : undefined };
+  const pointers = trimmed.split(',').map((part) => Number(part.trim()));
+  if (pointers.length === 0 || pointers.some((pointer) => !Number.isInteger(pointer) || pointer < 1)) {
+    return { error: `invalid diagnosis pointers "${raw}"` };
+  }
+  const outOfRange = pointers.find((pointer) => pointer > diagnosisCount);
+  if (outOfRange != null) {
+    return { error: `diagnosis pointer ${outOfRange} is beyond the claim's ${diagnosisCount} diagnosis(es)` };
+  }
+  return { pointers: [...new Set(pointers)] };
+};
+
+// Append a new service line built from the action's fields, using the same per-line writers as
+// updateServiceLines and the claim editor's defaults for blank optional fields (units 1, service
+// date inherited from the first line, pointing at the first diagnosis, tied to the rendering
+// provider when the claim has one). Recomputes the billed total.
+const applyAddServiceLine = (
+  action: Extract<RuleAction, { type: 'addServiceLine' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const { claim } = model;
+  const input = action.line;
+  const existing = claim.item ?? [];
+
+  const serviceDate =
+    input.serviceDate?.trim() || existing[0]?.servicedPeriod?.start || existing[0]?.servicedDate || '';
+  if (!serviceDate) {
+    return 'could not add service line — specify a service date (the claim has no existing lines to inherit one from)';
+  }
+
+  const resolved = resolveDiagnosisPointers(input.diagnosisPointers, claim.diagnosis?.length ?? 0);
+  if (resolved.error) return `could not add service line — ${resolved.error}`;
+
+  const line: ClaimServiceLine = {
+    sequence: existing.reduce((max, item) => Math.max(max, item.sequence), 0) + 1,
+    productOrService: { coding: [] },
+  };
+  const set = (property: string, value: string): boolean => writeServiceLineProperty(line, property, value, 'set');
+  if (!set('cptCode', input.cptCode.trim())) return `could not add service line — invalid CPT code "${input.cptCode}"`;
+  if (!set('charges', input.charges.trim())) return `could not add service line — invalid charges "${input.charges}"`;
+  const units = input.units?.trim() || '1';
+  if (!set('units', units)) return `could not add service line — invalid units "${input.units}"`;
+  if (input.modifiers?.trim() && !set('modifiers', input.modifiers)) {
+    return `could not add service line — invalid modifiers "${input.modifiers}"`;
+  }
+  if (input.placeOfService?.trim() && !set('placeOfService', input.placeOfService.trim())) {
+    return `could not add service line — invalid place of service "${input.placeOfService}"`;
+  }
+  if (!set('serviceDate', serviceDate)) {
+    return `could not add service line — invalid service date "${serviceDate}"`;
+  }
+  line.diagnosisSequence = resolved.pointers;
+  // Mirror the claim editor: tie the line to the rendering provider (careTeam sequence 1) when set.
+  if ((claim.careTeam ?? []).some((member) => member.sequence === 1)) line.careTeamSequence = [1];
+
+  claim.item = [...existing, line];
+  recomputeClaimTotal(claim);
+  return undefined;
+};
+
+// Apply one change to every line matching the predicate. Zero matching lines is a legitimate no-op
+// (like an UPDATE matching no rows) — pair the action with a condition (e.g. cptCodes contains X)
+// when a match must exist. A line the value cannot be applied to fails the rule.
+const applyServiceLineUpdate = (
+  action: Extract<RuleAction, { type: 'updateServiceLines' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const matching = (model.claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
+  const operation = action.set.operation ?? 'set';
+  let changed = false;
+  for (const line of matching) {
+    if (!writeServiceLineProperty(line, action.set.property, action.set.value, operation)) {
+      // Keep the billed total consistent with any lines already updated before failing the rule.
+      if (changed && action.set.property === 'charges') recomputeClaimTotal(model.claim);
+      return (
+        `could not update service line property "${action.set.property}" — the property is unknown or ` +
+        `read-only, the operation does not apply to it, or the value is invalid`
+      );
+    }
+    changed = true;
+  }
+  if (changed && action.set.property === 'charges') recomputeClaimTotal(model.claim);
+  return undefined;
+};
+
+// Re-price every line matching the predicate from the best applicable charge master. The charge
+// master is selected at apply time so it reflects whatever earlier rules did to the claim: the
+// billing type comes from whether the claim carries a real coverage, the date of service from the
+// claim's (first line's) service date. Every price is resolved before any line is written, so a
+// claim held by this action is either fully re-priced or untouched — never half-priced. Zero
+// matching lines is a no-op, but a matched line the charge master cannot price fails the rule.
+const applyChargeMasterPricing = (
+  action: Extract<RuleAction, { type: 'applyChargeMasterPrices' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const { claim } = model;
+  const matching = (claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
+  if (!matching.length) return undefined;
+
+  const dateOfService = asScalar(readField(model, 'serviceDate'));
+  if (!dateOfService) {
+    return 'could not apply charge master prices — the claim has no date of service to select a charge master by';
+  }
+  const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
+  const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
+  if (!chargeMaster) {
+    return (
+      `could not apply charge master prices — no active charge master is designated as the ` +
+      `${kind} default and effective on or before ${dateOfService}`
+    );
+  }
+  const chargeMasterName = chargeMaster.title ?? `ChargeItemDefinition/${chargeMaster.id}`;
+
+  // Phase 1: resolve (and validate) every matched line's price before mutating anything.
+  const prices: { line: ClaimServiceLine; price: number }[] = [];
+  for (const line of matching) {
+    const cptCode = asScalar(readServiceLineProperty(line, 'cptCode'));
+    if (!cptCode) {
+      return `could not apply charge master prices — service line ${line.sequence} has no CPT code`;
+    }
+    const modifiers = readServiceLineProperty(line, 'modifiers');
+    const modifierList = Array.isArray(modifiers) ? modifiers : [];
+    const price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
+    if (price == null || !Number.isFinite(price) || price < 0) {
+      const modifierNote = modifierList.length ? ` with modifier(s) ${modifierList.join(', ')}` : '';
+      return (
+        `could not apply charge master prices — charge master "${chargeMasterName}" has no valid price ` +
+        `for CPT ${cptCode}${modifierNote} (service line ${line.sequence})`
+      );
+    }
+    prices.push({ line, price });
+  }
+
+  // Phase 2: apply. The charges writer cannot fail for a validated non-negative finite price.
+  for (const { line, price } of prices) {
+    writeServiceLineProperty(line, 'charges', String(price), 'set');
+  }
+  recomputeClaimTotal(claim);
+  return undefined;
+};
+
+// Remove every line matching the predicate (all lines when the match is "all"). Survivors are
+// re-sequenced 1..n and the billed total is recomputed. Zero matching lines is a no-op.
+const applyServiceLineRemoval = (
+  action: Extract<RuleAction, { type: 'removeServiceLines' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const lines = model.claim.item ?? [];
+  const remaining = lines.filter((line) => !serviceLineMatches(line, action.match));
+  if (remaining.length === lines.length) return undefined;
+  model.claim.item = remaining.length ? remaining.map((line, index) => ({ ...line, sequence: index + 1 })) : undefined;
+  recomputeClaimTotal(model.claim);
+  return undefined;
+};
+
+// Mutate the model by applying a single action. setField delegates to the claim-model writer; the
+// service-line actions match and mutate Claim.item entries; applyTag adds the tag to Claim.meta.tag
+// (deduped); noop does nothing. Returns an error message when the action could not be applied — the
+// engine holds the claim rather than submit it with a silently skipped change.
 export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): string | undefined => {
   switch (action.type) {
     case RULE_ACTION_TYPE.noop:
@@ -131,7 +371,15 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
     case RULE_ACTION_TYPE.setField:
       return writeField(model, action.field, action.value)
         ? undefined
-        : `could not set "${action.field}" — the field is unknown or read-only, or the target is missing from this claim`;
+        : `could not set "${action.field}" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim`;
+    case RULE_ACTION_TYPE.addServiceLine:
+      return applyAddServiceLine(action, model);
+    case RULE_ACTION_TYPE.updateServiceLines:
+      return applyServiceLineUpdate(action, model);
+    case RULE_ACTION_TYPE.removeServiceLines:
+      return applyServiceLineRemoval(action, model);
+    case RULE_ACTION_TYPE.applyChargeMasterPrices:
+      return applyChargeMasterPricing(action, model);
     case RULE_ACTION_TYPE.applyTag: {
       const { claim } = model;
       if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: action.tag })) return undefined;

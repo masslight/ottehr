@@ -15,7 +15,8 @@ import {
 import { Bundle } from 'fhir/r4b';
 import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { importEra } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import AlertDialog from './AlertDialog';
@@ -43,13 +44,24 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
       const result = await importEra(oystehrZambda, {
         era: data.era!,
       });
-      let processedErasCount = 0;
+      let processedMatchedClaimsCount = 0;
+      let processedUnmatchedClaimsCount = 0;
       if (result.resourceType === 'Bundle') {
         const dataBundle = result as Bundle;
-        processedErasCount =
-          dataBundle.entry?.filter((entry) => entry.resource?.resourceType === 'ClaimResponse')?.length ?? 0;
+        processedMatchedClaimsCount =
+          dataBundle.entry?.filter(
+            (entry) =>
+              entry.resource?.resourceType === 'ClaimResponse' && !entry.resource.request?.reference?.startsWith('#')
+          )?.length ?? 0;
+        processedUnmatchedClaimsCount =
+          dataBundle.entry?.filter(
+            (entry) =>
+              entry.resource?.resourceType === 'ClaimResponse' && entry.resource.request?.reference?.startsWith('#')
+          )?.length ?? 0;
       }
-      setResultMessage(`Imported ${processedErasCount} ERAs`);
+      setResultMessage(
+        `ERA successfully imported with ${processedMatchedClaimsCount} matched claims and ${processedUnmatchedClaimsCount} unmatched claims.`
+      );
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to import ERA' }));
     }

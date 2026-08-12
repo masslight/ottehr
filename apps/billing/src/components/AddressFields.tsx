@@ -1,8 +1,10 @@
 import { Box, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { InputMask } from 'ui-components';
-import { AllStates, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE, stateCodeToFullName } from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isPostalCodeValid } from 'utils/lib/helpers/helpers';
+import { AllStates, stateCodeToFullName } from 'utils/lib/types/common';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }): ReactElement {
   const { control } = useFormContext();
@@ -42,7 +44,13 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
       <Controller
         name="city"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        rules={{
+          required: REQUIRED_FIELD_ERROR_MESSAGE,
+          validate: (value) => {
+            if (value.length < 2) return 'Must be least 2 chars long';
+            return true;
+          },
+        }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
             label="City *"

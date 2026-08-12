@@ -1,5 +1,5 @@
-import { RulesEngineType } from 'utils';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 
 // FHIR identifiers for the rules engines' storage and kickoff resources. These are backend-only:
 // the billing app talks to the rules via the get/save zambdas and never touches the FHIR encoding.
@@ -58,8 +58,3 @@ export function rulesEngineForTaskCode(taskCode: string | undefined): RulesEngin
     (engine) => RULES_ENGINE_FHIR[engine].taskCode === taskCode
   );
 }
-
-// Description on the seeded Hold system-tag definition (the tag name itself, HOLD_TAG_NAME, lives in
-// utils because the rule schemas canonicalize against it and the rule-builder UI displays it).
-export const HOLD_TAG_DESCRIPTION =
-  'Claim was placed on hold either by a user or by a rule and requires review before it can proceed.';

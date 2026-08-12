@@ -1,5 +1,6 @@
 import { Appointment, Encounter, Flag, Patient } from 'fhir/r4b';
-import { Timezone } from '..';
+import { Timezone } from '../common';
+import { StandaloneFormDTO } from './practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 export interface EHRVisitDetails {
   appointment: Appointment;
@@ -14,6 +15,7 @@ export interface EHRVisitDetails {
   consentDetails: ConsentDetails | null;
   visitLocationName?: string;
   visitLocationId?: string;
+  standAloneForms?: StandaloneFormDTO[];
 }
 
 export interface ConsentDetails {

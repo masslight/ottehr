@@ -1,15 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
-import {
-  CanonicalUrl,
-  getCanonicalQuestionnaire,
-  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
-  OtherParticipantsExtension,
-  PatientAccountResponse,
-  ServiceMode,
-  TELEMED_VIDEO_ROOM_CODE,
-  VIRTUAL_INTAKE_PAPERWORK_CANONICAL,
-} from 'utils';
+import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
+import { OtherParticipantsExtension } from 'utils/lib/types/data/oystehr-api.types.ts/telemed.types';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,

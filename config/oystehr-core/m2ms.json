@@ -78,8 +78,18 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:#{var/PROJECT_ID}-faxes/*"],
+          "action": ["Z3:PutObject", "Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
           "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
           "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Z3:#{var/PROJECT_ID}-fax-received/*"],
+          "action": ["Z3:GetObject", "Z3:DeleteObject"],
           "effect": "Allow"
         },
         {
@@ -106,6 +116,11 @@
           "action": ["eRx:Check"],
           "effect": "Allow",
           "resource": ["eRx:Interaction"]
+        },
+        {
+          "action": ["eRx:Read", "eRx:Delete"],
+          "effect": "Allow",
+          "resource": ["eRx:Enrollment"]
         },
         {
           "action": ["Terminology:SearchCodes"],

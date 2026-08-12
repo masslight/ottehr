@@ -1,4 +1,7 @@
-import { getDotVisionScreeningLines, mapVitalsToDisplay, VitalFieldNames, VitalsVisionObservationDTO } from 'utils';
+import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
+import { getDotVisionScreeningLines } from 'utils/lib/helpers/vitals/vitals-vision.helper';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, VitalsDataInDischargeSummary } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

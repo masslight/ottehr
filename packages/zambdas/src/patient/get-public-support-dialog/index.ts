@@ -1,14 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, GetSupportDialogOutput, SecretsKeys } from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getSupportDialogPayload,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { getSupportDialogPayload } from '../../shared/support-dialog';
+import { ZambdaInput } from '../../shared/types/common';
 
 let oystehrToken: string;
 const ZAMBDA_NAME = 'get-public-support-dialog';

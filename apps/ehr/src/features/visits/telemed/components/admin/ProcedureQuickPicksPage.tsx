@@ -23,7 +23,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { ProcedureQuickPickData } from 'utils';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   useProcedureQuickPicksQuery,
   useRemoveProcedureQuickPickMutation,

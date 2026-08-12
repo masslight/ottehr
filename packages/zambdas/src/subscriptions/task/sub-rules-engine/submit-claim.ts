@@ -1,13 +1,17 @@
 import { Claim } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  getClaimStatusFieldValue,
+} from 'utils/lib/types/data/billing/claim-status';
 import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 import { FinalizeRunInput, FinalizeRunResult } from './finalize';
 
-// The Claim Submission engine's success effect. Submits via the Oystehr claim service, mirroring
-// submit-billing-claim: only Insurance-Payer-AR claims are submittable; on success the Insurance AR
-// Status moves to Submitted — with the Hold tag lifted in the same commit — recorded in the claim
-// history with the rules-engine agent.
+// The Claim Submission engine's success effect. Submits via the Oystehr claim service: only
+// Insurance-Payer-AR claims are submittable; on success the Insurance AR Status moves to Submitted —
+// with the Hold tag lifted in the same commit — recorded in the claim history with the rules-engine
+// agent.
 export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
   const { oystehr, model, agent } = input;
   const claimId = model.claim.id;
@@ -17,7 +21,15 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
     return { statusReason: 'Rules passed; claim was not submitted because it is not in Insurance Payer AR.' };
   }
 
-  await oystehr.rcm.submitClaim({ claimId });
+  const claimResponse = await oystehr.rcm.submitClaim({ claimId });
+  if (claimResponse.outcome === 'error') {
+    throw new Error(
+      claimResponse.error
+        ?.map((e) => e.code.text ?? '')
+        .filter(Boolean)
+        .join(', ') ?? 'An unknown error occurred'
+    );
+  }
 
   const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
   // Re-fetch so the status patch locks against the version the engine just wrote.

@@ -1,9 +1,10 @@
 import { TextFieldProps } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
-import { FormItemType, MimeType } from 'utils';
+import { RadioStyling, SelectInputOption } from 'ui-components/lib/components/paperwork/types';
+import { FormItemType } from 'utils/lib/types/common';
+import { MimeType } from 'utils/lib/utils/file';
 import { StringFormat } from '../string-format';
-import { RadioOption, RadioStyling } from './radio.types';
-import { SelectInputOption } from './select-input-option';
+import { RadioOption } from './radio.types';
 
 export type FormInputTypeField = {
   type: FormItemType;

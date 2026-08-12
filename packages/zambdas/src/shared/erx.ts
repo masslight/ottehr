@@ -1,5 +1,5 @@
 import Oystehr, { ErxGetPharmacyResponse } from '@oystehr/sdk';
-import { PrescribedMedicationDTO } from 'utils';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const fetchErxPharmacies = async (
   oystehr: Oystehr,

@@ -17,18 +17,14 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { TemplateEditorField, textToTiptapContent } from 'src/components/template-editor-field/TemplateEditorField';
 import { useGetInvoiceConfigQuery } from 'src/rcm/state/invoice-config/invoice-config.queries';
-import {
-  BRANDING_CONFIG,
-  buildInvoicePlaceholders,
-  InvoiceablePatientReport,
-  InvoiceTaskInput,
-  parseInvoiceConfigFromQR,
-  parseInvoiceTaskInput,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
-import { BasicDatePicker } from '../form';
+import { buildInvoicePlaceholders, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
+import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { InvoiceablePatientReport, InvoiceTaskInput } from 'utils/lib/types/api/invoicing.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { RoundedButton } from '../RoundedButton';
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 import { Box, Button, Typography } from '@mui/material';
 import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { getSelectors } from 'utils';
-import { CustomDialog } from '../../../components/CustomDialog';
-import { useIntakeCommonStore } from '../../features/common';
-import { useCallSettingsStore } from '../../features/video-call';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useCallSettingsStore } from 'src/telemed/features/video-call/call-settings.store';
+import { CustomDialog } from 'ui-components/lib/components/intake/CustomDialog';
+import { getSelectors } from 'utils/lib/store';
 import { CameraSettings } from './CameraSettings';
 import { MicrophoneSettings } from './MicrophoneSettings';
 import { SoundSettings } from './SoundSettings';

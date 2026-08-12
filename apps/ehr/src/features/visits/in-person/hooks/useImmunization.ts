@@ -1,17 +1,19 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Identifier, Medication } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import {
+  INVENTORY_VACCINE_TYPE_CODE,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
   AdministerImmunizationOrderRequest,
   CancelImmunizationOrderRequest,
-  chooseJson,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
-  INVENTORY_VACCINE_TYPE_CODE,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/data/immunization/types';
 
 const GET_IMMUNIZATION_ORDERS_KEY = 'get-immunization-orders';
 const GET_VACCINES_KEY = 'get-vaccines';

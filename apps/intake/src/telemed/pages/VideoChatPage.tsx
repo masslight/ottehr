@@ -15,15 +15,21 @@ import {
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
 import { FC, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { CallSideCard } from 'src/telemed/components/CallSideCard';
+import { LoadingSpinner } from 'src/telemed/components/LoadingSpinner';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useCallSettingsStore } from 'src/telemed/features/video-call/call-settings.store';
+import { useJoinCall } from 'src/telemed/features/video-call/video-call.queries';
+import { useVideoCallStore } from 'src/telemed/features/video-call/video-call.store';
+import { VideoRoom } from 'src/telemed/features/video-call/VideoRoom';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { ThemeProvider } from 'styled-components';
-import { APIErrorCode, getSelectors } from 'utils';
+import { getSelectors } from 'utils/lib/store';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { intakeFlowPageRoute } from '../../App';
-import { CallSideCard, LoadingSpinner } from '../components';
-import { useAppointmentStore } from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { useCallSettingsStore, useJoinCall, useVideoCallStore, VideoRoom } from '../features/video-call';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useOystehrAPIClient } from '../utils';
 import { getVideoCallAppointmentId } from './video-chat-helpers';
 
 const VideoChatPage: FC = () => {
@@ -163,10 +169,17 @@ const VideoChatPage: FC = () => {
     }
   );
 
-  if (!meetingData) {
+  // Keep the loader up for the whole connection and only render the room once Chime is actually connected
+  // (Succeeded). Before this, meetingData could already be set (freshly fetched, or stale from a prior call)
+  // while the session is still coming up, so gating on "has meetingData" alone dropped straight to a blank
+  // dark VideoRoom — which is what looked like "no loader" after "Return to call". Failed/terminal states
+  // fall through (handled elsewhere) so we don't spin forever on a hard failure.
+  const isMeetingConnected = meetingStatus === MeetingStatus.Succeeded;
+  const isMeetingFailed = meetingStatus === MeetingStatus.Failed || meetingStatus === MeetingStatus.TerminalFailure;
+  if (!meetingData || (!isMeetingConnected && !isMeetingFailed)) {
     return (
       <CustomContainer useEmptyBody title="">
-        <LoadingSpinner transparent />
+        <LoadingSpinner transparent white />
       </CustomContainer>
     );
   }

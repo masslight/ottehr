@@ -14,13 +14,11 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import {
-  isNPIValidWithChecksum,
-  PractitionerQualificationCodesDisplay,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  stripeAccountIdRegex,
-  taxIdRegex,
-} from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import { PractitionerQualificationCodesDisplay } from 'utils/lib/types/api/practitioner.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { stripeAccountIdRegex, taxIdRegex } from 'utils/lib/validation/regex';
 import { ProviderForm } from '../constants/provider';
 
 export function ProviderFields(): ReactElement {
@@ -153,6 +151,10 @@ export function ProviderFields(): ReactElement {
               onChange={(e) => field.onChange(e.target.value)}
               error={!!fieldError}
               helperText={fieldError?.message}
+              inputProps={{ mask: '00-0000000', unmask: true }}
+              InputProps={{
+                inputComponent: InputMask as any,
+              }}
             />
           )}
         />

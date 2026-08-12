@@ -1,4 +1,4 @@
-import { AllStates, StateType } from '../types';
+import { AllStates, StateType } from '../types/common';
 
 export interface State {
   label: string;

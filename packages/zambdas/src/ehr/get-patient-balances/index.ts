@@ -3,15 +3,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, getOrCreateCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
-import {
-  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  lambdaResponse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { GetBillingPatientBalanceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, shouldUseOttehrBillingForPatientBalances } from '../../shared/candid';
+import { fetchAllPages } from '../../shared/fhir';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { lambdaResponse } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedInput, validateInput, validateSecrets } from './validateRequestParameters';
 
 type EncounterIdMap = Map<
@@ -29,6 +32,8 @@ let m2mToken: string;
 
 const CANDID_BATCH_SIZE = 3;
 
+const ENCOUNTER_SCAN_PAGE_SIZE = 100;
+
 const ZAMBDA_NAME = 'get-patient-balances';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -39,12 +44,89 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
+  if (shouldUseOttehrBillingForPatientBalances(secrets)) {
+    const response = await performBillingEffect(validatedInput, oystehr);
+    return lambdaResponse(200, response);
+  }
+
   const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
   const response = await performEffect(validatedInput, oystehr, candidApiClient);
 
   return lambdaResponse(200, response);
 });
+
+export async function performBillingEffect(
+  validatedInput: ValidatedInput,
+  oystehr: Oystehr
+): Promise<GetPatientBalancesZambdaOutput> {
+  const noData = { encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0, patientCreditCents: 0 };
+
+  const { encounters, appointments } = await getAllFhirEncountersAndAppointmentsForPatient(
+    oystehr,
+    validatedInput.body.patientId
+  );
+
+  const encounterDataMap = new Map<string, { encounterDate: string; appointmentId: string }>();
+  encounters.forEach((encounter) => {
+    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const encounterDate = appointments.find((app) => app.id === appointmentId)?.start;
+    if (!appointmentId || !encounterDate) {
+      console.warn(
+        `Encounter ${encounter.id} is missing required data, skipping it. appointmentId: ${appointmentId}, encounterDate: ${encounterDate}`
+      );
+      return;
+    }
+    encounterDataMap.set(encounter.id!, { encounterDate, appointmentId });
+  });
+  if (encounterDataMap.size === 0) {
+    return noData;
+  }
+
+  const { claims } = chooseJson<GetBillingPatientBalanceResponse>(
+    await oystehr.zambda.execute({
+      id: 'get-billing-patient-balance',
+      encounterIds: Array.from(encounterDataMap.keys()),
+    })
+  );
+
+  const rows = new Map<string, GetPatientBalancesZambdaOutput['encounters'][number]>();
+  const seenEncounterIds = new Set<string>();
+  let netBalanceCents = 0;
+  for (const claim of claims) {
+    const encounterData = claim.encounterId ? encounterDataMap.get(claim.encounterId) : undefined;
+    if (!claim.encounterId || !encounterData) {
+      console.warn(`Claim ${claim.claimId} has no linked clinical encounter, skipping it.`);
+      continue;
+    }
+    if (seenEncounterIds.has(claim.encounterId)) {
+      // first claim per encounter wins, matching create-invoice-tasks-for-billing-claims
+      console.warn(`Encounter ${claim.encounterId} has multiple active AR claims; skipping claim ${claim.claimId}`);
+      continue;
+    }
+    seenEncounterIds.add(claim.encounterId);
+    const patientBalanceCents = Math.round(claim.balance * 100);
+    netBalanceCents += patientBalanceCents;
+    // settled and overpaid claims stay out of the payable rows, matching the Candid path
+    if (patientBalanceCents <= 0) continue;
+    rows.set(claim.encounterId, {
+      encounterId: claim.encounterId,
+      encounterDate: encounterData.encounterDate,
+      appointmentId: encounterData.appointmentId,
+      patientBalanceCents,
+    });
+  }
+
+  const balances = Array.from(rows.values());
+  return {
+    encounters: balances,
+    totalBalanceCents: balances.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
+    // Billing PaymentNotices are already posted against claim balances; none are separately pending.
+    pendingPaymentCents: 0,
+    // like the Candid patient-level balance, credit surfaces only once the account nets negative
+    patientCreditCents: Math.max(-netBalanceCents, 0),
+  };
+}
 
 export async function performEffect(
   validatedInput: ValidatedInput,
@@ -57,6 +139,7 @@ export async function performEffect(
     encounters: [],
     totalBalanceCents: 0,
     pendingPaymentCents: 0,
+    patientCreditCents: 0,
   };
 
   console.group('getFhirEncountersAndAppointmentsForPatient');
@@ -131,6 +214,11 @@ export async function performEffect(
   console.groupEnd();
   console.debug('getPendingPatientPayments success');
 
+  console.group('getPatientCreditCents');
+  const patientCreditCents = await getPatientCreditCents(candidApiClient, patientId);
+  console.groupEnd();
+  console.debug('getPatientCreditCents success');
+
   console.log('encounterDataMap', encounterDataMap);
 
   const returnData = Array.from(encounterDataMap.entries()).map(([encounterId, mapValue]) => ({
@@ -143,7 +231,66 @@ export async function performEffect(
     encounters: returnData,
     totalBalanceCents: returnData.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
     pendingPaymentCents: pendingPatientPayments || 0,
+    patientCreditCents,
   };
+}
+
+function encounterAndAppointmentSearchParams(patientId: string): { name: string; value: string }[] {
+  return [
+    {
+      name: 'subject',
+      value: `Patient/${patientId}`,
+    },
+    {
+      name: '_include',
+      value: 'Encounter:appointment',
+    },
+    // exclude follow-up encounters that are missing appointment references
+    {
+      name: 'appointment:missing',
+      value: 'false',
+    },
+  ];
+}
+
+function splitEncountersAndAppointments(
+  resources: (Encounter | Appointment)[],
+  patientId: string
+): { encounters: Encounter[]; appointments: Appointment[] } {
+  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
+  return {
+    encounters,
+    appointments,
+  };
+}
+
+// Same search as getFhirEncountersAndAppointmentsForPatient but pages through every encounter.
+async function getAllFhirEncountersAndAppointmentsForPatient(
+  oystehr: Oystehr,
+  patientId: string
+): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
+  const resources: (Encounter | Appointment)[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<Encounter | Appointment>({
+      resourceType: 'Encounter',
+      params: [
+        ...encounterAndAppointmentSearchParams(patientId),
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    resources.push(...bundle.unbundle());
+    return bundle;
+  }, ENCOUNTER_SCAN_PAGE_SIZE);
+  return splitEncountersAndAppointments(resources, patientId);
 }
 
 async function getFhirEncountersAndAppointmentsForPatient(
@@ -152,30 +299,9 @@ async function getFhirEncountersAndAppointmentsForPatient(
 ): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
   const resourcesResponse = await oystehr.fhir.search<Encounter | Appointment>({
     resourceType: 'Encounter',
-    params: [
-      {
-        name: 'subject',
-        value: `Patient/${patientId}`,
-      },
-      {
-        name: '_include',
-        value: 'Encounter:appointment',
-      },
-      // exclude follow-up encounters that are missing appointment references
-      {
-        name: 'appointment:missing',
-        value: 'false',
-      },
-    ],
+    params: encounterAndAppointmentSearchParams(patientId),
   });
-  const resources = resourcesResponse.unbundle();
-  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
-  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
-  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
-  return {
-    encounters,
-    appointments,
-  };
+  return splitEncountersAndAppointments(resourcesResponse.unbundle(), patientId);
 }
 
 async function getAllCandidEncounters(
@@ -283,6 +409,21 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
   });
 
   return pendingPayments.reduce((acc, amount) => acc + amount, 0);
+}
+
+async function getPatientCreditCents(candidApiClient: CandidApiClient, patientId: string): Promise<number> {
+  try {
+    const response = await candidApiClient.fetch(`/api/patients/v1/${patientId}`);
+    if (!response.ok) {
+      console.warn(`Candid patients v1 request failed with status ${response.status} for patient ${patientId}`);
+      return 0;
+    }
+    const data = (await response.json()) as { patient_balance_total_cents: number };
+    return data.patient_balance_total_cents < 0 ? Math.abs(data.patient_balance_total_cents) : 0;
+  } catch (error) {
+    console.warn(`Failed to fetch Candid patient credit for patient ${patientId}:`, error);
+    return 0;
+  }
 }
 
 async function retryWithBackoff<T, E>(

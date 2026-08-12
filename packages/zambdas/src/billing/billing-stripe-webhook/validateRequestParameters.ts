@@ -1,6 +1,8 @@
 import Stripe from 'stripe';
-import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
-import { getStripeClient, ZambdaInput } from '../../shared';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { getStripeClient } from '../../shared/stripeIntegration';
+import { ZambdaInput } from '../../shared/types/common';
 
 export interface BillingStripeWebhookParams {
   event: Stripe.Event;

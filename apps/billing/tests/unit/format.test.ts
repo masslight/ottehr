@@ -1,15 +1,6 @@
-import { ServiceFacilityItem } from 'utils';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it } from 'vitest';
-import { buildAddressInput, formatCurrency, formatFacilityAddress, splitDisplayName } from '../../src/utils/format';
-
-describe('formatCurrency', () => {
-  it('formats whole and fractional amounts to two decimals', () => {
-    expect(formatCurrency(0)).toBe('$0.00');
-    expect(formatCurrency(12)).toBe('$12.00');
-    expect(formatCurrency(12.5)).toBe('$12.50');
-    expect(formatCurrency(12.345)).toBe('$12.35');
-  });
-});
+import { buildAddressInput, formatDateTime, formatFacilityAddress, splitDisplayName } from '../../src/utils/format';
 
 describe('splitDisplayName', () => {
   it('splits a "Last, First" display name', () => {
@@ -22,6 +13,22 @@ describe('splitDisplayName', () => {
 
   it('returns empty parts for an empty string', () => {
     expect(splitDisplayName('')).toEqual({ firstName: '', lastName: '' });
+  });
+});
+
+describe('formatDateTime', () => {
+  it('renders an ISO timestamp as a localized date and time', () => {
+    const formatted = formatDateTime('2026-06-01T12:00:00Z');
+    expect(formatted).not.toBe('2026-06-01T12:00:00Z');
+    expect(formatted).toContain('2026');
+  });
+
+  it('returns a dash for an empty value', () => {
+    expect(formatDateTime('')).toBe('-');
+  });
+
+  it("passes a value that can't be parsed straight through", () => {
+    expect(formatDateTime('not a date')).toBe('not a date');
   });
 });
 

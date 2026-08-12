@@ -1,3 +1,5 @@
+import { Task as FhirTask } from 'fhir/r4b';
+
 export interface Task {
   id: string;
   category: string;
@@ -62,6 +64,7 @@ export const MANUAL_TASK = {
     orderId: 'order-id',
     encounterId: 'encounter-id',
     patient: 'patient',
+    documentReferenceId: 'document-reference-id',
   },
 } as const;
 
@@ -71,6 +74,30 @@ export enum TaskAlertCode {
 export const TaskAlertDisplay = {
   [TaskAlertCode.abnormalLabResult]: 'This result contains an abnormal result',
 };
+
+export const FAX_TASK = {
+  category: 'inbound-fax',
+  system: 'inbound-fax-task',
+  code: {
+    matchInboundFax: 'match-inbound-fax',
+  },
+  input: {
+    senderFaxNumber: 'sender-fax-number',
+    pageCount: 'page-count',
+    communicationId: 'communication-id',
+    pdfUrl: 'pdf-url',
+    receivedDate: 'received-date',
+  },
+} as const;
+
+/**
+ * Reads a valueString Task.input from a Task created via the zambdas' `createTask` helper,
+ * which encodes the input type as `type.coding[].code`. Security-sensitive values (e.g. the
+ * inbound-fax pdf url) must be sourced from the verified Task via this helper — never from
+ * client request bodies.
+ */
+export const getTaskInputValue = (task: FhirTask, inputTypeCode: string): string | undefined =>
+  task.input?.find((input) => input.type?.coding?.some((coding) => coding.code === inputTypeCode))?.valueString;
 
 export const RADIOLOGY_TASK = {
   category: 'radiology',

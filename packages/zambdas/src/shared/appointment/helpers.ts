@@ -3,24 +3,22 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { AppointmentInsuranceRelatedResourcesExtension, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { createPatientDocumentLists } from 'utils/lib/fhir/list';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
-  AppointmentInsuranceRelatedResourcesExtension,
-  appointmentTypeForAppointment,
-  createPatientDocumentLists,
   createUserResourcesForPatient,
-  FHIR_EXTENSION,
-  formatPhoneNumber,
-  getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
-  isTelemedAppointment,
   makeSSNIdentifier,
-  normalizePhoneNumber,
-  PATIENT_NO_EMAIL_URL,
-  PATIENT_NOT_FOUND_ERROR,
-  PatientInfo,
-  removeTimeFromDate,
-  User,
-} from 'utils';
+} from 'utils/lib/fhir/patient';
+import { getPatchBinary, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
+import { formatPhoneNumber } from 'utils/lib/helpers/helpers';
+import { User } from 'utils/lib/types/api/user.types';
+import { PATIENT_NO_EMAIL_URL } from 'utils/lib/types/constants';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { PATIENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { removeTimeFromDate } from 'utils/lib/utils/date';
 import { checkIsEHRUser } from '../auth';
 import { assertDefined } from '../helpers';
 
@@ -70,7 +68,7 @@ export async function patchEncounterResource(
   }
 }
 
-export { removePrefix } from 'utils';
+export { removePrefix } from 'utils/lib/helpers/helpers';
 
 export interface AppointmentInsuranceRelatedResRefs {
   primaryCoverage?: string;
@@ -250,9 +248,14 @@ export function creatingPatientUpdateRequest(
     value: patientExtension,
   });
 
-  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
-  if (emailPatchOps.length >= 1) {
-    patientPatchOperations.push(...emailPatchOps);
+  // Only touch email when it was explicitly provided or noEmail was explicitly set to true.
+  // If neither is present (e.g. EHR create-visit form which doesn't collect email), leave the
+  // existing email on the patient resource untouched.
+  if (patient.email !== undefined || patient.noEmail) {
+    const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
+    if (emailPatchOps.length >= 1) {
+      patientPatchOperations.push(...emailPatchOps);
+    }
   }
 
   const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');

@@ -1,7 +1,20 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse, ClaimResponseItemAdjudication, PaymentReconciliation, Provenance } from 'fhir/r4b';
-import { ClaimRemitAdjustment, X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils';
-import { fetchAllPages } from '../shared';
+import {
+  Claim,
+  ClaimResponse,
+  ClaimResponseItemAdjudication,
+  FhirResource,
+  PaymentNotice,
+  PaymentReconciliation,
+  Provenance,
+} from 'fhir/r4b';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
+import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { fetchAllPages } from '../shared/fhir';
 import { isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -90,17 +103,18 @@ export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): Cl
   );
 }
 
-export function summarizeClaimPayments(claimResponses: ClaimResponse[], billed: number): ClaimPaymentSummary {
-  // patientPaid comes from the patient-payments subsystem, which is not wired yet
-  const patientPaid = 0;
-
+export function summarizeClaimPayments(
+  claimResponses: ClaimResponse[],
+  billed: number,
+  patientPaid = 0
+): ClaimPaymentSummary {
   if (claimResponses.length === 0) {
     return {
       allowed: 0,
       insurancePaid: 0,
       patientResp: 0,
       patientPaid,
-      balance: billed,
+      balance: billed - patientPaid,
       adjudicated: false,
     };
   }
@@ -111,7 +125,7 @@ export function summarizeClaimPayments(claimResponses: ClaimResponse[], billed: 
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
   // fallback for adjudications without CAS data, wont go negative
-  const patientResp = latestPatientResp ?? Math.max(allowed - insurancePaid - patientPaid, 0);
+  const patientResp = latestPatientResp ?? Math.max(allowed - insurancePaid, 0);
 
   return {
     allowed,
@@ -120,6 +134,47 @@ export function summarizeClaimPayments(claimResponses: ClaimResponse[], billed: 
     patientPaid,
     balance: patientResp - patientPaid,
     adjudicated: true,
+  };
+}
+
+// only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
+// amount is pending insurance, not patient-owed
+export function summarizePatientBalance(summaries: ClaimPaymentSummary[]): {
+  claimsWithPatientBalance: number;
+  pendingPayments: number;
+  currentBalance: number;
+} {
+  const claimBalances = summaries.map((summary) =>
+    roundNumberToDecimalPlaces(summary.adjudicated ? summary.balance : -summary.patientPaid, 2)
+  );
+  return {
+    claimsWithPatientBalance: claimBalances.filter((balance) => balance > 0).length,
+    pendingPayments: 0,
+    currentBalance: roundNumberToDecimalPlaces(
+      claimBalances.reduce((sum, balance) => sum + balance, 0),
+      2
+    ),
+  };
+}
+
+function movesPatientAr(notice: PaymentNotice): boolean {
+  return notice.status === 'active';
+}
+
+export function sumPatientPayments(notices: PaymentNotice[]): number {
+  return notices.filter(movesPatientAr).reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
+}
+
+export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {
+  const reconciliation = getContainedReconciliation(notice);
+  return {
+    paymentNoticeId: notice.id ?? '',
+    paymentDate: notice.paymentDate ?? reconciliation?.paymentDate ?? notice.created ?? '',
+    amount: notice.amount?.value ?? 0,
+    method: notice.extension?.find((extension) => extension.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '',
+    description: reconciliation?.disposition ?? '',
+    checkNumber: reconciliation?.paymentIdentifier?.value,
+    status: notice.status,
   };
 }
 
@@ -149,20 +204,30 @@ export function countEraClaims(claimResponses: ClaimResponse[]): EraClaimCounts 
 
 const BATCH = 100;
 const PAGE_SIZE = 200;
+const PATIENT_PAYMENT_ENCOUNTER_BATCH = 50;
 
-async function fetchClaimResponsesGrouped(
-  oystehr: Oystehr,
-  ids: string[],
-  buildParam: (batch: string[]) => { name: string; value: string },
-  groupKeyOf: (claimResponse: ClaimResponse) => string | undefined
-): Promise<Map<string, ClaimResponse[]>> {
-  const grouped = new Map<string, ClaimResponse[]>();
+async function fetchResourcesGrouped<T extends FhirResource>({
+  oystehr,
+  resourceType,
+  ids,
+  buildParam,
+  groupKeyOf,
+  batchSize = BATCH,
+}: {
+  oystehr: Oystehr;
+  resourceType: T['resourceType'];
+  ids: string[];
+  buildParam: (batch: string[]) => { name: string; value: string };
+  groupKeyOf: (resource: T) => string | undefined;
+  batchSize?: number;
+}): Promise<Map<string, T[]>> {
+  const grouped = new Map<string, T[]>();
   const uniqueIds = [...new Set(ids)];
-  for (let i = 0; i < uniqueIds.length; i += BATCH) {
-    const batch = uniqueIds.slice(i, i + BATCH);
+  for (let i = 0; i < uniqueIds.length; i += batchSize) {
+    const batch = uniqueIds.slice(i, i + batchSize);
     await fetchAllPages(async (offset, count) => {
-      const bundle = await oystehr.fhir.search<ClaimResponse>({
-        resourceType: 'ClaimResponse',
+      const bundle = await oystehr.fhir.search<T>({
+        resourceType,
         params: [
           buildParam(batch),
           {
@@ -175,11 +240,11 @@ async function fetchClaimResponsesGrouped(
           },
         ],
       });
-      for (const claimResponse of bundle.unbundle()) {
-        const key = groupKeyOf(claimResponse);
+      for (const resource of bundle.unbundle()) {
+        const key = groupKeyOf(resource);
         if (!key) continue;
         const list = grouped.get(key) ?? [];
-        list.push(claimResponse);
+        list.push(resource);
         grouped.set(key, list);
       }
       return bundle;
@@ -194,20 +259,62 @@ export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
 ): Promise<Map<string, ClaimResponse[]>> {
-  return fetchClaimResponsesGrouped(
+  return fetchResourcesGrouped<ClaimResponse>({
     oystehr,
-    claimIds,
-    (batch) => ({
+    resourceType: 'ClaimResponse',
+    ids: claimIds,
+    buildParam: (batch) => ({
       name: 'request',
       value: batch.map((id) => `Claim/${id}`).join(','),
     }),
-    (claimResponse) => claimResponse.request?.reference?.replace('Claim/', '')
-  );
+    groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
+  });
+}
+
+export async function fetchPatientPaymentsByEncounterIds(
+  oystehr: Oystehr,
+  encounterIds: string[]
+): Promise<Map<string, PaymentNotice[]>> {
+  const system = ottehrIdentifierSystem('claim-encounter-id');
+  return fetchResourcesGrouped<PaymentNotice>({
+    oystehr,
+    resourceType: 'PaymentNotice',
+    ids: encounterIds,
+    buildParam: (batch) => ({
+      name: 'request:identifier',
+      value: batch.map((id) => `${system}|${id}`).join(','),
+    }),
+    groupKeyOf: (notice) => notice.request?.identifier?.value,
+    batchSize: PATIENT_PAYMENT_ENCOUNTER_BATCH,
+  });
+}
+
+export async function fetchPatientPaidByClaimId({
+  oystehr,
+  claims,
+}: {
+  oystehr: Oystehr;
+  claims: Claim[];
+}): Promise<Map<string, number>> {
+  const system = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterIdByClaimId = new Map<string, string>();
+  for (const claim of claims) {
+    const encounterId = claim.identifier?.find((identifier) => identifier.system === system)?.value;
+    if (claim.id && encounterId) encounterIdByClaimId.set(claim.id, encounterId);
+  }
+
+  const paymentsByEncounter = await fetchPatientPaymentsByEncounterIds(oystehr, [...encounterIdByClaimId.values()]);
+
+  const patientPaidByClaimId = new Map<string, number>();
+  for (const [claimId, encounterId] of encounterIdByClaimId) {
+    patientPaidByClaimId.set(claimId, sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []));
+  }
+  return patientPaidByClaimId;
 }
 
 // Fetch the era-processing Provenances (one per ERA, targeting its PR + ClaimResponses) that point
 // at any of the given resource references, deduped by id.
-async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
+export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
   const byId = new Map<string, Provenance>();
   const uniqueRefs = [...new Set(targetRefs)];
   for (let i = 0; i < uniqueRefs.length; i += BATCH) {
@@ -239,7 +346,7 @@ async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: strin
   return [...byId.values()];
 }
 
-function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
+export function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
   const prefix = `${resourceType}/`;
   return (provenance.target ?? [])
     .map((target) => target.reference ?? '')
@@ -286,7 +393,13 @@ export async function fetchClaimResponsesByPaymentReconciliations(
     oystehr,
     prIds.map((id) => `PaymentReconciliation/${id}`)
   );
+  return fetchClaimResponsesFromEraProvenances(oystehr, provenances);
+}
 
+export async function fetchClaimResponsesFromEraProvenances(
+  oystehr: Oystehr,
+  provenances: Provenance[]
+): Promise<Map<string, ClaimResponse[]>> {
   const claimResponseIdsByPrId = new Map<string, string[]>();
   for (const provenance of provenances) {
     const claimResponseIds = eraProvenanceTargetIds(provenance, 'ClaimResponse');
@@ -295,15 +408,16 @@ export async function fetchClaimResponsesByPaymentReconciliations(
     }
   }
 
-  const claimResponsesById = await fetchClaimResponsesGrouped(
+  const claimResponsesById = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,
-    [...new Set([...claimResponseIdsByPrId.values()].flat())],
-    (batch) => ({
+    resourceType: 'ClaimResponse',
+    ids: [...new Set([...claimResponseIdsByPrId.values()].flat())],
+    buildParam: (batch) => ({
       name: '_id',
       value: batch.join(','),
     }),
-    (claimResponse) => claimResponse.id
-  );
+    groupKeyOf: (claimResponse) => claimResponse.id,
+  });
 
   const grouped = new Map<string, ClaimResponse[]>();
   for (const [prId, claimResponseIds] of claimResponseIdsByPrId) {

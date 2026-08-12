@@ -1,16 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle } from 'fhir/r4b';
-import {
-  ERA_IMPORT_FAILED_ERROR,
-  getPatchBinary,
-  ImportEraInput,
-  ImportEraInputSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils';
-import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
-import { addBillingTagOperation, createBillingClient, untaggedEraResources } from '../shared';
+import { ImportEraInput, ImportEraInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { ERA_IMPORT_FAILED_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { validateJsonBody } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
+import { createBillingClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'import-era';
@@ -38,24 +36,6 @@ async function performEffect(oystehr: Oystehr, params: ImportEraParams): Promise
     const statusCode =
       typeof sdkError.code === 'number' && sdkError.code >= 400 && sdkError.code <= 499 ? sdkError.code : 500;
     throw ERA_IMPORT_FAILED_ERROR(sdkError.message ?? 'Failed to process ERA', statusCode);
-  }
-
-  // oystehr creates the era resources untagged. don't throw on failure
-  try {
-    const untaggedResources = untaggedEraResources(bundle);
-    if (untaggedResources.length > 0) {
-      const requests = untaggedResources.map((resource) =>
-        getPatchBinary({
-          resourceType: resource.resourceType,
-          resourceId: resource.id!,
-          patchOperations: [addBillingTagOperation(resource)],
-        })
-      );
-      await oystehr.fhir.transaction({ requests });
-      console.log(`Tagged ${untaggedResources.length} imported ERA resource(s)`);
-    }
-  } catch (error) {
-    console.error('Failed to tag imported ERA resources:', error);
   }
 
   return bundle;

@@ -3,7 +3,8 @@ import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getApiError, SearchBillingPatientsInput } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { SearchBillingPatientsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { searchBillingPatients } from '../api/api';
 import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -16,15 +17,16 @@ interface PatientRow {
   dob: string;
   gender: string;
   address: string;
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
 }
 
 const columns: GridColDef[] = [
   { field: 'name', headerName: 'Patient Name', flex: 1, minWidth: 180 },
   { field: 'dob', headerName: 'Date of Birth', width: 120 },
   { field: 'gender', headerName: 'Gender', width: 90 },
-  { field: 'friendlyId', headerName: 'Friendly ID', width: 140 },
-  { field: 'id', headerName: 'Patient UUID', width: 300 },
+  { field: 'clinicalFriendlyId', headerName: 'Patient Friendly ID', width: 140 },
+  { field: 'clinicalId', headerName: 'Patient MRN', width: 300 },
   { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
 ];
 
@@ -173,21 +175,19 @@ export default function PatientsList(): ReactElement {
 
         <TextField
           size="small"
-          label="Patient UUID"
-          placeholder="Patient UUID..."
+          label="Patient MRN"
+          placeholder="Patient MRN..."
           value={searchUuid}
           onChange={(e) => handleUuidChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 300 }}
         />
 
         <TextField
           size="small"
-          label="Friendly ID"
-          placeholder="Friendly ID..."
+          label="Patient Friendly ID"
+          placeholder="Patient Friendly ID..."
           value={searchId}
           onChange={(e) => handleIdChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 180 }}
         />
 
@@ -219,7 +219,7 @@ export default function PatientsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />

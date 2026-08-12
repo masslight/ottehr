@@ -1,5 +1,13 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference, List } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { BRANDING_CONFIG, fitWrappedTextToBanner, PatientEducationLanguage, PatientEducationSection } from 'utils';
+import { createFilesDocumentReferences, FileDocDataForDocReference } from 'utils/lib/fhir/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { PatientEducationLanguage, PatientEducationSection } from 'utils/lib/types/data/patient-education.types';
+import { fitWrappedTextToBanner } from 'utils/lib/utils/pdf';
 import { rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 export type { PatientEducationSection };
@@ -478,4 +486,46 @@ export async function createPatientEducationPdf(
   allPages.forEach(({ page, icdLabel }, idx) => drawFooter(page, idx + 1, totalPages, icdLabel));
 
   return pdfDoc.save();
+}
+
+export async function makePatientEducationPdfDocumentReference(
+  oystehr: Oystehr,
+  fileDoc: FileDocDataForDocReference,
+  patientId: string,
+  encounterId: string,
+  listResources: List[]
+): Promise<DocumentReference> {
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [fileDoc],
+    type: {
+      coding: [
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/document-type',
+          code: PATIENT_EDUCATION_DOC_TYPE_CODE,
+          display: 'Patient Education',
+        },
+      ],
+    },
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      context: {
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
+    listResources,
+  });
+  const docRef = docRefs[0];
+  if (!docRef) {
+    throw new Error('createFilesDocumentReferences returned no DocumentReference for patient education PDF');
+  }
+  return docRef;
 }

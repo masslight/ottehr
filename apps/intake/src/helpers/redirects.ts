@@ -1,4 +1,4 @@
-import { PROJECT_WEBSITE } from 'utils';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 
 interface RedirectResult {
   relative?: string;

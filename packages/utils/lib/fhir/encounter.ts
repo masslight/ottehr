@@ -2,8 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Reference, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
-import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
+import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers/rcm/constants';
+import { FhirEncounterStatus, VisitStatusWithoutUnknown } from '../types/api/appointment.types';
+import { PatientFollowupDetails, ProviderDetails } from '../types/api/encounter.types';
 import {
   CURRENT_EXAM_MIGRATION_VERSION,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,

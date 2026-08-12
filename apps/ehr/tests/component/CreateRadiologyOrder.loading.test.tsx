@@ -1,6 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { CreateRadiologyOrder } from '../../src/features/radiology/pages/CreateRadiologyOrder';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -76,10 +75,86 @@ vi.mock('../../src/features/radiology/components/useRadiologyConsentExists', () 
   useRadiologyConsentExists: () => false,
 }));
 
+import { CreateRadiologyOrder } from '../../src/features/radiology/pages/CreateRadiologyOrder';
+import { useCreateRadiologyOrderStore } from '../../src/state/draft-data.store';
+
 describe('CreateRadiologyOrder', () => {
   it('passes the loading state to quick picks', () => {
     render(<CreateRadiologyOrder />);
 
     expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
+  });
+
+  describe('draft behavior', () => {
+    const ENCOUNTER_ID = 'encounter-1';
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      useCreateRadiologyOrderStore.setState({ draftsByEncounterId: {} });
+    });
+
+    it('does not show the banner when the draft store is empty', () => {
+      render(<CreateRadiologyOrder />);
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('shows the banner with in-progress message when a draft exists', () => {
+      useCreateRadiologyOrderStore.getState().setDraft(ENCOUNTER_ID, { studyName: 'CT Chest' });
+
+      render(<CreateRadiologyOrder />);
+
+      expect(screen.getByRole('alert')).toHaveTextContent('radiology order in progress');
+    });
+
+    it('shows the restored message when hasNavigatedAway is true', () => {
+      useCreateRadiologyOrderStore.getState().setDraft(ENCOUNTER_ID, { studyName: 'CT Chest', hasNavigatedAway: true });
+
+      render(<CreateRadiologyOrder />);
+
+      expect(screen.getByRole('alert')).toHaveTextContent('previously entered data has been restored');
+    });
+
+    it('does not show a Clear Form button when no draft exists', () => {
+      render(<CreateRadiologyOrder />);
+
+      expect(screen.queryByRole('button', { name: /clear form/i })).not.toBeInTheDocument();
+    });
+
+    it('shows a Clear Form button when a draft exists', () => {
+      useCreateRadiologyOrderStore.getState().setDraft(ENCOUNTER_ID, { studyName: 'CT Chest' });
+
+      render(<CreateRadiologyOrder />);
+
+      expect(screen.getByRole('button', { name: /clear form/i })).toBeInTheDocument();
+    });
+
+    it('populates the Study Name field from the draft on mount', () => {
+      useCreateRadiologyOrderStore.getState().setDraft(ENCOUNTER_ID, { studyName: 'CT Chest' });
+
+      render(<CreateRadiologyOrder />);
+
+      expect(screen.getByRole('textbox', { name: /study name/i })).toHaveValue('CT Chest');
+    });
+
+    it('clicking Clear Form clears the draft store', () => {
+      useCreateRadiologyOrderStore.getState().setDraft(ENCOUNTER_ID, { studyName: 'CT Chest' });
+
+      render(<CreateRadiologyOrder />);
+      fireEvent.click(screen.getByRole('button', { name: /clear form/i }));
+
+      expect(useCreateRadiologyOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+    });
+
+    it('clicking Clear Form resets the Study Name field to empty', () => {
+      useCreateRadiologyOrderStore.getState().setDraft(ENCOUNTER_ID, { studyName: 'CT Chest' });
+
+      render(<CreateRadiologyOrder />);
+      expect(screen.getByRole('textbox', { name: /study name/i })).toHaveValue('CT Chest');
+
+      fireEvent.click(screen.getByRole('button', { name: /clear form/i }));
+
+      expect(screen.getByRole('textbox', { name: /study name/i })).toHaveValue('');
+    });
   });
 });

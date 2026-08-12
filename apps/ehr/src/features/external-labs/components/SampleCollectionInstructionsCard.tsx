@@ -2,7 +2,7 @@ import { Box, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { sampleDTO } from 'utils';
+import { sampleDTO } from 'utils/lib/types/data/labs/labs.types';
 import { AccordionCard } from '../../../components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
 

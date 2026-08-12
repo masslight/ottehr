@@ -3,11 +3,12 @@ import { Autocomplete, Box, Chip, FormControl, SelectProps, TextField, Typograph
 import { FC, ReactNode, useContext, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext, usePageFormContext } from '../../contexts';
-import { SelectInputOption } from '../../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
+import { usePageFormContext } from 'src/contexts/PageFormContext';
+import { LightToolTip } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { SelectInputOption } from 'ui-components/lib/components/paperwork/types';
 import { InputHelperText } from './InputHelperText';
-import { LightToolTip } from './LightToolTip';
 import { VirtualizedListboxComponent } from './VirtualizedListboxComponent';
 
 type FreeMultiSelectOptions = string[] | SelectInputOption[];

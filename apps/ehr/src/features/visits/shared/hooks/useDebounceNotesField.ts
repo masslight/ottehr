@@ -1,6 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
-import { AllChartValues, GetChartDataResponse } from 'utils';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 
