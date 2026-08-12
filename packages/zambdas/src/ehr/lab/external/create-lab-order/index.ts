@@ -7,12 +7,7 @@ import {
   getSecret,
   SecretsKeys,
 } from 'utils';
-import {
-  assertPractitionerHasNPI,
-  checkOrCreateM2MClientToken,
-  getMyPractitionerId,
-  wrapHandler,
-} from '../../../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler } from '../../../../shared';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { buildExternalLabOrderRequests } from './build-order';
@@ -52,9 +47,6 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     resourceType: 'Practitioner',
     id: curUserPractitionerId,
   });
-
-  // Ordering an external lab is an NPI-gated action — block callers without an NPI (e.g. Clinician role).
-  assertPractitionerHasNPI(currentUserPractitioner);
 
   console.log('>>> this is the encounter,', JSON.stringify(encounter, undefined, 2));
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
