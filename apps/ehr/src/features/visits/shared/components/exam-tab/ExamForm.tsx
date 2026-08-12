@@ -7,7 +7,7 @@ import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type FormValues = Record<string, string | null>;

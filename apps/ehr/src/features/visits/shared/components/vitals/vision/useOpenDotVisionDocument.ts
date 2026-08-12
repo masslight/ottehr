@@ -2,7 +2,8 @@ import { DocumentReference } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getPresignedURL, VitalsDotVisionScreeningDocument } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { VitalsDotVisionScreeningDocument } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 /**
  * Opens a DOT referral document in a new tab. Z3 URLs are not directly accessible, so the raw URL is

@@ -1,11 +1,9 @@
 import type { ExamItemConfig } from 'config-types';
 import { useMemo } from 'react';
-import {
-  collectKnownExamFields,
-  encounterHasLegacyExamVersion,
-  isAppointmentLocked,
-  isTelemedAppointment,
-} from 'utils';
+import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { encounterHasLegacyExamVersion } from 'utils/lib/fhir/encounter';
+import { isAppointmentLocked } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 

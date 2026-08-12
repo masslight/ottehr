@@ -44,7 +44,7 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
   }),
 }));
 
-import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { SectionSaveButton } from '../../src/features/visits/shared/components/patient/SectionSaveButton';
 
 // ============================================================================

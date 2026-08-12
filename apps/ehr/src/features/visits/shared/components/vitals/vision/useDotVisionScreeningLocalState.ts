@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
-  VitalFieldNames,
   VitalsDotVisionScreening,
   VitalsDotVisionScreeningDocument,
   VitalsVisionObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export interface DotVisionScreeningLocalState {
   horizontalFieldLeft: string;

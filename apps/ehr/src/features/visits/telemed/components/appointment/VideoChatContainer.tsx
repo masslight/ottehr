@@ -9,7 +9,7 @@ import {
 } from 'amazon-chime-sdk-component-library-react';
 import { LogLevel, MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { getSelectors } from 'utils';
+import { getSelectors } from 'utils/lib/store';
 import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VideoChatLayout } from './VideoChatLayout';

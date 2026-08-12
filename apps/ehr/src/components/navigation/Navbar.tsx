@@ -5,7 +5,8 @@ import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/m
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
-import { BRANDING_CONFIG, RoleType } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';

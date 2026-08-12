@@ -20,7 +20,7 @@ import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from '@
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { PracticeKpisReportZambdaOutput } from 'utils';
+import type { PracticeKpisReportZambdaOutput } from 'utils/lib/types/api/practice-kpis-report.types';
 import { getPracticeKpisReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';

@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VisitStatusLabel } from 'utils';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 
 export const IN_PERSON_CHIP_STATUS_MAP: {
   [status in VisitStatusLabel]: {

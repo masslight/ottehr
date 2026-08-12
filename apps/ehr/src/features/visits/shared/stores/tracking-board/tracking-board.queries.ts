@@ -2,7 +2,10 @@ import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { addOrReplaceOperation, InitTelemedSessionRequestParams, PromiseReturnType, SignAppointmentInput } from 'utils';
+import { addOrReplaceOperation } from 'utils/lib/helpers/operations';
+import { InitTelemedSessionRequestParams } from 'utils/lib/types/api/init-telemed-session/init-telemed-session.types';
+import { SignAppointmentInput } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
+import { PromiseReturnType } from 'utils/lib/types/common';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 
 export const useInitTelemedSessionMutation = (): UseMutationResult<

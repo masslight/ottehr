@@ -1,7 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { PaymentMethodSetupZambdaOutput } from 'utils';
-import { chooseJson } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PaymentMethodSetupZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { useApiClients } from './useAppClients';
 
 export const useSetupStripe = (

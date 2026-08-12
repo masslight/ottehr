@@ -23,8 +23,12 @@ import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { DailyPaymentsReportZambdaOutput, PaymentItem, PaymentMethodSummary } from 'utils';
-import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils/lib/helpers/reports';
+import type {
+  DailyPaymentsReportZambdaOutput,
+  PaymentItem,
+  PaymentMethodSummary,
+} from 'utils/lib/types/api/daily-payments-report.types';
 import { getDailyPaymentsReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';

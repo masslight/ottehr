@@ -10,11 +10,13 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import {
   makePracticeManagedUrl,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
+  practiceManagedQuestionnaireToFhir,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
+import { slugify } from 'utils/lib/helpers/slugify';
+import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
-  practiceManagedQuestionnaireToFhir,
-  slugify,
-} from 'utils';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { itemsReducer } from '../questionnaire.reducer';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
 import { QuestionnairePreview } from './QuestionnairePreview';

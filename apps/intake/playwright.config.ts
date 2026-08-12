@@ -29,6 +29,7 @@ export default defineConfig({
         outputFile: `test-results${process.env.PLAYWRIGHT_REPORT_SUFFIX || ''}/results.xml`,
       },
     ],
+    ['../../packages/test-utils/lib/e2e/perf-reporter.ts'],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {

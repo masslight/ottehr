@@ -1,12 +1,11 @@
+import { layerIncludeFlags, layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   AdHocPatientRow,
-  layerIncludeFlags,
-  layerOptions,
   PATIENT_DOMAIN_FIELDS,
   PATIENT_INTERNAL_FIELDS,
   PATIENT_LAYERS,
   PatientBaseRowSchema,
-} from 'utils';
+} from 'utils/lib/types/adhoc/datasets/patients';
 import { getAdHocPatients } from '../../../api/api';
 import { ADHOC_QUERY_STALE_MS, fetchBatchedRange, toLocalYmd } from '../query/batching';
 import { buildLlmDatasetSchema } from './schema';

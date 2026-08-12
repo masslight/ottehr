@@ -1,7 +1,9 @@
 import { List } from '@mui/material';
 import { FC, useState } from 'react';
-import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
-import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
+import { InvitedParticipantListItemButton } from 'src/telemed/features/invited-participants/InvitedParticipantsListItemButton';
+import { ManageParticipantsDialog } from 'src/telemed/features/invited-participants/ManageParticipantsDialog';
+import { UploadPhotosDialog } from 'src/telemed/features/upload-photos/UploadPhotosDialog';
+import { UploadPhotosListItemButton } from 'src/telemed/features/upload-photos/UploadPhotosListItemButton';
 
 type SideCardListProps = {
   isCardExpanded: boolean;

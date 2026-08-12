@@ -2,7 +2,7 @@ import { CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
 import React, { useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { LabQuestionnaireResponse } from 'utils';
+import { LabQuestionnaireResponse } from 'utils/lib/types/api/lab';
 import { AccordionCard } from '../../../components/AccordionCard';
 import { AOEQuestion } from './AOEQuestion';
 

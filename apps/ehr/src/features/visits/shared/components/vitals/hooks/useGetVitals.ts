@@ -1,12 +1,12 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import {
-  getAbnormalVitals,
   GetVitalsForListOfEncountersRequestPayload,
   GetVitalsForListOfEncountersResponseData,
   GetVitalsResponseData,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 
 export const useGetVitals = (encounterId: string | undefined): UseQueryResult<GetVitalsResponseData, Error> => {

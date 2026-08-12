@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { generateLabelXml } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { OnDemandLabelXmlRequestInput, OnDemandLabelXmlRequestOutput } from 'utils';
+import { OnDemandLabelXmlRequestInput, OnDemandLabelXmlRequestOutput } from 'utils/lib/types/data/printing';
 
 export const useGetLabelXmlAndPrintingConfig = (): ((
   input: OnDemandLabelXmlRequestInput

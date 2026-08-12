@@ -1,4 +1,4 @@
-import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils';
+import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils/lib/types/data/admin-template.types';
 
 export const formatCptCodeAndModifiersForDisplay = (info: TemplateCptCodeInfo): string => {
   return `${info.code}${info.modifiers.length ? `-${info.modifiers.map((mod) => mod.display).join(',-')}` : ''}`;

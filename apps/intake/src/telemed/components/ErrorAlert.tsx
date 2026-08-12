@@ -1,6 +1,6 @@
 import { Alert, Snackbar } from '@mui/material';
 import { FC } from 'react';
-import { useIntakeCommonStore } from '../features/common';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
 
 export const ErrorAlert: FC = () => {
   const error = useIntakeCommonStore((state) => state.error);

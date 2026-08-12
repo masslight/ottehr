@@ -1,5 +1,7 @@
-import { is18YearsOrYounger, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { is18YearsOrYounger } from 'utils/lib/validation/helper';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 

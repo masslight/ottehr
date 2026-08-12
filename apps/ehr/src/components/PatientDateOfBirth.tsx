@@ -1,7 +1,7 @@
 import { Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { ReactElement } from 'react';
-import { calculatePatientAge, formatDateForDisplay } from 'utils';
+import { calculatePatientAge, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 
 export const PatientDateOfBirth = ({ dateOfBirth }: { dateOfBirth: string }): ReactElement => {
   const theme = useTheme();

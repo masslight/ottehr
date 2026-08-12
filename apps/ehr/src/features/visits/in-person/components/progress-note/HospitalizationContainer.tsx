@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
-import { NoteDTO } from 'utils';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const HospitalizationContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const { data: chartData } = useChartFields({ requestedFields: { episodeOfCare: {} } });

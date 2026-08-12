@@ -5,24 +5,20 @@ import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SelectSlot } from 'src/components/SelectSlot';
+import { breakpoints } from 'src/providers/IntakeThemeProviderBase';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components';
-import {
-  BOOKING_CONFIG,
-  BRANDING_CONFIG,
-  createLocalDateTime,
-  DATE_FULL_NO_YEAR,
-  DATETIME_FULL_NO_YEAR,
-  nextAvailableFrom,
-  ScheduleType,
-  ServiceCategoryCode,
-} from 'utils';
 import { i18n } from 'utils/lib/frontend';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { ScheduleType } from 'utils/lib/types/common';
+import { createLocalDateTime } from 'utils/lib/utils/date';
+import { nextAvailableFrom } from 'utils/lib/utils/scheduleUtils';
+import { DATE_FULL_NO_YEAR, DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { otherColors } from '../IntakeThemeProvider';
-import { breakpoints } from '../providers';
-import { useOystehrAPIClient } from '../telemed/utils';
-import { SelectSlot } from '.';
 import { ErrorDialog, ErrorDialogConfig } from './ErrorDialog';
 
 interface TabPanelProps {

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { ImmunizationOrder } from 'utils';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 
 export interface AdministrationType {
   type: string;

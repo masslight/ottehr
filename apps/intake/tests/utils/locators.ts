@@ -1,5 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { BRANDING_CONFIG, CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';

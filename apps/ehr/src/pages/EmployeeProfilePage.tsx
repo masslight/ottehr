@@ -8,15 +8,10 @@ import {
   useUpdateProviderNotificationPreferencesV2Mutation,
 } from 'src/features/notifications/notifications.queries';
 import NotificationSettingsTable from 'src/features/notifications/NotificationSettingsTable';
-import {
-  formatPhoneNumber,
-  getAllNotificationRows,
-  getProviderNotificationPreferencesV2,
-  isPhoneNumberValid,
-  ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
-  standardizePhoneNumber,
-} from 'utils';
+import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
+import { formatPhoneNumber, isPhoneNumberValid, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.types';
+import { getAllNotificationRows, ProviderNotificationPreferencesV2 } from 'utils/lib/types/api/provider-notifications';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 

@@ -1,7 +1,7 @@
 import { Checkbox, FormControl, InputLabel, ListItemText, MenuItem, Select } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { DataEntryTestItem } from 'utils';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface InHouseLabSelectProps {
   availableTests: DataEntryTestItem[];

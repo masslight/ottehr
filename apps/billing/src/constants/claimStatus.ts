@@ -1,4 +1,4 @@
-import { AR_STAGE } from 'utils';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 
 export const PROVISIONAL_BALANCE_HINT = 'No remittance received yet, balance is provisional';
 

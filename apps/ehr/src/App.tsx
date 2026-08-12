@@ -5,8 +5,21 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { GLOBAL_ACTION_LOG_VIEWER_ROLES, parseCommaSeparatedTags, RoleType } from 'utils';
+import AdHocReport from 'src/features/report-builder/page/ReportBuilderPage';
+import AiAssistedEncounters from 'src/pages/reports/AiAssistedEncounters';
+import CompleteEncounters from 'src/pages/reports/CompleteEncounters';
+import DailyPayments from 'src/pages/reports/DailyPayments';
+import DataExports from 'src/pages/reports/DataExports';
+import IncompleteEncounters from 'src/pages/reports/IncompleteEncounters';
+import InvoiceablePatientsReportPage from 'src/pages/reports/InvoiceablePatientsReportPage';
+import MailedStatements from 'src/pages/reports/MailedStatements';
+import PracticeKpis from 'src/pages/reports/PracticeKpis';
+import RecentPatients from 'src/pages/reports/RecentPatients';
+import VisitsOverview from 'src/pages/reports/VisitsOverview';
 import { setupSentry } from 'utils/lib/frontend';
+import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
@@ -71,19 +84,6 @@ import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
-import {
-  AdHocReport,
-  AiAssistedEncounters,
-  CompleteEncounters,
-  DailyPayments,
-  DataExports,
-  IncompleteEncounters,
-  InvoiceablePatientsReportPage,
-  MailedStatements,
-  PracticeKpis,
-  RecentPatients,
-  VisitsOverview,
-} from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';

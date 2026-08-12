@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { BillingProviderOption, ServiceFacilityItem } from 'utils';
+import { BillingProviderOption, ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingProviders, searchBillingServiceFacilities } from '../api/api';
 import { useApiClients } from './useAppClients';
 import { useDebounce } from './useDebounce';

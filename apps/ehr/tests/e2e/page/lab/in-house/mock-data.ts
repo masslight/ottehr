@@ -1,4 +1,4 @@
-import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 
 export const MOCK_E2E_AD_TAG = {
   system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,

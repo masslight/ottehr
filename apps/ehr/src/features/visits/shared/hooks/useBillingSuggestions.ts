@@ -1,17 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
+import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
+import { getRosFindingStateFromKey, rosField } from 'utils/lib/ottehr-config/review-of-systems';
+import { InPersonRosConfig, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import {
   BillingSuggestionInput,
   BillingSuggestionOutput,
   CPTCodeDTO,
   DiagnosisDTO,
-  ERX_MEDICATION_META_TAG_CODE,
-  getRosFindingStateFromKey,
-  InPersonRosConfig,
-  rosField,
-  RosFindingState,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';

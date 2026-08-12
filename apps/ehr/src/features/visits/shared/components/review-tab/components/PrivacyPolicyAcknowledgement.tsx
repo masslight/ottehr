@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material';
 import { FC, useMemo } from 'react';
-import { formatDateToMDYWithTime } from 'utils';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 
 export const PrivacyPolicyAcknowledgement: FC = () => {

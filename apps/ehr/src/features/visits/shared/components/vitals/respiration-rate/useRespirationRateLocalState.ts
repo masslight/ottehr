@@ -1,5 +1,6 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsRespirationRateObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { RespirationRateLocalState } from '../types';
 import { textToRespirationRateNumber } from './helpers';
 
