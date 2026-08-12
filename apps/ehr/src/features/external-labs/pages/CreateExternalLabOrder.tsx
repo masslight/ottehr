@@ -38,18 +38,20 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  APIErrorCode,
-  CreateLabPaymentMethod,
-  DiagnosisDTO,
-  getAttendingPractitionerId,
   HL7_NOTE_CHAR_LIMIT,
   LAB_PAYMENT_METHOD_DISPLAY,
+  PSC_HOLD_LOCALE,
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
-  PSC_HOLD_LOCALE,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useCreateExternalLabStore, useMarkDraftNavigatedAway } from '../../../state/draft-data.store';

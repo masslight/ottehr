@@ -11,8 +11,9 @@ import {
   getPatientVisitFiles,
   updateVisitFiles,
 } from 'src/api/api';
-import { DocumentInfo, DocumentType, UpdateVisitFilesInput, VisitDocuments } from 'utils';
 import { downscaleImageForUpload } from 'utils/lib/frontend';
+import { UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
+import { DocumentInfo, DocumentType, VisitDocuments } from 'utils/lib/types/data/documents';
 import { useApiClients } from './useAppClients';
 
 /** The saved front/back images (and their DocumentReference ids) for one card (photo ID or an insurance card). */

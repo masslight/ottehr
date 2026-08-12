@@ -1,4 +1,5 @@
-import { BillingProviderOption, CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils';
+import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export type ProviderRole = 'billing' | 'rendering';

@@ -2,15 +2,13 @@
 // (names, types, descriptions, enum members). The one place real values touch the LLM: for the
 // whitelisted `domainFields` only, the distinct values present in the fetched rows are sampled
 // (capped) so the model can match codes that truly occur. Everything else comes from the layer map.
+import { AdHocLayerMap, layerSchemas, unloadedLayers } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
-  AdHocLayerMap,
   AdHocRow,
-  layerSchemas,
   LlmDatasetSchema,
   llmFieldsForLayers,
   sampleDomains,
-  unloadedLayers,
-} from 'utils';
+} from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { z } from 'zod';
 
 export function buildLlmDatasetSchema(params: {

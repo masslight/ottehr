@@ -31,7 +31,7 @@ import {
   useStripeAccountInfoQuery,
   useTerminalReadersQuery,
 } from 'src/rcm/state/payments/payments.queries';
-import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils';
+import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 
 function CopyableValue({ label, value }: { label: string; value: string | undefined }): ReactElement {
   const [copied, setCopied] = useState(false);

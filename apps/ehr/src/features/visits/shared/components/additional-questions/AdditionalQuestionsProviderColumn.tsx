@@ -1,6 +1,6 @@
 import { Box, Skeleton, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
-import { patientScreeningQuestionsConfig } from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { useChartData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionEdit } from '../medical-history-tab/components/AdditionalQuestionRow';
 

@@ -3,7 +3,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import { Box, IconButton, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { InvoiceTaskSource } from 'utils';
+import { InvoiceTaskSource } from 'utils/lib/types/api/invoicing.types';
 import { FEATURE_FLAGS } from '../../constants/feature-flags';
 import PageContainer from '../../layout/PageContainer';
 import InvoiceablePatients, { INVOICE_TASK_SOURCE_LABELS } from './InvoiceablePatients';

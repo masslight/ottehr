@@ -1,4 +1,4 @@
-import { ServiceFacilityItem } from 'utils';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it } from 'vitest';
 import { buildAddressInput, formatDateTime, formatFacilityAddress, splitDisplayName } from '../../src/utils/format';
 

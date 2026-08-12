@@ -1,5 +1,5 @@
 import { parse } from 'csv-parse/browser/esm/sync';
-import { BillingChargeItemDefinitionProcedureCode } from 'utils';
+import { BillingChargeItemDefinitionProcedureCode } from 'utils/lib/types/data/billing/billing.types';
 
 /** Priority-ordered patterns for each CSV column type. First match wins. */
 const CODE_PATTERNS = [

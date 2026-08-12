@@ -9,7 +9,7 @@ import { usePractitionerActions } from 'src/features/visits/shared/hooks/usePrac
 import { usePendingSupervisorApproval } from 'src/features/visits/telemed/hooks/usePendingSupervisorApproval';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { getPatientName } from 'src/shared/utils';
+import { getPatientName } from 'src/shared/utils/getPatientName';
 import {
   useCreateExternalLabStore,
   useCreateInHouseLabStore,
@@ -20,13 +20,9 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
-import {
-  getInPersonVisitStatus,
-  getProviderType,
-  getSupervisorApprovalStatus,
-  isPhysicianProviderType,
-  PRACTITIONER_CODINGS,
-} from 'utils';
+import { getProviderType, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useChartFields } from '../../hooks/useChartFields';

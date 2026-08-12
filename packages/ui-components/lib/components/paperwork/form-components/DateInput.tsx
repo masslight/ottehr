@@ -3,7 +3,7 @@ import { DatePicker, LocalizationProvider, MobileDatePicker } from '@mui/x-date-
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
-import { DOB_DATE_FORMAT } from 'utils';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { StyledQuestionnaireItem } from '../hooks/useStyleItems';
 
 type DateInputProps = {

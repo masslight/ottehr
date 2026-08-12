@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from 'react';
-import { FileUpload } from 'utils';
+import { FileUpload } from 'utils/lib/types/common';
 
 export interface FileUploadOptions {
   description: string;

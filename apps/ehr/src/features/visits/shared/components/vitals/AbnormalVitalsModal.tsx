@@ -1,6 +1,7 @@
 import { Box, Stack } from '@mui/system';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
-import { GetVitalsResponseData, VitalFieldNames } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { useReactNavigationBlocker } from '../../hooks/useReactNavigationBlocker';
 import VitalHistoryElement from './components/VitalsHistoryEntry';
 

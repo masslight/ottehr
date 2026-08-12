@@ -1,6 +1,6 @@
 import { Autocomplete, AutocompleteRenderInputParams, Box, TextField, Typography } from '@mui/material';
 import { HTMLAttributes, ReactElement, ReactNode, Ref, useState } from 'react';
-import { SYSTEM_MANAGED_TAGS } from 'utils';
+import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { searchBillingTags } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 

@@ -1,5 +1,4 @@
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
-import archiver from 'archiver';
 import dotenv from 'dotenv';
 import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
@@ -7,6 +6,8 @@ import fs from 'fs';
 import path from 'path';
 import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
+import { assetsRequiredBy, listAssetFiles } from './bundle-assets';
+import { zipZambda } from './bundle-zip';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
@@ -112,6 +113,8 @@ const buildAllZambdas = async (zambdas: ZambdaSpec[], outdir: string, isSentryEn
   }
 };
 
+const formatMB = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 const copyAssets = async (from: string, to: string): Promise<void> => {
   if (!fs.existsSync(from)) {
     console.warn(`Assets directory ${from} does not exist, skipping copy`);
@@ -199,29 +202,27 @@ const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   );
 };
 
-const zipZambda = async (
-  sourceFilePath: string,
-  assetsDir: string,
-  assetsPath: string,
-  outPath: string
-): Promise<void> => {
-  const archive = archiver('zip', { zlib: { level: 1 } });
-  const stream = fs.createWriteStream(outPath);
-
-  return new Promise((resolve, reject) => {
-    let result = archive;
-    result = result.file(sourceFilePath, { name: 'index.js', date: new Date('2025-01-01') });
-    result = result.directory(assetsDir, assetsPath, { date: new Date('2025-01-01') });
-    result.on('error', (err) => reject(err)).pipe(stream);
-
-    stream.on('close', () => resolve());
-    void archive.finalize();
-  });
-};
-
 const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string): Promise<void> => {
   const chunks = chunkArray(zambdas, ZIP_CHUNK_SIZE);
   console.log(`Zipping ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${ZIP_CHUNK_SIZE}...`);
+
+  const allAssets = listAssetFiles(assetsDir);
+  const assetBytes = Object.fromEntries(allAssets.map((file) => [file, fs.statSync(path.join(assetsDir, file)).size]));
+  // The whole tree is at most a couple of MB and every zip draws from it, so
+  // read each asset once instead of once per zip.
+  const assetContents = new Map<string, Buffer>();
+  const contentsOf = (file: string): Buffer => {
+    let contents = assetContents.get(file);
+    if (!contents) {
+      contents = fs.readFileSync(path.join(assetsDir, file));
+      assetContents.set(file, contents);
+    }
+    return contents;
+  };
+  const fullTreeBytes = allAssets.reduce((sum, file) => sum + assetBytes[file], 0);
+  let includedBytes = 0;
+  let zambdasWithoutAssets = 0;
+  let zambdasWithFullTree = 0;
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -229,10 +230,22 @@ const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath:
     await Promise.all(
       chunk.map((zambda) => {
         const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
-        return zipZambda(sourceDir, assetsDir, assetsPath, zambda.zip);
+        const required = assetsRequiredBy(fs.readFileSync(sourceDir, 'utf-8'), allAssets);
+        includedBytes += required.reduce((sum, file) => sum + assetBytes[file], 0);
+        if (required.length === 0) zambdasWithoutAssets++;
+        if (required.length === allAssets.length) zambdasWithFullTree++;
+        const assets = required.map((file) => ({ name: file, contents: contentsOf(file) }));
+        return zipZambda(sourceDir, assetsPath, assets, zambda.zip);
       })
     );
   }
+
+  const wouldHaveBeen = fullTreeBytes * zambdas.length;
+  console.log(
+    `Assets: ${formatMB(includedBytes)} shipped across ${zambdas.length} zips, down from ${formatMB(wouldHaveBeen)} ` +
+      `if every zip carried the whole ${formatMB(fullTreeBytes)} tree ` +
+      `(${zambdasWithoutAssets} need none, ${zambdasWithFullTree} need all).`
+  );
 };
 
 const main = async (): Promise<void> => {

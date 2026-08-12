@@ -24,7 +24,7 @@ import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils';
+import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
 import { usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 

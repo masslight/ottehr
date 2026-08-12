@@ -2,7 +2,7 @@ import { Box, Divider, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
-import { RadiologyDTO } from 'utils';
+import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
   radiologyOrders: RadiologyDTO[];

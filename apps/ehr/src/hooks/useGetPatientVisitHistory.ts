@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { PatientVisitListResponse } from 'utils';
+import { PatientVisitListResponse } from 'utils/lib/types/api/patient-visit-history.types';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useApiClients } from './useAppClients';
 

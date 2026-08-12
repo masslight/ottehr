@@ -4,23 +4,16 @@ import { DateTime } from 'luxon';
 import React, { memo, ReactElement, useMemo, useRef } from 'react';
 import { FieldValues, FormProvider, FormState, SubmitHandler, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { PageFormContext } from 'src/contexts/PageFormContext';
+import { filterFormInputFields } from 'src/helpers/form/form.helper';
+import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from 'src/types/form/form-input-type';
 import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components';
 import { ControlButtonsProps } from 'ui-components/lib/components/paperwork/types';
-import {
-  checkEnable,
-  DATE_ERROR_MESSAGE,
-  decimalRegex,
-  emailRegex,
-  emojiRegex,
-  isoDateRegex,
-  phoneRegex,
-  yupDateTransform,
-  zipRegex,
-} from 'utils';
+import { checkEnable } from 'utils/lib/helpers/paperwork/paperwork';
+import { yupDateTransform } from 'utils/lib/utils/date';
+import { DATE_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { decimalRegex, emailRegex, emojiRegex, isoDateRegex, phoneRegex, zipRegex } from 'utils/lib/validation/regex';
 import * as Yup from 'yup';
-import { PageFormContext } from '../contexts';
-import { filterFormInputFields } from '../helpers/form';
-import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../types';
 
 export const PAGE_FORM_INNER_FORM_ID = 'page-form-inner-form';
 

@@ -4,7 +4,7 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
-import { LATERALITY_SELECTORS, LateralityValue } from 'utils';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
 import { useRadiologyQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {

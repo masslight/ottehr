@@ -1,6 +1,6 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
-import { RadiologyOrderStatus } from 'utils';
+import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 
 interface StatusColorConfig {
   backgroundColor: string;

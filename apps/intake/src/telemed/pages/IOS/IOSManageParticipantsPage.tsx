@@ -1,9 +1,12 @@
 import { Box } from '@mui/system';
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppointmentStore } from '../../features/appointments';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import {
+  createIOSMessageCloseWebView,
+  sendIOSAppMessage,
+} from 'src/telemed/features/ios-communication/iosCommunicationChannel';
 import { ManageParticipants } from '../../features/invited-participants/ManageParticipants';
-import { createIOSMessageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
 
 export function IOSPatientManageParticipantsPage(): JSX.Element {
   const [searchParams, _] = useSearchParams();

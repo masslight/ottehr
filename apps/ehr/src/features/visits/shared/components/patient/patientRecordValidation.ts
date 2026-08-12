@@ -1,7 +1,10 @@
 import { FormFieldsDisplayItem, FormFieldsInputItem } from 'config-types';
 import { DateTime } from 'luxon';
 import { FieldError, RegisterOptions } from 'react-hook-form';
-import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE, ssnRegex, zipRegex } from 'utils';
+import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { ssnRegex, zipRegex } from 'utils/lib/validation/regex';
 
 type ValidationResolver = (values: any) => Promise<{ values: any; errors: Record<string, FieldError> }>;
 

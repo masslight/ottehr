@@ -33,33 +33,37 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  AR_STAGE,
-  BillingCoverageOption,
-  BillingProviderOption,
-  BillingTag,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimDetailResponse,
-  ClaimRemitAdjustment,
-  ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+} from 'utils/lib/helpers/rcm/constants';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { ERA_CLAIM_STATUS_CODE, EraClaimStatusCode } from 'utils/lib/types/data/billing/billing.constants';
+import {
   CreateBillingProviderInput,
-  ERA_CLAIM_STATUS_CODE,
-  EraClaimStatusCode,
-  formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  RULES_ENGINES,
-  RulesEngineDef,
   SaveServiceFacilityInput,
-  ServiceFacilityItem,
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
   UpdateBillingResourceInputSchema,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingCoverageOption,
+  BillingProviderOption,
+  BillingTag,
+  ClaimDetailResponse,
+  ClaimRemitAdjustment,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
+} from 'utils/lib/types/data/billing/claim-status';
+import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import z from 'zod';
 import {
   createBillingCoverage,

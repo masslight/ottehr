@@ -1,7 +1,7 @@
 // iframe→SPA messages, always plain JSON (never code): frame lifecycle ({ type: ready|rendered|
 // resize|error }) and integration events ({ event, options }) validated against AdHocFrameEventSchema.
 // Type-only import: keep utils out of the iframe bundle.
-import type { AdHocFrameEvent } from 'utils';
+import type { AdHocFrameEvent } from 'utils/lib/types/adhoc/sandbox/events';
 
 export type LifecycleMessage =
   | { type: 'ready' }

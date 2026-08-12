@@ -2,13 +2,13 @@ import { Typography } from '@mui/material';
 import { FC } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { CustomDialog } from 'ui-components';
-import { VALUE_SETS } from 'utils';
+import { useCancelTelemedAppointmentMutation } from 'src/telemed/features/appointments/appointment.queries';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { CustomDialog } from 'ui-components/lib/components/intake/CustomDialog';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { intakeFlowPageRoute } from '../../App';
 import PageForm from '../../components/PageForm';
-import { useCancelTelemedAppointmentMutation } from '../features/appointments';
-import { useOystehrAPIClient } from '../utils';
 
 type CancelVisitDialogProps = { onClose: (canceled: boolean) => void; appointmentID?: string };
 

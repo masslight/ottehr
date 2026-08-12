@@ -1,11 +1,8 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import {
-  celsiusToFahrenheit,
-  fahrenheitToCelsius,
-  toVitalTemperatureObservationMethod,
-  VitalFieldNames,
-  VitalsTemperatureObservationDTO,
-} from 'utils';
+import { toVitalTemperatureObservationMethod } from 'utils/lib/fhir/vitals';
+import { celsiusToFahrenheit, fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsTemperatureObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TemperatureLocalState } from '../types';
 import { textToTemperatureNumber } from './helpers';
 

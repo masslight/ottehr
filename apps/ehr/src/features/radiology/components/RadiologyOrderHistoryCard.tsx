@@ -1,7 +1,7 @@
 import { Table, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useState } from 'react';
-import { RadiologyOrderHistoryRow } from 'utils';
+import { RadiologyOrderHistoryRow } from 'utils/lib/types/api/radiology';
 import { AccordionCard } from '../../../components/AccordionCard';
 import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 

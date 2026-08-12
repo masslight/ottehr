@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { chooseJson } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 
 const CREATE_FEE_SCHEDULE_ZAMBDA_ID = 'create-fee-schedule';
 const UPDATE_FEE_SCHEDULE_ZAMBDA_ID = 'update-fee-schedule';

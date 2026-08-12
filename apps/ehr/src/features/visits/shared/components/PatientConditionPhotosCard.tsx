@@ -9,8 +9,10 @@ import { useParams } from 'react-router-dom';
 import { createZ3Object, deletePatientDocument, uploadPatientConditionPhoto } from 'src/api/api';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { convertHeicToJpegIfNeeded } from 'ui-components';
-import { GetPresignedFileURLInput, getPresignedURL, MIME_TYPES } from 'utils';
+import { convertHeicToJpegIfNeeded } from 'ui-components/lib/utils/heic';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 

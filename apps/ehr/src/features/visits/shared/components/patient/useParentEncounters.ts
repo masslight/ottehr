@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import type { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { isFollowupEncounter } from 'utils';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 
 export interface EncounterRow {
   id: string | undefined;

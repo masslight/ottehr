@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { AvailableLocationInformation, CheckOfficeOpenOutput } from 'utils';
+import { CheckOfficeOpenOutput } from 'utils/lib/fhir/location';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
 
 export const useCheckOfficeOpen = (
   selectedLocation: AvailableLocationInformation | undefined

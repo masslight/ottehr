@@ -2,7 +2,10 @@ import { Page, test } from '@playwright/test';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
-import { BOOKING_CONFIG, chooseJson, getReasonForVisitOptionsForServiceCategory, unpackFhirResponse } from 'utils';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { unpackFhirResponse } from 'utils/lib/fhir/helpers';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {

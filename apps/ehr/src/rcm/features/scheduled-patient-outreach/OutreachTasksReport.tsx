@@ -53,7 +53,7 @@ import {
   useListOutreachTasksQuery,
   useRetryOutreachTaskMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
-import { ConversationMessage } from 'utils';
+import { ConversationMessage } from 'utils/lib/types/api/messaging.types';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 

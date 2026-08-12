@@ -1,6 +1,6 @@
+import { zustandDevtools } from 'src/telemed/utils/zustandDevtools';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { zustandDevtools } from '../../utils';
 
 export interface CallSettingsState {
   videoInput: string;

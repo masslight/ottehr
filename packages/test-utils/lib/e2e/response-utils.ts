@@ -1,6 +1,8 @@
 import { Locator, Page, Response } from '@playwright/test';
 import { Practitioner } from 'fhir/r4b';
-import { DeleteChartDataResponse, GetChartDataResponse, SaveChartDataResponse } from 'utils';
+import { DeleteChartDataResponse } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 
 type ResponsePredicate<T extends object = object> = (json: T) => boolean;
 

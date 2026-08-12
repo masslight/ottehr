@@ -22,12 +22,18 @@ export abstract class BaseAssessmentPage {
     await expect(await diagnosisAutocomplete.locator('input')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
-  async expectMdmField(options?: { text?: string }): Promise<void> {
-    const { text } = options ?? {};
+  // `containsText` is for callers asserting on MDM that a template contributed: apply-template's
+  // append action concatenates the template's summary onto whatever MDM the chart already has, so
+  // those callers can only claim the template's text is present, not that it is the whole field.
+  async expectMdmField(options?: { text?: string; containsText?: string }): Promise<void> {
+    const { text, containsText } = options ?? {};
     const mdmField = this.#page.getByTestId(dataTestIds.assessmentCard.medicalDecisionField);
     await expect(mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
     if (text) {
       await expect(mdmField.locator('textarea:visible')).toHaveText(text);
+    }
+    if (containsText) {
+      await expect(mdmField.locator('textarea:visible')).toContainText(containsText);
     }
   }
 

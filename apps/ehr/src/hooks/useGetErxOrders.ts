@@ -1,5 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { chooseJson, GetErxOrdersInput, GetErxOrdersResponse } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { GetErxOrdersInput, GetErxOrdersResponse } from 'utils/lib/types/api/erx.types';
 import { useApiClients } from './useAppClients';
 
 export const useGetErxOrders = (input: GetErxOrdersInput): UseQueryResult<GetErxOrdersResponse | null, Error> => {

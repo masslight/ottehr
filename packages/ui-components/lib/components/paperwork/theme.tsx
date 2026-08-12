@@ -9,7 +9,7 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import _ from 'lodash';
 import { createContext, FC, PropsWithChildren, useContext } from 'react';
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 
 // todo i think it might make more sense to just move the intake theme provider up but it may be too disruptive to do so atm
 

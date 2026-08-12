@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { useEffect } from 'react';
-import { createClinicalOystehrClient } from 'ui-components';
-import { getSelectors } from 'utils';
+import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
+import { getSelectors } from 'utils/lib/store';
 import { create } from 'zustand';
 import { useAuthToken } from './useAuthToken';
 

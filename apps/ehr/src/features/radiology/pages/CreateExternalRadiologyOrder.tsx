@@ -19,16 +19,17 @@ import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { InputMask } from 'ui-components';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  DiagnosisDTO,
   GetRadiologyOrderListZambdaOrder,
-  isPhoneNumberValid,
   RADIOLOGY_SAFETY_FLAGS,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
-} from 'utils';
-import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+} from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_SAFETY_FLAG_LABELS as SAFETY_FLAG_LABELS } from 'utils/lib/types/api/radiology';
 import { createRadiologyOrder, updateRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
@@ -39,7 +40,6 @@ import {
 } from '../components/RadiologyOrderFormShared';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
-import { SAFETY_FLAG_LABELS } from '../constants';
 import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 
 interface CreateExternalRadiologyOrderProps {

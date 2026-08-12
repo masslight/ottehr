@@ -5,7 +5,12 @@ import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { EntryMode, InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
+import { LoadingState } from 'utils/lib/types/data/in-house/in-house.constants';
+import {
+  EntryMode,
+  InHouseOrderDetailPageItemDTO,
+  MarkAsCollectedData,
+} from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { InHouseLabResults } from '../components/details/InHouseLabResults';

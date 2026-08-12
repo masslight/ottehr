@@ -8,7 +8,9 @@ import {
 } from 'amazon-chime-sdk-component-library-react';
 import { RosterAttendeeType } from 'amazon-chime-sdk-component-library-react/lib/types';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { getSelectors, isRecordingBotParticipant, selectActiveParticipant } from 'utils';
+import { getSelectors } from 'utils/lib/store';
+import { isRecordingBotParticipant } from 'utils/lib/telemed/recording.helpers';
+import { selectActiveParticipant } from 'utils/lib/telemed/video-room';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VideoControls } from './VideoControls';
 import { VideoTimer } from './VideoTimer';

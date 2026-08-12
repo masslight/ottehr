@@ -7,7 +7,7 @@ import {
 } from 'amazon-chime-sdk-component-library-react';
 import { DefaultVideoTransformDevice } from 'amazon-chime-sdk-js';
 import { useCallback, useRef } from 'react';
-import { getSelectors } from 'utils';
+import { getSelectors } from 'utils/lib/store';
 import { useVideoCallStore, VirtualBackgroundSetting } from '../state/video-call/video-call.store';
 
 export function useApplyVirtualBackground(): {

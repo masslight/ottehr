@@ -11,9 +11,9 @@ import { InPersonModal } from 'src/features/visits/in-person/components/InPerson
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { MANUAL_TASK } from 'utils';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
-import { getVisitTypeLabelForTypeAndServiceMode } from '../../../shared/utils';
 import {
   getPatientLabel,
   TASK_CATEGORY_LABEL,

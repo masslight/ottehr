@@ -29,7 +29,9 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useCreateRadiologyOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
-import { LATERALITY_SELECTORS, LateralityValue, RadiologyQuickPickData, RoleType } from 'utils';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
+import { RadiologyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import {
   createRadiologyOrder,
   createRadiologyQuickPick,

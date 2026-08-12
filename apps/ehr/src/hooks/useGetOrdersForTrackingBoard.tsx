@@ -5,7 +5,7 @@ import { useGetNursingOrders } from 'src/features/nursing-orders/components/orde
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { useGetImmunizationOrders } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { OrdersForTrackingBoardTable } from 'utils';
+import { OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
 import { useGetErxOrders } from './useGetErxOrders';
 import { useGetProcedures } from './useGetProcedures';
 

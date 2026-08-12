@@ -46,7 +46,7 @@ import {
   useUpdateProcedureCodeMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ChargeItemMode } from '../ChargeItemList';
 
 interface ProcedureCodesProps {

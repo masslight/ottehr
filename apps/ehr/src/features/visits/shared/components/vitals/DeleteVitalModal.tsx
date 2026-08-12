@@ -1,6 +1,6 @@
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const DeleteVitalModal: React.FC<{
   open: boolean;

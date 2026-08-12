@@ -1,5 +1,5 @@
 import { Task as FhirTask } from 'fhir/r4b';
-import { TASK_LOCATION_SYSTEM } from 'utils';
+import { TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockSafelyCaptureMessage = vi.fn();

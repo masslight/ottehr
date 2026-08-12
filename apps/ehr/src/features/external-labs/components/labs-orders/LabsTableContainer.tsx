@@ -2,17 +2,17 @@ import { Box, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { ReactElement, useState } from 'react';
 import { submitLabOrder } from 'src/api/api';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { openPdf } from 'utils/lib/helpers/labs/helpers';
 import {
   ExternalLabsStatus,
   GetLabOrdersParameters,
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
-  openPdf,
   ReflexLabDTO,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
 import { configBundleTableTestId } from '../../utils/test-ids';
 import { LabsTable } from './LabsTable';
 import { LabsTableBundleHeaderRow } from './LabsTableBundleHeaderRow';

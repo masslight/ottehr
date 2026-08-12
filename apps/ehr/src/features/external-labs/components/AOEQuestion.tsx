@@ -3,7 +3,7 @@ import { Grid } from '@mui/material';
 import { FormControl } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
 import { Controller, useFormContext } from 'react-hook-form';
-import { LabQuestionnaireResponseItem } from 'utils';
+import { LabQuestionnaireResponseItem } from 'utils/lib/types/api/lab';
 import { AOEDateQuestion } from './AOEDateQuestion';
 import { AOEFreeTextQuestion } from './AOEFreeTextQuestion';
 import { AOEListQuestion } from './AOEListQuestion';

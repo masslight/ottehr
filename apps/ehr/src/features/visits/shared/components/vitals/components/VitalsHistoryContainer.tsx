@@ -2,7 +2,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { Box, Button, Divider, Skeleton, Typography } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { HISTORY_ELEMENT_SKELETON_TEXT } from '../constants';
 
 type VitalsHistoryContainerProps<TypeObsDTO extends VitalsObservationDTO> = {

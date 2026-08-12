@@ -1,15 +1,10 @@
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
-import {
-  allLicensesForPractitioner,
-  checkEncounterHasPractitioner,
-  EncounterVisitType,
-  getEncounterVisitType,
-  isAppointmentLocked,
-  isEncounterLocked,
-  PractitionerLicense,
-  StateType,
-} from 'utils';
+import { EncounterVisitType, getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { allLicensesForPractitioner, isAppointmentLocked, isEncounterLocked } from 'utils/lib/fhir/helpers';
+import { checkEncounterHasPractitioner } from 'utils/lib/fhir/patient';
+import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
+import { StateType } from 'utils/lib/types/common';
 
 export type GetAppointmentAccessibilityDataProps = {
   locationVirtual?: Location;

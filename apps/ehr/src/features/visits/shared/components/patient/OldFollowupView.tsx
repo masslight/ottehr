@@ -11,7 +11,8 @@ import { getEmployees } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { ProviderDetails, SLUG_SYSTEM } from 'utils';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 
 const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
 type FollowupType = (typeof FOLLOWUP_TYPES)[number];

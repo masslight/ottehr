@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import { useDisplayUnsolicitedResultsIcon } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { UnsolicitedResultsRequestType } from 'utils';
+import { UnsolicitedResultsRequestType } from 'utils/lib/types/data/labs/labs.types';
 
 const POLL_INTERVAL = 1000 * 60 * 3; // 3 minutes
 
