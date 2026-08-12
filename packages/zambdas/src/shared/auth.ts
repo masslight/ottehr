@@ -110,6 +110,11 @@ export const isM2MClient = (token: string): boolean => {
   return decoded.sub?.endsWith('@clients') || false;
 };
 
+export const getM2MClientId = (token: string): string | undefined => {
+  const decoded = decodeJwt(token);
+  return decoded.sub?.split('@')[0];
+};
+
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {
   const decoded = decodeJwt(token);
 

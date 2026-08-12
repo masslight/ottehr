@@ -54,7 +54,7 @@ import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointment
 import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
-import { getUser, isM2MClient, isTestUser } from '../../../shared/auth';
+import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -75,6 +75,7 @@ interface CreateAppointmentInput {
   patient: PatientInfo;
   user: User | undefined;
   isM2M: boolean;
+  m2mClientId?: string;
   questionnaireCanonical: CanonicalUrl;
   secrets: Secrets | null;
   visitType: VisitType;
@@ -99,6 +100,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const token = input.headers.Authorization.replace('Bearer ', '');
 
   const isM2M = isM2MClient(token);
+  const m2mClientId = isM2M ? getM2MClientId(token) : undefined;
   let user: User | undefined = undefined;
   if (!isM2M) {
     user = await getUser(token, input.secrets);
@@ -160,6 +162,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       serviceMode,
       user,
       isM2M,
+      m2mClientId,
       language,
       secrets,
       visitType,
@@ -225,6 +228,7 @@ export async function createAppointment(
     patient,
     user,
     isM2M,
+    m2mClientId,
     secrets,
     visitType,
     serviceMode,
@@ -265,7 +269,7 @@ export async function createAppointment(
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
 
   const createdBy = isM2M
-    ? `M2M Client`
+    ? `M2M Client ${m2mClientId}`
     : isEHRUser
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
