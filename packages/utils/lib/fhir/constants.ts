@@ -614,6 +614,7 @@ export const BUCKET_NAMES = {
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
+  OUTBOUND_FAXES: 'outbound-faxes',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -1124,6 +1125,9 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   recipientAddress: 'recipient-address',
   recipientName: 'recipient-name',
   documentReference: 'document-reference',
+  // Z3 URL of the exact file that was transmitted. Faxes assembled from several documents have no
+  // single DocumentReference to point at, so this is what a retry re-sends.
+  media: 'media',
   senderId: 'sender-id',
   senderDisplay: 'sender-display',
   senderOrganization: 'sender-organization',

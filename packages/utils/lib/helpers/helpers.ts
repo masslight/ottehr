@@ -383,6 +383,11 @@ export function isValidNANPNumber(phoneNumber: string | undefined): boolean {
   );
 }
 
+/** The shared dialling rule used by both fax forms and the send-fax API boundary. */
+export function isFaxNumberValid(phoneNumber: string | undefined): boolean {
+  return isValidNANPNumber(phoneNumber);
+}
+
 /**
  * The phone rule the current eRx provider (DoseSpot) enforces; rejects what it would refuse with
  * "Primary Phone is not valid." Single seam — swap this body if the provider or its rules change.

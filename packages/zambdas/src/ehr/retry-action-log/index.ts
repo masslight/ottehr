@@ -81,16 +81,20 @@ export async function performEffect(
     removePrefix('Patient/', original.for?.reference ?? ''),
     'patient reference'
   );
-  const appointmentId = requireOutboundDeliveryValue(
-    removePrefix('Appointment/', original.focus?.reference ?? ''),
-    'appointment reference'
-  );
+  // Only faxes that concern a single visit carry an appointment; a medical-record fax has none.
+  const appointmentId = removePrefix('Appointment/', original.focus?.reference ?? '') || undefined;
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
-  const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
-  const documentReferenceId = requireOutboundDeliveryValue(documentReference.id, 'DocumentReference id');
-  const media = requireOutboundDeliveryValue(documentReference.content[0]?.attachment.url, 'document URL');
+  // Attempts record the file that was actually transmitted. Fall back to the attempt's
+  // DocumentReference for attempts made before that was stored.
+  const storedMedia = recipient.media;
+  const documentReference = storedMedia ? undefined : await resolveDocumentReference(original, appointmentId, oystehr);
+  const documentReferenceId = documentReference
+    ? requireOutboundDeliveryValue(documentReference.id, 'DocumentReference id')
+    : recipient.documentReferenceId;
+  const media =
+    storedMedia ?? requireOutboundDeliveryValue(documentReference?.content[0]?.attachment.url, 'document URL');
   const userPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: requireOutboundDeliveryValue(removePrefix('Practitioner/', user.profile), 'user practitioner reference'),
@@ -122,6 +126,7 @@ export async function performEffect(
         recipientAddress,
         recipientName,
         documentReferenceId,
+        media,
         requesterReference,
         senderOrganizationReference: `Organization/${organizationId}`,
         parentAttemptId: originalId,
@@ -134,7 +139,10 @@ export async function performEffect(
     retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
-    const visit = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+    // Email delivery is always a visit note, so its attempt always names the visit and its note.
+    const visitId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
+    const emailDocumentReferenceId = requireOutboundDeliveryValue(documentReferenceId, 'DocumentReference id');
+    const visit = await getAppointmentAndRelatedResources(oystehr, visitId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
     const visitNoteUrl = await getPresignedURL(media, accessToken);
     const locationName = getNameForOwner(visit.location);
@@ -154,10 +162,10 @@ export async function performEffect(
       oystehr,
       secrets: parameters.secrets,
       patientId,
-      appointmentId,
+      appointmentId: visitId,
       recipientEmail: recipientAddress,
       recipientName,
-      documentReferenceId,
+      documentReferenceId: emailDocumentReferenceId,
       parentAttemptId: originalId,
       requesterReference,
       senderId: user.id,
@@ -168,10 +176,10 @@ export async function performEffect(
       makeOutboundDeliveryAttempt({
         channel,
         patientId,
-        appointmentId,
+        appointmentId: visitId,
         recipientAddress,
         recipientName,
-        documentReferenceId,
+        documentReferenceId: emailDocumentReferenceId,
         requesterReference,
         parentAttemptId: originalId,
         senderId: user.id,
@@ -207,7 +215,7 @@ export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr:
 
 export async function resolveDocumentReference(
   task: Task,
-  appointmentId: string,
+  appointmentId: string | undefined,
   oystehr: Oystehr
 ): Promise<DocumentReference> {
   const storedReference = getOutboundDeliveryRecipientSnapshot(task).documentReferenceId;
@@ -217,6 +225,7 @@ export async function resolveDocumentReference(
       id: storedReference,
     });
   }
+  if (!appointmentId) throw new Error('Delivery attempt names neither a document nor a visit to resend');
 
   const resources = (
     await oystehr.fhir.search<Appointment | DocumentReference>({

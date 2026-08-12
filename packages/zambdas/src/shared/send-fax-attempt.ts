@@ -2,26 +2,37 @@ import Oystehr from '@oystehr/sdk';
 import { Practitioner, Task } from 'fhir/r4b';
 import { getFullestAvailableName } from 'utils';
 import {
+  addOutboundDeliveryAttemptContent,
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,
   failOutboundDeliveryAttempt,
 } from './outbound-delivery';
 
 export interface SendFaxAttemptInput {
-  appointmentId: string;
+  /** Absent when the fax doesn't concern a single visit (e.g. a whole medical record). */
+  appointmentId?: string;
   faxNumber: string;
   organizationId: string;
   patientId: string;
+  /** URL handed to the fax provider; also stored on the attempt so a retry re-sends the same file. */
   media: string;
-  documentReferenceId: string;
+  /** Set only when the fax carries exactly one document. */
+  documentReferenceId?: string;
   userPractitioner: Practitioner;
   recipientName?: string;
   parentAttemptId?: string;
   senderId: string;
 }
 
-/** Records the outbound delivery attempt, then sends the fax and settles the attempt's outcome. */
-export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oystehr): Promise<Task> {
+/**
+ * Records the outbound delivery attempt before any fallible packet preparation, then sends the fax
+ * and settles the attempt's outcome. This keeps assembly/upload failures visible in the action log.
+ */
+export async function sendFaxAttempt(
+  input: SendFaxAttemptInput,
+  oystehr: Oystehr,
+  prepare?: () => Promise<void>
+): Promise<Task> {
   const {
     appointmentId,
     faxNumber,
@@ -36,10 +47,8 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
   const attempt = await createOutboundDeliveryAttempt(oystehr, {
     channel: 'fax',
     patientId,
-    appointmentId,
     recipientAddress: faxNumber,
     recipientName,
-    documentReferenceId,
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
     senderOrganizationReference: `Organization/${organizationId}`,
     parentAttemptId,
@@ -47,6 +56,18 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     senderDisplay: getFullestAvailableName(userPractitioner),
   });
   if (!attempt.id) throw new Error('Outbound fax attempt was created without an id');
+
+  try {
+    await prepare?.();
+    await addOutboundDeliveryAttemptContent(oystehr, attempt.id, {
+      media: input.media,
+      appointmentId,
+      documentReferenceId,
+    });
+  } catch (error) {
+    await failOutboundDeliveryAttempt(oystehr, attempt.id, error);
+    throw error;
+  }
 
   return deliverFaxAttempt(input, oystehr, attempt);
 }

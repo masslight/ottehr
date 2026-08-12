@@ -23,6 +23,8 @@ interface BaseAppointmentHistoryRow {
   visitReason: string | undefined;
   office: string | undefined;
   dateTime: string | undefined;
+  /** IANA timezone of the visit's office, when the Location supplies one. */
+  timezone?: string;
   encounterId: string | undefined;
   sendInvoiceTask: Task | undefined;
   provider:
@@ -41,6 +43,8 @@ export interface FollowUpVisitHistoryRow {
   type: string | undefined;
   serviceCategory?: string;
   dateTime: string | undefined;
+  /** IANA timezone of the follow-up's office, when the Location supplies one. */
+  timezone?: string;
   visitReason: string | undefined;
   office: string | undefined;
   provider:

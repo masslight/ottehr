@@ -130,6 +130,12 @@ export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
   statusCode: 413,
 });
 
+export const FAX_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
+  code: APIErrorCode.PAYLOAD_TOO_LARGE,
+  message: `These documents are too large to fax in one transmission (over ${maxMb} MB).`,
+  statusCode: 413,
+});
+
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,
   message: "This appointment can't be modified because you are already checked in",

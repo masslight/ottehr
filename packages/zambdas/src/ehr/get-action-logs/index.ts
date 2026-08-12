@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   ACTION_LOGS_DISPLAY_WINDOW_DAYS,
   ACTION_LOGS_PAGE_SIZE,
+  ActionLogChannel,
   ActionLogEntry,
   GetActionLogsInputValidated,
   GetActionLogsOutput,
@@ -15,6 +16,7 @@ import {
   GLOBAL_ACTION_LOG_VIEWER_ROLES,
   OUTBOUND_DELIVERY_TASK_CODES,
   OUTBOUND_DELIVERY_TASK_SYSTEM,
+  OutboundDeliveryRecipientSnapshot,
   PATIENT_ACTION_LOG_VIEWER_ROLES,
   removePrefix,
   RoleType,
@@ -185,8 +187,21 @@ function composeEntry(
     documentReferenceId: recipient.documentReferenceId,
     canRetry:
       status === 'failed' &&
-      Boolean(appointmentId) &&
+      hasResendableContent(channel, recipient, appointmentId) &&
       Boolean(recipient.address?.trim()) &&
       !retriedAttemptIds.has(task.id!),
   };
+}
+
+/**
+ * A retry has to be able to reproduce what was sent: the exact transmitted file when the attempt
+ * recorded one, otherwise the document it named — or, for a visit note, the visit it belongs to.
+ */
+function hasResendableContent(
+  channel: ActionLogChannel,
+  recipient: OutboundDeliveryRecipientSnapshot,
+  appointmentId: string | undefined
+): boolean {
+  if (channel === 'email') return Boolean(appointmentId);
+  return Boolean(recipient.media || recipient.documentReferenceId || appointmentId);
 }

@@ -76,6 +76,8 @@ export interface OutboundDeliveryAttemptData {
   recipientAddress: string;
   recipientName?: string;
   documentReferenceId?: string;
+  /** Z3 URL of the transmitted file; lets a retry re-send exactly what was sent the first time. */
+  media?: string;
   communicationReference?: string;
   requesterReference?: string;
   senderOrganizationReference?: string;

@@ -1,16 +1,15 @@
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
-import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, Typography } from '@mui/material';
+import { Box, Tooltip, Typography } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { phone } from 'phone';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { InputMask } from 'ui-components';
-import { getInPersonVisitStatus, isPhoneNumberValid } from 'utils';
+import { useSendFax } from 'src/hooks/useSendFax';
+import { getInPersonVisitStatus } from 'utils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
+import { FAX_NUMBER_HELPER_TEXT, FaxNumberField, isFaxNumberValid } from '../../../../../components/FaxNumberField';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 
 interface SendFaxButtonProps {
   /**
@@ -29,7 +28,7 @@ interface SendFaxButtonProps {
 }
 
 export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, onSend, initialFaxNumber }) => {
-  const apiClient = useOystehrAPIClient();
+  const sendFax = useSendFax();
   const [openTooltip, setOpenTooltip] = useState(false);
 
   const inPersonStatus = useMemo(
@@ -71,20 +70,26 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
       return;
     }
 
-    try {
-      if (onSend) {
+    if (onSend) {
+      try {
         await onSend(faxNumber);
-      } else {
-        if (!apiClient || !appointment?.id) {
-          throw new Error('api client not defined or appointment ID is missing');
-        }
-        await apiClient.sendFax({ appointmentId: appointment.id, faxNumber });
+        enqueueSnackbar('Fax sent.', { variant: 'success' });
+      } catch (error) {
+        console.error('Error sending fax:', error);
+        enqueueSnackbar('Error sending fax.', { variant: 'error' });
       }
-      enqueueSnackbar('Fax sent.', { variant: 'success' });
-    } catch (error: any) {
-      console.error('Error sending fax:', error);
-      enqueueSnackbar('Error sending fax.', { variant: 'error' });
+      return;
     }
+
+    if (!appointment?.id) {
+      enqueueSnackbar('Error sending fax.', { variant: 'error' });
+      return;
+    }
+    // useSendFax reports success and failure; swallow the rejection so the dialog can close.
+    await sendFax({
+      target: { type: 'visit-note', appointmentId: appointment.id },
+      recipients: [{ faxNumber }],
+    }).catch(() => undefined);
   };
 
   return (
@@ -100,38 +105,21 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
           <ConfirmationDialog
             title="Send Fax"
             description={
-              <FormControl variant="outlined" fullWidth error={faxError} sx={{ mt: 2, mb: -2 }}>
-                <InputLabel shrink required htmlFor="fax-number">
-                  Fax number
-                </InputLabel>
-                <OutlinedInput
-                  id="fax-number"
-                  label="Fax number"
-                  notched
-                  required
-                  type="tel"
-                  placeholder="(XXX) XXX-XXXX"
-                  value={faxNumber}
-                  inputMode="numeric"
-                  inputComponent={InputMask as any}
-                  inputProps={{
-                    mask: '(000) 000-0000',
-                  }}
-                  onChange={(e) => {
-                    userEditedFaxNumber.current = true;
-                    const number = e.target.value.replace(/\D/g, '');
-                    setFaxNumber(number);
-                    if (isPhoneNumberValid(number) && phone(number).isValid) {
-                      setFaxError(false);
-                    } else {
-                      setFaxError(true);
-                    }
-                  }}
-                />
-                <FormHelperText error sx={{ visibility: faxError ? 'visible' : 'hidden' }}>
-                  Fax number must be 10 digits in the format (xxx) xxx-xxxx and a valid number
-                </FormHelperText>
-              </FormControl>
+              <FaxNumberField
+                id="fax-number"
+                label="Fax number"
+                fullWidth
+                required
+                value={faxNumber}
+                error={faxError}
+                helperText={faxError ? FAX_NUMBER_HELPER_TEXT : ' '}
+                sx={{ mt: 2 }}
+                onChange={(digits) => {
+                  userEditedFaxNumber.current = true;
+                  setFaxNumber(digits);
+                  setFaxError(!isFaxNumberValid(digits));
+                }}
+              />
             }
             response={handleSendFax}
             actionButtons={{

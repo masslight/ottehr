@@ -34,6 +34,7 @@ import {
   Secrets,
   SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
+  TIMEZONE_EXTENSION_URL,
   TIMEZONES,
 } from 'utils';
 import { z } from 'zod';
@@ -227,9 +228,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
           .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
       : undefined;
 
-    let timezone = TIMEZONES[0]; // default timezone
-    if (slot && slot.start) {
-      // we can just grab the tz from the slot rather than getting the schedule resource
+    // Location owns the actual IANA zone (and therefore DST abbreviations such as ET/EDT). A Slot
+    // only preserves the offset, so retain that as a legacy fallback for Locations without a zone.
+    const locationTimezone = getLocationTimezone(location);
+    let timezone = locationTimezone ?? TIMEZONES[0];
+    if (!locationTimezone && slot?.start) {
       const slotDateTime = DateTime.fromISO(slot.start, { setZone: true });
       if (slotDateTime.isValid) {
         timezone = slotDateTime.zoneName;
@@ -258,6 +261,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
       visitReason: getReasonForVisitFromAppointment(appointment),
       office: location?.name,
       dateTime,
+      timezone: locationTimezone,
       provider,
       encounterId: encounter?.id,
       sendInvoiceTask,
@@ -457,6 +461,7 @@ const followUpVisitHistoryRowFromEncounter = (
   return {
     encounterId: encounter.id,
     dateTime: encounter.period?.start || ownAppointment?.start,
+    timezone: getLocationTimezone(location),
     type: followUpType,
     serviceCategory,
     visitReason: encounter.reasonCode?.[0]?.text || ownAppointment?.description,
@@ -469,6 +474,9 @@ const followUpVisitHistoryRowFromEncounter = (
     appointmentId: ownAppointmentId,
   };
 };
+
+const getLocationTimezone = (location: Location | undefined): string | undefined =>
+  location?.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
 const getProviderFromEncounter = (
   encounter: Encounter | undefined,

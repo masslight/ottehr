@@ -446,6 +446,20 @@ export const dataTestIds = {
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
+    faxPatientDocsButton: 'fax-patient-docs-button',
+    medicalRecordButton: 'medical-record-button',
+    downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
+    faxMedicalRecordMenuItem: 'fax-medical-record-menu-item',
+  },
+  sendFaxDialog: {
+    dialog: 'send-fax-dialog',
+    faxNumberInput: (index: number) => `send-fax-dialog-fax-number-${index}`,
+    addRecipientButton: 'send-fax-dialog-add-recipient-button',
+    transmissionLimitMessage: 'send-fax-dialog-transmission-limit-message',
+    sendButton: 'send-fax-dialog-send-button',
+  },
+  patientDocsPage: {
+    faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
   },
   addInsuranceDialog: {
     id: 'add-insurance-dialog',

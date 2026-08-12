@@ -56,6 +56,7 @@ import {
   SearchPlacesInput,
   SearchPlacesOutput,
   SendFaxZambdaInput,
+  SendFaxZambdaOutput,
   SignAppointmentInput,
   SignAppointmentResponse,
   SyncUserResponse,
@@ -418,7 +419,7 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
   };
 
-  const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
+  const sendFax = async (parameters: SendFaxZambdaInput): Promise<SendFaxZambdaOutput> => {
     return await makeZapRequest('send fax', parameters);
   };
 

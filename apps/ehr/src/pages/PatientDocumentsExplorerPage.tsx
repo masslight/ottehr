@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { SendFaxDialog, SendFaxFormData } from 'src/components/dialogs/SendFaxDialog';
 import {
   PatientDocumentFoldersColumn,
   PatientDocumentFoldersColumnSkeleton,
@@ -16,6 +17,7 @@ import {
   PatientDocumentsExplorerTable,
 } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
+import { useSendFax } from 'src/hooks/useSendFax';
 import { getFullName, isSyntheticFolderId } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
@@ -54,6 +56,7 @@ const PatientDocumentsExplorerPage: FC = () => {
     });
   }, [patient]);
 
+  const sendFax = useSendFax();
   const {
     documents,
     isLoadingDocuments,
@@ -70,6 +73,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
+  const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -271,10 +275,23 @@ const PatientDocumentsExplorerPage: FC = () => {
         return true;
       },
       onDocumentDownload: downloadDocument,
+      onDocumentFax: setDocumentIdToFax,
       onDocumentRename: renameDocument,
       onDocumentDelete: documentActions.deleteDocumentAction,
     };
   }, [documentActions.deleteDocumentAction, downloadDocument, renameDocument]);
+
+  const handleSendFax = useCallback(
+    async ({ recipients }: SendFaxFormData): Promise<void> => {
+      if (!patientId || !documentIdToFax) return;
+      await sendFax({
+        target: { type: 'document', patientId, documentReferenceId: documentIdToFax },
+        recipients,
+      });
+      setDocumentIdToFax(null);
+    },
+    [documentIdToFax, patientId, sendFax]
+  );
 
   if (isLoadingPatientData) return <LoadingScreen />;
 
@@ -451,6 +468,10 @@ const PatientDocumentsExplorerPage: FC = () => {
       </Box>
 
       <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
+
+      {documentIdToFax && (
+        <SendFaxDialog title="Send Fax" onClose={() => setDocumentIdToFax(null)} onSend={handleSendFax} />
+      )}
     </Box>
   );
 };

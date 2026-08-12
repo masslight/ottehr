@@ -56,6 +56,7 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
             ),
           ]
         : []),
+      ...(data.media ? [input(OUTBOUND_DELIVERY_INPUT_CODES.media, data.media)] : []),
       ...(data.senderId ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderId, data.senderId)] : []),
       ...(data.senderDisplay ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderDisplay, data.senderDisplay)] : []),
       ...(data.senderOrganizationReference
@@ -95,6 +96,7 @@ export interface OutboundDeliveryRecipientSnapshot {
   address?: string;
   name?: string;
   documentReferenceId?: string;
+  media?: string;
   communicationId?: string;
 }
 
@@ -102,6 +104,7 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
   return {
     address: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientAddress)?.valueString,
     name: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString,
+    media: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.media)?.valueString,
     documentReferenceId: removePrefix(
       'DocumentReference/',
       getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference ?? ''

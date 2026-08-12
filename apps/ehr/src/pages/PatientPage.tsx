@@ -1,17 +1,35 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import DownloadIcon from '@mui/icons-material/Download';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, Tab, Tooltip, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Skeleton,
+  Stack,
+  Tab,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
+import { SendFaxDialog, SendFaxFormData, SendFaxVisitOption } from 'src/components/dialogs/SendFaxDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -21,9 +39,11 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
+import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
+import { useSendFax } from 'src/hooks/useSendFax';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { getFirstName, getLastName, GetMergePatientsTaskResponse, MergePatientsResponse, RoleType } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -50,6 +70,8 @@ export default function PatientPage(): JSX.Element {
   );
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
+  const [medicalRecordMenuAnchor, setMedicalRecordMenuAnchor] = useState<HTMLElement | null>(null);
+  const [faxDialog, setFaxDialog] = useState<'patient-docs' | 'medical-record' | null>(null);
 
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
@@ -172,8 +194,40 @@ export default function PatientPage(): JSX.Element {
 
   const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
 
-  const appointments = visitHistory?.visits || [];
+  const appointments = useMemo(() => visitHistory?.visits ?? [], [visitHistory?.visits]);
   const latestAppointment = appointments?.[0];
+
+  const sendFax = useSendFax();
+  const faxableVisits: SendFaxVisitOption[] = useMemo(
+    () =>
+      appointments.map((appointment) => ({
+        appointmentId: appointment.appointmentId,
+        label: appointment.dateTime
+          ? formatVisitDateTimeWithZone(appointment.dateTime, appointment.timezone)
+          : appointment.appointmentId,
+      })),
+    [appointments]
+  );
+
+  const handleFaxPatientDocsClick = (): void => {
+    if (!faxableVisits.length) {
+      enqueueSnackbar('This patient has no visits to fax.', { variant: 'info' });
+      return;
+    }
+    setFaxDialog('patient-docs');
+  };
+
+  const handleSendFax = async ({ recipients, appointmentIds }: SendFaxFormData): Promise<void> => {
+    if (!id) return;
+    await sendFax({
+      target:
+        faxDialog === 'medical-record'
+          ? { type: 'medical-record', patientId: id }
+          : { type: 'visit-documents', patientId: id, appointmentIds: appointmentIds ?? [] },
+      recipients,
+    });
+    setFaxDialog(null);
+  };
 
   return (
     <>
@@ -220,7 +274,7 @@ export default function PatientPage(): JSX.Element {
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateColumns: 'repeat(4, 1fr)',
                 gap: 1,
                 alignSelf: 'flex-start',
               }}
@@ -257,18 +311,30 @@ export default function PatientPage(): JSX.Element {
                   >
                     <SettingsOutlinedIcon />
                   </GoToButton>
+                  {/* Review Docs opens the second row of the grid, as laid out in the design. */}
+                  <Box sx={{ gridColumnStart: 1 }}>
+                    <GoToButton
+                      text="Review Docs"
+                      backgroundColor={otherColors.lightBlue}
+                      onClick={() => navigate(`/patient/${id}/docs`)}
+                    >
+                      <DescriptionOutlinedIcon />
+                    </GoToButton>
+                  </Box>
                   <GoToButton
-                    text="Review Docs"
+                    text="Fax Patient Docs"
                     backgroundColor={otherColors.lightBlue}
-                    onClick={() => navigate(`/patient/${id}/docs`)}
+                    dataTestId={dataTestIds.patientRecordPage.faxPatientDocsButton}
+                    onClick={handleFaxPatientDocsClick}
                   >
-                    <DescriptionOutlinedIcon />
+                    <FaxOutlinedIcon />
                   </GoToButton>
                   <GoToButton
                     text="Medical Record"
                     backgroundColor={otherColors.lightBlue}
+                    dataTestId={dataTestIds.patientRecordPage.medicalRecordButton}
                     loading={isDownloadingMedicalRecord}
-                    onClick={downloadMedicalRecord}
+                    onClick={(event) => setMedicalRecordMenuAnchor(event.currentTarget)}
                   >
                     <Inventory2OutlinedIcon />
                   </GoToButton>
@@ -283,6 +349,46 @@ export default function PatientPage(): JSX.Element {
               )}
             </Box>
           </Paper>
+
+          <Menu
+            anchorEl={medicalRecordMenuAnchor}
+            open={Boolean(medicalRecordMenuAnchor)}
+            onClose={() => setMedicalRecordMenuAnchor(null)}
+          >
+            <MenuItem
+              data-testid={dataTestIds.patientRecordPage.downloadMedicalRecordArchiveMenuItem}
+              onClick={() => {
+                setMedicalRecordMenuAnchor(null);
+                void downloadMedicalRecord();
+              }}
+            >
+              <ListItemIcon>
+                <DownloadIcon fontSize="small" color="primary" />
+              </ListItemIcon>
+              <ListItemText>Download Archive</ListItemText>
+            </MenuItem>
+            <MenuItem
+              data-testid={dataTestIds.patientRecordPage.faxMedicalRecordMenuItem}
+              onClick={() => {
+                setMedicalRecordMenuAnchor(null);
+                setFaxDialog('medical-record');
+              }}
+            >
+              <ListItemIcon>
+                <FaxOutlinedIcon fontSize="small" color="primary" />
+              </ListItemIcon>
+              <ListItemText>Send as Fax</ListItemText>
+            </MenuItem>
+          </Menu>
+
+          {faxDialog && (
+            <SendFaxDialog
+              title={faxDialog === 'medical-record' ? 'Fax Medical Record' : 'Fax Patient Docs'}
+              visits={faxDialog === 'patient-docs' ? faxableVisits : undefined}
+              onClose={() => setFaxDialog(null)}
+              onSend={handleSendFax}
+            />
+          )}
 
           <PatientMergedBanner patient={patient} />
 
