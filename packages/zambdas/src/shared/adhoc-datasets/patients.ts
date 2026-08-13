@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AllergyIntolerance,
   Appointment,
@@ -24,25 +23,10 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import {
-  AdHocPatientRow,
-  AdHocPatientsInput,
-  AdHocPatientsOutputSchema,
-} from 'utils/lib/types/adhoc/datasets/patients';
-import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
-import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { wrapHandler } from '../../shared/sentry';
-import { ZambdaInput } from '../../shared/types/common';
-import { validateOutputWithSchema } from '../../shared/validate-zod';
-import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
-
-const ZAMBDA_NAME = 'adhoc-patients';
+import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../adhoc-report';
 
 const hasTag = (resource: { meta?: { tag?: { code?: string }[] } }, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((t) => t.code === code));
@@ -60,22 +44,6 @@ interface PatientAgg {
   providers: Set<string>;
   serviceCategories: Set<string>;
 }
-
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, ...params } = validateRequestParameters(input);
-
-  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-
-  const rows = await fetchAdHocPatientRows(oystehr, params);
-
-  // The endpoint's Zod schema is its contract: what leaves the zambda MUST match what the LLM was
-  // told about the rows. Fail loud at the source instead of as a client-side parse error.
-  const output = validateOutputWithSchema(AdHocPatientsOutputSchema, { patients: rows }, ZAMBDA_NAME);
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
 
 // The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
 // stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
@@ -101,10 +69,6 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     | MedicationStatement
     | Procedure
     | EpisodeOfCare;
-  // Shrink the page when patient-bound clinical layers are on (each adds resources per patient and
-  // the FHIR server caps response size). Pagination + client-side date batching make up the rest.
-  const heavy =
-    includeAllergies || includeProblems || includeMedications || includeSurgicalHistory || includeHospitalizations;
 
   // Anchored on Appointment in the date range (like the Encounters dataset), but folded to one row
   // per patient. Patient-bound clinical layers ride along via patient-scoped revincludes.
@@ -121,7 +85,6 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
   // and disagree with the Recent Patients report.
   const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
     dateRange,
-    pageSize: heavy ? 400 : 1000,
     extraParams: layerRevincludes,
     statuses: REPORT_ATTENDED_APPOINTMENT_STATUSES,
   });

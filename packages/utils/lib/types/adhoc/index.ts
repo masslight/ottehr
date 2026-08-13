@@ -7,6 +7,7 @@ export * from './datasets/billing';
 export * from './query/layers';
 export * from './query/date-range';
 export * from './generation/generate.types';
+export * from './generation/report-task';
 export * from './generation/infer.types';
 export * from './generation/runtime-scope';
 export * from './generation/transpile';

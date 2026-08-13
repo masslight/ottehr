@@ -1,15 +1,15 @@
-import { layerIncludeFlags, layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
+import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   AdHocEncounterRow,
+  AdHocEncountersOutput,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/encounters';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
-import { getAdHocEncounters } from '../../../api/api';
 import { buildTrackingBoardPath } from '../../../pages/reports/trackingBoardLink';
-import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from '../query/batching';
+import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -40,22 +40,18 @@ async function fetchAdHocEncounters({
 }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
 
-  const flags = layerIncludeFlags(ENCOUNTER_LAYERS, opts);
+  const result = await queryClient.fetchQuery({
+    queryKey: ['adhoc-encounters', dateRange, opts],
+    queryFn: () =>
+      runAdHocReport<AdHocEncountersOutput>(oystehrZambda, {
+        datasetId: 'encounters-comprehensive',
+        dateRange,
+        options: opts,
+      }),
+    staleTime: ADHOC_QUERY_STALE_MS,
+  });
 
-  const rows = await fetchBatchedRange(
-    dateRange,
-    (range) =>
-      queryClient
-        .fetchQuery({
-          queryKey: ['adhoc-encounters', range, flags],
-          queryFn: () => getAdHocEncounters(oystehrZambda, { dateRange: range, ...flags }),
-          staleTime: ADHOC_QUERY_STALE_MS,
-        })
-        .then((r) => r.encounters.map(localizeEncounterRow)),
-    dedupeByEncounter
-  );
-
-  return rows;
+  return result.encounters.map(localizeEncounterRow);
 }
 
 export const adhocEncountersDataset: AdHocDataset = {
