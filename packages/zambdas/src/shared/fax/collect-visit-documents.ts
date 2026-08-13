@@ -26,7 +26,8 @@ import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
  * the usual case) or it was generated for this packet only (`bytes`, e.g. an unsigned visit note).
  */
 export interface FaxPacketPart {
-  kind: FaxDocumentKind;
+  /** Absent for patient-level documents, which are not one of the visit document kinds. */
+  kind?: FaxDocumentKind;
   /** Human label, used for logging and for the Task.input snapshot of what was faxed. */
   title: string;
   documentReferenceId?: string;

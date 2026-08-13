@@ -1,7 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FaxRecipientResult, GetFaxPacketPreviewOutput, GetFaxPacketStatusOutput } from 'utils/lib/types/api/fax.types';
+import {
+  FaxPacketSource,
+  FaxRecipientResult,
+  GetFaxPacketPreviewOutput,
+  GetFaxPacketStatusOutput,
+} from 'utils/lib/types/api/fax.types';
 import { FAX_STATUS_POLL_TIMEOUT_MS } from '../model/faxPolling';
 import { toSendFaxPacketInput } from '../model/faxRecipients';
 import { FaxFormValues } from '../model/types';
@@ -28,7 +33,11 @@ export interface UseSendFaxResult {
   dismissFailures: () => void;
 }
 
-export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult => {
+export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResult => {
+  // Only a single-visit packet has a document checklist to preview; the other sources send a fixed set.
+  const previewAppointmentId = source?.type === 'visit' ? source.appointmentId : undefined;
+  // Visit-scoped history is what a visit send invalidates; other sources have none to refresh.
+  const appointmentId = previewAppointmentId;
   const [isOpen, setIsOpen] = useState(false);
   // Every queued send is tracked independently, so sending a second fax for the same visit never abandons
   // the first. Jobs stay here (and keep polling) regardless of whether the dialog is open.
@@ -43,7 +52,7 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
   pendingTaskIdRef.current = pendingTaskId;
 
   const queryClient = useQueryClient();
-  const preview = useFaxPacketPreview(appointmentId, isOpen);
+  const preview = useFaxPacketPreview(previewAppointmentId, isOpen);
   const sendMutation = useSendFaxPacket();
   const statuses = useFaxPacketStatuses(activeTaskIds);
 
@@ -83,8 +92,8 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
 
   const send = useCallback(
     async (values: FaxFormValues): Promise<void> => {
-      if (!appointmentId) return;
-      const { taskId } = await sendMutation.mutateAsync(toSendFaxPacketInput(appointmentId, values));
+      if (!source) return;
+      const { taskId } = await sendMutation.mutateAsync(toSendFaxPacketInput(source, values));
 
       timers.current.set(
         taskId,
@@ -102,7 +111,7 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
       setActiveTaskIds((prev) => [...prev, taskId]);
       setPendingTaskId(taskId);
     },
-    [appointmentId, sendMutation, finishJob]
+    [source, sendMutation, finishJob]
   );
 
   // React to each polled Task reaching a terminal state.
@@ -125,8 +134,8 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
     isOpen,
     open,
     close,
-    isLoadingPreview: preview.isLoading,
-    previewError: preview.isError,
+    isLoadingPreview: Boolean(previewAppointmentId) && preview.isLoading,
+    previewError: Boolean(previewAppointmentId) && preview.isError,
     preview: preview.data,
     isSending: sendMutation.isPending || Boolean(pendingTaskId),
     send,

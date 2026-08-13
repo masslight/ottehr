@@ -44,6 +44,8 @@ export const FAX_PROGRESS_NOTE_INCLUDED_LABELS = ['Prescriptions', 'Patient Inst
 export const FAX_PROGRESS_NOTE_INCLUDED_HINT = 'Included in Visit/Progress Note';
 
 export const FAX_MAX_RECIPIENTS = 5;
+/** Visits a single patient-record fax may carry; each one adds its own cover sheet and documents. */
+export const FAX_MAX_VISITS = 10;
 export const FAX_PACKET_MAX_PAGES = 100;
 export const FAX_PACKET_MAX_BYTES = 20 * 1024 * 1024;
 
@@ -64,9 +66,28 @@ export const FaxRecipientSchema = z.object({
 
 export type FaxRecipient = z.infer<typeof FaxRecipientSchema>;
 
+/**
+ * What the packet is built from. Each variant is one entry point in the EHR:
+ * - `visit`: the encounter header's "Fax Documents", which sends one visit's package.
+ * - `visits`: "Fax Patient Docs" on the patient record; each visit gets its own cover sheet.
+ * - `medical-record`: the Medical Record menu, i.e. every document on file for the patient.
+ * - `document`: a single row of the patient's Docs table.
+ */
+export const FaxPacketSourceSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('visit'), appointmentId: z.string().uuid() }),
+  z.object({
+    type: z.literal('visits'),
+    patientId: z.string().uuid(),
+    appointmentIds: z.array(z.string().uuid()).min(1).max(FAX_MAX_VISITS),
+  }),
+  z.object({ type: z.literal('medical-record'), patientId: z.string().uuid() }),
+  z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
+]);
+export type FaxPacketSource = z.infer<typeof FaxPacketSourceSchema>;
+
 export const SendFaxPacketInputSchema = z
   .object({
-    appointmentId: z.string().uuid(),
+    source: FaxPacketSourceSchema,
     recipients: z.array(FaxRecipientSchema).min(1).max(FAX_MAX_RECIPIENTS),
   })
   .refine(
@@ -144,6 +165,8 @@ export const FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON = 'Included in Di
 /** Request payload (JSON) carried on the fax-packet Task, read by the subscription that does the work.
  * The appointment is on `Task.focus` and the patient on `Task.for`; this holds the rest. */
 export interface FaxPacketTaskPayload {
+  /** What to build the packet from; absent on tasks queued before sources existed (visit only). */
+  source?: FaxPacketSource;
   recipients: FaxRecipient[];
   /** Practitioner reference of the requesting user, used as the fax sender / cover-sheet sender. */
   senderPractitionerId: string;

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -11,10 +11,22 @@ const VISITS = [
   { appointmentId: 'appointment-2', dateTime: '2026-07-02T11:30:00.000-04:00', timezone: 'America/New_York' },
 ];
 
-const mockSendFax = vi.fn<(...args: any[]) => Promise<void>>();
+const mockUseSendFax = vi.fn();
+const mockOpen = vi.fn();
 const mockDownloadMedicalRecord = vi.fn<() => Promise<void>>();
 
-vi.mock('src/hooks/useSendFax', () => ({ useSendFax: () => mockSendFax }));
+// The fax slice owns sending; this page's job is to hand it the right source and visit list.
+vi.mock('src/features/fax', () => ({
+  useSendFax: (source: unknown) => {
+    mockUseSendFax(source);
+    return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false, failures: [] };
+  },
+  SendFaxDialog: ({ title, visits }: { title?: string; visits?: { label: string }[] }) => (
+    <div data-testid="fax-dialog" data-title={title}>
+      {visits?.map((visit) => <span key={visit.label}>{visit.label}</span>)}
+    </div>
+  ),
+}));
 vi.mock('src/hooks/useDownloadMedicalRecord', () => ({
   useDownloadMedicalRecord: () => ({ downloadMedicalRecord: mockDownloadMedicalRecord, isDownloading: false }),
 }));
@@ -54,34 +66,27 @@ const renderPage = (): void => {
   );
 };
 
-const sendFaxTo = async (user: ReturnType<typeof userEvent.setup>, faxNumber: string): Promise<void> => {
-  await user.type(await screen.findByLabelText(/Fax number/i), faxNumber);
-  await user.click(screen.getByRole('button', { name: 'Send Fax' }));
-};
+/** The source the page last handed the fax slice. */
+const lastSource = (): any => mockUseSendFax.mock.calls.at(-1)?.[0];
 
 describe('PatientPage fax actions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockSendFax.mockResolvedValue(undefined);
-  });
+  beforeEach(() => vi.clearAllMocks());
 
-  it('faxes the selected visits from Fax Patient Docs', async () => {
+  it('faxes the patient visits from Fax Patient Docs', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /Fax Patient Docs/i }));
-    // Visits are listed in the office's own timezone, not the reader's.
+
+    expect(lastSource()).toEqual({
+      type: 'visits',
+      patientId: PATIENT_ID,
+      appointmentIds: ['appointment-1', 'appointment-2'],
+    });
+    expect(mockOpen).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Fax Patient Docs');
+    // Visits are offered in the office's own timezone, not the reader's.
     expect(screen.getByText('04/11/2026 09:30 AM ET')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('checkbox', { name: /07\/02\/2026/ }));
-    await sendFaxTo(user, '2125551234');
-
-    await waitFor(() =>
-      expect(mockSendFax).toHaveBeenCalledWith({
-        target: { type: 'visit-documents', patientId: PATIENT_ID, appointmentIds: ['appointment-1'] },
-        recipients: [{ name: '', organization: '', faxNumber: '2125551234', phoneNumber: '' }],
-      })
-    );
   });
 
   it('offers Download Archive and Send as Fax for the medical record', async () => {
@@ -92,7 +97,7 @@ describe('PatientPage fax actions', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Download Archive' }));
 
     expect(mockDownloadMedicalRecord).toHaveBeenCalledTimes(1);
-    expect(mockSendFax).not.toHaveBeenCalled();
+    expect(mockOpen).not.toHaveBeenCalled();
   });
 
   it('faxes the whole record from the Medical Record menu', async () => {
@@ -102,16 +107,10 @@ describe('PatientPage fax actions', () => {
     await user.click(screen.getByRole('button', { name: /Medical Record/i }));
     await user.click(screen.getByRole('menuitem', { name: 'Send as Fax' }));
 
-    // The whole record is one fax, so no visit picker is shown.
-    expect(screen.queryByText('Select Visits')).not.toBeInTheDocument();
-    await sendFaxTo(user, '2125551234');
-
-    await waitFor(() =>
-      expect(mockSendFax).toHaveBeenCalledWith({
-        target: { type: 'medical-record', patientId: PATIENT_ID },
-        recipients: [{ name: '', organization: '', faxNumber: '2125551234', phoneNumber: '' }],
-      })
-    );
+    expect(lastSource()).toEqual({ type: 'medical-record', patientId: PATIENT_ID });
+    expect(mockOpen).toHaveBeenCalledTimes(1);
     expect(mockDownloadMedicalRecord).not.toHaveBeenCalled();
+    // The whole record is one packet, so no visit picker is offered.
+    expect(screen.getByTestId('fax-dialog')).not.toHaveTextContent('04/11/2026');
   });
 });

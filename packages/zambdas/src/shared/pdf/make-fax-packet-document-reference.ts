@@ -23,8 +23,9 @@ export async function makeFaxPacketDocumentReference(args: {
   oystehr: Oystehr;
   pdfInfo: PdfInfo;
   patientId: string;
-  appointmentId: string;
-  encounterId: string;
+  /** Visit context, when the packet belongs to one visit. Patient-level packets carry neither. */
+  appointmentId?: string;
+  encounterId?: string;
   listResources: List[];
 }): Promise<DocumentReference> {
   const { oystehr, pdfInfo, patientId, appointmentId, encounterId, listResources } = args;
@@ -50,15 +51,22 @@ export async function makeFaxPacketDocumentReference(args: {
       subject: {
         reference: `Patient/${patientId}`,
       },
-      context: {
-        related: [{ reference: `Appointment/${appointmentId}` }],
-        encounter: [{ reference: `Encounter/${encounterId}` }],
-      },
+      ...(appointmentId && encounterId
+        ? {
+            context: {
+              related: [{ reference: `Appointment/${appointmentId}` }],
+              encounter: [{ reference: `Encounter/${encounterId}` }],
+            },
+          }
+        : {}),
     },
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
+    // Scoped to whatever the packet hangs off, so the unique-title check only looks at its own siblings.
+    searchParams: encounterId
+      ? [{ name: 'encounter', value: `Encounter/${encounterId}` }]
+      : [{ name: 'subject', value: `Patient/${patientId}` }],
     listResources,
   });
   return docRefs[0];

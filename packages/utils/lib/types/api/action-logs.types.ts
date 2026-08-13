@@ -82,8 +82,6 @@ export interface OutboundDeliveryAttemptData {
   recipientOrganization?: string;
   recipientPhone?: string;
   documentReferenceId?: string;
-  /** Z3 URL of the transmitted file; lets a retry re-send exactly what was sent the first time. */
-  media?: string;
   faxPacketPageCount?: number;
   faxPacketParts?: string[];
   communicationReference?: string;

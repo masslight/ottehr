@@ -7,14 +7,12 @@ import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
-  OutboundDeliveryRecipientSnapshot,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   ACTION_LOGS_DISPLAY_WINDOW_DAYS,
   ACTION_LOGS_PAGE_SIZE,
-  ActionLogChannel,
   ActionLogEntry,
   GetActionLogsInputValidated,
   GetActionLogsOutput,
@@ -185,21 +183,8 @@ function composeEntry(
     documentReferenceId: recipient.documentReferenceId,
     canRetry:
       status === 'failed' &&
-      hasResendableContent(channel, recipient, appointmentId) &&
+      Boolean(appointmentId) &&
       Boolean(recipient.address?.trim()) &&
       !retriedAttemptIds.has(task.id!),
   };
-}
-
-/**
- * A retry has to be able to reproduce what was sent: the exact transmitted file when the attempt
- * recorded one, otherwise the document it named — or, for a visit note, the visit it belongs to.
- */
-function hasResendableContent(
-  channel: ActionLogChannel,
-  recipient: OutboundDeliveryRecipientSnapshot,
-  appointmentId: string | undefined
-): boolean {
-  if (channel === 'email') return Boolean(appointmentId);
-  return Boolean(recipient.media || recipient.documentReferenceId || appointmentId);
 }

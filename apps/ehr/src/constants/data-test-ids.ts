@@ -118,6 +118,7 @@ export const dataTestIds = {
     faxNumber: 'fax-dialog-recipient-fax-number',
     phoneNumber: 'fax-dialog-recipient-phone-number',
     saveAsPcp: 'fax-dialog-save-as-pcp',
+    visitCheckbox: 'fax-dialog-visit',
     addRecipient: 'fax-dialog-add-recipient',
     removeRecipient: 'fax-dialog-remove-recipient',
     sendButton: 'fax-dialog-send-button',
@@ -471,13 +472,6 @@ export const dataTestIds = {
     medicalRecordButton: 'medical-record-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
     faxMedicalRecordMenuItem: 'fax-medical-record-menu-item',
-  },
-  sendFaxDialog: {
-    dialog: 'send-fax-dialog',
-    faxNumberInput: (index: number) => `send-fax-dialog-fax-number-${index}`,
-    addRecipientButton: 'send-fax-dialog-add-recipient-button',
-    transmissionLimitMessage: 'send-fax-dialog-transmission-limit-message',
-    sendButton: 'send-fax-dialog-send-button',
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,

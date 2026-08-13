@@ -2,22 +2,19 @@ import Oystehr from '@oystehr/sdk';
 import { Practitioner, Task } from 'fhir/r4b';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
-  addOutboundDeliveryAttemptContent,
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,
   failOutboundDeliveryAttempt,
 } from './outbound-delivery';
 
 export interface SendFaxAttemptInput {
-  /** Absent when the fax doesn't concern a single visit (e.g. a whole medical record). */
+  /** Absent when the packet does not belong to a single visit (a medical record, or one document). */
   appointmentId?: string;
   faxNumber: string;
   organizationId: string;
   patientId: string;
-  /** URL handed to the fax provider; also stored on the attempt so a retry re-sends the same file. */
   media: string;
-  /** Set only when the fax carries exactly one document. */
-  documentReferenceId?: string;
+  documentReferenceId: string;
   userPractitioner: Practitioner;
   recipientName?: string;
   /** Practice or facility the recipient belongs to. Fax packet sends only. */
@@ -32,15 +29,8 @@ export interface SendFaxAttemptInput {
   senderId: string;
 }
 
-/**
- * Records the outbound delivery attempt before any fallible packet preparation, then sends the fax
- * and settles the attempt's outcome. This keeps assembly/upload failures visible in the action log.
- */
-export async function sendFaxAttempt(
-  input: SendFaxAttemptInput,
-  oystehr: Oystehr,
-  prepare?: () => Promise<void>
-): Promise<Task> {
+/** Records the outbound delivery attempt, then sends the fax and settles the attempt's outcome. */
+export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oystehr): Promise<Task> {
   const {
     appointmentId,
     faxNumber,
@@ -60,12 +50,14 @@ export async function sendFaxAttempt(
   const attempt = await createOutboundDeliveryAttempt(oystehr, {
     channel: 'fax',
     patientId,
+    appointmentId,
     recipientAddress: faxNumber,
     recipientName,
     recipientOrganization,
     recipientPhone,
     faxPacketPageCount,
     faxPacketParts,
+    documentReferenceId,
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
     senderOrganizationReference: `Organization/${organizationId}`,
     parentAttemptId,
@@ -74,18 +66,6 @@ export async function sendFaxAttempt(
   });
 
   if (!attempt.id) throw new Error('Outbound fax attempt was created without an id');
-
-  try {
-    await prepare?.();
-    await addOutboundDeliveryAttemptContent(oystehr, attempt.id, {
-      media: input.media,
-      appointmentId,
-      documentReferenceId,
-    });
-  } catch (error) {
-    await failOutboundDeliveryAttempt(oystehr, attempt.id, error);
-    throw error;
-  }
 
   return deliverFaxAttempt(input, oystehr, attempt);
 }

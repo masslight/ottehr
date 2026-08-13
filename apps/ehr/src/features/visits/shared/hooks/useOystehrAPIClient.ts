@@ -32,7 +32,6 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           updatePatientAccountZambdaID: 'update-patient-account',
           removePatientCoverageZambdaID: 'remove-patient-coverage',
           mergePatientsZambdaID: 'merge-patients',
-          sendFaxZambdaID: 'send-fax',
           sendFaxPacketZambdaID: 'send-fax-packet',
           getFaxPacketPreviewZambdaID: 'get-fax-packet-preview',
           getFaxPacketStatusZambdaID: 'get-fax-packet-status',

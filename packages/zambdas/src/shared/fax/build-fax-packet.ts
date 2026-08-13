@@ -15,41 +15,44 @@ import { createFaxCoverSheetPdfBytes } from '../pdf/fax-cover-sheet-pdf';
 import { makeFaxPacketDocumentReference } from '../pdf/make-fax-packet-document-reference';
 import { downloadPdfBytes, mergePdfDocuments } from '../pdf/merge-pdfs';
 import { PdfInfo } from '../pdf/pdf-utils';
-import { FaxCoverSheetData } from '../pdf/types';
+import { FaxCoverSheetData, FaxCoverSheetSubject } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { collectFaxParts, FaxPacketPart } from './collect-visit-documents';
 
 /**
- * The selected visit documents merged into one PDF, without a cover sheet.
- *
- * For now the body is identical for every recipient (only the cover sheet differs), so it is built once per
- * request and reused. If recipients later get per-recipient options that affect the body, this will need to
- * be rebuilt per recipient.
+ * One cover sheet's worth of documents, merged into a single PDF. A packet has one section per
+ * visit, so a multi-visit send introduces each visit with its own cover sheet.
  */
-export interface FaxPacketBody {
+export interface FaxPacketSection {
+  subject: FaxCoverSheetSubject;
   bytes: Uint8Array;
   pageCount: number;
   parts: FaxPacketPart[];
 }
 
-const MAX_BYTES_MB = (FAX_PACKET_MAX_BYTES / (1024 * 1024)).toFixed(0);
+/**
+ * The selected documents merged into PDFs, without cover sheets.
+ *
+ * The body is identical for every recipient (only the cover sheets differ), so it is built once per
+ * request and reused. If recipients later get per-recipient options that affect the body, this will need to
+ * be rebuilt per recipient.
+ */
+export interface FaxPacketBody {
+  sections: FaxPacketSection[];
+  /** Document pages across every section; cover sheets are added per recipient. */
+  pageCount: number;
+  parts: FaxPacketPart[];
+}
 
-export async function buildFaxPacketBody(args: {
-  oystehr: Oystehr;
+/** Merges already-collected parts into one section. */
+export async function buildFaxPacketSection(args: {
   token: string;
-  secrets: Secrets | null;
-  kinds?: FaxDocumentKind[];
-  visitResources: FullAppointmentResourcePackage;
-}): Promise<FaxPacketBody> {
-  const { oystehr, token, secrets, visitResources } = args;
-  const kinds = args.kinds ?? FAX_DOCUMENT_ORDER;
-
-  const parts = await collectFaxParts({ oystehr, token, secrets, kinds, visitResources });
-  if (parts.length === 0) {
-    throw new Error('No documents could be collected for the fax packet. Nothing was sent.');
-  }
+  subject: FaxCoverSheetSubject;
+  parts: FaxPacketPart[];
+}): Promise<FaxPacketSection> {
+  const { token, subject, parts } = args;
 
   const partBytes = await Promise.all(
     parts.map(async (part) => {
@@ -60,8 +63,37 @@ export async function buildFaxPacketBody(args: {
   );
 
   const { bytes, pageCount } = await mergePdfDocuments(partBytes);
-  console.log(`Built fax packet body: ${parts.length} document(s), ${pageCount} page(s)`);
-  return { bytes, pageCount, parts };
+  return { subject, bytes, pageCount, parts };
+}
+
+/** Collapses sections into the shape the sender works with. */
+export const toFaxPacketBody = (sections: FaxPacketSection[]): FaxPacketBody => ({
+  sections,
+  pageCount: sections.reduce((total, section) => total + section.pageCount, 0),
+  parts: sections.flatMap((section) => section.parts),
+});
+
+const MAX_BYTES_MB = (FAX_PACKET_MAX_BYTES / (1024 * 1024)).toFixed(0);
+
+export async function buildFaxPacketBody(args: {
+  oystehr: Oystehr;
+  token: string;
+  secrets: Secrets | null;
+  kinds?: FaxDocumentKind[];
+  visitResources: FullAppointmentResourcePackage;
+  subject: FaxCoverSheetSubject;
+}): Promise<FaxPacketBody> {
+  const { oystehr, token, secrets, visitResources, subject } = args;
+  const kinds = args.kinds ?? FAX_DOCUMENT_ORDER;
+
+  const parts = await collectFaxParts({ oystehr, token, secrets, kinds, visitResources });
+  if (parts.length === 0) {
+    throw new Error('No documents could be collected for the fax packet. Nothing was sent.');
+  }
+
+  const section = await buildFaxPacketSection({ token, subject, parts });
+  console.log(`Built fax packet body: ${parts.length} document(s), ${section.pageCount} page(s)`);
+  return toFaxPacketBody([section]);
 }
 
 /**
@@ -77,35 +109,48 @@ export async function buildAndUploadPacketForRecipient(args: {
   secrets: Secrets | null;
   body: FaxPacketBody;
   recipient: FaxRecipient;
-  /** Subject + sender are supplied by the caller; recipient and totalPages are filled in here. */
-  coverSheet: Omit<FaxCoverSheetData, 'totalPages' | 'recipient'>;
+  /** Sender + generatedAt; each section supplies its own subject, and totalPages is filled in here. */
+  coverSheet: Omit<FaxCoverSheetData, 'totalPages' | 'recipient' | 'subject'>;
   patientId: string;
-  appointmentId: string;
-  encounterId: string;
+  /** Absent when the packet does not belong to a single visit. */
+  appointmentId?: string;
+  encounterId?: string;
   listResources: List[];
 }): Promise<{ pdfInfo: PdfInfo; documentReference: DocumentReference; pageCount: number }> {
   const { oystehr, token, secrets, body, recipient, coverSheet, patientId, appointmentId, encounterId, listResources } =
     args;
 
-  const coverData: Omit<FaxCoverSheetData, 'totalPages'> = {
-    ...coverSheet,
-    recipient: {
-      name: recipient.name,
-      organization: recipient.organization,
-      faxNumber: recipient.faxNumber,
-      phoneNumber: recipient.phoneNumber,
-    },
+  const recipientDetails = {
+    name: recipient.name,
+    organization: recipient.organization,
+    faxNumber: recipient.faxNumber,
+    phoneNumber: recipient.phoneNumber,
   };
 
-  // The cover sheet prints the packet's total page count, which depends on how long the cover sheet
-  // itself is. One correction pass is enough: the count only ever grows the footer text.
-  let coverBytes = await createFaxCoverSheetPdfBytes({ ...coverData, totalPages: 1 + body.pageCount });
-  let merged = await mergePdfDocuments([coverBytes, body.bytes]);
+  // Every cover sheet prints the whole transmission's page count, which depends on how long the
+  // cover sheets themselves are. One correction pass is enough: the count only ever grows the
+  // footer text.
+  const renderCovers = async (totalPages: number): Promise<Uint8Array[]> =>
+    Promise.all(
+      body.sections.map((section) =>
+        createFaxCoverSheetPdfBytes({
+          ...coverSheet,
+          subject: section.subject,
+          recipient: recipientDetails,
+          totalPages,
+        })
+      )
+    );
+  const interleave = (covers: Uint8Array[]): Uint8Array[] =>
+    covers.flatMap((cover, index) => [cover, body.sections[index].bytes]);
+
+  let covers = await renderCovers(body.sections.length + body.pageCount);
+  let merged = await mergePdfDocuments(interleave(covers));
   const coverPages = merged.pageCount - body.pageCount;
 
-  if (coverPages !== 1) {
-    coverBytes = await createFaxCoverSheetPdfBytes({ ...coverData, totalPages: coverPages + body.pageCount });
-    merged = await mergePdfDocuments([coverBytes, body.bytes]);
+  if (coverPages !== body.sections.length) {
+    covers = await renderCovers(coverPages + body.pageCount);
+    merged = await mergePdfDocuments(interleave(covers));
   }
 
   // Enforced before the upload so an oversized packet leaves nothing behind in storage.

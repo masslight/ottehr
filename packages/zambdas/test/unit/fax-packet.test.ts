@@ -117,20 +117,20 @@ const makePdfBytes = async (pageCount: number): Promise<Uint8Array> => {
   return pdf.save();
 };
 
+/** Each section supplies its own subject; the sheet only carries what every section shares. */
+const subject = {
+  patientName: 'Black, Oliver',
+  patientId: 'patient-1',
+  visitId: APPOINTMENT_ID,
+  dateOfService: '07/14/2026',
+  visitTypeLabel: 'Urgent Care Visit',
+};
+
 const coverSheet = {
-  // Overwritten per recipient by buildAndUploadPacketForRecipient.
-  recipient: { faxNumber: '' },
   sender: {
     practitionerName: 'Dr. John Smith',
     organizationName: 'Ottehr Urgent Care',
     addressText: '123 Main St, New York, NY 10001',
-  },
-  subject: {
-    patientName: 'Black, Oliver',
-    patientId: 'patient-1',
-    visitId: APPOINTMENT_ID,
-    dateOfService: '07/14/2026',
-    visitTypeLabel: 'Urgent Care Visit',
   },
   generatedAt: '07/14/2026  03:45 PM',
 };
@@ -324,7 +324,14 @@ describe('collectFaxParts', () => {
 describe('buildFaxPacketBody', () => {
   it('throws when nothing at all could be collected', async () => {
     await expect(
-      buildFaxPacketBody({ oystehr, token: 'token', secrets: null, kinds: ['lab-results'], visitResources })
+      buildFaxPacketBody({
+        oystehr,
+        token: 'token',
+        secrets: null,
+        kinds: ['lab-results'],
+        visitResources,
+        subject,
+      })
     ).rejects.toThrow(/No documents could be collected/);
   });
 });
@@ -335,7 +342,7 @@ describe('buildAndUploadPacketForRecipient', () => {
       oystehr,
       token: 'token',
       secrets: null,
-      body: { ...body, parts: [] },
+      body: { sections: [{ ...body, subject, parts: [] }], pageCount: body.pageCount, parts: [] },
       recipient: { faxNumber: '+12125551234' },
       coverSheet,
       patientId: 'patient-1',

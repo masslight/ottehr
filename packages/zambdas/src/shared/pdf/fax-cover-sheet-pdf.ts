@@ -155,10 +155,12 @@ export async function createFaxCoverSheetPdfBytes(data: FaxCoverSheetData): Prom
   }
 
   const { subject } = data;
-  pdfClient.drawText(`${subject.visitTypeLabel} of ${subject.patientName}`, styles.textStyles.title);
+  const title = subject.visitTypeLabel ? `${subject.visitTypeLabel} of ${subject.patientName}` : subject.patientName;
+  pdfClient.drawText(title, styles.textStyles.title);
   pdfClient.drawText(`PID: ${subject.patientId}`, styles.textStyles.regular);
-  pdfClient.drawText(`VID: ${subject.visitId}`, styles.textStyles.regular);
-  pdfClient.drawText(`DOS: ${subject.dateOfService}`, styles.textStyles.regular);
+  // A packet that is not about one visit has no visit to identify or date.
+  if (subject.visitId) pdfClient.drawText(`VID: ${subject.visitId}`, styles.textStyles.regular);
+  if (subject.dateOfService) pdfClient.drawText(`DOS: ${subject.dateOfService}`, styles.textStyles.regular);
 
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
 

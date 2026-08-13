@@ -1,10 +1,9 @@
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockBuildFaxPacketBody = vi.fn();
 const mockBuildAndUploadPacketForRecipient = vi.fn();
-vi.mock('../../src/shared/fax/build-fax-packet', () => ({
-  buildFaxPacketBody: (...args: unknown[]) => mockBuildFaxPacketBody(...args),
+vi.mock('../../src/shared/fax/build-fax-packet', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
   buildAndUploadPacketForRecipient: (...args: unknown[]) => mockBuildAndUploadPacketForRecipient(...args),
 }));
 
@@ -73,12 +72,30 @@ const visitResources = (over: Record<string, unknown> = {}): any => ({
   ...over,
 });
 
+/** One already-built section, standing in for whatever the source resolved to. */
+const plan = (over: Record<string, unknown> = {}): any => ({
+  patient: basePatient(),
+  sections: [
+    {
+      subject: { patientName: 'Black, Oliver', patientId: 'patient-1' },
+      bytes: new Uint8Array([1, 2, 3]),
+      pageCount: 4,
+      parts: [{ kind: 'progress-note', title: 'Visit/Progress Note' }],
+    },
+  ],
+  appointmentId: 'appt-1',
+  encounterId: 'enc-1',
+  location: visitResources().location,
+  timezone: 'America/New_York',
+  listResources: [],
+  ...over,
+});
+
 const deliverArgs = (recipients: any[], over: Record<string, unknown> = {}): any => ({
   oystehr: {} as any,
   token: 'tok',
   secrets: null,
-  visitResources: visitResources(),
-  patient: basePatient(),
+  plan: plan(),
   organization,
   senderPractitioner,
   senderUserId: 'user-1',
@@ -88,13 +105,24 @@ const deliverArgs = (recipients: any[], over: Record<string, unknown> = {}): any
 });
 
 describe('deliverFaxPacket', () => {
+  it('refuses to send a packet with no sections rather than faxing bare cover sheets', async () => {
+    await expect(
+      deliverFaxPacket(deliverArgs([{ faxNumber: '+12125551234' }], { plan: plan({ sections: [] }) }))
+    ).rejects.toThrow(/No documents could be collected/);
+  });
+
+  it('sends a patient-level packet that names no visit', async () => {
+    await deliverFaxPacket(
+      deliverArgs([{ faxNumber: '+12125551234' }], {
+        plan: plan({ appointmentId: undefined, encounterId: undefined, timezone: undefined, location: undefined }),
+      })
+    );
+
+    expect(mockSendFaxAttempt.mock.calls[0][0].appointmentId).toBeUndefined();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockBuildFaxPacketBody.mockResolvedValue({
-      bytes: new Uint8Array([1, 2, 3]),
-      pageCount: 4,
-      parts: [{ kind: 'progress-note', title: 'Visit/Progress Note' }],
-    });
     mockBuildAndUploadPacketForRecipient.mockImplementation(async ({ recipient }: any) => ({
       pdfInfo: { title: 'packet.pdf', uploadURL: `https://z3/${recipient.faxNumber}.pdf` },
       documentReference: { resourceType: 'DocumentReference', id: `docref-${recipient.faxNumber}` },
@@ -106,12 +134,11 @@ describe('deliverFaxPacket', () => {
     }));
   });
 
-  it('builds the body once and returns a sent result per recipient', async () => {
+  it('returns a sent result per recipient', async () => {
     const results = await deliverFaxPacket(
       deliverArgs([{ name: 'Olivia Green', organization: 'Green FP', faxNumber: '+12125551234' }])
     );
 
-    expect(mockBuildFaxPacketBody).toHaveBeenCalledTimes(1);
     expect(results).toEqual([
       {
         name: 'Olivia Green',

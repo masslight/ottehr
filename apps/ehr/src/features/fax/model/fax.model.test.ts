@@ -17,6 +17,8 @@ const availability = (overrides: Partial<Record<string, boolean>> = {}): FaxDocu
     (kind) => ({ kind, available: overrides[kind] ?? true })
   );
 
+const visitSource = { type: 'visit', appointmentId: 'appointment-1' } as const;
+
 const recipient = (overrides: Partial<FaxRecipientFormValue> = {}): FaxRecipientFormValue => ({
   ...emptyRecipient(),
   faxNumber: '2027139680',
@@ -80,13 +82,27 @@ describe('faxRecipients', () => {
     expect(canSend([recipient({ faxNumber: '123' })], true)).toBe(false);
   });
 
+  it('narrows a multi-visit source to the visits left checked', () => {
+    const input = toSendFaxPacketInput(
+      { type: 'visits', patientId: 'patient-1', appointmentIds: ['a', 'b'] },
+      { recipients: [recipient()], selectedAppointmentIds: ['b'] }
+    );
+
+    expect(input.source).toEqual({ type: 'visits', patientId: 'patient-1', appointmentIds: ['b'] });
+  });
+
+  it('leaves a source without a visit choice exactly as requested', () => {
+    const source = { type: 'medical-record', patientId: 'patient-1' } as const;
+    expect(toSendFaxPacketInput(source, { recipients: [recipient()] }).source).toEqual(source);
+  });
+
   it('maps the form to the wire contract, dropping blank optional fields and the documents list', () => {
-    const input = toSendFaxPacketInput('appointment-1', {
+    const input = toSendFaxPacketInput(visitSource, {
       recipients: [recipient({ name: '  Dr. Lion  ', organization: '', phoneNumber: '', saveAsPcp: false })],
     });
 
     expect(input).toEqual({
-      appointmentId: 'appointment-1',
+      source: visitSource,
       recipients: [{ name: 'Dr. Lion', organization: undefined, faxNumber: '2027139680', phoneNumber: undefined }],
     });
     expect('documents' in input).toBe(false);
@@ -94,7 +110,7 @@ describe('faxRecipients', () => {
   });
 
   it('carries saveAsPcp through for the flagged recipient', () => {
-    const input = toSendFaxPacketInput('appointment-1', {
+    const input = toSendFaxPacketInput(visitSource, {
       recipients: [recipient({ saveAsPcp: true }), recipient({ faxNumber: '2027139681' })],
     });
     expect(input.recipients.filter((entry) => entry.saveAsPcp)).toHaveLength(1);

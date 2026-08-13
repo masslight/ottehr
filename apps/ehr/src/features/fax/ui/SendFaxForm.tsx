@@ -1,34 +1,59 @@
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, DialogActions, DialogContent, Stack, Tooltip, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  DialogActions,
+  DialogContent,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
+  Stack,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { FC } from 'react';
-import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
+import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { FAX_MAX_VISITS, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { documentLabelGroups, hasNothingToSend } from '../model/faxDocuments';
 import { buildDefaultFormValues } from '../model/faxForm';
 import { applySaveAsPcp, canAddRecipient, canSend, emptyRecipient } from '../model/faxRecipients';
-import { FaxFormValues } from '../model/types';
+import { FaxFormValues, FaxVisitOption } from '../model/types';
 import { RecipientFields } from './RecipientFields';
 
 interface SendFaxFormProps {
-  preview: GetFaxPacketPreviewOutput;
+  /** Only a single-visit packet has a document checklist; other sources send a fixed set. */
+  preview?: GetFaxPacketPreviewOutput;
+  /** When given, the user picks which visits to fax; shown only when there is more than one. */
+  visits?: FaxVisitOption[];
   isSending: boolean;
   onSubmit: (values: FaxFormValues) => void;
   onCancel: () => void;
 }
 
-export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit, onCancel }) => {
+export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, visits, isSending, onSubmit, onCancel }) => {
   const theme = useTheme();
 
-  const methods = useForm<FaxFormValues>({ mode: 'onChange', defaultValues: buildDefaultFormValues(preview) });
+  const methods = useForm<FaxFormValues>({
+    mode: 'onChange',
+    defaultValues: buildDefaultFormValues(preview, visits),
+  });
   const { control, watch, getValues, handleSubmit } = methods;
   const recipientsArray = useFieldArray({ control, name: 'recipients' });
 
   const recipients = watch('recipients');
-  const { included, excluded } = documentLabelGroups(preview.documents);
-  const sendEnabled = canSend(recipients, included.length > 0);
+  const selectedAppointmentIds = watch('selectedAppointmentIds') ?? [];
+  // A single visit is faxed without asking; the picker only earns its space when there is a choice.
+  const showVisitPicker = (visits?.length ?? 0) > 1;
+  const visitSelectionValid = !visits?.length || selectedAppointmentIds.length > 0;
+  const tooManyVisits = selectedAppointmentIds.length > FAX_MAX_VISITS;
+  const { included, excluded } = documentLabelGroups(preview?.documents ?? []);
+  const sendEnabled =
+    canSend(recipients, preview ? included.length > 0 : true) && visitSelectionValid && !tooManyVisits;
 
   const documentsTooltip = (
     <Box>
@@ -67,12 +92,53 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
-            <Typography>Fax all visit-related documents</Typography>
-            <Tooltip title={documentsTooltip} placement="top">
-              <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
-            </Tooltip>
-          </Stack>
+          {preview && (
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
+              <Typography>Fax all visit-related documents</Typography>
+              <Tooltip title={documentsTooltip} placement="top">
+                <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
+              </Tooltip>
+            </Stack>
+          )}
+
+          {showVisitPicker && (
+            <>
+              <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 1 }}>
+                Select Visits
+              </Typography>
+              <Controller
+                name="selectedAppointmentIds"
+                control={control}
+                render={({ field }) => (
+                  <FormGroup sx={{ mb: 2 }}>
+                    {visits?.map((visit) => (
+                      <FormControlLabel
+                        key={visit.appointmentId}
+                        label={visit.label}
+                        control={
+                          <Checkbox
+                            checked={(field.value ?? []).includes(visit.appointmentId)}
+                            data-testid={`${dataTestIds.faxDialog.visitCheckbox}-${visit.appointmentId}`}
+                            onChange={(event) =>
+                              field.onChange(
+                                event.target.checked
+                                  ? [...(field.value ?? []), visit.appointmentId]
+                                  : (field.value ?? []).filter((id: string) => id !== visit.appointmentId)
+                              )
+                            }
+                          />
+                        }
+                      />
+                    ))}
+                    {!visitSelectionValid && <FormHelperText error>Select at least one visit</FormHelperText>}
+                    {tooManyVisits && (
+                      <FormHelperText error>{`A fax can carry at most ${FAX_MAX_VISITS} visits`}</FormHelperText>
+                    )}
+                  </FormGroup>
+                )}
+              />
+            </>
+          )}
 
           <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 2 }}>
             Recipient Information
@@ -118,7 +184,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit
             type="submit"
             variant="contained"
             loading={isSending}
-            disabled={!sendEnabled || hasNothingToSend(preview.documents)}
+            disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
             sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
             data-testid={dataTestIds.faxDialog.sendButton}
           >

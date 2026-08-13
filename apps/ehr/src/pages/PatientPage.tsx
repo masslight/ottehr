@@ -29,9 +29,9 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
-import { SendFaxDialog, SendFaxFormData, SendFaxVisitOption } from 'src/components/dialogs/SendFaxDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { FaxVisitOption, SendFaxDialog, useSendFax } from 'src/features/fax';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
 import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
@@ -43,7 +43,6 @@ import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
-import { useSendFax } from 'src/hooks/useSendFax';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
@@ -73,6 +72,7 @@ export default function PatientPage(): JSX.Element {
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
   const [medicalRecordMenuAnchor, setMedicalRecordMenuAnchor] = useState<HTMLElement | null>(null);
+  // Which of the patient-record fax entry points is open; the source it sends is derived from it.
   const [faxDialog, setFaxDialog] = useState<'patient-docs' | 'medical-record' | null>(null);
 
   const currentUser = useEvolveUser();
@@ -199,8 +199,7 @@ export default function PatientPage(): JSX.Element {
   const appointments = useMemo(() => visitHistory?.visits ?? [], [visitHistory?.visits]);
   const latestAppointment = appointments?.[0];
 
-  const sendFax = useSendFax();
-  const faxableVisits: SendFaxVisitOption[] = useMemo(
+  const faxableVisits: FaxVisitOption[] = useMemo(
     () =>
       appointments.map((appointment) => ({
         appointmentId: appointment.appointmentId,
@@ -211,24 +210,29 @@ export default function PatientPage(): JSX.Element {
     [appointments]
   );
 
-  const handleFaxPatientDocsClick = (): void => {
-    if (!faxableVisits.length) {
+  const faxSource = useMemo(() => {
+    if (!id || !faxDialog) return undefined;
+    return faxDialog === 'medical-record'
+      ? ({ type: 'medical-record', patientId: id } as const)
+      : ({ type: 'visits', patientId: id, appointmentIds: faxableVisits.map((v) => v.appointmentId) } as const);
+  }, [faxDialog, faxableVisits, id]);
+
+  const faxController = useSendFax(faxSource);
+  const { open: openFaxDialog, isOpen: isFaxDialogOpen } = faxController;
+
+  // The controller owns the dialog's open state; clearing which entry point opened it keeps the
+  // source in step when the user closes it.
+  useEffect(() => {
+    if (!isFaxDialogOpen) setFaxDialog(null);
+  }, [isFaxDialogOpen]);
+
+  const openFaxFor = (target: 'patient-docs' | 'medical-record'): void => {
+    if (target === 'patient-docs' && !faxableVisits.length) {
       enqueueSnackbar('This patient has no visits to fax.', { variant: 'info' });
       return;
     }
-    setFaxDialog('patient-docs');
-  };
-
-  const handleSendFax = async ({ recipients, appointmentIds }: SendFaxFormData): Promise<void> => {
-    if (!id) return;
-    await sendFax({
-      target:
-        faxDialog === 'medical-record'
-          ? { type: 'medical-record', patientId: id }
-          : { type: 'visit-documents', patientId: id, appointmentIds: appointmentIds ?? [] },
-      recipients,
-    });
-    setFaxDialog(null);
+    setFaxDialog(target);
+    openFaxDialog();
   };
 
   return (
@@ -327,7 +331,7 @@ export default function PatientPage(): JSX.Element {
                     text="Fax Patient Docs"
                     backgroundColor={otherColors.lightBlue}
                     dataTestId={dataTestIds.patientRecordPage.faxPatientDocsButton}
-                    onClick={handleFaxPatientDocsClick}
+                    onClick={() => openFaxFor('patient-docs')}
                   >
                     <FaxOutlinedIcon />
                   </GoToButton>
@@ -373,7 +377,7 @@ export default function PatientPage(): JSX.Element {
               data-testid={dataTestIds.patientRecordPage.faxMedicalRecordMenuItem}
               onClick={() => {
                 setMedicalRecordMenuAnchor(null);
-                setFaxDialog('medical-record');
+                openFaxFor('medical-record');
               }}
             >
               <ListItemIcon>
@@ -383,14 +387,11 @@ export default function PatientPage(): JSX.Element {
             </MenuItem>
           </Menu>
 
-          {faxDialog && (
-            <SendFaxDialog
-              title={faxDialog === 'medical-record' ? 'Fax Medical Record' : 'Fax Patient Docs'}
-              visits={faxDialog === 'patient-docs' ? faxableVisits : undefined}
-              onClose={() => setFaxDialog(null)}
-              onSend={handleSendFax}
-            />
-          )}
+          <SendFaxDialog
+            controller={faxController}
+            title={faxDialog === 'medical-record' ? 'Fax Medical Record' : 'Fax Patient Docs'}
+            visits={faxDialog === 'patient-docs' ? faxableVisits : undefined}
+          />
 
           <PatientMergedBanner patient={patient} />
 

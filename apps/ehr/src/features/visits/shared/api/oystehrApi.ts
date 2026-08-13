@@ -69,7 +69,6 @@ import {
   MakeMedicationHistoryPdfZambdaOutput,
 } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import { ProcedureDetail, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
-import { SendFaxZambdaInput, SendFaxZambdaOutput } from 'utils/lib/types/api/send-fax.types';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -129,7 +128,6 @@ enum ZambdaNames {
   'update patient account' = 'update patient account',
   'remove patient coverage' = 'remove patient coverage',
   'merge patients' = 'merge patients',
-  'send fax' = 'send fax',
   'send fax packet' = 'send fax packet',
   'get fax packet preview' = 'get fax packet preview',
   'get fax packet status' = 'get fax packet status',
@@ -171,7 +169,6 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'update patient account': false,
   'remove patient coverage': false,
   'merge patients': false,
-  'send fax': false,
   'send fax packet': false,
   'get fax packet preview': false,
   'get fax packet status': false,
@@ -224,7 +221,6 @@ export const getOystehrTelemedAPI = (
   removePatientCoverage: typeof removePatientCoverage;
   mergePatients: typeof mergePatients;
   getMergePatientsTask: typeof getMergePatientsTask;
-  sendFax: typeof sendFax;
   sendFaxPacket: typeof sendFaxPacket;
   getFaxPacketPreview: typeof getFaxPacketPreview;
   getFaxPacketStatus: typeof getFaxPacketStatus;
@@ -265,7 +261,6 @@ export const getOystehrTelemedAPI = (
     updatePatientAccountZambdaID,
     removePatientCoverageZambdaID,
     mergePatientsZambdaID,
-    sendFaxZambdaID,
     sendFaxPacketZambdaID,
     getFaxPacketPreviewZambdaID,
     getFaxPacketStatusZambdaID,
@@ -307,7 +302,6 @@ export const getOystehrTelemedAPI = (
     'update patient account': updatePatientAccountZambdaID,
     'remove patient coverage': removePatientCoverageZambdaID,
     'merge patients': mergePatientsZambdaID,
-    'send fax': sendFaxZambdaID,
     'send fax packet': sendFaxPacketZambdaID,
     'get fax packet preview': getFaxPacketPreviewZambdaID,
     'get fax packet status': getFaxPacketStatusZambdaID,
@@ -466,10 +460,6 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
   };
 
-  const sendFax = async (parameters: SendFaxZambdaInput): Promise<SendFaxZambdaOutput> => {
-    return await makeZapRequest('send fax', parameters);
-  };
-
   const sendFaxPacket = async (parameters: SendFaxPacketInput): Promise<SendFaxPacketOutput> => {
     return await makeZapRequest('send fax packet', parameters);
   };
@@ -574,7 +564,6 @@ export const getOystehrTelemedAPI = (
     removePatientCoverage,
     mergePatients,
     getMergePatientsTask,
-    sendFax,
     sendFaxPacket,
     getFaxPacketPreview,
     getFaxPacketStatus,

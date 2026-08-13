@@ -2,12 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Identifier, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM,
-  OUTBOUND_DELIVERY_INPUT_CODES,
-  OUTBOUND_DELIVERY_INPUT_SYSTEM,
-  OUTBOUND_DELIVERY_OUTPUT_CODES,
-} from 'utils/lib/fhir/constants';
+import { OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
 import { makeOutboundDeliveryAttempt, makeOutboundDeliveryOutput } from 'utils/lib/fhir/outbound-delivery';
 import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
 
@@ -72,58 +67,6 @@ export async function completeOutboundDeliveryAttempt(
     { op: 'replace', path: '/status', value: 'completed' },
     { op: 'add', path: '/executionPeriod/end', value: nowIso() },
     ...(output ? [{ op: 'add' as const, path: '/output', value: output }] : []),
-  ]);
-}
-
-/**
- * Attaches the immutable packet URL and its visit/document context only after packet preparation
- * succeeds. A preparation failure therefore remains auditable without advertising fallback content
- * that would not reproduce the requested fax.
- */
-export async function addOutboundDeliveryAttemptContent(
-  oystehr: Oystehr,
-  attemptId: string,
-  content: { media: string; appointmentId?: string; documentReferenceId?: string }
-): Promise<Task> {
-  return patchAttemptWithRetry(oystehr, attemptId, [
-    ...(content.appointmentId
-      ? [
-          {
-            op: 'add' as const,
-            path: '/focus',
-            value: { reference: `Appointment/${content.appointmentId}`, type: 'Appointment' },
-          },
-        ]
-      : []),
-    ...(content.documentReferenceId
-      ? [
-          {
-            op: 'add' as const,
-            path: '/input/-',
-            value: {
-              type: {
-                coding: [
-                  {
-                    system: OUTBOUND_DELIVERY_INPUT_SYSTEM,
-                    code: OUTBOUND_DELIVERY_INPUT_CODES.documentReference,
-                  },
-                ],
-              },
-              valueReference: { reference: `DocumentReference/${content.documentReferenceId}` },
-            },
-          },
-        ]
-      : []),
-    {
-      op: 'add',
-      path: '/input/-',
-      value: {
-        type: {
-          coding: [{ system: OUTBOUND_DELIVERY_INPUT_SYSTEM, code: OUTBOUND_DELIVERY_INPUT_CODES.media }],
-        },
-        valueString: content.media,
-      },
-    },
   ]);
 }
 
