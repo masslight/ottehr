@@ -6,7 +6,12 @@
 // `display` (and, for blood pressure, the surrounding `contextText` — the narrative or the user's
 // message). flash-lite in particular is inconsistent about populating the numeric fields, so this is
 // the single source of truth for parsing them.
+import { EasyChartVitalField } from 'utils';
 
+// The runtime allowlist the zambdas check the model's `field` against before casting it to
+// EasyChartVitalField. `satisfies` proves no entry here is absent from that union; the assertion
+// below proves the reverse — a vital added to the intent type but not to this list would otherwise be
+// rejected at runtime as "Which vital?" despite type-checking everywhere.
 export const VITAL_FIELDS = [
   'vital-temperature',
   'vital-heartbeat',
@@ -15,7 +20,11 @@ export const VITAL_FIELDS = [
   'vital-blood-pressure',
   'vital-weight',
   'vital-height',
-] as const;
+] as const satisfies readonly EasyChartVitalField[];
+type AssertTrue<T extends true> = T;
+export type VitalFieldsCoverIntent = AssertTrue<
+  [EasyChartVitalField] extends [(typeof VITAL_FIELDS)[number]] ? true : false
+>;
 
 const VITAL_LABEL: Record<string, string> = {
   'vital-temperature': 'Temp',

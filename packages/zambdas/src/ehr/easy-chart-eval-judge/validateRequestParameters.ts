@@ -1,5 +1,5 @@
 import { MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { getUserToken, ZambdaInput } from '../../shared';
 import { parseJsonBody } from '../../shared/easy-chart/validation';
 
 export interface EasyChartEvalJudgeInput {
@@ -9,10 +9,13 @@ export interface EasyChartEvalJudgeInput {
   plannerSteps: string;
 }
 
-export function validateRequestParameters(input: ZambdaInput): EasyChartEvalJudgeInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(
+  input: ZambdaInput
+): EasyChartEvalJudgeInput & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
+  const userToken = getUserToken(input);
   const { transcript, goldNote, plannerSteps } = parseJsonBody(input);
   if (typeof transcript !== 'string' || !transcript.trim()) throw MISSING_REQUIRED_PARAMETERS(['transcript']);
   if (typeof goldNote !== 'string' || !goldNote.trim()) throw MISSING_REQUIRED_PARAMETERS(['goldNote']);
   const stepsStr = typeof plannerSteps === 'string' ? plannerSteps : JSON.stringify(plannerSteps ?? [], null, 2);
-  return { transcript, goldNote, plannerSteps: stepsStr, secrets: input.secrets };
+  return { transcript, goldNote, plannerSteps: stepsStr, secrets: input.secrets, userToken };
 }

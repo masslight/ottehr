@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { requireEasyChartEncounterAccess } from '../../shared/easy-chart/auth';
 import { runEasyChartPlanner } from '../../shared/easy-chart/planner-core';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -16,7 +17,12 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'easy-chart-planner';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { narrative, noteContext, chartState, encounterId, incremental, secrets } = validateRequestParameters(input);
+  const { narrative, noteContext, chartState, encounterId, incremental, secrets, userToken } =
+    validateRequestParameters(input);
+
+  // Authorize BEFORE any work: the planner reads the encounter's Patient under our M2M token, so
+  // without this the caller's own permissions would never be consulted for the encounter they named.
+  await requireEasyChartEncounterAccess(userToken, encounterId, secrets);
 
   // Best-effort Oystehr client: the planner still produces a useful decomposition without
   // templates/patient context, and planner-core captures every degraded fetch.

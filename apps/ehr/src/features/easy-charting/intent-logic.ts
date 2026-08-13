@@ -2273,14 +2273,18 @@ export function noteFieldDriftReason(
 
 // Search-based add intents that auto-chart with the needs-review highlight + click-to-correct,
 // and the field each maps to. (CPT/E&M, exam findings and procedures use different mechanisms.)
-export const KIND_TO_FIELD: Record<string, ChartedField> = {
+// Typed as an exact Record over AddSearchIntent's kinds rather than Record<string, …>: with a plain
+// string key a typo'd or renamed kind compiled fine and resolved to `undefined` at runtime, charting
+// the item with no `field` — so it lost its click-to-correct affordance silently. Now both a missing
+// kind and an unknown one are build errors.
+export const KIND_TO_FIELD = {
   'add-allergy': 'allergies',
   'add-condition': 'conditions',
   'add-medication': 'medications',
   'add-surgical-history': 'surgicalHistory',
   'add-hospitalization': 'episodeOfCare',
   'add-diagnosis': 'diagnosis',
-};
+} as const satisfies Record<AddSearchIntent['kind'], ChartedField>;
 export const FIELD_TO_KIND: Record<ChartedField, AddSearchIntent['kind']> = {
   allergies: 'add-allergy',
   conditions: 'add-condition',

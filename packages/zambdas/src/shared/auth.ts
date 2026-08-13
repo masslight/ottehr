@@ -12,6 +12,25 @@ import {
   userMe,
 } from 'utils';
 import { getAuth0Token } from './getAuth0Token';
+import { ZambdaInput } from './types/common';
+
+// The caller's bearer token, or NOT_AUTHORIZED (a handled 401) when there isn't one.
+//
+// The `input.headers.Authorization.replace('Bearer ', '')` line this replaces is copy-pasted at ~118
+// sites, inconsistently: the versions without `?.` throw a TypeError — a 500 — when the header is
+// simply absent, and none of them reject a header that is present but blank. New code should use
+// this; existing sites can converge on it as they're touched.
+export function getUserToken(input: Pick<ZambdaInput, 'headers'>): string {
+  const authorization = input.headers?.Authorization ?? input.headers?.authorization;
+  if (typeof authorization !== 'string') {
+    throw NOT_AUTHORIZED;
+  }
+  const token = authorization.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    throw NOT_AUTHORIZED;
+  }
+  return token;
+}
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;

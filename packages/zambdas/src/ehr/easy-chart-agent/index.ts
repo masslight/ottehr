@@ -10,6 +10,7 @@ import {
 } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { requireEasyChartCaller } from '../../shared/easy-chart/auth';
 import { coerceNumericStepFields } from '../../shared/easy-chart/planner-core';
 import { detectSpeakerLabels, sniffDoseFormScoped, sniffIcdCodeScoped } from '../../shared/easy-chart/sniffers';
 import { normalizeVitalIntent, VITAL_FIELDS } from '../../shared/easy-chart/vitals';
@@ -317,7 +318,12 @@ ${contextBlock}`;
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { message, noteContext, secrets } = validateRequestParameters(input);
+  const { message, noteContext, secrets, userToken } = validateRequestParameters(input);
+
+  // Role check only — unlike the planner/review this endpoint never touches the encounter: it
+  // classifies the caller's own message against the note text they themselves sent. There is no
+  // other patient's data to reach, so there is no encounterId to authorize against.
+  await requireEasyChartCaller(userToken, secrets);
 
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(

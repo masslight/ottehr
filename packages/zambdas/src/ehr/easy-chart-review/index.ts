@@ -6,6 +6,7 @@ import {
   EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
   EasyChartAgentIntent,
   EasyChartEscalationInfo,
+  EasyChartIntentKind,
   EasyChartNoteContext,
   EasyChartReviewOutput,
   EasyChartSuggestion,
@@ -15,6 +16,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { requireEasyChartEncounterAccess } from '../../shared/easy-chart/auth';
 import { validateIntentCode } from '../../shared/easy-chart/codes';
 import { IcdSearchFn } from '../../shared/easy-chart/icd-search';
 import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-chart/patient-context';
@@ -46,6 +48,9 @@ const CATEGORY_VALUES = [
 // just the ones the five review categories need (plus a little headroom). Each is replayed
 // client-side through the same per-intent handlers the planner uses, so accepting a card needs
 // no new charting logic.
+// `satisfies` makes this a checked SUBSET of the action vocabulary rather than a free-form list of
+// strings: a typo, or a kind that has since been renamed in EasyChartAgentIntent, is a build error
+// here instead of a review suggestion the client silently drops as unrecognized.
 const ACTION_KINDS = [
   'edit-note-text',
   'add-diagnosis',
@@ -62,7 +67,7 @@ const ACTION_KINDS = [
   'remove-medication',
   'set-disposition',
   'provider-note',
-] as const;
+] as const satisfies readonly EasyChartIntentKind[];
 
 // exported for unit tests (schema pin: no raw `number` fields — see the digit-loop guard below)
 export const RESPONSE_SCHEMA = {
@@ -434,7 +439,11 @@ function isValidAction(a: unknown): a is Record<string, unknown> {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { narrative, noteContext, chartState, encounterId, secrets } = validateRequestParameters(input);
+  const { narrative, noteContext, chartState, encounterId, secrets, userToken } = validateRequestParameters(input);
+
+  // Authorize BEFORE any work: the review reads the encounter's Patient under our M2M token, so
+  // without this the caller's own permissions would never be consulted for the encounter they named.
+  await requireEasyChartEncounterAccess(userToken, encounterId, secrets);
 
   // Oystehr client is best-effort — needed to validate CPT/HCPCS codes against the terminology
   // service and to fetch the patient anchor. If it fails we proceed degraded, same as the planner —

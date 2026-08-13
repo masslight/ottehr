@@ -1,8 +1,11 @@
 import { EasyChartPlannerInput, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { getUserToken, ZambdaInput } from '../../shared';
 import { parseJsonBody, validateNoteContext } from '../../shared/easy-chart/validation';
 
-export function validateRequestParameters(input: ZambdaInput): EasyChartPlannerInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(
+  input: ZambdaInput
+): EasyChartPlannerInput & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
+  const userToken = getUserToken(input);
   const { narrative, noteContext, chartState, encounterId, incremental } = parseJsonBody(input);
   if (typeof narrative !== 'string' || !narrative.trim()) {
     throw MISSING_REQUIRED_PARAMETERS(['narrative']);
@@ -16,5 +19,6 @@ export function validateRequestParameters(input: ZambdaInput): EasyChartPlannerI
     encounterId: validatedEncounterId,
     incremental: incremental === true,
     secrets: input.secrets,
+    userToken,
   };
 }

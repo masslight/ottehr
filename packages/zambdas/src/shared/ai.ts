@@ -231,7 +231,18 @@ export async function invokeChatbotVertexAI(
 
   const response = await httpResponse?.json();
 
-  console.log(JSON.stringify(response));
+  // NEVER log the raw response. Its candidates ARE the model's generated content — for the
+  // easy-chart calls that is the note itself (HPI, MDM, diagnoses, doses), i.e. PHI in CloudWatch.
+  // Log only the non-PHI envelope, which is what these lines were ever actually read for: why
+  // generation stopped, whether anything came back, and what it cost.
+  const candidates = Array.isArray(response?.candidates) ? response.candidates : [];
+  console.log(
+    `Vertex AI response: model=${model} candidates=${candidates.length} ` +
+      `finishReason=${candidates[0]?.finishReason ?? 'none'} ` +
+      `textLength=${candidates[0]?.content?.parts?.[0]?.text?.length ?? 0} ` +
+      `blockReason=${response?.promptFeedback?.blockReason ?? 'none'} ` +
+      `usage=${JSON.stringify(response?.usageMetadata ?? {})}`
+  );
   // Vertex can return a 200 with NO candidate text — finishReason MAX_TOKENS/SAFETY, a blocked
   // prompt, or a transient hiccup. Guard the access so we surface a clear error instead of a cryptic
   // "Cannot read properties of undefined (reading '0')" TypeError, and so callers that catch (e.g.
@@ -661,7 +672,9 @@ export async function createResourcesFromAiInterview(
     ),
     precomputeEasyChartPlan(oystehr, m2mToken, encounterID, chatTranscript, secrets),
   ]);
-  console.log(`AI response: "${aiResponseString}"`);
+  // Same rule as invokeChatbotVertexAI's response log: this string is the extraction of the visit
+  // transcript (complaint, allergies, meds, history) — PHI. Log its shape, not its content.
+  console.log(`AI extraction response: ${aiResponseString.length} chars, source=${source}`);
   let aiResponse;
   try {
     aiResponse = JSON.parse(aiResponseString);
@@ -692,7 +705,9 @@ export async function createResourcesFromAiInterview(
     )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
-  console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
+  // The bundle carries the full transcript and every extracted Observation/Condition — log what is
+  // being written, not its contents.
+  console.log(`Transaction requests: ${requests.length} — ${requests.map((r) => r.resource.resourceType).join(', ')}`);
   const transactionBundle = await oystehr.fhir.transaction({
     requests: requests,
   });
@@ -873,7 +888,8 @@ export async function generateIcdTenCodesFromNotes(
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
     const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
-    console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
+    // The suggestions are diagnoses derived from this patient's HPI/MDM — PHI. Shape only.
+    console.log(`AI ICD-10 codes response: ${aiResponseString.length} chars`);
     let aiResponse;
     try {
       aiResponse = JSON.parse(aiResponseString);

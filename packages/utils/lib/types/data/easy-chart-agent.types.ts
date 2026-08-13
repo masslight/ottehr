@@ -139,9 +139,12 @@ export type EasyChartAgentIntent =
   // Edit one of the encounter's free-text note fields. The client sends the current text of
   // these fields as context with each agent call, and the LLM emits the full proposed new
   // text reflecting the provider's instruction (e.g. filling in a "______" placeholder).
+  // `field` reuses EasyChartNoteTextField rather than re-listing the five names: the zambdas
+  // validate the model's `field` against EASY_CHART_NOTE_TEXT_FIELDS, so a second hand-maintained
+  // copy of that list here could accept a field the validators reject (or vice versa).
   | {
       kind: 'edit-note-text';
-      field: 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
+      field: EasyChartNoteTextField;
       newText: string;
     }
   // Add a structured exam finding (checking a box in the physical exam). The client matches
@@ -192,6 +195,26 @@ export type EasyChartAgentIntent =
   // Order an IN-OFFICE (in-house) test — rapid strep/flu/COVID/RSV, urinalysis, glucose, etc. The
   // client matches against the in-house lab ActivityDefinitions and orders via create-in-house-lab-order.
   | { kind: 'add-in-house-lab'; display: string; searchTerms: string[] };
+
+// COMPILE-TIME PROOF that the two halves of the action vocabulary describe the same set: the KIND
+// ARRAY above (which feeds the zambdas' JSON-schema enums and their post-parse `includes(kind)`
+// checks) and this INTENT UNION (which every typed handler is written against). "Keep in lockstep"
+// used to be the only thing holding them together, and drifting either way fails silently:
+//   - in the array but not the union → the model can emit it, the zambdas pass it through, and the
+//     client's dispatcher falls off the end of its if-chain and reports a bare "no match";
+//   - in the union but not the array → no handler is reachable because the model can never emit it.
+// Both directions are now build errors. If one of these lines is red, the fix is to add the kind to
+// whichever half is missing it (and give it a dispatcher branch), not to relax the assertion.
+type AssertTrue<T extends true> = T;
+type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+export type EasyChartIntentKindsInSync = AssertTrue<
+  MutuallyAssignable<EasyChartIntentKind, EasyChartAgentIntent['kind']>
+>;
+
+// The vital fields set-vital accepts. Exported so the zambdas' VITAL_FIELDS runtime list (which
+// gates the model's `field` before it is cast to this type) can be checked against the union
+// instead of being a fourth hand-maintained copy of the same seven names.
+export type EasyChartVitalField = Extract<EasyChartAgentIntent, { kind: 'set-vital' }>['field'];
 
 // Snapshot of the current free-text note fields, sent with each agent call so the LLM can
 // perform in-place edits (e.g. "change HPI to fill in the area affected as 'left arm'").

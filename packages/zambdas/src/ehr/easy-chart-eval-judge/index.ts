@@ -1,6 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { RoleType } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI, parseStructuredModelOutput } from '../../shared/ai';
+import { requireEasyChartCaller } from '../../shared/easy-chart/auth';
 import { coerceNumericFields } from '../../shared/easy-chart/planner-core';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -159,7 +161,13 @@ ${plannerSteps}
 `;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { transcript, goldNote, plannerSteps } = validateRequestParameters(input);
+  const { transcript, goldNote, plannerSteps, secrets, userToken } = validateRequestParameters(input);
+
+  // This is an EVAL endpoint, not part of the charting flow: it takes an arbitrary transcript plus a
+  // gold note and spends model budget scoring them. It is deployed so the harness in
+  // scripts/easy-chart-eval can reach a real environment, so it is restricted to the project's M2M
+  // client and administrators rather than every clinical role.
+  await requireEasyChartCaller(userToken, secrets, [RoleType.Administrator]);
 
   const raw = await invokeChatbotVertexAI(
     [{ text: buildPrompt(transcript, goldNote, plannerSteps) }],

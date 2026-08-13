@@ -1438,8 +1438,31 @@ export function useChartAssistant({
         }
         return;
       }
+      // EXHAUSTIVENESS CHECK. Every other intent kind returned above, so whatever reaches this line
+      // must be one of the search-based add kinds — and this annotation is what enforces it. Add a
+      // kind to EasyChartAgentIntent without giving it a branch above and this assignment stops
+      // compiling, instead of the new kind quietly falling into the search path and surfacing as an
+      // ordinary "no match" the provider would read as "nothing to chart".
+      const searchIntent: AddSearchIntent = intent;
+      // Runtime twin of the same guard. Types cannot cover a client running against a NEWER zambda
+      // that emits a kind this build has never heard of, and the failure mode there is exactly the
+      // silent no-match above. Say plainly that we can't chart it and settle the step as skipped, so
+      // the plan's step list shows ⏭ with a reason rather than a false negative.
+      if (!AUTO_CHART_KINDS.has(searchIntent.kind)) {
+        console.error('Unhandled easy-chart intent kind:', searchIntent.kind);
+        captureException(new Error(`Unhandled easy-chart intent kind: ${searchIntent.kind}`));
+        setConv({
+          kind: 'skipped',
+          user: message,
+          reason: `I can't chart “${searchIntent.kind.replace(
+            /-/g,
+            ' '
+          )}” in this version — please add it in the regular chart.`,
+        });
+        return;
+      }
       // Add flow — no stopping: always auto-pick the top match.
-      const results = await runIntentSearch(intent, oystehr, oystehrZambda);
+      const results = await runIntentSearch(searchIntent, oystehr, oystehrZambda);
       if (intent.kind === 'add-medication' && results.length > 0) {
         // Dose safety: the dictated strength is the one thing we must never silently change.
         // runIntentSearch already strength-ranks, but ranking alone still auto-picks SOMETHING
