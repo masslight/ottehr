@@ -911,6 +911,11 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
     system: 'http://snomed.info/sct',
     display: 'Intracerebroventricular route (qualifier value)',
   },
+  INFUSION: {
+    code: '424494006',
+    system: 'http://snomed.info/sct',
+    display: 'IV Infusion',
+  },
   PERCUTANEOUS: {
     code: '428191002',
     system: 'http://snomed.info/sct',
