@@ -308,13 +308,7 @@ export const createSampleAppointments = async ({
           });
 
           if (!createAppointmentResponse.ok) {
-            let responseBody: string;
-            const text = await createAppointmentResponse.text();
-            try {
-              responseBody = JSON.stringify(JSON.parse(text), null, 2);
-            } catch {
-              responseBody = text;
-            }
+            const responseBody = await readResponseBody(createAppointmentResponse);
             // On-failure diagnostic for the recurring 4019 flake. slotId +
             // worker + timestamp is enough to fetch the slot manually
             // later, correlate against parallel runs, and check whether it
@@ -470,7 +464,7 @@ const processPaperwork = async (
       // This may be an error if some paperwork required answers were not provided.
       // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
       throw new Error(
-        `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+        `Error submitting paperwork. Status: ${response.status}\nResponse body: ${await readResponseBody(response)}`
       );
     }
 
@@ -670,7 +664,19 @@ export async function makeSequentialPaperworkPatches(
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
+      throw new Error(
+        `Failed to patch paperwork with linkId: ${answer.linkId}. Status: ${response.status}\n` +
+          `Response body: ${await readResponseBody(response)}`
+      );
     }
   }, Promise.resolve() as Promise<void>);
+}
+
+async function readResponseBody(response: Response): Promise<string> {
+  const text = await response.text();
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
 }
