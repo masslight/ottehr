@@ -234,10 +234,7 @@ export async function performEffect(
 
   if (failure) {
     console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
-    return {
-      taskStatus: 'failed',
-      statusReason: `Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`,
-    };
+    throw new Error(`Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`);
   }
 
   if (heldBy) {
