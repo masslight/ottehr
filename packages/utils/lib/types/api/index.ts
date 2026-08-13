@@ -60,6 +60,7 @@ export * from './send-fax.types';
 export * from './send-receipt-by-email.types';
 export * from './sign-appointment';
 export * from './sync-user';
+export * from './team-chat.types';
 export * from './unassign-practitioner';
 export * from './unlock-appointment';
 export * from './update-user';

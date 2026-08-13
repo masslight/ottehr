@@ -214,6 +214,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -429,6 +439,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -557,6 +577,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -759,6 +789,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -930,6 +970,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:History"
           ],
           "effect": "Allow",
@@ -1088,6 +1138,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -1272,6 +1332,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {

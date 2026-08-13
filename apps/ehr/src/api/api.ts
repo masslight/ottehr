@@ -229,6 +229,7 @@ import {
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
 } from 'utils/lib/types/api/send-receipt-by-email.types';
+import { TeamChatAccessResponse } from 'utils/lib/types/api/team-chat.types';
 import {
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
@@ -411,6 +412,7 @@ const CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID = 'change-in-person-visit-status';
 const GET_USER_ZAMBDA_ID = 'get-user';
 const USER_ACTIVATION_ZAMBDA_ID = 'user-activation';
 const GET_CONVERSATION_ZAMBDA_ID = 'get-conversation';
+const TEAM_CHAT_ACCESS_ZAMBDA_ID = 'team-chat-access';
 const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';
 const CANCEL_APPOINTMENT_ZAMBDA_ID = 'cancel-appointment';
 const GET_EMPLOYEES_ZAMBDA_ID = 'get-employees';
@@ -1107,6 +1109,21 @@ export const getConversation = async (
     const response = await oystehr.zambda.execute({
       id: GET_CONVERSATION_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const getTeamChatAccess = async (oystehr: Oystehr): Promise<TeamChatAccessResponse> => {
+  try {
+    if (TEAM_CHAT_ACCESS_ZAMBDA_ID == null) {
+      throw new Error('TEAM_CHAT_ACCESS_ZAMBDA_ID environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: TEAM_CHAT_ACCESS_ZAMBDA_ID,
     });
     return chooseJson(response);
   } catch (error: unknown) {

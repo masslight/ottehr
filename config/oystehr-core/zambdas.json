@@ -278,6 +278,13 @@
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
     },
+    "TEAM-CHAT-ACCESS": {
+      "name": "team-chat-access",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/team-chat-access/index",
+      "zip": ".dist/zips/team-chat-access.zip"
+    },
     "GET-CONVERSATION": {
       "name": "get-conversation",
       "type": "http_auth",

@@ -85,6 +85,7 @@ import ProviderDetailPage from './pages/ProviderDetailPage';
 import Reports from './pages/Reports';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
+import TeamChatSpike from './pages/TeamChatSpike';
 import VisitDetailsPage from './pages/VisitDetailsPage';
 import { useNavStore } from './state/nav.store';
 
@@ -212,6 +213,7 @@ function App(): ReactElement {
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
+                {FEATURE_FLAGS.TEAM_CHAT_ENABLED && <Route path="/team-chat-spike" element={<TeamChatSpike />} />}
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (

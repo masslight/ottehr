@@ -25,6 +25,9 @@ export const FeatureFlagsConfigSchema = z.object({
   // The admin UI is unaffected (it queries `admin-list-service-categories`,
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
+  // Real-time staff-to-staff chat in the EHR (Oystehr Conversations).
+  // Optional so per-customer configs that omit it default to off.
+  teamChatEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
