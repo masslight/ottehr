@@ -1,9 +1,13 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, getPatchOperationForNewMetaTag, patchWithOptimisticLock } from 'utils';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { createBillingClient, getTag } from '../../../billing/shared';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-claim-response-adjust-status';

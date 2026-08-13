@@ -74,6 +74,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   EXCLUDE_WORKING_COPIES_PARAMS,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
   systemTagBasic,
 } from '../../../src/billing/shared';
@@ -2071,23 +2072,6 @@ describe('create-billing-claim-from-encounter', () => {
       expect(patientPosts).toHaveLength(1);
       expect(patientPosts[0].resource.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
 
-      expect(patchFn).toHaveBeenCalledWith(
-        {
-          resourceType: 'Patient',
-          id: 'billing-patient-123',
-          operations: [
-            {
-              op: 'add',
-              path: '/identifier',
-              value: [clinicalPatientIdentifier('patient-123')],
-            },
-          ],
-        },
-        {
-          optimisticLockingVersionId: '7',
-        }
-      );
-
       const personUpdate = requests.find((r) => r.url === `/Person/${billingResources.person.id}`);
       expect(personUpdate).toMatchObject({
         method: 'PATCH',
@@ -3321,6 +3305,10 @@ describe('create-billing-claim-from-encounter', () => {
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
               ],
+              identifier: [
+                { system: SOURCE_IDENTIFIER_SYSTEM, value: 'patient-123' },
+                { system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, value: '123456' },
+              ],
             },
           },
           {
@@ -3332,6 +3320,10 @@ describe('create-billing-claim-from-encounter', () => {
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'urn:uuid:main-patient' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
+              ],
+              identifier: [
+                { system: SOURCE_IDENTIFIER_SYSTEM, value: 'patient-123' },
+                { system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, value: '123456' },
               ],
               meta: {
                 tag: [BILLING_WORKING_COPY_TAG],
