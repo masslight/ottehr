@@ -107,7 +107,7 @@ jobs:
             echo "[OK] Downstream repository detected - using local environment"
           else
             # For masslight/ottehr, the next step maps the branch to a workspace
-            ENV=""
+            ENV="e2e4"
             echo "[OK] masslight/ottehr detected - will select workspace by branch affinity"
           fi
 
