@@ -167,6 +167,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
       appointmentPackage,
       visit,
       signatures: input.signatures,
+      signed: input.signed,
     }),
   };
 };

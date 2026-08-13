@@ -1,0 +1,15 @@
+{
+  "name": "Albuterol nebulizer 2.5 mg",
+  "medicationId": "2dbdd2e0-17aa-4b8a-aa7c-48f6ff1efe04",
+  "medicationName": "Albuterol",
+  "dose": 2.5,
+  "units": "mg",
+  "route": "447694001",
+  "cptCodes": [
+    {
+      "code": "94640",
+      "display": "Pressurized or nonpressurized inhalation treatment for acute airway obstruction"
+    }
+  ],
+  "instructions": "2.5 mg in 3 mL NS via nebulizer over 10–15 min. May repeat per symptoms."
+}

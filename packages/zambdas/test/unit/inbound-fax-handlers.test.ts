@@ -542,7 +542,8 @@ describe('handle-inbound-fax handler', () => {
 
     const createdTask = mockOystehr.fhir.create.mock.calls[0][0] as Task;
     expect(createdTask.groupIdentifier?.value).toBe(FAX_TASK.category);
-    expect(getUiTaskCategoryForCode(createdTask.groupIdentifier?.value)).toBe('inboundFax');
+    // FAX_NOTIFICATIONS_DISABLED: back to .toBe('inboundFax') when the mapping is uncommented.
+    expect(getUiTaskCategoryForCode(createdTask.groupIdentifier?.value)).toBeUndefined();
     // The cron only considers tasks in these statuses.
     expect(createdTask.status).toBe('ready');
   });

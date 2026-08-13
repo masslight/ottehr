@@ -1,0 +1,8 @@
+{
+  "name": "Pelvis X-Ray, 1 View (AP)",
+  "cptCode": "72170",
+  "cptDisplay": "Radiologic examination, pelvis; 1 or 2 views",
+  "studyName": "X-Ray Pelvis 1 View (AP)",
+  "clinicalHistory": "Hip/pelvic pain after fall — evaluate for fracture",
+  "stat": false
+}

@@ -483,8 +483,8 @@ describe('sub-rules-engine charge master pricing', () => {
     expect(requests.some((r: { url: string }) => r.url.includes('ChargeItemDefinition'))).toBe(false);
   });
 
-  it('holds the claim instead of submitting when no charge master applies', async () => {
-    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+  it('submits with unchanged charges when no charge master applies (the action never holds)', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);
     model.claim.item = [
       {
@@ -495,6 +495,7 @@ describe('sub-rules-engine charge master pricing', () => {
       },
     ];
     model.chargeMasters = []; // nothing designated
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
 
     const result = await performEffect(
       oystehr,
@@ -502,16 +503,14 @@ describe('sub-rules-engine charge master pricing', () => {
       AGENT
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule price" failed');
-    expect(submitClaimRcm).not.toHaveBeenCalled();
-    const requests = transaction.mock.calls[0][0].requests;
-    const claimPut = requests.find(
-      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    // The pricing action changed nothing, so no claim write was persisted and the line kept its charges.
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    expect(requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1')).toBe(
+      false
     );
-    expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
-    // The failed pricing changed nothing else on the claim.
-    expect(claimPut.resource.item[0].net).toEqual({ value: 5, currency: 'USD' });
+    expect(model.claim.item[0].net).toEqual({ value: 5, currency: 'USD' });
   });
 });
 

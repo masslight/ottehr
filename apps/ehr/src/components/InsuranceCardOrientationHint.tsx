@@ -100,11 +100,11 @@ export default function InsuranceCardOrientationHint({
         <Tooltip title="The scanned card doesn't look right-side-up. Rotate it until the text reads normally.">
           <Chip
             size="small"
-            color="warning"
+            // color="warning"
             variant="outlined"
             icon={<WarningAmberIcon />}
             label={CARD_MAY_BE_ROTATED_LABEL}
-            sx={{ fontSize: '0.7rem' }}
+            sx={{ border: 'none' }}
           />
         </Tooltip>
       )}
