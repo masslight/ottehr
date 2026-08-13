@@ -1,20 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } from 'fhir/r4b';
+import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from '../helpers/rcm/constants';
+import { AppointmentAttendanceType, AppointmentType } from '../types/api/appointment.types';
+import { REASON_FOR_VISIT_SEPARATOR, TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { PAPERWORK_CONSENT_CODE_UNIQUE } from '../types/data/paperwork/paperwork.constants';
 import {
-  AppointmentAttendanceType,
-  AppointmentType,
-  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
-  EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
   FHIR_ZAPEHR_URL,
-  getCoding,
-  OTTEHR_MODULE,
-  PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
-  REASON_FOR_VISIT_SEPARATOR,
   SERVICE_CATEGORY_SYSTEM,
-  TELEMED_VIDEO_ROOM_CODE,
-} from 'utils';
+} from './constants';
+import { getCoding } from './helpers';
+import { OTTEHR_MODULE } from './moduleIdentification';
 
 export async function cancelAppointmentResource(
   appointment: Appointment,

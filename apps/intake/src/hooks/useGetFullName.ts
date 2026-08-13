@@ -1,4 +1,4 @@
-import { PatientBaseInfo } from 'utils';
+import { PatientBaseInfo } from 'utils/lib/types/common';
 
 export const useGetFullName = (patient: PatientBaseInfo | undefined): string | undefined => {
   if (patient) {

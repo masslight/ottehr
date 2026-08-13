@@ -38,44 +38,27 @@ import {
   TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  createPatientDocumentList,
-  docRefIsLabGeneratedResult,
-  docRefIsOgHl7Transmission,
-  findExistingListByDocumentTypeCode,
-  getMimeType,
-  getPatchOperationsForNewMetaTags,
-  getPatchOperationToRemoveMetaTags,
-  getPayerId,
-  getPayerUrl,
-  isValidUUID,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  PatientMasterRecordResourceType,
-  replaceOperation,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-  TaskCoding,
-  TELEMED_VIDEO_ROOM_CODE,
-  User,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { getPayerId, getPayerUrl } from '../helpers/helpers';
+import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../helpers/labs/helpers';
+import { addOperation, replaceOperation } from '../helpers/operations';
+import { CODE_SYSTEM_COVERAGE_CLASS } from '../helpers/rcm/constants';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BookableResource,
-  CPTCodeDTO,
-  EncounterVirtualServiceExtension,
-  FHIR_CODE_REGEX,
-  HealthcareServiceWithLocationContext,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  VisitType,
-} from '../types';
+import { VisitStatusWithoutUnknown } from '../types/api/appointment.types';
+import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
+import { PractitionerLicense, PractitionerQualificationCode } from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { User } from '../types/api/user.types';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskCoding } from '../types/common';
+import { BookableResource, ServiceMode } from '../types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { FHIR_CODE_REGEX } from '../types/constants';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from '../types/data/labs/labs.constants';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { HealthcareServiceWithLocationContext } from '../types/data/paperwork.types';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from '../types/errors';
+import { getMimeType } from '../utils/file';
+import { isValidUUID } from '../validation/helper';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
@@ -105,6 +88,9 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from './constants';
+import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
+import { PatientMasterRecordResourceType } from './patientMasterRecord';
+import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -1658,6 +1644,45 @@ export function makeCptCodeDisplay(cptCode: CPTCodeDTO): string {
 const OPTIMISTIC_LOCK_MAX_RETRIES = 3;
 
 /**
+ * True when an error thrown by the Oystehr SDK represents an optimistic-locking version
+ * conflict (HTTP 412 Precondition Failed from an If-Match header), meaning the resource
+ * changed between read and write and the operation can be safely re-read and retried.
+ */
+export function isVersionConflictError(error: unknown): boolean {
+  const err = error as { code?: unknown; statusCode?: unknown; message?: unknown } | null | undefined;
+  return (
+    err?.code === 412 || err?.statusCode === 412 || (typeof err?.message === 'string' && err.message.includes('412'))
+  );
+}
+
+/**
+ * Runs an optimistically-locked FHIR write, retrying on version conflict (412).
+ *
+ * The callback re-runs from scratch on each attempt and is responsible for re-reading the
+ * If-Match-guarded resource itself, so every retry writes against the current version instead
+ * of the one that just lost the race. Non-conflict errors, and a conflict on the final
+ * attempt, are rethrown. Prefer patchWithOptimisticLock for a plain single-resource PATCH;
+ * this is the underlying engine for writes it can't express (e.g. a transaction that pairs
+ * the guarded PATCH with other requests).
+ */
+export async function withVersionConflictRetries<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts?: { maxAttempts?: number; onConflict?: (attempt: number) => void }
+): Promise<T> {
+  const maxAttempts = opts?.maxAttempts ?? OPTIMISTIC_LOCK_MAX_RETRIES;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      if (attempt >= maxAttempts || !isVersionConflictError(error)) {
+        throw error;
+      }
+      opts?.onConflict?.(attempt);
+    }
+  }
+}
+
+/**
  * Patches a FHIR resource with optimistic locking (E-tag).
  *
  * Uses the resource's versionId as an If-Match header so the FHIR server
@@ -1673,30 +1698,29 @@ export async function patchWithOptimisticLock<T extends FhirResource & { id: str
   const { resourceType } = initialResource;
   let current = initialResource;
 
-  for (let attempt = 0; attempt < OPTIMISTIC_LOCK_MAX_RETRIES; attempt++) {
-    const operations = await computeOps(current);
-    if (operations.length === 0) return;
+  await withVersionConflictRetries(
+    async (attempt) => {
+      if (attempt > 1) {
+        current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
+      }
+      const operations = await computeOps(current);
+      if (operations.length === 0) return;
 
-    const versionId = current.meta?.versionId;
-    try {
+      const versionId = current.meta?.versionId;
       await oystehr.fhir.patch(
         { resourceType, id: current.id, operations },
         versionId ? { optimisticLockingVersionId: versionId } : undefined
       );
-      return;
-    } catch (error: any) {
-      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
-      if (!is412 || attempt === OPTIMISTIC_LOCK_MAX_RETRIES - 1) {
-        throw error;
-      }
-      console.log(
-        `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${attempt + 1}/${
-          OPTIMISTIC_LOCK_MAX_RETRIES - 1
-        })`
-      );
-      current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
+    },
+    {
+      onConflict: (attempt) =>
+        console.log(
+          `${resourceType}/${current.id} PATCH conflict (412), re-fetching and retrying (attempt ${attempt}/${
+            OPTIMISTIC_LOCK_MAX_RETRIES - 1
+          })`
+        ),
     }
-  }
+  );
 }
 
 export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): string | undefined {

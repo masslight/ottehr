@@ -8,7 +8,7 @@ import { LoadingScreen } from 'src/components/LoadingScreen';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useGetUnsolicitedResultsDetail } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { TaskReviewedParameters, UnsolicitedResultsRequestType } from 'utils';
+import { TaskReviewedParameters, UnsolicitedResultsRequestType } from 'utils/lib/types/data/labs/labs.types';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
 
 export const UnsolicitedResultsReview: React.FC = () => {

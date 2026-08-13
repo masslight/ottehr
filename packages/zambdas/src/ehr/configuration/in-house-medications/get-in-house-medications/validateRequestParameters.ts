@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../../../../shared';
+import { ZambdaInput } from '../../../../shared/types/common';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: ZambdaInput['secrets'] } {
   console.group('validateRequestParameters');

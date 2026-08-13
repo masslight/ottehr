@@ -33,30 +33,35 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  AR_STAGE,
-  BillingCoverageOption,
-  BillingProviderOption,
-  BillingTag,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimDetailResponse,
-  ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+} from 'utils/lib/helpers/rcm/constants';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import {
   CreateBillingProviderInput,
-  formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  RULES_ENGINES,
-  RulesEngineDef,
   SaveServiceFacilityInput,
-  ServiceFacilityItem,
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
   UpdateBillingResourceInputSchema,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingCoverageOption,
+  BillingProviderOption,
+  BillingTag,
+  ClaimDetailResponse,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
+} from 'utils/lib/types/data/billing/claim-status';
+import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import z from 'zod';
 import {
   createBillingCoverage,
@@ -1535,7 +1540,7 @@ function TagAdder({
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {available.map((t) => (
             <Chip
-              key={t.id}
+              key={t.id || t.name}
               label={t.name}
               size="small"
               color="primary"

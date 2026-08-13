@@ -4,9 +4,9 @@ import { Box, ButtonBase, IconButton, Tooltip } from '@mui/material';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import React, { ReactNode, useState } from 'react';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { SavedCardItem } from 'src/hooks/useVisitCards';
-import { UpdateVisitFilesInput } from 'utils';
-import { CustomDialog } from './dialogs';
+import { UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import FloatingCardPreview, { CardPreviewFace } from './FloatingCardPreview';
 import ImageUploader from './ImageUploader';
 

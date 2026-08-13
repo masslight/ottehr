@@ -8,18 +8,16 @@ import {
   Identifier,
   Organization,
 } from 'fhir/r4b';
+import { getNPI, getTaxID } from 'utils/lib/fhir/helpers';
+import { asEraClaimStatusCode, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import {
-  asEraClaimStatusCode,
   ClaimRemitAdjustment,
   EraClaimRemit,
   EraPayee,
   EraRemitServiceLine,
-  getNPI,
-  getTaxID,
-  patientRespBuckets,
-  roundNumberToDecimalPlaces,
-  X12_ADJUSTMENT_GROUP_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.types';
+import { patientRespBuckets } from 'utils/lib/types/data/billing/carc';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { extractClaimResponseAmounts, extractLineAmounts, extractRemitAdjustments } from './claim-amounts';
 import {
   ERA_ICN_EXTENSION,

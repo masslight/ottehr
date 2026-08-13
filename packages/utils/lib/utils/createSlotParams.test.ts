@@ -1,7 +1,7 @@
 import { Slot } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { SERVICE_CATEGORY_SYSTEM, SlotServiceCategory } from '../fhir';
-import { ServiceMode } from '../types';
+import { SERVICE_CATEGORY_SYSTEM, SlotServiceCategory } from '../fhir/constants';
+import { ServiceMode } from '../types/common';
 import { createSlotParamsFromSlotAndOptions } from './scheduleUtils';
 
 const makeSlot = (overrides: Partial<Slot> = {}): Slot => ({

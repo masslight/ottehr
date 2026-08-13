@@ -1,5 +1,5 @@
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { EntryMode } from 'utils';
+import { EntryMode } from 'utils/lib/types/data/in-house/in-house.types';
 
 export const configInHouseLabDeleteButtonTestId = (serviceRequestId: string): string => {
   return `${dataTestIds.inHouseLabsPage.deleteButtonPrefix}${serviceRequestId}`;

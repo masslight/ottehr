@@ -36,21 +36,25 @@ import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useInHouseMedicationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import {
   computeBillableUnits,
-  ExtendedMedicationDataForResponse,
-  getApiError,
   getMedicationName,
-  IN_HOUSE_CONTAINED_MEDICATION_ID,
-  InHouseMedicationQuickPickData,
-  MEDICAL_HISTORY_CONFIG,
-  MedicationData,
   medicationExtendedToMedicationData,
+} from 'utils/lib/fhir/medication-administration';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  ExtendedMedicationDataForResponse,
+  MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import { InHouseMedicationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import {
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
-  RoleType,
-  UpdateMedicationOrderInput,
-} from 'utils';
+} from 'utils/lib/types/constants';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';

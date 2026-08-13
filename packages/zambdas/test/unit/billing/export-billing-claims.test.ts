@@ -1,12 +1,11 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
 import {
   EXPORT_CLAIMS_CSV_TASK_CODE,
   EXPORT_CLAIMS_FILTERS_CODE,
   EXPORT_CLAIMS_INCOMPLETE_CODE,
-  EXPORT_CSV_OUTPUT_URL_CODE,
-  EXPORT_TASK_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -27,14 +26,15 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();

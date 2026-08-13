@@ -8,7 +8,7 @@ import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { getPatientLoginPhoneNumbers, updatePatientLoginPhoneNumbers } from 'src/api/api';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { normalizePhoneNumber } from 'utils';
+import { normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
 import { PhoneInput } from '../input/PhoneInput';
 
 interface Props {

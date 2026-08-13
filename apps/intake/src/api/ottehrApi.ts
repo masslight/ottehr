@@ -1,49 +1,59 @@
 // cSpell:ignore fhirify
 import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { HandleAnswerInput, PersistConsentInput, StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
+import {
+  GetAppointmentDetailsResponse,
+  UpdateAppointmentParameters,
+  UpdateAppointmentZambdaOutput,
+  WalkinAvailabilityCheckParams,
+  WalkinAvailabilityCheckResult,
+} from 'utils/lib/types/api/appointment.types';
 import {
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
-  CheckInInput,
-  CheckInZambdaOutput,
-  chooseJson,
+} from 'utils/lib/types/api/cancel-appointment.types';
+import { CheckInInput, CheckInZambdaOutput } from 'utils/lib/types/api/check-in.types';
+import {
+  GetBookingQuestionnaireParams,
+  GetBookingQuestionnaireResponse,
+} from 'utils/lib/types/api/get-booking-questionnaire.types';
+import {
+  GetInsuranceCardSuggestionsInput,
+  GetInsuranceCardSuggestionsResponse,
+} from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import {
+  GetPhotoIdSuggestionsInput,
+  GetPhotoIdSuggestionsResponse,
+} from 'utils/lib/types/api/get-photo-id-suggestions.types';
+import {
+  GetPresignedFileURLInput,
+  PresignUploadUrlResponse,
+} from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
-  GetAppointmentDetailsResponse,
-  GetBookingQuestionnaireParams,
-  GetBookingQuestionnaireResponse,
-  GetEligibilityParameters,
-  GetEligibilityResponse,
-  GetInsuranceCardSuggestionsInput,
-  GetInsuranceCardSuggestionsResponse,
-  GetPhotoIdSuggestionsInput,
-  GetPhotoIdSuggestionsResponse,
-  GetPresignedFileURLInput,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
-  GetStandAlonePaperworkInput,
-  GetSupportDialogOutput,
-  HandleAnswerInput,
-  isApiError,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import {
   PatchPaperworkParameters,
-  PatientInfo,
-  PersistConsentInput,
-  PresignUploadUrlResponse,
-  SearchPlacesInput,
-  SearchPlacesOutput,
-  ServiceMode,
-  StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
-  UpdateAppointmentParameters,
-  UpdateAppointmentZambdaOutput,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import { GetStandAlonePaperworkInput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
+import { GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { GetEligibilityParameters, GetEligibilityResponse } from 'utils/lib/types/data/telemed/eligibility.types';
+import {
   VideoChatNotificationInput,
   VideoChatNotificationResponse,
-  WalkinAvailabilityCheckParams,
-  WalkinAvailabilityCheckResult,
-} from 'utils';
+} from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { isApiError } from 'utils/lib/types/errors';
 import { ZambdaClient } from '../hooks/useUCZambdaClient';
 import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';

@@ -1,15 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Resource, Task, TaskOutput } from 'fhir/r4b';
-import {
-  BUCKET_NAMES,
-  EXPORT_CLAIMS_INCOMPLETE_CODE,
-  EXPORT_CSV_OUTPUT_URL_CODE,
-  EXPORT_TASK_SYSTEM,
-  ExportBillingClaimsInput,
-  getSecret,
-  SecretsKeys,
-  toCsv,
-} from 'utils';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { toCsv } from 'utils/lib/helpers/csv';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
+import { EXPORT_CLAIMS_INCOMPLETE_CODE } from 'utils/lib/types/data/billing/billing.constants';
+import { ExportBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_EXPORT_HEADERS, claimExportRow } from '../../../billing/claim-export-csv';
 import {
   buildClaimFilterParams,
@@ -20,7 +16,7 @@ import {
   searchClaimsBySearchText,
 } from '../../../billing/claim-search';
 import { createBillingClient } from '../../../billing/shared';
-import { checkOrCreateM2MClientToken } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
 import { ExportBillingClaimsCsvParams, validateRequestParameters } from './validateRequestParameters';
 

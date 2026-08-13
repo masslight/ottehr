@@ -2,20 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import { CodeableConcept, HealthcareService } from 'fhir/r4b';
 import {
   DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES,
+  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SERVICE_CATEGORY_TAG,
+} from 'utils/lib/fhir/constants';
+import {
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
   getServiceCategoryModes,
   getServiceCategoryVisitTypes,
   parseReasonsForVisit,
   parseServiceCategoryAbbreviation,
-  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
-  SERVICE_CATEGORY_TAG,
   serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/healthcareService';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
 
 /**
  * Runtime-editable per-service-category settings. Mirrors the shape of the

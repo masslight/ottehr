@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { getFullName } from 'utils';
+import { getFullName } from 'utils/lib/fhir/patient';
 
 export const BreadCrumbs: FC<{ patient: Patient | undefined }> = ({ patient }) => (
   <CustomBreadcrumbs

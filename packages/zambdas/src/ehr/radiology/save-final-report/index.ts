@@ -2,15 +2,16 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Location, Patient, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getFullestAvailableName,
-  SaveRadiologyReportZambdaOutput,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-  User,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { SaveRadiologyReportZambdaOutput } from 'utils/lib/types/api/radiology';
+import { User } from 'utils/lib/types/api/user.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getMostRecentReport } from '../../../shared/radiology';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { configReviewResultTask, parseRadiologyResourcesForTask, validateResourcesAgainstDR } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 

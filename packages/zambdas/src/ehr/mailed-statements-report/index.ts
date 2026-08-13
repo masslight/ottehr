@@ -1,14 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
-import { getPatientFirstName, getPatientLastName, MailedStatementItem, Secrets } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getMailedStatementSyncState,
-  MAIL_VENDOR_EXTENSION_URL,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
+import { Secrets } from 'utils/lib/secrets';
+import { MailedStatementItem } from 'utils/lib/types/api/mailed-statements-report.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getMailedStatementSyncState } from '../../shared/mailed-statement-sync-state';
+import { MAIL_VENDOR_EXTENSION_URL } from '../../shared/postgrid';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

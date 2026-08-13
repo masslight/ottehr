@@ -1,7 +1,8 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
-import { invoiceTaskSourceTag, PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils';
+import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { invoiceTaskSourceTag } from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -26,25 +27,67 @@ const mockStripe = {
 };
 const mockSendSmsForPatient = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(() => mockClinicalClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-    getStripeClient: () => mockStripe,
-    sendSmsForPatient: (...args: unknown[]) => mockSendSmsForPatient(...args),
-    resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),
     resolveTimezone: () => 'America/New_York',
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+  };
+});
+
+vi.mock('../../src/shared/stripeIntegration', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getStripeClient: () => mockStripe,
+  };
+});
+
+vi.mock('../../src/shared/communication', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    sendSmsForPatient: (...args: unknown[]) => mockSendSmsForPatient(...args),
+  };
+});
+
+vi.mock('../../src/shared/template-placeholders', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),
+  };
+});
+
+vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     getStripeCustomerIdFromAccount: () => 'cus_1',
+  };
+});
+
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue(undefined),
   };
 });

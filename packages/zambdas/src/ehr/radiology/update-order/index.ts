@@ -1,16 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Extension, ServiceRequest } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  FHIR_EXTENSION,
-  getPatchOperationToUpdateExtension,
-  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-  UpdateRadiologyOrderZambdaInput,
-  UpdateRadiologyOrderZambdaOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
-import { buildRadiologyOrderContent } from '../create-order';
+import { Extension, Procedure, ServiceRequest } from 'fhir/r4b';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
+import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { UpdateRadiologyOrderZambdaInput, UpdateRadiologyOrderZambdaOutput } from 'utils/lib/types/api/radiology';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { makeCptModifierExtension } from '../../../shared/candid';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { buildRadiologyOrderContent, ValidatedCPTCode } from '../create-order';
 import {
   validateCPTCode,
   validateICD10Codes,
@@ -157,4 +157,38 @@ async function updateOrderContent(
   await oystehr.fhir.update(updated);
   console.groupEnd();
   console.debug('External radiology order content updated successfully');
+
+  await syncOurProcedure(existing, cpt, edit.lateralityModifier, oystehr);
+}
+
+// create-order writes a billing Procedure (meta-tagged 'cpt-code') whose code surfaces in the chart's
+// Assessment section; an edited CPT must be mirrored there or the chart keeps billing the old code.
+async function syncOurProcedure(
+  serviceRequest: ServiceRequest,
+  cpt: ValidatedCPTCode,
+  lateralityModifier: { display: string; code: string } | undefined,
+  oystehr: Oystehr
+): Promise<void> {
+  const procedures = (
+    await oystehr.fhir.search<Procedure>({
+      resourceType: 'Procedure',
+      params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
+    })
+  ).unbundle();
+
+  if (procedures.length === 0) {
+    console.warn(`No billing Procedure found for ServiceRequest/${serviceRequest.id}; skipping CPT sync`);
+    return;
+  }
+
+  const modifierExtension = lateralityModifier ? { extension: [makeCptModifierExtension([lateralityModifier])] } : {};
+  await Promise.all(
+    procedures.map((procedure) =>
+      oystehr.fhir.update<Procedure>({
+        ...procedure,
+        code: { coding: [{ ...cpt, ...modifierExtension }] },
+      })
+    )
+  );
+  console.debug('Billing procedure CPT code synced successfully');
 }

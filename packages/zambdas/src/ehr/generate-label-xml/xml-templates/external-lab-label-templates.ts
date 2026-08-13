@@ -1,4 +1,4 @@
-import { ExternalLabsLabelContent } from 'utils';
+import { ExternalLabsLabelContent } from 'utils/lib/types/data/labs/labs.types';
 import {
   getPatientDOBForLabelDisplay,
   getSampleCollectionTimestampForLabelDisplay,

@@ -1,6 +1,8 @@
-import { CreateUserParams, MISSING_REQUEST_BODY } from 'utils';
+import { CreateUserParams } from 'utils/lib/types/api/create-user.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const CreateUserBodySchema = z.object({
   email: z.string().email(),

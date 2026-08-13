@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, NOT_AUTHORIZED } from 'utils';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { describe, expect, it } from 'vitest';
 import { assertPractitionerHasNPI, requirePractitionerNPI } from '../../src/shared/auth';
 

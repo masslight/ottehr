@@ -1,5 +1,5 @@
-import { Secrets } from 'utils';
-import { ZambdaInput } from '../../../src/shared';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../src/shared/types/common';
 
 /**
  * Creates a mock ZambdaInput with a JSON-stringified body.

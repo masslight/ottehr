@@ -22,8 +22,9 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils';
+import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
 import { usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 
@@ -67,10 +68,7 @@ export const QuestionnaireAdminPage: FC = () => {
 
   const PageHeader = (): JSX.Element => {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h4" sx={{ color: '#0F347C' }}>
-          Questionnaires
-        </Typography>
+      <AdminHeaderActionSlot>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {deletedCount > 0 && (
             <FormControlLabel
@@ -88,7 +86,7 @@ export const QuestionnaireAdminPage: FC = () => {
             Create Questionnaire
           </ButtonRounded>
         </Box>
-      </Box>
+      </AdminHeaderActionSlot>
     );
   };
 

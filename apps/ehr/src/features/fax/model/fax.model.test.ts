@@ -1,4 +1,4 @@
-import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils';
+import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it } from 'vitest';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './faxDocuments';
 import { FAX_STATUS_POLL_INTERVALS_MS, FAX_STATUS_POLL_TIMEOUT_MS, nextFaxPollInterval } from './faxPolling';

@@ -1,18 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import {
-  FHIR_IDENTIFIER_NPI,
-  getSecret,
   getSuffixFromProviderTypeExtension,
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
-  NOT_AUTHORIZED,
-  RoleType,
-  UpdateUserZambdaOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, requireUserWithRole, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/practitioners';
+import { getSecret } from 'utils/lib/secrets';
+import { UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-user';

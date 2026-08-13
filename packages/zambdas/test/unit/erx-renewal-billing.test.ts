@@ -1,10 +1,7 @@
 import { MedicationRequest } from 'fhir/r4b';
-import {
-  FHIR_EXTENSION,
-  MedicationDTO,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
-  PrescribedMedicationDTO,
-} from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { MedicationDTO, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
 import { describe, expect, it } from 'vitest';
 import {
   formatCurrentMedicationsForBillingPrompt,

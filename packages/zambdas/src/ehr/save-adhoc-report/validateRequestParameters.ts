@@ -1,11 +1,7 @@
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_SECRETS,
-  SaveAdHocReportInput,
-  SaveAdHocReportInputSchema,
-  Secrets,
-} from 'utils';
-import { ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { SaveAdHocReportInput, SaveAdHocReportInputSchema } from 'utils/lib/types/adhoc/saved/saved.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validate-zod';
 
 // The whole definition is persisted into a single FHIR Basic resource. Generated code is a few KB

@@ -1,6 +1,7 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };

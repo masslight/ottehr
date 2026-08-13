@@ -1,5 +1,5 @@
 import retry from 'retry';
-import { MIME_TYPES, MimeType } from 'utils';
+import { MIME_TYPES, MimeType } from 'utils/lib/utils/file';
 
 export async function createPresignedUrl(
   token: string,

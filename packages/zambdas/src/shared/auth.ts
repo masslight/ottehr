@@ -2,18 +2,12 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import {
-  getNPIIdentifier,
-  getPatientsForUser,
-  getSecret,
-  MISSING_AUTH_TOKEN,
-  NOT_AUTHORIZED,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  TEST_USER_ID,
-  userMe,
-} from 'utils';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 
 export const getUserToken = (input: { headers?: { Authorization?: string } }): string => {

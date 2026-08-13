@@ -1,6 +1,7 @@
 import { Box, Button, Paper, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { formatDateForLabs, UnsolicitedResultTaskRowDTO } from 'utils';
+import { UnsolicitedResultTaskRowDTO } from 'utils/lib/types/data/labs/labs.types';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 
 interface UnsolicitedResultsTaskCardProps {
   task: UnsolicitedResultTaskRowDTO;

@@ -38,7 +38,9 @@ export const ProviderNotifications: FC = memo(() => {
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
           timestamp: notification.communication.sent,
-          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : notification.link,
+          // FAX_NOTIFICATIONS_DISABLED: restore the `: notification.link` fallback (fax match page) when
+          // inbound-fax notifications come back.
+          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : undefined,
         };
       }) || []
     ).sort((a, b) => {

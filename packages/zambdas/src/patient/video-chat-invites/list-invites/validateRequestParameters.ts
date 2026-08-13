@@ -1,6 +1,8 @@
-import { INVALID_INPUT_ERROR, ListInvitedParticipantsInput } from 'utils';
+import { ListInvitedParticipantsInput } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const ListInvitesBodySchema = z.object({
   appointmentId: z.string().min(1),

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {

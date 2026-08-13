@@ -1,13 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import {
   ALREADY_EXISTS_WITH_MESSAGE,
-  BOOKING_CONFIG,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-} from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/errors';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   findServiceCategoryByCode,
   getClient,

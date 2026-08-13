@@ -3,25 +3,27 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Encounter, Extension, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
+import {
+  FHIR_EXTENSION,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+  SERVICE_CATEGORY_SYSTEM,
+  WORKERS_COMP_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
 import {
   applyVisitOccupationalMedicineEmployerToEncounterExtensions,
-  cleanUpStaffHistoryTag,
-  FHIR_EXTENSION,
-  FHIR_RESOURCE_NOT_FOUND,
-  getCoding,
-  getCriticalUpdateTagOp,
-  getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitOptionsForServiceCategory,
-  INVALID_INPUT_ERROR,
   isScheduledFollowupEncounter,
-  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-  resolveServiceCategory,
-  SERVICE_CATEGORY_SYSTEM,
-  userMe,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isEmployerOrganization } from '../../../rcm/employers/helpers';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { accountMatchesType } from '../../shared/harvest';
 import { UpdateVisitDetailsValidatedInput, validateRequestParameters } from './validateRequestParameters';
 

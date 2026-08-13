@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import {
-  PRIVATE_EXTENSION_BASE_URL,
   SavedAdHocReport,
   SavedAdHocReportDefinition,
   SavedAdHocReportDefinitionSchema,
-} from 'utils';
+} from 'utils/lib/types/adhoc/saved/saved.types';
 
 // A saved ad-hoc report is one FHIR Basic resource: Basic.code classifies it (so list is a `code`
 // search), and the whole definition rides as a single JSON blob in one extension. Practice-wide —

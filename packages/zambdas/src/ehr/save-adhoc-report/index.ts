@@ -1,24 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import {
-  AD_HOC_REPORT_EDIT_ROLES,
-  FHIR_RESOURCE_NOT_FOUND,
-  SaveAdHocReportOutput,
-  SaveAdHocReportOutputSchema,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUserToken,
-  requireUserWithRole,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { SaveAdHocReportOutput, SaveAdHocReportOutputSchema } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   makeSavedAdHocReportBasic,
   parseSavedAdHocReportBasic,
   savedAdHocReportExists,
 } from '../../shared/saved-adhoc-report';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 

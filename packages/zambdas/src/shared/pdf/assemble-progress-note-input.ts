@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
-  OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
-  removePrefix,
   telemedProgressNoteChartDataRequestedFields,
-} from 'utils';
+} from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { getChartData } from '../../ehr/get-chart-data';
 import { getMedicationOrders } from '../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../ehr/immunization/get-orders';
@@ -24,7 +24,10 @@ import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
 export async function assembleProgressNoteInput(
   oystehr: Oystehr,
   token: string,
-  visitResources: FullAppointmentResourcePackage
+  visitResources: FullAppointmentResourcePackage,
+  options?: {
+    signed?: boolean;
+  }
 ): Promise<ProgressNoteInput> {
   const { encounter, patient, appointment } = visitResources;
   if (!patient) throw new Error(`No patient found for encounter ${encounter?.id}`);
@@ -68,5 +71,6 @@ export async function assembleProgressNoteInput(
     upcomingFollowUps,
     erxPharmacies,
     signatures,
+    signed: options?.signed,
   };
 }

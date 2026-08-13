@@ -1,11 +1,11 @@
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, Extension } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
 import {
   INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
   InsuranceCardExtraction,
   InsuranceCardExtractionFields,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/documents';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import {
   assertBooleanClassifier,
@@ -21,7 +21,7 @@ First, decide whether the image is a health insurance card (front or back) and s
 
 If it is an insurance card, extract exactly these fields, using ONLY values that are clearly printed on the card itself:
 - payer: the insurance company / plan name as printed on the card
-- memberName: the member or subscriber name
+- memberFirstName, memberMiddleName, memberLastName: the member/subscriber's name split into its parts. IDs often print the name as "LAST, FIRST MIDDLE" or with the last name on its own line above the first — split the printed name into the separate fields; NEVER put the whole printed name into a single field.
 - memberId: the member / subscriber ID
 - groupNumber: the group number
 - payerId: the electronic payer ID, if printed
@@ -47,7 +47,9 @@ export const insuranceCardResponseSchema = {
   properties: {
     isInsuranceCard: { type: 'boolean' },
     payer: { type: 'string', nullable: true },
-    memberName: { type: 'string', nullable: true },
+    memberFirstName: { type: 'string', nullable: true },
+    memberMiddleName: { type: 'string', nullable: true },
+    memberLastName: { type: 'string', nullable: true },
     memberId: { type: 'string', nullable: true },
     groupNumber: { type: 'string', nullable: true },
     payerId: { type: 'string', nullable: true },
@@ -61,7 +63,9 @@ export const insuranceCardResponseSchema = {
   required: [
     'isInsuranceCard',
     'payer',
-    'memberName',
+    'memberFirstName',
+    'memberMiddleName',
+    'memberLastName',
     'memberId',
     'groupNumber',
     'payerId',
@@ -76,7 +80,9 @@ export const insuranceCardResponseSchema = {
 
 const EXTRACTION_FIELD_KEYS: (keyof InsuranceCardExtractionFields)[] = [
   'payer',
-  'memberName',
+  'memberFirstName',
+  'memberMiddleName',
+  'memberLastName',
   'memberId',
   'groupNumber',
   'payerId',

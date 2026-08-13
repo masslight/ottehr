@@ -1,4 +1,4 @@
-import { LAB_DR_TYPE_TAG } from 'utils';
+import { LAB_DR_TYPE_TAG } from 'utils/lib/types/data/labs/labs.constants';
 
 export const EXAMPLE_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 

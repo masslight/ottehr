@@ -1,4 +1,4 @@
-import { Secrets, SecretsKeys } from 'utils';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { invokeChatbotVertexAI } from '../../src/shared/ai';
 

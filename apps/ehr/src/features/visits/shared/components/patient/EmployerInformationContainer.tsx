@@ -1,7 +1,7 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { Row } from 'src/components/layout';
-import { PATIENT_RECORD_CONFIG } from 'utils';
+import { Row } from 'src/components/layout/Row';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 import { SectionSaveButton } from './SectionSaveButton';

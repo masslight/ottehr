@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ServiceFacilityItem } from 'utils';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingServiceFacilities } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useFacilityOptionsSearch } from '../hooks/useOptionSearch';
@@ -88,7 +88,6 @@ function useFacilitySearch(value: string | string[] | null | undefined): {
         })
         .catch(() => undefined);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, known, oystehrZambda]);
 
   return { options, known, search };

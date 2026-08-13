@@ -6,27 +6,28 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  chooseJson,
-  CreateManualTaskRequest,
-  ERX_TASK,
-  FAX_TASK,
-  getCoding,
-  getExtension,
-  IN_HOUSE_LAB_TASK,
-  isFollowupEncounter,
-  LAB_ORDER_TASK,
-  LabType,
-  MANUAL_TASK,
-  PROVIDER_NOTIFICATION_TAG_SYSTEM,
-  RADIOLOGY_TASK,
-  Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
-  TaskAlertCode,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import {
+  CreateManualTaskRequest,
+  ERX_TASK,
+  FAX_TASK,
+  MANUAL_TASK,
+  RADIOLOGY_TASK,
+  Task,
+  TaskAlertCode,
+} from 'utils/lib/types/data/tasks/types';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';

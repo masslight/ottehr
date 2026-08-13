@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
-import { getPractitionerRoleAllCategories, isServiceCategoryHealthcareService } from 'utils';
+import { getPractitionerRoleAllCategories, isServiceCategoryHealthcareService } from 'utils/lib/fhir/healthcareService';
 
 export interface PractitionerRoleConflict {
   /**

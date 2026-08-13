@@ -4,30 +4,26 @@ import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
+import { useGetTelemedLocations } from 'src/telemed/features/appointments/appointment.queries';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
-import {
-  APIError,
-  BOOKING_CONFIG,
-  CreateSlotParams,
-  getClosingTime,
-  getHoursOfOperationForToday,
-  getOpeningTime,
-  getTimezone,
-  isApiError,
-  ServiceMode,
-  TelemedLocation,
-} from 'utils';
+import { getHoursOfOperationForToday } from 'utils/lib/fhir/location';
+import { getClosingTime, getOpeningTime } from 'utils/lib/helpers/check-office-open';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { TelemedLocation } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { CustomTooltip } from '../components/CustomTooltip';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetTelemedLocations } from '../telemed/features/appointments';
-import { useOystehrAPIClient } from '../telemed/utils';
 
 const emptyArray: [] = [];
 

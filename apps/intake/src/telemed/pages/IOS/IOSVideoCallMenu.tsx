@@ -3,11 +3,14 @@ import { IconButton, List } from '@mui/material';
 import { Box } from '@mui/system';
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { InvitedParticipantListItemButton } from 'src/telemed/features/invited-participants/InvitedParticipantsListItemButton';
+import {
+  createIOSMessageCloseWebView,
+  sendIOSAppMessage,
+} from 'src/telemed/features/ios-communication/iosCommunicationChannel';
+import { UploadPhotosListItemButton } from 'src/telemed/features/upload-photos/UploadPhotosListItemButton';
 import { intakeFlowPageRoute } from '../../../App';
-import { useAppointmentStore } from '../../features/appointments';
-import { InvitedParticipantListItemButton } from '../../features/invited-participants';
-import { createIOSMessageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
-import { UploadPhotosListItemButton } from '../../features/upload-photos';
 
 export function IOSVideoCallMenu(): JSX.Element {
   const [searchParams, _] = useSearchParams();

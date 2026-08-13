@@ -1,4 +1,4 @@
-import { drawRegularText } from '../../helpers/render';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, PdfSection, ReviewOfSystems } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

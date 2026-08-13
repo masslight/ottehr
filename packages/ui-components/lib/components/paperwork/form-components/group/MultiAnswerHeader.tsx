@@ -2,8 +2,8 @@ import { IconButton, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { IntakeQuestionnaireItem } from 'utils';
-import { formDataTestIds as dataTestIds } from 'utils';
+import { formDataTestIds as dataTestIds } from 'utils/lib/helpers/paperwork/data-test-ids';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 // import { deleteIcon } from '../../../../themes/ottehr';
 import { getPaperworkFieldId, useFormValues } from '../../hooks/useFormHelpers';
 

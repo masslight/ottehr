@@ -1,4 +1,4 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { describe, expect, it } from 'vitest';
 import { validateRequestParameters } from '../../../src/billing/export-billing-claims/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';

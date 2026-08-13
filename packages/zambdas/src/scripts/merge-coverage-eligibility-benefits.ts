@@ -8,13 +8,13 @@ import {
 } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { getAuth0Token } from '../shared/getAuth0Token';
 import {
   createClinicalOystehrClient,
   fhirApiUrlFromAuth0Audience,
-  getAuth0Token,
   projectApiUrlFromAuth0Audience,
-} from '../shared';
+} from '../shared/helpers';
 
 const RAW_RESPONSE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-response';
 const RAW_REQUEST_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-request';

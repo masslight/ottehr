@@ -14,7 +14,8 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import { isAnnotationFollowupEncounter, isNonPaperworkQuestionnaireResponse } from 'utils';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { getVideoRoomResourceExtension, resolveTimezone } from '../../helpers';
 import { FullAppointmentResourcePackage } from './types';
 

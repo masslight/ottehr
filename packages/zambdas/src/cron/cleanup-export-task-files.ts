@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { EXPORT_CSV_OUTPUT_URL_CODE, getAllFhirSearchPages } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { EXPORT_CSV_OUTPUT_URL_CODE } from 'utils/lib/types/api/invoicing.types';
 
 export interface CleanupExportTaskFilesInput {
   oystehr: Oystehr;

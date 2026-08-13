@@ -1,4 +1,4 @@
-import { FAX_DOCUMENT_LABELS, FAX_DOCUMENT_ORDER, FaxDocumentAvailability } from 'utils';
+import { FAX_DOCUMENT_LABELS, FAX_DOCUMENT_ORDER, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 
 export interface FaxDocumentLabelGroups {
   /** Documents that will go into the packet. */

@@ -1,5 +1,5 @@
-import { APIError, isApiError } from 'utils';
-import { useIntakeCommonStore } from '../features/common';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 
 type InternalError = Omit<APIError, 'code'>;
 type NetworkError = InternalError | APIError;

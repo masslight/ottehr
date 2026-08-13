@@ -1,5 +1,5 @@
 import { DocumentReference } from 'fhir/r4b';
-import { ZambdaInput } from '../../../shared/types';
+import { ZambdaInput } from '../../../shared/types/common';
 import { ProcessTelemedRecordingSubscriptionInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): ProcessTelemedRecordingSubscriptionInput {

@@ -1,7 +1,7 @@
 import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import { Extension } from 'fhir/r4b';
-import { getPresignedURL } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 
 /**
  * Generic helpers shared by the OCR-extraction endpoints (extract-insurance-card,

@@ -2,18 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Organization, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  FaxRecipient,
-  FaxRecipientResult,
-  getAddressString,
-  getCoding,
-  getFullestAvailableName,
-  getNPI,
-  isAnnotationFollowupEncounter,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  standardizePhoneNumber,
-} from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAddressString, getCoding, getNPI } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';

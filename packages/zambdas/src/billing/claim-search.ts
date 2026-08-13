@@ -1,19 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BillingClaimItem,
-  CLAIM_STATUS_TAG_SYSTEMS,
-  CLAIM_TAG_SYSTEM,
-  CODE_SYSTEM_CLAIM_TYPE,
-  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  deduplicateUnbundledResources,
-  getClaimStatusValues,
-  getPayerId,
-  getPayerUrl,
-  isValidUUID,
-  SearchBillingClaimsInput,
-} from 'utils';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
+import { CLAIM_STATUS_TAG_SYSTEMS, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,

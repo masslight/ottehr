@@ -1,4 +1,4 @@
-import { MedicationInteractions } from 'utils';
+import { MedicationInteractions } from 'utils/lib/types/api/medication-administration.types';
 import { ReasonListCodes, reasonListValues } from './medicationTypes';
 
 export function interactionsSummary(interactions: MedicationInteractions): string {

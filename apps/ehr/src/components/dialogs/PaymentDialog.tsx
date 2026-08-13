@@ -22,16 +22,10 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import {
-  CashOrCardPayment,
-  DOB_DATE_FORMAT,
-  formatPhoneNumberDisplay,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  getPhoneNumberForIndividual,
-  sleep,
-} from 'utils';
+import { getFirstName, getLastName, getMiddleName, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay, sleep } from 'utils/lib/helpers/helpers';
+import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { v4 as uuidv4 } from 'uuid';
 import * as yup from 'yup';
 import { dataTestIds } from '../../constants/data-test-ids';

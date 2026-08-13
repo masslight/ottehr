@@ -1,5 +1,7 @@
-import { DeleteInHouseLabOrderParameters, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { DeleteInHouseLabOrderParameters } from 'utils/lib/types/data/in-house/in-house.types';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

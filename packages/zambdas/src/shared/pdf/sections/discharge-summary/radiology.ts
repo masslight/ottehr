@@ -1,5 +1,5 @@
 import { convert } from 'html-to-text';
-import type { RadiologyDTO } from 'utils';
+import type { RadiologyDTO } from 'utils/lib/types/api/radiology';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, RadiologyData } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

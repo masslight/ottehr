@@ -1,10 +1,10 @@
+import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import {
-  BillingClaimItem,
   CLAIM_STATUS_FIELDS,
   formatAntCaseString,
   formatClaimStatusValue,
-  roundNumberToDecimalPlaces,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 
 interface ClaimExportColumn {
   header: string;

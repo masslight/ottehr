@@ -9,12 +9,9 @@ import {
   Patient,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import {
-  getPaymentVariantFromEncounter,
-  getQuestionnaireResponseByLinkId,
-  isLocationInPerson,
-  isLocationVirtual,
-} from 'utils';
+import { getPaymentVariantFromEncounter } from 'utils/lib/fhir/encounter';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { WEIGHT_EXTENSION_URL, WEIGHT_LAST_UPDATED_EXTENSION_URL } from './constants';
 import {
   AppointmentValues,

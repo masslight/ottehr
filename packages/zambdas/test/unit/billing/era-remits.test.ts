@@ -1,5 +1,9 @@
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Coverage, Organization, Patient } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_CODE_TAX_EMPLOYER, FHIR_IDENTIFIER_NPI, FHIR_IDENTIFIER_SYSTEM } from 'utils';
+import {
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/constants';
 import { describe, expect, it } from 'vitest';
 import {
   ADJUDICATION_CODES,

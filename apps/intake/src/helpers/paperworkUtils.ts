@@ -1,5 +1,9 @@
-import { checkEnable, FileURLs, PaperworkPage, Question, QuestionnaireDataType, SELF_PAY_OPTION } from 'utils';
-import { FormInputType } from '../types';
+import { FormInputType } from 'src/types/form/form-input-type';
+import { checkEnable } from 'utils/lib/helpers/paperwork/paperwork';
+import { SELF_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
+import { FileURLs } from 'utils/lib/types/common';
+import { PaperworkPage, Question } from 'utils/lib/types/data/paperwork.types';
+import { QuestionnaireDataType } from 'utils/lib/types/data/paperwork/paperwork.types';
 
 interface CompletedPaperwork {
   [fieldName: string]: any;

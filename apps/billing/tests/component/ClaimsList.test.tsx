@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { AR_STAGE, BillingClaimItem, emptyClaimStatusValues } from 'utils';
+import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
+import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ClaimsList from '../../src/pages/ClaimsList';
 

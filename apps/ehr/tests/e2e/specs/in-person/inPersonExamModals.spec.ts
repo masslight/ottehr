@@ -28,7 +28,8 @@ test.describe('In-Person Exam Modal Tests', () => {
   };
 
   test.beforeAll(async ({ browser }) => {
-    await resourceHandler.setResources();
+    // Exam modals only; no paperwork answer is read.
+    await resourceHandler.setResources({ skipPaperwork: true });
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     context = await browser.newContext();

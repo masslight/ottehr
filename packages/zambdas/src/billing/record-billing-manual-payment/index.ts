@@ -2,14 +2,12 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { RecordBillingManualPaymentResponse, TIMEZONES } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
 import { createBillingClient, fetchById } from '../shared';
 import { RecordBillingManualPaymentParams, validateRequestParameters } from './validateRequestParameters';

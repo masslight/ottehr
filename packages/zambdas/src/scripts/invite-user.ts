@@ -1,15 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-import {
-  AllStatesValues,
-  makeQualificationForPractitioner,
-  PractitionerLicense,
-  RoleType,
-  SCHEDULE_EXTENSION_URL,
-  SLUG_SYSTEM,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
-import { filterIdsOnlyToTheseRoles, updateUserRoles } from '../shared';
+import { SCHEDULE_EXTENSION_URL, SLUG_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
+import { AllStatesValues } from 'utils/lib/helpers/states';
+import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { filterIdsOnlyToTheseRoles, updateUserRoles } from '../shared/rolesUtils';
 
 const DEFAULTS = {
   firstName: 'Example',

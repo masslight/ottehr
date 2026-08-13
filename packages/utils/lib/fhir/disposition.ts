@@ -1,4 +1,4 @@
-import { DispositionType } from '../types';
+import { DispositionType } from '../types/api/chart-data/chart-data.types';
 
 const pcpLabel = 'Primary Care Physician';
 

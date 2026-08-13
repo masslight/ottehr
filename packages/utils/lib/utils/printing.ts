@@ -1,4 +1,4 @@
-import { LabelTypeMetadata, MANUFACTURER_TO_LABEL_MAPPING, SupportedPrinterManufacturer } from '../types';
+import { LabelTypeMetadata, MANUFACTURER_TO_LABEL_MAPPING, SupportedPrinterManufacturer } from '../types/data/printing';
 
 export function getLabelTypeMetadata(
   manufacturer: SupportedPrinterManufacturer | undefined,

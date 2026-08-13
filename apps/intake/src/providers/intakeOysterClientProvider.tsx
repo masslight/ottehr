@@ -4,7 +4,7 @@ import { createContext, FC, PropsWithChildren, useCallback, useContext, useEffec
 import { useSearchParams } from 'react-router-dom';
 import { checkTokenIsValid } from 'src/api/tokenUtils';
 import { useAwaitAuth0 } from 'src/hooks/useAwaitAuth0';
-import { createClinicalOystehrClient } from 'ui-components';
+import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
 
 export const useClient = ({ tokenless }: { tokenless: boolean }): Oystehr | null => {
   const context = useContext(IntakeClientsContext);

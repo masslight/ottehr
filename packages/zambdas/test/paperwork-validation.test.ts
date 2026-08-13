@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { PersonSex } from 'utils';
+import { PersonSex } from 'utils/lib/types/common';
 import { expect, vi } from 'vitest';
-import { createClinicalOystehrClient } from '../src/shared';
+import { createClinicalOystehrClient } from '../src/shared/helpers';
 import { SECRETS } from './data/secrets';
 
 export const insuranceData = {

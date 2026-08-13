@@ -1,4 +1,6 @@
-import { DispositionType, PractitionerQualificationCode, RoleType } from 'utils';
+import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -661,6 +663,7 @@ export const dataTestIds = {
     marTableGivenPersonCell: 'mar-table-given-person-cell',
     marTableReasonCell: 'mar-table-reason-cell',
     vaccineDetailsTab: 'vaccine-details-tab',
+    vaccineDetailsCard: 'vaccine-details-card',
     marTab: 'immunization-mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
     deleteButton: 'DeleteOutlinedIcon',

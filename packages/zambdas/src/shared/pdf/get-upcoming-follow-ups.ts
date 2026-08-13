@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { buildAppointmentStartMap, getEncounterDateTime, isScheduledFollowupEncounter } from 'utils';
+import { buildAppointmentStartMap, getEncounterDateTime, isScheduledFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { resolveTimezone } from '../helpers';
 
 // Raw follow-up data; display formatting lives in `composeUpcomingVisits`.

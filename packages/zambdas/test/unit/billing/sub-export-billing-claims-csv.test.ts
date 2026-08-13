@@ -1,11 +1,11 @@
 import { Claim, Resource, Task } from 'fhir/r4b';
+import { EXPORT_CSV_OUTPUT_URL_CODE } from 'utils/lib/types/api/invoicing.types';
 import {
   CLAIM_TAG_SYSTEM,
   EXPORT_CLAIMS_FILTERS_CODE,
   EXPORT_CLAIMS_INCOMPLETE_CODE,
-  EXPORT_CSV_OUTPUT_URL_CODE,
-  ExportBillingClaimsInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.constants';
+import { ExportBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLAIM_SEARCH_TEXT_MATCH_LIMIT } from '../../../src/billing/claim-search';
 
@@ -23,13 +23,10 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  };
-});
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();

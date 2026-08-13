@@ -1,5 +1,7 @@
-import { DailyPaymentsReportZambdaInput, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { DailyPaymentsReportZambdaInput } from 'utils/lib/types/api/daily-payments-report.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): {
   dateRange: { start: string; end: string };

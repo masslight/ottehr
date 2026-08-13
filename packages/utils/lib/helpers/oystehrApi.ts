@@ -1,5 +1,5 @@
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
-import { APIError, isApiError } from '../types';
+import { APIError, isApiError } from '../types/errors';
 
 export const getOystehrApiHelpers = <T extends Record<string, string>>(
   oystehr: Oystehr,

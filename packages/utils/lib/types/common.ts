@@ -15,7 +15,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from '../fhir/systemUrls';
-import { ScheduleExtension } from '../utils';
+import { ScheduleExtension } from '../utils/scheduleUtils';
 import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
@@ -650,6 +650,11 @@ export enum ServiceMode {
   'in-person' = 'in-person',
   'virtual' = 'virtual',
 }
+
+export const SERVICE_MODE_LABEL: Record<ServiceMode, string> = {
+  [ServiceMode['in-person']]: 'In-Person',
+  [ServiceMode.virtual]: 'Virtual',
+};
 
 /**
  * Booking-flow capability a service supports. Narrower than the appointment-

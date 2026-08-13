@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BUCKET_NAMES, EXPORT_CLAIMS_CSV_TASK_CODE, EXPORT_TASK_SYSTEM, getSecret, Secrets, SecretsKeys } from 'utils';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
+import { EXPORT_CLAIMS_CSV_TASK_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { createBillingClient } from '../../billing/shared';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { cleanupExportTaskFiles, CleanupExportTaskFilesResult } from '../cleanup-export-task-files';
 import { validateRequestParameters } from './validateRequestParameters';
 
