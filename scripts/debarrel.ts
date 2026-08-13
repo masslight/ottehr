@@ -175,10 +175,13 @@ function resolveSpecifier(spec: string, fromFile: string): string | null {
   return null;
 }
 
-let filesChanged = 0;
+const changedFiles: string[] = [];
 let importsRewritten = 0;
 const skipped: string[] = [];
 const unresolved = new Map<string, number>();
+// Files that still import from a barrel but could not be auto-rewritten (an unresolved symbol).
+// Tracked separately so --check can list them too, even when nothing in the file is rewritable.
+const unresolvedFiles = new Set<string>();
 
 for (const sf of program.getSourceFiles()) {
   const file = resolve(sf.fileName);
@@ -212,6 +215,7 @@ for (const sf of program.getSourceFiles()) {
           `${relative(REPO, barrelPath)}:${name}`,
           (unresolved.get(`${relative(REPO, barrelPath)}:${name}`) ?? 0) + 1
         );
+        unresolvedFiles.add(relative(REPO, file));
         break;
       }
       const spec = specifierFor(origin.file, file);
@@ -238,7 +242,7 @@ for (const sf of program.getSourceFiles()) {
   }
 
   if (!edits.length) continue;
-  filesChanged++;
+  changedFiles.push(relative(REPO, file));
   if (!APPLY) continue;
   let text = readFileSync(file, 'utf8');
   for (const e of edits.sort((a, b) => b.start - a.start)) {
@@ -248,7 +252,7 @@ for (const sf of program.getSourceFiles()) {
 }
 
 console.log(`${APPLY ? 'APPLIED' : 'DRY RUN'}  root=${relative(REPO, ROOT)}`);
-console.log(`  files changed:      ${filesChanged}`);
+console.log(`  files changed:      ${changedFiles.length}`);
 console.log(`  imports rewritten:  ${importsRewritten}`);
 console.log(`  barrels discovered: ${BARRELS.size}`);
 if (unresolved.size) {
@@ -263,7 +267,10 @@ if (skipped.length) {
   skipped.slice(0, 5).forEach((s) => console.log(`    ${s}`));
 }
 
-if (args.includes('--check') && (filesChanged > 0 || unresolved.size > 0)) {
-  console.error(`\nBarrel imports found. Run: npx tsx scripts/debarrel.ts ${relative(REPO, ROOT)} --apply`);
+if (args.includes('--check') && (changedFiles.length > 0 || unresolvedFiles.size > 0)) {
+  const offenders = [...new Set([...changedFiles, ...unresolvedFiles])].sort();
+  console.error(`\nBarrel imports found in ${offenders.length} file(s):`);
+  for (const f of offenders) console.error(`  ${f}`);
+  console.error(`\nRun: npx tsx scripts/debarrel.ts ${relative(REPO, ROOT)} --apply`);
   process.exit(1);
 }
