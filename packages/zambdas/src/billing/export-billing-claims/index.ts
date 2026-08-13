@@ -76,8 +76,10 @@ async function performEffect(
     ],
   });
 
+  if (!task.id) throw new Error('Export Task was created without an id');
+
   return {
-    taskId: task.id ?? '',
+    taskId: task.id,
   };
 }
 

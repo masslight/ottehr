@@ -118,6 +118,12 @@ describe('export-billing-claims', () => {
       );
     });
 
+    it('fails rather than handing back an id the caller cannot poll', async () => {
+      mockOystehrClient.fhir.create.mockResolvedValue({ resourceType: 'Task' } as Task);
+
+      await expect(handler(makeInput({}))).rejects.toThrow('Export Task was created without an id');
+    });
+
     it('carries the whole filter set to the worker', async () => {
       await handler(
         makeInput({
