@@ -15,7 +15,6 @@ import {
   getSkipEmailTaskInput,
   getTaskResource,
   isAnnotationFollowupEncounter,
-  removePrefix,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
@@ -23,7 +22,7 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, requirePractitionerNPI, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -58,17 +57,6 @@ export const performEffect = async (
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
 
-  // Resolve the acting user once up front and reuse it below, rather than calling userMe repeatedly.
-  const currentUser = await userMe(userToken, secrets);
-  const practitionerId = removePrefix('Practitioner/', currentUser.profile);
-  if (!practitionerId) {
-    throw new Error("Can't resolve the Practitioner resource id attached to the current user");
-  }
-
-  // Signing / co-signing a note is an NPI-gated action. Block callers whose Practitioner has no NPI
-  // (e.g. the Clinician role) — this also stops the downstream claim submission the sign kicks off.
-  await requirePractitionerNPI(oystehr, practitionerId);
-
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
     {
@@ -96,12 +84,8 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      await changeFollowupEncounterStatusToCompleted(
-        oystehr,
-        practitionerId,
-        visitResources,
-        supervisorApprovalEnabled
-      );
+      const userId = await getMyPractitionerId(userToken, secrets);
+      await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
 
@@ -123,7 +107,8 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      await changeStatusToCompleted(oystehr, currentUser, visitResources, supervisorApprovalEnabled);
+      const user = await userMe(userToken, secrets);
+      await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
 
