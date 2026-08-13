@@ -7,16 +7,15 @@ import {
   getExternalLabOrderEditUrl,
   resolveOrderRoutingFromFollowUpLookup,
 } from 'src/features/visits/in-person/routing/helpers';
+import { getColumnHeader, getColumnWidth } from 'utils/lib/helpers/labs/helpers';
 import {
   ExternalLabsStatus,
-  getColumnHeader,
-  getColumnWidth,
   LabOrderDTO,
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
   ReflexLabDTO,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
 import { LabsTableRow } from './LabsTableRow';
 
 interface LabsTableProps {

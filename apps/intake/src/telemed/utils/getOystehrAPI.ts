@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { useMemo } from 'react';
 import { useClient } from 'src/providers/intakeOysterClientProvider';
-import { getOystehrAPI } from 'ui-components';
+import { getOystehrAPI } from 'ui-components/lib/data/oystehrApi';
 
 const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 

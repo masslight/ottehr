@@ -1,16 +1,13 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Patient, RelatedPerson } from 'fhir/r4b';
+import { captureException } from '@sentry/aws-serverless';
+import { Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import {
-  getPatientsForUser,
-  getSecret,
-  NOT_AUTHORIZED,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  TEST_USER_ID,
-  userMe,
-} from 'utils';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 import { ZambdaInput } from './types/common';
 
@@ -27,7 +24,7 @@ export function getUserToken(input: Pick<ZambdaInput, 'headers'>): string {
   }
   const token = authorization.replace(/^Bearer\s+/i, '').trim();
   if (!token) {
-    throw NOT_AUTHORIZED;
+    throw MISSING_AUTH_TOKEN;
   }
   return token;
 }
@@ -64,6 +61,29 @@ export const requireUserWithRole = async (
 
 export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
   await requireUserWithRole(userToken, secrets, [RoleType.Administrator]);
+};
+
+/**
+ * Throws NOT_AUTHORIZED unless the given Practitioner has an NPI identifier.
+ *
+ * NPI-gated actions (signing/co-signing notes, e-prescribing, ordering external labs & imaging,
+ * submitting claims under a provider NPI, and ordering in-house medications) must be performed
+ * only by a user whose Practitioner carries an NPI. The clinical zambdas run their FHIR writes
+ * under an M2M token, so the caller's Oystehr access policy does not gate them — this check is the
+ * backend enforcement point that blocks non-NPI roles such as Clinician from reaching these actions
+ * via a direct API call.
+ */
+export const assertPractitionerHasNPI = (practitioner: Practitioner): void => {
+  if (!getNPIIdentifier(practitioner)?.value) {
+    throw NOT_AUTHORIZED;
+  }
+};
+
+/** Reads the Practitioner and asserts it has an NPI. See {@link assertPractitionerHasNPI}. */
+export const requirePractitionerNPI = async (oystehr: Oystehr, practitionerId: string): Promise<Practitioner> => {
+  const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
+  assertPractitionerHasNPI(practitioner);
+  return practitioner;
 };
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {
@@ -107,6 +127,27 @@ function isM2MTokenExpiringSoon(token: string, skewSeconds = 60): boolean {
     return true;
   }
 }
+// Re-mint the module-cached M2M token when it's within this window of expiry.
+// Without this, a warm lambda (or a long-lived local server) keeps returning a
+// token past its TTL and every downstream call starts failing with 401/500s.
+const M2M_TOKEN_EXPIRY_MARGIN_MS = 5 * 60 * 1000;
+
+type M2MTokenExpiryStatus = 'fresh' | 'near-expiry' | 'expired';
+
+const getTokenExpiryStatus = (token: string): M2MTokenExpiryStatus => {
+  try {
+    const { exp } = decodeJwt(token);
+    // No exp claim → treat as non-expiring (preserve warm-invocation reuse).
+    if (typeof exp !== 'number') return 'fresh';
+    const msUntilExpiry = exp * 1000 - Date.now();
+    if (msUntilExpiry <= 0) return 'expired';
+    if (msUntilExpiry < M2M_TOKEN_EXPIRY_MARGIN_MS) return 'near-expiry';
+    return 'fresh';
+  } catch {
+    // Undecodable cached token — unusable, must be replaced.
+    return 'expired';
+  }
+};
 
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
   // The token is cached in module scope across warm invocations. Refresh when it's missing OR
@@ -116,8 +157,27 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
     console.log('getting token');
     return await getAuth0Token(secrets);
   }
-  console.log('already have token');
-  return token;
+  const expiryStatus = getTokenExpiryStatus(token);
+  if (expiryStatus === 'fresh') {
+    console.log('already have token');
+    return token;
+  }
+  if (expiryStatus === 'near-expiry') {
+    // Proactive refresh: the cached token is still valid for a few more minutes, so a failed
+    // re-mint must not fail the request — fall back to the cached token and let a later
+    // invocation retry the refresh.
+    console.log('cached token near expiry - attempting to get new token');
+    try {
+      return await getAuth0Token(secrets);
+    } catch (error) {
+      console.error('failed to refresh near-expiry M2M token, falling back to still-valid cached token', error);
+      captureException(error);
+      return token;
+    }
+  }
+  // Expired (or undecodable) — the cached token is unusable, so a re-mint failure must propagate.
+  console.log('cached token expired - getting new token');
+  return await getAuth0Token(secrets);
 }
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {

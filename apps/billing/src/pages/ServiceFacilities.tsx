@@ -3,7 +3,8 @@ import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextF
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getApiError, ServiceFacilityItem } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { deleteBillingServiceFacility, searchBillingServiceFacilities } from '../api/api';
 import { AddServiceFacilityDialog } from '../components/AddServiceFacilityDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -162,7 +163,7 @@ export function ServiceFacilitiesList(): ReactElement {
         onRowClick={(params) => navigate(`/service-facilities/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{
           ...dataGridSx,

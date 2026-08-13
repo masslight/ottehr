@@ -30,28 +30,77 @@ const mockStripeClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/candid', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     performCandidPreEncounterSync: mockPerformCandidPreEncounterSync,
+  };
+});
+
+vi.mock('../../src/shared/pdf/patient-payment-receipt-pdf', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createPatientPaymentReceiptPdf: mockCreatePatientPaymentReceiptPdf,
+  };
+});
+
+vi.mock('../../src/shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     getAuth0Token: mockGetAuth0Token,
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createClinicalOystehrClient: mockCreateOystehrClient,
+  };
+});
+
+vi.mock('../../src/shared/stripeIntegration', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     getStripeClient: mockGetStripeClient,
-    wrapHandler: (_name: string, handler: any) => handler,
     STRIPE_PAYMENT_ID_SYSTEM: 'https://fhir.oystehr.com/PaymentIdSystem/stripe',
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    wrapHandler: (_name: string, handler: any) => handler,
+  };
+});
+
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_test'),
+  };
+});
+
+vi.mock('utils/lib/secrets', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     getOptionalSecret: vi.fn().mockReturnValue('candid-client-id-value'),
     // tests don't drive real candid traffic, so any non-empty string is fine
     getSecret: vi.fn().mockReturnValue('test-value'),
+  };
+});
+
+vi.mock('utils/lib/helpers/candidApi', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     // stub to avoid reading the unmocked secret, skipping performCandidPreEncounterSync
     getOrCreateCandidApiClient: vi.fn().mockResolvedValue({}),
   };

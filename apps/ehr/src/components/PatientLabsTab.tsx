@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { ReactElement } from 'react';
 import { LabsTablePatientRecord } from 'src/features/external-labs/components/labs-orders/LabTablePatientRecord';
-import { LabsTableColumn } from 'utils';
+import { LabsTableColumn } from 'utils/lib/types/data/labs/labs.types';
 
 interface PatientLabsTabProps {
   patientId: string;

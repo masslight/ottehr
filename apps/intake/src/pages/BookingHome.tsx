@@ -4,21 +4,16 @@ import { useQuery } from '@tanstack/react-query';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
-import {
-  BRANDING_CONFIG,
-  getSelectors,
-  PatientInfo,
-  PROJECT_WEBSITE,
-  ServiceMode,
-  Timezone,
-  TIMEZONES,
-  VisitType,
-} from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { getSelectors } from 'utils/lib/store';
+import { ServiceMode, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { BOOKING_SLOT_ID_PARAM, bookingBasePath } from '../App';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 

@@ -34,7 +34,7 @@ import {
   OTTEHR_INPUT_WIDTHS,
   PracticeManagedQuestionnaireItem,
   QUESTIONNAIRE_ITEM_TYPES,
-} from 'utils';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { ItemAction } from '../questionnaire.reducer';
 import { AnswerOptionEditor } from './AnswerOptionEditor';
 
@@ -168,14 +168,24 @@ const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.D
                   label="Max Length"
                   type="number"
                   value={item.maxLength || ''}
-                  onChange={(e) =>
+                  inputProps={{ min: 1 }}
+                  onKeyDown={(e) => {
+                    if (['-', '+', 'e', 'E', '.'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onChange={(e) => {
+                    const parsed = e.target.value ? parseInt(e.target.value) : undefined;
+                    if (parsed !== undefined && parsed < 1) {
+                      return;
+                    }
                     dispatch({
                       type: 'UPDATE_ITEM',
                       key: item._key,
                       field: 'maxLength',
-                      value: e.target.value ? parseInt(e.target.value) : undefined,
-                    })
-                  }
+                      value: parsed,
+                    });
+                  }}
                   sx={{ width: 120 }}
                 />
               )}

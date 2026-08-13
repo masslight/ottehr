@@ -10,14 +10,13 @@ import { handleInHouseLabResults } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { LoadingState, PageName } from 'utils/lib/types/data/in-house/in-house.constants';
 import {
   EntryMode,
-  formatDateForLabs,
   InHouseOrderDetailPageItemDTO,
-  LoadingState,
-  PageName,
   ResultEntryInput,
-} from 'utils';
+} from 'utils/lib/types/data/in-house/in-house.types';
+import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';

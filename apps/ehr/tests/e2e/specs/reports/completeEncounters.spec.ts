@@ -20,7 +20,7 @@ test.describe('Complete Encounters Report', () => {
     await page.goto('/reports');
 
     // The page heading
-    await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Reports', exact: true })).toBeVisible({ timeout: 15000 });
 
     // The tile should be present
     await expect(page.getByText('Complete Encounters', { exact: true })).toBeVisible();

@@ -24,13 +24,9 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import {
-  getFormattedDiagnoses,
-  InHouseOrderDetailPageItemDTO,
-  LoadingState,
-  MarkAsCollectedData,
-  PageName,
-} from 'utils';
+import { getFormattedDiagnoses } from 'utils/lib/helpers/in-house-labs';
+import { LoadingState, PageName } from 'utils/lib/types/data/in-house/in-house.constants';
+import { InHouseOrderDetailPageItemDTO, MarkAsCollectedData } from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 

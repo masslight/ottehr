@@ -2,15 +2,15 @@ import { GridSize } from '@mui/system';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMemo } from 'react';
 import {
-  CONSENT_FORMS_CONFIG,
   EMAIL_FIELDS,
   evalItemText,
   evalRequired,
   FULL_ADDRESS_FIELDS,
-  IntakeQuestionnaireItem,
   PHONE_NUMBER_FIELDS,
   SIGNATURE_FIELDS,
-} from 'utils';
+} from 'utils/lib/helpers/paperwork/validation';
+import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { usePaperworkContext } from '../context';
 import { useQRState } from './useFormHelpers';
 import { getItemDisplayStrategy } from './useSelectItems';

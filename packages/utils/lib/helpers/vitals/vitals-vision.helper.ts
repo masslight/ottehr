@@ -1,4 +1,4 @@
-import { VitalsDotVisionScreening, VitalsVisionOption } from '../../types';
+import { VitalsDotVisionScreening, VitalsVisionOption } from '../../types/api/chart-data/chart-data.types';
 
 export const DOT_VISION_SCREENING_LABELS = {
   horizontalFieldLeft: 'Horizontal Field of Vision – Left',

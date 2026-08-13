@@ -1,17 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
-import {
-  BILLING_RECORDABLE_PAYMENT_METHODS,
-  BILLING_RESOURCE_TAG,
-  getSecret,
-  MANUAL_PAYMENT_CONFLICT_ERROR,
-  PAYMENT_METHOD_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
+import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeValidate } from '../shared';
+import { safeValidate } from '../shared/validation';
 import { reconcilePaymentNoticesForClaim } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
@@ -66,11 +62,8 @@ export interface RecordBillingPatientPaymentInput {
   submitterRef?: Reference;
 }
 
-const containedReconciliation = (notice: PaymentNotice): PaymentReconciliation | undefined =>
-  notice.contained?.find((r): r is PaymentReconciliation => r.resourceType === 'PaymentReconciliation');
-
 const paymentFingerprint = (notice: PaymentNotice): string => {
-  const reconciliation = containedReconciliation(notice);
+  const reconciliation = getContainedReconciliation(notice);
   return JSON.stringify({
     amount: notice.amount?.value,
     currency: notice.amount?.currency,

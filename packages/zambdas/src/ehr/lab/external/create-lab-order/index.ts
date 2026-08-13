@@ -1,15 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
-import {
-  CreateLabOrderZambdaOutput,
-  EXTERNAL_LAB_ERROR,
-  getAttendingPractitionerId,
-  getSecret,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler } from '../../../../shared';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { CreateLabOrderZambdaOutput } from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { ZambdaInput } from '../../../../shared/types';
+import { getMyPractitionerId } from '../../../../shared/practitioners';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { buildExternalLabOrderRequests } from './build-order';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -47,6 +46,9 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     resourceType: 'Practitioner',
     id: curUserPractitionerId,
   });
+
+  // Ordering an external lab is an NPI-gated action — block callers without an NPI (e.g. Clinician role).
+  assertPractitionerHasNPI(currentUserPractitioner);
 
   console.log('>>> this is the encounter,', JSON.stringify(encounter, undefined, 2));
   const attendingPractitionerId = getAttendingPractitionerId(encounter);

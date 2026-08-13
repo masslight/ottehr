@@ -1,12 +1,11 @@
 import {
-  BillingCoverageOption,
   BillingInsuranceType,
   BillingSubscriberRelationship,
-  ClaimDetailResponse,
   CreateBillingCoverageInput,
   GenderOption,
   UpdateBillingCoverageInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingCoverageOption, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export interface CoverageForm {
@@ -109,12 +108,14 @@ export function coverageToCreateInput(data: CoverageForm, patientId: string): Cr
     relationship: data.relationship!,
     ...(data.relationship !== 'Self'
       ? {
-          firstName: data.firstName?.trim(),
-          ...(data.middleName?.trim() ? { middleName: data.middleName.trim() } : {}),
-          lastName: data.lastName?.trim(),
-          dob: data.dob,
-          gender: data.gender,
-          ...(address ? { address } : {}),
+          policyHolder: {
+            firstName: data.firstName?.trim(),
+            ...(data.middleName?.trim() ? { middleName: data.middleName.trim() } : {}),
+            lastName: data.lastName?.trim(),
+            dob: data.dob,
+            gender: data.gender as GenderOption,
+            ...(address ? { address } : {}),
+          },
         }
       : {}),
   };

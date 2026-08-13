@@ -1,20 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List, Resource } from 'fhir/r4b';
+import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems';
 import {
-  chartDataTagSystem,
-  chunkThings,
-  collectKnownExamFields,
-  collectKnownRosFields,
-  examConfig,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   TemplateInfo,
   TemplateVersionData,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/list-template.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

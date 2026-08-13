@@ -1,10 +1,8 @@
-import {
-  GetPatientDetailInput,
-  GetPatientDetailInputSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
+import { GetPatientDetailInput, GetPatientDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 export interface GetPatientDetailParams extends GetPatientDetailInput {
   secrets: ZambdaInput['secrets'];

@@ -1,9 +1,6 @@
 import { Communication, Provenance, Task } from 'fhir/r4b';
-import {
-  getOutboundDeliveryInput,
-  OUTBOUND_DELIVERY_INPUT_CODES,
-  OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM,
-} from 'utils';
+import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import { getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
 import { describe, expect, it, vi } from 'vitest';
 import {
   backfillOutboundFaxAttempts,

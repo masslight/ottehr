@@ -29,8 +29,10 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useListFeeSchedulesQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CASE_RATE_CODE, FHIR_EXTENSION, getPayerId, getPayerUrl, INSURANCE_SETTINGS_MAP, RCM_TAG_SYSTEM } from 'utils';
+import { CASE_RATE_CODE, FHIR_EXTENSION, RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { INSURANCE_SETTINGS_MAP } from 'utils/lib/types/api/insurances.constants';
 import { useInsuranceMutation, useInsurancesQuery } from './admin.queries';
 
 // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
@@ -268,7 +270,6 @@ export default function EditInsurance(): JSX.Element {
           <CustomBreadcrumbs
             chain={[
               { link: '/admin', children: 'Admin' },
-              { link: BILLING_URL, children: 'Billing Configuration' },
               { link: `${BILLING_URL}/insurance`, children: 'Insurance' },
               ...(insuranceTab
                 ? [

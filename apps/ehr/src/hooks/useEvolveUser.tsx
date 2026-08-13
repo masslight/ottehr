@@ -4,19 +4,14 @@ import { Operation } from 'fast-json-patch';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
-import {
-  BRANDING_CONFIG,
-  getFullestAvailableName,
-  getNPIIdentifier,
-  getPatchOperationForNewMetaTag,
-  getPatchOperationToUpdateExtension,
-  initialsFromName,
-  RoleType,
-  SyncUserResponse,
-  User,
-  USER_TIMEZONE_EXTENSION_URL,
-} from 'utils';
+import { initialsFromName } from 'utils/lib/fhir/chat';
+import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { SyncUserResponse } from 'utils/lib/types/api/sync-user/sync-user.types';
+import { RoleType, User } from 'utils/lib/types/api/user.types';
+import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
 import { useApiClients } from './useAppClients';
@@ -27,6 +22,12 @@ export interface EvolveUser extends User {
   userInitials: string;
   lastLogin: string | undefined;
   hasRole: (role: RoleType[]) => boolean;
+  /**
+   * Whether the user's Practitioner has an NPI on file. NPI-gated actions (sign/co-sign a note,
+   * e-prescribe, order external labs & imaging, submit claims, order in-house medications) are
+   * hidden/disabled when this is false — e.g. for the Clinician role, which has no NPI.
+   */
+  hasNPI: boolean;
 }
 
 interface EvolveUserState {
@@ -53,6 +54,8 @@ export default function useEvolveUser(): EvolveUser | undefined {
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );
+
+  const hasNPI = Boolean(profile && getNPIIdentifier(profile)?.value);
 
   const userRoles = user?.roles;
   const hasRole = useCallback(
@@ -144,10 +147,11 @@ export default function useEvolveUser(): EvolveUser | undefined {
         profileResource: profile,
         isProviderHasEverythingToBeEnrolled,
         hasRole,
+        hasNPI,
       };
     }
     return undefined;
-  }, [hasRole, isProviderHasEverythingToBeEnrolled, lastLogin, profile, user, userInitials, userName]);
+  }, [hasNPI, hasRole, isProviderHasEverythingToBeEnrolled, lastLogin, profile, user, userInitials, userName]);
 }
 
 // const MINUTE = 1000 * 60; // For Credentials Sync

@@ -2,13 +2,11 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
-import { PagedQuestionnaire, PaperworkProvider } from 'ui-components';
-import {
-  convertQRItemToLinkIdMap,
-  convertQuestionnaireItemToQRLinkIdMap,
-  makeStandaloneFormDTO,
-  QuestionnaireFormFields,
-} from 'utils';
+import { PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
+import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { makeStandaloneFormDTO } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { QuestionnaireFormFields } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
 
 interface QuestionnairePreviewProps {
@@ -88,6 +86,7 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
   const controlButtons = useMemo(
     () => ({
       backButton: currentPageIndex !== 0,
+      backButtonLabel: 'Back',
       onBack: () => setCurrentPageIndex((prev) => prev - 1),
       loading: false, // no concept of loading here since nothing is being saved to the server
     }),

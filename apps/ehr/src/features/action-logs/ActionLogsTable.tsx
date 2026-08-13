@@ -21,15 +21,15 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { ChangeEvent, FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import {
   ACTION_LOGS_PAGE_SIZE,
   ActionLogChannel,
   ActionLogStatus,
-  formatDateConfigurable,
-  formatPhoneNumberDisplay,
   GetActionLogsOutput,
-  isValidUUID,
-} from 'utils';
+} from 'utils/lib/types/api/action-logs.types';
+import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { getActionLogs } from '../../api/api';
 import DateSearch from '../../components/DateSearch';
 import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
@@ -227,7 +227,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
           ) : (
             logs.map((log) => (
               <TableRow key={log.attemptId}>
-                <TableCell>{log.documentReferenceId ? 'Discharge Summary' : '-'}</TableCell>
+                <TableCell>{log.documentReferenceId ? 'Visit Note' : '-'}</TableCell>
                 {!patientId && <TableCell>{log.patientName ?? '-'}</TableCell>}
                 <TableCell>
                   {log.appointmentId ? (

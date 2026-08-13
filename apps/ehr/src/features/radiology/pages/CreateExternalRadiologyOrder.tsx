@@ -11,21 +11,25 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { InputMask } from 'ui-components';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  DiagnosisDTO,
   GetRadiologyOrderListZambdaOrder,
-  isPhoneNumberValid,
   RADIOLOGY_SAFETY_FLAGS,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
-} from 'utils';
+} from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_SAFETY_FLAG_LABELS as SAFETY_FLAG_LABELS } from 'utils/lib/types/api/radiology';
 import { createRadiologyOrder, updateRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
@@ -36,7 +40,7 @@ import {
 } from '../components/RadiologyOrderFormShared';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
-import { SAFETY_FLAG_LABELS } from '../constants';
+import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 
 interface CreateExternalRadiologyOrderProps {
   /** when provided, the form is in edit mode and submits an update instead of a create */
@@ -59,6 +63,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
+  const hasNPI = useEvolveUser()?.hasNPI ?? false;
   const isEditMode = !!initialOrder;
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -77,16 +82,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
         }
       : undefined
   );
-  const {
-    orderDx,
-    orderCpt,
-    studyName,
-    clinicalHistory,
-    lateralityModifier,
-    addAdditionalDxToEncounter,
-    chartCptCodes,
-    setPartialChartData,
-  } = form;
+  const { orderDx, orderCpt, studyName, clinicalHistory, lateralityModifier, addAdditionalDxToEncounter } = form;
 
   // Priority/STAT is an in-house-only concept; external orders are routine. Preserve any prior value on edit.
   const stat = initialOrder?.isStat ?? false;
@@ -120,12 +116,25 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
     return org.name || org.address || org.phone || org.fax ? org : undefined;
   };
 
+  /** The order is already saved by now, so a PDF failure is reported on its own, not as a failed order. */
+  const printOrderForm = async (serviceRequestId: string): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      await generateAndOpenRadiologyOrderForm(oystehrZambda, serviceRequestId);
+    } catch (printError) {
+      enqueueSnackbar('The order was saved, but the order form could not be generated for printing.', {
+        variant: 'error',
+      });
+      safelyCaptureException(printError);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
 
+    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
     const paramsSatisfied =
-      orderDx.length > 0 &&
       orderCpt &&
       encounter.id &&
       clinicalHistory.length <= 255 &&
@@ -154,12 +163,11 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
             consentObtained,
             edit: sharedFields,
           });
+          await printOrderForm(initialOrder.serviceRequestId);
           navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
-          if (res.cptCodesSaved && res.cptCodesSaved.length > 0) {
-            setPartialChartData({ cptCodes: [...chartCptCodes, ...res.cptCodesSaved] });
-          }
+          await printOrderForm(res.serviceRequestId);
           navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
         }
       } catch (submitError) {
@@ -168,7 +176,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (clinicalHistory.length > 255) errorMessage.push('Clinical history must be 255 characters or less');
       if (phoneDigitsInvalid(orgPhone)) errorMessage.push('Please enter a valid 10-digit phone number');
@@ -300,8 +307,14 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                 <RadiologyOrderFormActions
                   appointmentId={appointmentIdFromUrl || ''}
                   submitting={submitting}
-                  submitLabel={isEditMode ? 'Save' : 'Order'}
-                  errors={error}
+                  submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
+                  disabled={!hasNPI}
+                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
+                  cancelUrl={
+                    initialOrder
+                      ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
+                      : undefined
+                  }
                 />
               </Grid>
             </Paper>

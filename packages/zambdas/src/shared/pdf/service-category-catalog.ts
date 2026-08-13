@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService } from 'fhir/r4b';
-import { parseServiceCategoryAbbreviation, SERVICE_CATEGORY_SYSTEM, SERVICE_CATEGORY_TAG } from 'utils';
+import { SERVICE_CATEGORY_SYSTEM, SERVICE_CATEGORY_TAG } from 'utils/lib/fhir/constants';
+import { parseServiceCategoryAbbreviation } from 'utils/lib/fhir/healthcareService';
 import { ServiceCategoryCatalogEntry } from './types';
 
 /**

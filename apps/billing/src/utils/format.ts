@@ -1,11 +1,17 @@
 import { DateTime } from 'luxon';
-import { CMS_PLACE_OF_SERVICE_CODES, formatZipcodeForDisplay, ServiceFacilityItem } from 'utils';
-
-export const formatCurrency = (v: number): string => `$${v.toFixed(2)}`;
+import { formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 
 export function formatDate(iso: string): string {
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
+}
+
+export function formatDateTime(iso: string): string {
+  if (!iso) return '-';
+  const dateTime = DateTime.fromISO(iso);
+  return dateTime.isValid ? dateTime.toLocaleString(DateTime.DATETIME_MED) : iso;
 }
 
 const POS_LABEL_BY_CODE = new Map(CMS_PLACE_OF_SERVICE_CODES.map((pos) => [pos.code, pos.display]));
@@ -44,4 +50,11 @@ export function buildAddressInput(
     ...(zip?.trim() ? { postalCode: zip.trim() } : {}),
   };
   return Object.keys(address).length ? address : undefined;
+}
+
+export function formatTaxId(taxId: string): string {
+  if (taxId.length < 3) {
+    return taxId;
+  }
+  return taxId.substring(0, 2) + '-' + taxId.substring(2);
 }

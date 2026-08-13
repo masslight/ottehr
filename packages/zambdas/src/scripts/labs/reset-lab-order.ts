@@ -1,8 +1,10 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { Identifier, ServiceRequest, Specimen } from 'fhir/r4b';
 import fs from 'fs';
-import { createOrderNumber, OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
+import { createOrderNumber } from 'utils/lib/helpers/labs/helpers';
+import { OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const USAGE_STR = `Usage: npm run reset-lab-order [ORDER NUMBER] [${VALID_ENVS.join(' | ')}]\n`;

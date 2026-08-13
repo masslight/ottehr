@@ -5,7 +5,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { AllStates } from 'utils';
+import { AllStates } from 'utils/lib/types/common';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 

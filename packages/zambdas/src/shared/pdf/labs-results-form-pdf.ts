@@ -19,38 +19,36 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFImage } from 'pdf-lib';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { convertActivityDefinitionToDataEntryTestItem, quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
 import {
-  BRANDING_CONFIG,
-  BUCKET_NAMES,
-  compareDates,
-  convertActivityDefinitionToDataEntryTestItem,
-  createFilesDocumentReferences,
-  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
-  formatPhoneNumberDisplay,
-  formatZipcodeForDisplay,
   getAdditionalPlacerId,
-  getFullestAvailableName,
-  getNPIIdentifier,
   getOrderNumber,
   getOrderNumberFromDr,
-  getPatientFriendlyId,
   getPatientIdForLabOrder,
   getTestItemCodeFromDr,
-  getTimezone,
-  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
-  IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
-  IN_HOUSE_OBS_DEF_ID_SYSTEM,
   isPSCOrder,
+} from 'utils/lib/helpers/labs/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  OBSERVATION_CODES,
+  OBSERVATION_INTERPRETATION_SYSTEM,
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import {
+  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
+  IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LABCORP_SNOMED_CODE_SYSTEM,
-  LabDrTypeTagCode,
-  LabType,
   ObsContentType,
-  OBSERVATION_CODES,
-  OBSERVATION_INTERPRETATION_SYSTEM,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
@@ -64,11 +62,11 @@ import {
   OYSTEHR_OBS_CONTENT_TYPES,
   PERFORMING_PHYSICIAN_EXTENSION_URLS,
   PERFORMING_SITE_INFO_EXTENSION_URLS,
-  quantityRangeFormat,
-  Secrets,
   SupportedObsImgAttachmentTypes,
-} from 'utils';
-import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { LabDrTypeTagCode, LabType } from 'utils/lib/types/data/labs/labs.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
+import { formatDateTimeForLabs, formatStringTimestampForLabs, getTimezoneForLabs } from '../../ehr/lab/shared/helpers';
 import {
   fetchResultResourcesForRelatedServiceRequest,
   provenanceIsInHouseLabResultEntry,
@@ -79,7 +77,7 @@ import {
   getExternalLabOrderResourcesViaServiceRequest,
   isLabDrTypeTagCode,
 } from '../../ehr/lab/shared/labs';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import {
   drawFieldLine,
@@ -112,7 +110,7 @@ import {
 
 interface CommonDataConfigResources {
   location: Location | undefined;
-  timezone: string | undefined;
+  timezone: string;
   serviceRequest: ServiceRequest;
   patient: Patient;
   diagnosticReport: DiagnosticReport;
@@ -124,14 +122,16 @@ interface CommonDataConfigResources {
 
 type ExternalLabSpecificResources = {
   externalLabResults: ExternalLabResult[];
-  collectionDate: string;
+  collectionDateInTz: string;
+  specimenReceivedDateTimeInTz: string;
   orderSubmitDate: string;
   reviewed: boolean;
   reviewingProvider: Practitioner | undefined;
-  reviewDate: string | undefined;
-  resultsReceivedDate: string;
+  reviewDateInTz: string | undefined;
+  resultsReceivedDateInTz: string;
   resultInterpretations: string[];
   attachments: ExternalLabResultAttachments;
+  timezone: string;
 };
 
 type LabTypeSpecificResources =
@@ -170,12 +170,14 @@ const getResultDataConfigForDrResources = (
     externalLabResults,
     reviewed,
     reviewingProvider,
-    reviewDate,
-    resultsReceivedDate,
+    reviewDateInTz,
+    resultsReceivedDateInTz,
     resultInterpretations,
     attachments,
-    collectionDate,
+    collectionDateInTz,
+    specimenReceivedDateTimeInTz,
     serviceRequest,
+    timezone,
   } = specificResources;
 
   const baseData: LabResultsData = {
@@ -196,7 +198,7 @@ const getResultDataConfigForDrResources = (
     patientPhone: formatPhoneNumberDisplay(
       patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
     ),
-    todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    todayDate: formatDateTimeForLabs(now, timezone),
     dateIncludedInFileName: diagnosticReport.effectiveDateTime || '',
     orderPriority: '',
     testName: testName || '',
@@ -219,12 +221,13 @@ const getResultDataConfigForDrResources = (
     alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
     reviewed,
     reviewingProvider,
-    reviewDate,
+    reviewDateInTz,
     resultInterpretations,
     attachments,
     externalLabResults,
-    resultsReceivedDate,
-    collectionDate,
+    resultsReceivedDateInTz,
+    collectionDateInTz,
+    specimenReceivedDateTimeInTz,
   };
 
   // need to determine for each DR based result type whether or not to use the friendly patient id.
@@ -316,7 +319,7 @@ const getResultDataConfig = (
     patientPhone: formatPhoneNumberDisplay(
       patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
     ),
-    todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    todayDate: formatDateTimeForLabs(now, timezone),
     dateIncludedInFileName: serviceRequest.authoredOn || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
@@ -340,9 +343,7 @@ const getResultDataConfig = (
 
   if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
-    const orderCreateDate = serviceRequest.authoredOn
-      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-      : '';
+    const orderCreateDate = formatStringTimestampForLabs(serviceRequest.authoredOn, timezone);
     const inHouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
       timezone,
@@ -356,12 +357,13 @@ const getResultDataConfig = (
   if (type === LabType.external) {
     const {
       externalLabResults,
-      collectionDate,
+      collectionDateInTz,
+      specimenReceivedDateTimeInTz,
       orderSubmitDate,
       reviewed,
       reviewingProvider,
-      reviewDate,
-      resultsReceivedDate,
+      reviewDateInTz,
+      resultsReceivedDateInTz,
       resultInterpretations,
       attachments,
     } = specificResources;
@@ -374,15 +376,16 @@ const getResultDataConfig = (
       orderNumber,
       alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
-      collectionDate,
+      collectionDateInTz,
+      specimenReceivedDateTimeInTz,
       orderSubmitDate,
       reviewed,
       reviewingProvider,
-      reviewDate,
+      reviewDateInTz,
       resultInterpretations,
       attachments,
       externalLabResults,
-      resultsReceivedDate,
+      resultsReceivedDateInTz,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
     config = { type: LabType.external, data };
@@ -462,24 +465,23 @@ export async function createExternalLabResultPDFBasedOnDr(
 
   if (!patient.id) throw new Error('patient.id is undefined');
 
+  const timezone = getTimezoneForLabs(schedule);
+
   const {
     reviewingProvider,
-    reviewDate,
+    reviewDateInTz,
     externalLabResults,
-    resultsReceivedDate,
+    resultsReceivedDateInTz,
     resultInterpretationDisplays,
     obsAttachments,
-  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
+  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations, timezone);
 
-  let timezone;
-  if (schedule) {
-    timezone = getTimezone(schedule);
-  }
+  const { collectedDateTime: collectionTimeFromDr, specimenReceivedDateTime } =
+    getResultSpecimenInfoFromDr(diagnosticReport) ?? {};
 
-  const collectionTimeFromDr = getResultSpecimenInfoFromDr(diagnosticReport)?.collectedDateTime;
-  const collectionDate = collectionTimeFromDr
-    ? DateTime.fromISO(collectionTimeFromDr).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : '';
+  const collectionDateInTz = formatStringTimestampForLabs(collectionTimeFromDr, timezone);
+
+  const specimenReceivedDateTimeInTz = formatStringTimestampForLabs(specimenReceivedDateTime, timezone);
 
   const externalSpecificResources: LabTypeSpecificResources = {
     type,
@@ -491,12 +493,14 @@ export async function createExternalLabResultPDFBasedOnDr(
       externalLabResults,
       reviewed,
       reviewingProvider,
-      reviewDate: reviewDate?.toFormat(LABS_DATE_STRING_FORMAT),
-      resultsReceivedDate,
+      reviewDateInTz,
+      resultsReceivedDateInTz,
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
-      collectionDate,
+      collectionDateInTz,
+      specimenReceivedDateTimeInTz,
       serviceRequest,
+      timezone,
     },
   };
 
@@ -555,22 +559,21 @@ export async function createExternalLabResultPDF(
       id: locationID,
     });
   }
-  let timezone;
-  if (schedule) {
-    timezone = getTimezone(schedule);
-  }
+
+  const timezone = getTimezoneForLabs(schedule);
 
   if (!encounter.id) throw new Error('encounter id is undefined');
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
+  // orderSubmitDate comes back in whatever timezone was initially recorded, so probably utc
   const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask);
 
   const {
     reviewingProvider,
-    reviewDate,
+    reviewDateInTz,
     externalLabResults,
-    resultsReceivedDate,
+    resultsReceivedDateInTz,
     resultInterpretationDisplays,
     obsAttachments,
   } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations, timezone);
@@ -589,22 +592,26 @@ export async function createExternalLabResultPDF(
     }
   }
 
-  const collectionDate = specimenCollectionDate
-    ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : '';
+  const collectionDateInTz = formatStringTimestampForLabs(specimenCollectionDate, timezone);
+
+  // the received date comes from the contained specimen on DiagnosticReport
+  const specimenReceivedDateTime = getResultSpecimenInfoFromDr(diagnosticReport)?.specimenReceivedDateTime ?? '';
+  const specimenReceivedDateTimeInTz = formatStringTimestampForLabs(specimenReceivedDateTime, timezone);
 
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
     specificResources: {
       externalLabResults,
-      collectionDate,
-      orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+      collectionDateInTz,
+      specimenReceivedDateTimeInTz,
+      orderSubmitDate: formatDateTimeForLabs(orderSubmitDate, timezone),
       reviewed,
       reviewingProvider,
-      reviewDate: reviewDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
-      resultsReceivedDate,
+      reviewDateInTz,
+      resultsReceivedDateInTz,
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
+      timezone,
     },
   };
   const commonResources: CommonDataConfigResources = {
@@ -662,11 +669,7 @@ export async function createInHouseLabResultPDF(
   if (!encounter.id) throw new Error('encounter id is undefined');
   if (!patient.id) throw new Error('patient.id is undefined');
 
-  // todo will probably need to update to accommodate a more resilient method of fetching timezone
-  let timezone = undefined;
-  if (schedule) {
-    timezone = getTimezone(schedule);
-  }
+  const timezone = getTimezoneForLabs(schedule);
 
   const inHouseLabResults = await getFormattedInHouseLabResults(
     activityDefinition,
@@ -738,11 +741,11 @@ async function getResultsDetailsForPDF(
   oystehr: Oystehr,
   diagnosticReport: DiagnosticReport,
   observations: Observation[],
-  timezone?: string | undefined
+  timezone: string
 ): Promise<{
   reviewingProvider: Practitioner | undefined;
-  reviewDate: DateTime | undefined;
-  resultsReceivedDate: string;
+  reviewDateInTz: string | undefined;
+  resultsReceivedDateInTz: string;
   externalLabResults: ExternalLabResult[];
   resultInterpretationDisplays: string[];
   obsAttachments: ExternalLabResultAttachments;
@@ -782,18 +785,16 @@ async function getResultsDetailsForPDF(
   const latestReviewTask = sortedCompletedFinalOrCorrected[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
-  let reviewDate: DateTime | undefined = undefined,
+  let reviewDateTime: DateTime | undefined = undefined,
     reviewingProvider = undefined;
 
   if (latestReviewTask) {
     if (latestReviewTask.status === 'completed') {
-      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
+      ({ reviewingProvider, reviewDate: reviewDateTime } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
     }
   }
 
-  const resultsReceivedDate = diagnosticReport.effectiveDateTime
-    ? DateTime.fromISO(diagnosticReport.effectiveDateTime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : '';
+  const resultsReceivedDateInTz = formatStringTimestampForLabs(diagnosticReport.effectiveDateTime, timezone);
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
@@ -816,8 +817,8 @@ async function getResultsDetailsForPDF(
 
   return {
     reviewingProvider,
-    reviewDate,
-    resultsReceivedDate,
+    reviewDateInTz: reviewDateTime ? formatDateTimeForLabs(reviewDateTime, timezone) : undefined,
+    resultsReceivedDateInTz,
     externalLabResults,
     resultInterpretationDisplays,
     obsAttachments,
@@ -1157,22 +1158,22 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
 
     drawRowHelper({
       col1: `Sex: ${data.patientSex}`,
-      col2: `Collected Date & Time: ${data.collectionDate ? data.collectionDate : ''}`,
+      col2: `Collected Date & Time: ${data.collectionDateInTz ? data.collectionDateInTz : ''}`,
     });
 
     drawRowHelper({
       col1: `Patient ID: ${data.patientId}`,
-      col2: `Result Status: ${data.resultStatus}`,
+      col2: `Received Date & Time: ${data.specimenReceivedDateTimeInTz ? data.specimenReceivedDateTimeInTz : ''}`,
     });
 
     drawRowHelper({
       col1: `Ordering Phys.: ${data.providerName}`,
-      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
+      col2: `Result Status: ${data.resultStatus}`,
     });
 
     drawRowHelper({
       col1: `NPI: ${data.providerNPI}`,
-      col2: '',
+      col2: `Reported Date & Time: ${data.resultsReceivedDateInTz}`,
     });
 
     pdfClient.drawSeparatedLine({ ...SEPARATED_LINE_STYLE, thickness: 2, color: LAB_PDF_STYLES.color.purple });
@@ -1237,7 +1238,7 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
     const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
-    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDate} by`, name || '');
+    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDateInTz} by`, name || '');
   }
 
   const { pdfAttachments, pngAttachments, jpgAttachments } = data.attachments;
@@ -1297,7 +1298,7 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
     const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
-    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDate} by`, name || '');
+    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDateInTz} by`, name || '');
   }
 
   const { pdfAttachments, pngAttachments, jpgAttachments } = data.attachments;
@@ -1402,7 +1403,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
       pdfClient,
       textStyles,
       'Results Date:',
-      labResult.finalResultDateTime.setZone(data.timezone).toFormat(LABS_DATE_STRING_FORMAT)
+      formatDateTimeForLabs(labResult.finalResultDateTime, data.timezone)
     );
     pdfClient.newLine(30);
   }
@@ -1614,7 +1615,7 @@ const getFormattedInHouseLabResults = async (
   observations: Observation[],
   specimen: Specimen,
   provenance: Provenance,
-  timezone: string | undefined,
+  timezone: string,
   diagnosticReport: DiagnosticReport
 ): Promise<InHouseLabResultConfig> => {
   if (!diagnosticReport.id) {
@@ -1628,9 +1629,7 @@ const getFormattedInHouseLabResults = async (
     specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || 'Not provided';
   const finalResultDateTime = DateTime.fromISO(provenance.recorded);
 
-  const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
-    .setZone(timezone)
-    .toFormat(LABS_DATE_STRING_FORMAT);
+  const collectionDate = formatStringTimestampForLabs(specimen.collection.collectedDateTime, timezone);
 
   const results: InHouseLabResult[] = [];
   const components = convertActivityDefinitionToDataEntryTestItem(activityDefinition, observations).components;
@@ -1704,7 +1703,7 @@ const getAdditionalResultsForRelated = async (
   oystehr: Oystehr,
   relatedSRs: ServiceRequest[],
   activityDefinition: ActivityDefinition,
-  timezone: string | undefined
+  timezone: string
 ): Promise<InHouseLabResultConfig[]> => {
   const { additionalActivityDefinitions, srResourceMap } = await fetchResultResourcesForRelatedServiceRequest(
     oystehr,
@@ -2153,28 +2152,31 @@ const getResultSpecimenInfoFromDr = (diagnosticReport: DiagnosticReport): Result
   // this may change in the future. But Ottehr does not currently handle multi-specimen setups
   const specimen = specimens[0];
 
-  if (!specimen.collection) {
-    console.warn('No specimen collection info found');
+  if (!specimen.collection && !specimen.receivedTime) {
+    console.warn('No specimen collection info found, or no received time');
     return undefined;
   }
 
-  const collectionInfo: ResultSpecimenInfo = {};
+  const specimenInfo: ResultSpecimenInfo = {};
 
-  const quantity = specimen.collection.quantity;
-  if (quantity && quantity.system === OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM) {
-    collectionInfo.quantityString = quantity.code;
-    collectionInfo.unit = quantity.unit;
+  if (specimen.collection) {
+    const quantity = specimen.collection.quantity;
+    if (quantity !== undefined && quantity.system === OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM) {
+      specimenInfo.quantityString = quantity.code;
+      specimenInfo.unit = quantity.unit;
+    }
+
+    if (specimen.collection.bodySite) {
+      specimenInfo.bodySite = specimen.collection.bodySite.coding?.find(
+        (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
+      )?.display;
+    }
+    specimenInfo.collectedDateTime = specimen.collection.collectedDateTime;
   }
 
-  if (specimen.collection.bodySite) {
-    collectionInfo.bodySite = specimen.collection.bodySite.coding?.find(
-      (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
-    )?.display;
-  }
+  specimenInfo.specimenReceivedDateTime = specimen.receivedTime;
 
-  collectionInfo.collectedDateTime = specimen.collection.collectedDateTime;
-
-  return Object.keys(collectionInfo).length ? collectionInfo : undefined;
+  return Object.keys(specimenInfo).length ? specimenInfo : undefined;
 };
 
 function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {

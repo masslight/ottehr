@@ -7,7 +7,8 @@ import LocationSelect from 'src/components/LocationSelect';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason, PatientFollowupDetails } from 'utils';
+import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason } from 'utils/lib/fhir/encounter';
+import { PatientFollowupDetails } from 'utils/lib/types/api/encounter.types';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 

@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
-import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM, M2MClientMockType } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { SECRETS } from '../data/secrets';
 import {
@@ -108,6 +109,8 @@ describe('radiology-pacs-webhook integration — happy paths', () => {
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      // Diagnosis is required when saving a preliminary read (it is optional at order time).
+      diagnosisCodes: ['E11.9'],
     });
     const seededReports = (
       await oystehrAdmin.fhir.search<DiagnosticReport>({

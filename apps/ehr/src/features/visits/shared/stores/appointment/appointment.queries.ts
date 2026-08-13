@@ -14,22 +14,36 @@ import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
+import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
+import { BillingSuggestionInput, CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { Icd10SearchRequestParams, Icd10SearchResponse } from 'utils/lib/types/api/icd-10-search/icd-10-search.types';
+import { CPTSearchRequestParams, IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import {
-  AISuggestionNotesInput,
-  APIError,
-  BillingSuggestionInput,
-  CancelMatchUnsolicitedResultTask,
-  CODE_SYSTEM_NDC,
-  CommunicationDTO,
-  CPTSearchRequestParams,
-  FinalizeUnsolicitedResultMatch,
-  GetCreateInHouseLabOrderResourcesInput,
-  GetCreateInHouseLabOrderResourcesOutput,
-  GetCreateLabOrderResources,
+  INVENTORY_MEDICATION_TYPE_CODE,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
+import {
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import { InstructionType } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
+import { ProcedureDetail } from 'utils/lib/types/api/procedures.types';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
+import {
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  CancelMatchUnsolicitedResultTask,
+  FinalizeUnsolicitedResultMatch,
+  GetCreateLabOrderResources,
   GetUnsolicitedResultsDetailInput,
   GetUnsolicitedResultsDetailOutput,
   GetUnsolicitedResultsIconStatusInput,
@@ -42,20 +56,10 @@ import {
   GetUnsolicitedResultsRelatedRequestsOutput,
   GetUnsolicitedResultsTasksInput,
   GetUnsolicitedResultsTasksOutput,
-  Icd10SearchRequestParams,
-  Icd10SearchResponse,
-  IcdSearchResponse,
-  InstructionType,
-  INVENTORY_MEDICATION_TYPE_CODE,
   LabOrderResourcesRes,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
-  MeetingData,
-  ProcedureDetail,
-  PromiseReturnType,
-  UpdateMedicationOrderInput,
-} from 'utils';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+} from 'utils/lib/types/data/labs/labs.types';
+import { MeetingData } from 'utils/lib/types/data/telemed/join-call.types';
+import { APIError } from 'utils/lib/types/errors';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';
@@ -143,6 +147,12 @@ export const useGetMeetingData = (
 
 export type ExtractObjectType<T> = T extends (infer U)[] ? U : never;
 
+// The medication/allergen lookups are served by the eRx drug reference database, which not every role can
+// read. A 403 there is a role misconfiguration, not a transient failure, so say so rather than telling the
+// user to try again.
+export const MEDICATION_DATABASE_FORBIDDEN_MESSAGE =
+  'Your role does not have access to the medication database. Please contact an administrator.';
+
 export const useGetMedicationsSearch = (
   medicationSearchTerm: string
 ): UseQueryResult<ErxSearchMedicationsResponse, Error> => {
@@ -161,13 +171,20 @@ export const useGetMedicationsSearch = (
     enabled: Boolean(medicationSearchTerm),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+    // A role without eRx access will be denied every time — retrying just multiplies the 403s.
+    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
-      enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
-        variant: 'error',
-      });
+      enqueueSnackbar(
+        isPermissionDeniedError(queryResult.error)
+          ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
+          : 'An error occurred during the search. Please try again in a moment',
+        {
+          variant: 'error',
+        }
+      );
     }
   }, [queryResult.error]);
 
@@ -190,13 +207,20 @@ export const useGetMedicationDetails = (medicationId: number): UseQueryResult<Er
     enabled: Boolean(medicationId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+    // A role without eRx access will be denied every time — retrying just multiplies the 403s.
+    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
-      enqueueSnackbar(`An error occurred during looking up medication details: ${queryResult.error.message}`, {
-        variant: 'error',
-      });
+      enqueueSnackbar(
+        isPermissionDeniedError(queryResult.error)
+          ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
+          : `An error occurred during looking up medication details: ${queryResult.error.message}`,
+        {
+          variant: 'error',
+        }
+      );
     }
   }, [queryResult.error]);
 

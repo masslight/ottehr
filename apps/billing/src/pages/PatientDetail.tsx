@@ -15,22 +15,22 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { commaFormattedName } from 'utils/lib/fhir/billing';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { BillingInsuranceType, UpdateBillingPatientInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BILLING_INSURANCE_TYPE_OPTIONS,
   BILLING_INSURANCE_TYPE_TITLES,
   BillingCoverageOption,
-  BillingInsuranceType,
-  commaFormattedName,
-  getApiError,
   PatientDetailResponse,
-  UpdateBillingPatientInput,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import { deleteBillingCoverage, getPatientCoverages, updateBillingCoverage, updateBillingPatient } from '../api/api';
 import { AddCoverageDialog } from '../components/AddCoverageDialog';
 import { AddressFields } from '../components/AddressFields';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { EditableSection } from '../components/claim/EditableSection';
+import { EditableSection, TitleWithSourceLink } from '../components/claim/EditableSection';
 import { CoverageFields } from '../components/CoverageFields';
 import { DemographicFields } from '../components/DemographicFields';
 import { Row } from '../components/Row';
@@ -40,7 +40,6 @@ import { defaultPatientFormValues, PatientForm, patientToUpdateInput } from '../
 import { useApiClients } from '../hooks/useAppClients';
 import { usePatient } from '../hooks/usePatient';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency } from '../utils/format';
 
 const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = BILLING_INSURANCE_TYPE_OPTIONS.map((o) => o.value);
 const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {
@@ -160,8 +159,8 @@ export default function PatientDetail(): ReactElement {
             {commaFormattedName(patient)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            DOB {patient.dob} | MRN {patient.id}
-            {patient.friendlyId ? ` | ID ${patient.friendlyId}` : ''}
+            DOB {patient.dob} | MRN {patient.clinicalId}
+            {patient.clinicalFriendlyId ? ` | ID ${patient.clinicalFriendlyId}` : ''}
           </Typography>
         </Box>
       </Box>
@@ -208,7 +207,7 @@ export default function PatientDetail(): ReactElement {
               autoHeight
               pageSizeOptions={[25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              slots={dataGridSlots}
+              slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
           </TabPanel>
@@ -222,10 +221,12 @@ export function PatientDemographicsSection({
   title,
   patient,
   onSave,
+  showSourceLink,
 }: {
   title?: string;
   patient: PatientDetailResponse;
   onSave: (payload: UpdateBillingPatientInput) => Promise<string | null>;
+  showSourceLink?: boolean;
 }): ReactElement {
   const defaultValues = useMemo<PatientForm>(() => defaultPatientFormValues(patient), [patient]);
 
@@ -235,7 +236,13 @@ export function PatientDemographicsSection({
 
   return (
     <EditableSection
-      title={title ?? 'Demographics'}
+      title={
+        <TitleWithSourceLink
+          title={title ?? 'Demographics'}
+          sourceId={showSourceLink ? patient.workingCopyReferenceResourceId : undefined}
+          sourceRouteBase="/patients/"
+        />
+      }
       defaultValues={defaultValues}
       onSave={handleSave}
       editForm={

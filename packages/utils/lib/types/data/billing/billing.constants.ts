@@ -1,6 +1,17 @@
+import { Patient } from 'fhir/r4b';
+
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
+
+// FHIR administrative gender, labeled the way the billing app displays it. The demographics forms,
+// the rules field catalog, and the engine's gender writer all share this one list.
+export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; label: string }[] = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+  { value: 'unknown', label: 'Unknown' },
+];
 
 export const X12_ADJUSTMENT_GROUP_CODE = {
   contractualObligation: 'CO',

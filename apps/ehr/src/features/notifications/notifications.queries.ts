@@ -1,20 +1,22 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
+// FAX_NOTIFICATIONS_DISABLED: re-add `Task as FhirTask` below for the commented-out fax link plumbing.
 import { Communication, Encounter, Extension, FhirResource, Location } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import {
   AppointmentProviderNotificationTypes,
-  getAllFhirSearchPages,
-  getAllNotificationRows,
-  getPatchBinary,
-  getProviderNotificationPreferencesV2,
-  isPhoneNumberValid,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
-} from 'utils';
-import { useSuccessQuery } from 'utils/lib/frontend';
+} from 'utils/lib/types/api/practitioner.types';
+import { getAllNotificationRows, ProviderNotificationPreferencesV2 } from 'utils/lib/types/api/provider-notifications';
+// FAX_NOTIFICATIONS_DISABLED: FAX_TASK / getTaskInputValue are only needed by getTaskNotificationLink below.
+// import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
@@ -22,7 +24,29 @@ export type ProviderNotification = {
   appointmentID: string;
   encounter?: Encounter;
   communication: Communication;
+  // FAX_NOTIFICATIONS_DISABLED
+  // Pre-resolved navigation target for notifications that aren't tied to an appointment
+  // (currently inbound-fax notifications, which link to the fax match page).
+  // link?: string;
 };
+
+/*
+ * FAX_NOTIFICATIONS_DISABLED — inbound-fax notifications are temporarily off (the `Communication:based-on`
+ * _include below broke the whole bell query). Uncomment this helper, its imports, the `link` field above,
+ * the `_include` param and the link resolution in the mapper to bring them back.
+ *
+ * Destination for a task-backed notification that has no appointment to fall back on. Keyed off the
+ * task the notification is `basedOn` rather than the notification type, so it holds for every way a
+ * task notification is produced (category subscription, assignment, …).
+ *
+ * const getTaskNotificationLink = (task: FhirTask | undefined): string | undefined => {
+ *   if (task?.groupIdentifier?.value !== FAX_TASK.category) {
+ *     return undefined;
+ *   }
+ *   const faxCommunicationID = getTaskInputValue(task, FAX_TASK.input.communicationId);
+ *   return faxCommunicationID ? `/inbound-fax/${faxCommunicationID}/match` : undefined;
+ * };
+ */
 
 export const useGetProviderNotifications = (
   onSuccess?: (data: ProviderNotification[] | null) => void
@@ -46,6 +70,18 @@ export const useGetProviderNotifications = (
               name: '_include',
               value: 'Communication:encounter',
             },
+            // FAX_NOTIFICATIONS_DISABLED — this include is what took the bell down: it makes the whole
+            // search fail, so no notification (fax or not) reaches the bell. Communication.basedOn is
+            // Reference(Any), so the untyped form has no resolvable target; the typed
+            // `Communication:based-on:Task` form did not fix it either. Find an include the server
+            // accepts (or resolve the Task with a second query) before re-enabling.
+            // {
+            //   // Task notifications have no encounter; their Communication is basedOn the Task, which
+            //   // is what `getTaskNotificationLink` needs to resolve a destination (e.g. an inbound fax's
+            //   // match page, via the fax Communication id on the Task's input).
+            //   name: '_include',
+            //   value: 'Communication:based-on',
+            // },
             {
               name: 'recipient',
               value: user!.profile,
@@ -74,16 +110,27 @@ export const useGetProviderNotifications = (
       const encounterResources = notificationResources?.filter(
         (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Encounter'
       ) as Encounter[];
+      // FAX_NOTIFICATIONS_DISABLED
+      // const taskResources = notificationResources?.filter(
+      //   (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Task'
+      // ) as FhirTask[];
 
       return communicationResources.map((communicationResource) => {
         const encounterID = communicationResource.encounter?.reference?.replace('Encounter/', '');
         const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
         const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
 
+        // FAX_NOTIFICATIONS_DISABLED
+        // const basedOnTaskID = communicationResource.basedOn
+        //   ?.find((ref) => ref.reference?.startsWith('Task/'))
+        //   ?.reference?.split('/')?.[1];
+        // const link = getTaskNotificationLink(taskResources?.find((taskTemp) => taskTemp.id === basedOnTaskID));
+
         const notification: ProviderNotification = {
           appointmentID: appointmentID || '',
           encounter,
           communication: communicationResource,
+          // link,
         };
         return notification;
       });

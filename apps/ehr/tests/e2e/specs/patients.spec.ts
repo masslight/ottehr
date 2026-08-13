@@ -1,6 +1,8 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { formatDOB, FRIENDLY_PATIENT_ID_SYSTEM_BASE, PATIENT_RECORD_CONFIG } from 'utils';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { formatDOB } from 'utils/lib/utils/dateUtils';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_BIRTHDAY,

@@ -1,4 +1,5 @@
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
@@ -20,7 +21,13 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { ReactElement, ReactNode } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
+import { FeeSchedulesIcon } from 'src/features/admin/icons/FeeSchedulesIcon';
+import { InHouseLabsIcon } from 'src/features/admin/icons/InHouseLabsIcon';
+import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
+import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
+import { StethoscopeIcon } from 'src/features/admin/icons/StethoscopeIcon';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
@@ -37,15 +44,16 @@ import States from 'src/features/visits/telemed/components/admin/VirtualLocation
 import AdminCustomFoldersPage from 'src/pages/AdminCustomFoldersPage';
 import MedicationsConfigurationPage from 'src/pages/configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from 'src/pages/Employees';
-import { InvoiceablePatients } from 'src/pages/reports/index';
+import InvoiceablePatients from 'src/pages/reports/InvoiceablePatients';
 import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
-import { GLOBAL_ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import { PaymentLocationsList } from './BillingConfiguration';
-import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
 
 /** Context derived from the URL that the deeper-nested admin pages still rely on. */
 export interface AdminNavContext {
@@ -226,11 +234,23 @@ export const adminNavGroups: AdminNavGroup[] = [
     label: 'Communications',
     items: [
       {
-        label: 'Patient Invoicing',
+        label: FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED ? 'Patient Invoicing — Candid' : 'Patient Invoicing',
         path: '/admin/outreach/patient-invoices',
         icon: <EmailOutlinedIcon />,
-        render: () => <InvoiceablePatients />,
+        render: () => <InvoiceablePatients source="candid" />,
       },
+      ...(FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
+        ? [
+            {
+              label: FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
+                ? 'Patient Invoicing — Ottehr Billing'
+                : 'Patient Invoicing',
+              path: '/admin/outreach/patient-invoices-billing',
+              icon: <EmailOutlinedIcon />,
+              render: () => <InvoiceablePatients source="ottehr-billing" />,
+            },
+          ]
+        : []),
       {
         label: 'Automated Outreach',
         title: 'Patient Outreach, Collections and Automation',
@@ -270,6 +290,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/questionnaires',
         icon: <ListAltIcon />,
         render: () => <QuestionnaireAdminPage />,
+      },
+      {
+        label: 'Paperwork Flows',
+        path: '/admin/paperwork-flows',
+        icon: <AccountTreeOutlinedIcon />,
+        render: () => <PaperworkFlowsAdminPage />,
       },
     ],
   },

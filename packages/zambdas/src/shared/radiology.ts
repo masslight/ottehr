@@ -1,17 +1,31 @@
-import { DiagnosticReport, Extension, Organization, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, DocumentReference, Extension, Organization, ServiceRequest } from 'fhir/r4b';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import {
-  FHIR_EXTENSION,
   LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
-  RadiologyDTO,
-  RadiologyPerformingOrganization,
-  RadiologySafetyFlag,
+  RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
+import {
+  RadiologyDTO,
+  RadiologyPerformedBy,
+  RadiologyPerformingOrganization,
+  RadiologySafetyFlag,
+} from 'utils/lib/types/api/radiology';
+
+// The single definition of "this radiology order has an uploaded result": a current DocumentReference
+// with the radiology-result type coding, related to the ServiceRequest. All radiology consumers must agree.
+export const isCurrentRadiologyResultDocRef = (docRef: DocumentReference, serviceRequestId: string): boolean =>
+  docRef.status === 'current' &&
+  !!docRef.type?.coding?.some(
+    (coding) =>
+      coding.system === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.system && coding.code === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.code
+  ) &&
+  !!docRef.context?.related?.some((related) => related.reference === `ServiceRequest/${serviceRequestId}`);
 
 export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!reports.length) return undefined;
@@ -103,6 +117,7 @@ export const makeRadiologyDTO = (
     .filter((code): code is RadiologySafetyFlag => code != null);
 
   const performingOrganization = extractPerformingOrganization(serviceRequest);
+  const performedBy = extractPerformedBy(serviceRequest);
 
   const dto: RadiologyDTO = {
     serviceRequestId: serviceRequest.id!,
@@ -120,9 +135,20 @@ export const makeRadiologyDTO = (
     performingOrganization,
     timeWindow,
     safetyFlags: safetyFlags && safetyFlags.length > 0 ? safetyFlags : undefined,
+    performedBy,
   };
 
   return dto;
+};
+
+const extractPerformedBy = (serviceRequest: ServiceRequest): RadiologyPerformedBy | undefined => {
+  const performer = serviceRequest.performer?.find((ref) => ref.reference?.startsWith('Practitioner/'));
+  const id = performer?.reference?.split('/')[1];
+  if (!id) {
+    return undefined;
+  }
+  // `display` is written from the Practitioner's name; fall back to the id rather than rendering nothing.
+  return { id, name: performer?.display || id };
 };
 
 const extractPerformingOrganization = (serviceRequest: ServiceRequest): RadiologyPerformingOrganization | undefined => {

@@ -2,17 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
   getEncounterLockMetaTagOperations,
-  getPatchBinary,
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import {
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getSignatureProvenanceDeleteRequests } from '../../shared/deleteSignatureProvenances';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'unlock-appointment';
@@ -65,8 +71,12 @@ export const performEffect = async (
       patchOperations: [unlockOp],
     });
 
+    // Unlocking voids the recorded signature, so drop its Provenances; a re-sign then records a
+    // fresh signing time instead of surfacing the stale one on the regenerated visit note.
+    const provenanceDeleteRequests = await getSignatureProvenanceDeleteRequests(oystehr, [encounterId]);
+
     await oystehr.fhir.batch({
-      requests: [patchRequest],
+      requests: [patchRequest, ...provenanceDeleteRequests],
     });
 
     return {
@@ -98,9 +108,21 @@ export const performEffect = async (
     patchOperations: [unlockOp],
   });
 
+  // Unlocking voids the recorded signature, so drop its Provenances (on the visit encounter, not any
+  // follow-up encounters); a re-sign then records a fresh signing time instead of surfacing the stale
+  // one on the regenerated visit note.
+  const encounters = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
+    })
+  ).unbundle();
+  const visitEncounterIds = encounters.filter((enc) => enc.id && !isFollowupEncounter(enc)).map((enc) => enc.id!);
+  const provenanceDeleteRequests = await getSignatureProvenanceDeleteRequests(oystehr, visitEncounterIds);
+
   // Execute the patch
   await oystehr.fhir.batch({
-    requests: [patchRequest],
+    requests: [patchRequest, ...provenanceDeleteRequests],
   });
 
   return {

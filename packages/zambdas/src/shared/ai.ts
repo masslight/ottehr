@@ -7,24 +7,20 @@ import { Appointment, Condition, DocumentReference, Encounter, Extension, Observ
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
-  AI_OBSERVATION_META_SYSTEM,
-  AiObservationField,
-  AiSuggestionItem,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  EasyChartEscalationInfo,
-  EasyChartTokenUsage,
-  fixAndParseJsonObjectFromString,
-  getFormatDuration,
-  getOptionalSecret,
-  getSecret,
-  MIME_TYPES,
   PUBLIC_EXTENSION_BASE_URL,
-  Secrets,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
-  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { getFormatDuration } from 'utils/lib/helpers/helpers';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { EasyChartEscalationInfo, EasyChartTokenUsage } from 'utils/lib/types/data/easy-chart-agent.types';
+import { AiSuggestionItem } from 'utils/lib/types/data/screening-questions/types';
+import { MIME_TYPES } from 'utils/lib/utils/file';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { makeObservationResource } from './chart-data/index';
 import { precomputeEasyChartPlan } from './easy-chart/precompute';
 import { assertDefined } from './helpers';
@@ -43,8 +39,8 @@ export class ClaudeClient {
       anthropicApiKey,
       temperature: 0,
       clientOptions: {
-        timeout: 5000, // 5 seconds (in milliseconds)
-        maxRetries: 5, // Number of retries on failure
+        timeout: 5000,
+        maxRetries: 5,
       },
     });
   }
@@ -55,7 +51,6 @@ export class ClaudeClient {
 }
 
 let chatbot: ChatAnthropic;
-// let chatbotVertexAI: ChatVertexAI;
 
 export function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient.
@@ -129,14 +124,15 @@ const AI_RESPONSE_KEY_TO_FIELD = {
 };
 
 // Default model for the Vertex path. Callers (e.g. the easy-chart planner via
-// invokeChatbotStructured) may override it per-environment.
-export const DEFAULT_VERTEX_MODEL = 'gemini-3.1-flash-lite';
+// invokeChatbotStructured) may override it per-environment. Keeps develop's name — six zambdas
+// import VERTEX_AI_MODEL by that name.
+export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema?: object,
-  model: string = DEFAULT_VERTEX_MODEL,
+  model: string = VERTEX_AI_MODEL,
   onUsage?: (usage: EasyChartTokenUsage) => void,
   // OPT-IN output ceiling (the easy-chart paths pass it via invokeChatbotStructured). Large (32k)
   // for the planner/review whose JSON can be several thousand tokens; callers that emit a small
@@ -151,7 +147,6 @@ export async function invokeChatbotVertexAI(
   // like a transient network failure.
   signal?: AbortSignal
 ): Promise<string> {
-  // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
@@ -164,13 +159,16 @@ export async function invokeChatbotVertexAI(
     return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
   };
 
-  // Sequential retry with exponential backoff (delays like ~3s, ~6s; see
-  // https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/). This used to be a
-  // timer-staggered hedge that fired the 2nd/3rd request while the first was still generating — but
-  // a planner-sized generation takes longer than the first stagger, so nearly every call ran 2-3
-  // concurrent full generations and billed all of them. Retrying only after a retryable FAILURE
-  // does the same job at 1x cost.
+  // MERGE NOTE (develop's timer-staggered hedge vs this sequential retry): kept SEQUENTIAL. The
+  // hedge fired attempts 2/3 on a timer while the first was still generating, and a planner-sized
+  // generation outlives the first stagger — so nearly every easy-chart call ran 2-3 concurrent full
+  // generations and was billed for all of them. develop's refinements to the hedge (a skipped attempt
+  // can't win Promise.any; a non-retryable status stops further attempts) fixed its CORRECTNESS but
+  // not that cost. Retrying only after a retryable FAILURE gets the same resilience at 1x cost, and
+  // develop's error-reporting improvements are carried over below.
+  // Backoff delays ~3s, ~6s — see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
   let httpResponse: Response | undefined;
+  let lastRetryableError: string | undefined;
   for (let attempt = 0; attempt < RETRY_COUNT; attempt++) {
     if (attempt > 0) {
       // Don't sleep out a backoff on a budget that has already expired.
@@ -223,18 +221,43 @@ export async function invokeChatbotVertexAI(
       continue;
     }
     if (!httpResponse.ok && shouldRetry(httpResponse.status) && attempt < RETRY_COUNT - 1) {
-      console.error(`Vertex AI returned ${httpResponse.status}; retrying.`);
+      // Carry Vertex's own message (develop): if every attempt fails, this is all the caller has to
+      // go on. Reading the body here is safe — this response is being discarded either way.
+      lastRetryableError = `${httpResponse.status} ${(await httpResponse.text()).slice(0, 500)}`;
+      console.error(`Vertex AI returned ${lastRetryableError}; retrying.`);
       continue;
     }
     break;
   }
 
-  const response = await httpResponse?.json();
+  if (!httpResponse) {
+    throw new Error(
+      `Vertex AI request failed after ${RETRY_COUNT} attempts${lastRetryableError ? `: ${lastRetryableError}` : ''}`
+    );
+  }
+  // Read the body as TEXT first (develop): unchecked, an error body fell through to `candidates[0]`
+  // and every Vertex failure surfaced as `TypeError: Cannot read properties of undefined` with an
+  // empty stack. This also lets a non-JSON body (a proxy's HTML error page, a truncated response)
+  // produce a clear error instead of a bare SyntaxError.
+  const body = await httpResponse.text();
+  if (!httpResponse.ok) {
+    throw new Error(
+      `Vertex AI request failed: ${httpResponse.status} ${httpResponse.statusText} ${body.slice(0, 1000)}` +
+        `${lastRetryableError ? ` (earlier attempt: ${lastRetryableError})` : ''}`
+    );
+  }
+  let response: any;
+  try {
+    response = JSON.parse(body);
+  } catch {
+    throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
+  }
 
   // NEVER log the raw response. Its candidates ARE the model's generated content — for the
-  // easy-chart calls that is the note itself (HPI, MDM, diagnoses, doses), i.e. PHI in CloudWatch.
-  // Log only the non-PHI envelope, which is what these lines were ever actually read for: why
-  // generation stopped, whether anything came back, and what it cost.
+  // easy-chart calls that is the note itself (HPI, MDM, diagnoses, doses), and on a transcription
+  // call the body is the transcript: PHI in CloudWatch either way. Log only the non-PHI envelope,
+  // which is what these lines were ever actually read for: why generation stopped, whether anything
+  // came back, and what it cost.
   const candidates = Array.isArray(response?.candidates) ? response.candidates : [];
   console.log(
     `Vertex AI response: model=${model} candidates=${candidates.length} ` +
@@ -249,8 +272,15 @@ export async function invokeChatbotVertexAI(
   // the easy-chart post-template re-plan) can fall back cleanly.
   const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof text !== 'string') {
-    const reason = response?.candidates?.[0]?.finishReason ?? response?.promptFeedback?.blockReason ?? 'no candidates';
-    throw new Error(`Vertex AI returned no usable text (${reason})`);
+    // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS
+    // finishReason). Report the REASON, not the body — a cut-off candidate can still carry partial
+    // transcript. develop's structured form: finishReason alone hid blocked-prompt cases.
+    const reason = JSON.stringify({
+      finishReason: response?.candidates?.[0]?.finishReason,
+      promptFeedback: response?.promptFeedback,
+      usageMetadata: response?.usageMetadata,
+    });
+    throw new Error(`Vertex AI returned no usable text: ${reason}`);
   }
   if (response?.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
     // Partial text is NOT usable output. Returning it hands truncated JSON to the caller, which
@@ -427,9 +457,7 @@ export async function invokeChatbotStructured(
   const BACKUP_TIMEOUT_MS = 170_000;
 
   const primary =
-    backendOverride ||
-    getOptionalSecret(SecretsKeys.EASY_CHART_PLANNER_MODEL, secrets) ||
-    `gemini:${DEFAULT_VERTEX_MODEL}`;
+    backendOverride || getOptionalSecret(SecretsKeys.EASY_CHART_PLANNER_MODEL, secrets) || `gemini:${VERTEX_AI_MODEL}`;
   const backup = getOptionalSecret(SecretsKeys.EASY_CHART_BACKUP_MODEL, secrets) || 'anthropic:claude-sonnet-5';
 
   // Semantic guard check for one attempt's raw output. Only a successfully-parsed result is the
@@ -583,8 +611,8 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
       clientOptions: {
-        timeout: 10000, // 5 seconds (in milliseconds)
-        maxRetries: 1, // Number of retries on failure
+        timeout: 10000,
+        maxRetries: 1,
       },
     });
   }

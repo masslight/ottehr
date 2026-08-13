@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { JSX, ReactNode } from 'react';
-import { VitalsUnitInputOrder } from 'utils';
+import { VitalsUnitInputOrder } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 
 interface VitalsUnitInputRowProps {
   /** Admin-configured order in which the metric/imperial inputs are rendered. */

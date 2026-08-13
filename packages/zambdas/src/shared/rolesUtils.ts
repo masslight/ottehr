@@ -1,14 +1,15 @@
 import Oystehr, { Role, RoleListItem } from '@oystehr/sdk';
-import { AccessPolicy, RoleType } from 'utils';
+import { AccessPolicy, RoleType } from 'utils/lib/types/api/user.types';
 import {
   ADMINISTRATOR_RULES,
+  CLINICIAN_RULES,
   CUSTOMER_SUPPORT_RULES,
   FRONT_DESK_RULES,
   INACTIVE_RULES,
   MANAGER_RULES,
   PROVIDER_RULES,
   STAFF_RULES,
-} from '../shared/';
+} from './accessPolicies';
 
 export async function getRoleId(roleName: string, token: string, projectApiUrl: string): Promise<string> {
   const headers = {
@@ -33,6 +34,7 @@ export async function getRoleId(roleName: string, token: string, projectApiUrl: 
 
 export const allNonPatientRoles = [
   { name: RoleType.Administrator, accessPolicy: ADMINISTRATOR_RULES },
+  { name: RoleType.Clinician, accessPolicy: CLINICIAN_RULES },
   { name: RoleType.CustomerSupport, accessPolicy: CUSTOMER_SUPPORT_RULES },
   { name: RoleType.FrontDesk, accessPolicy: FRONT_DESK_RULES },
   { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },

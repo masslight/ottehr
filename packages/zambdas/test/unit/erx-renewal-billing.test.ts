@@ -1,8 +1,10 @@
 import { MedicationRequest } from 'fhir/r4b';
-import { FHIR_EXTENSION, MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM, PrescribedMedicationDTO } from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { MedicationDTO, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
 import { describe, expect, it } from 'vitest';
 import {
-  formatErxMedicationHistoryForBillingPrompt,
+  formatCurrentMedicationsForBillingPrompt,
   formatPrescribedMedicationsForBillingPrompt,
 } from '../../src/ehr/recommend-billing-suggestions';
 import { makeMedicationDTO, makePrescribedMedicationDTO } from '../../src/shared/chart-data';
@@ -88,63 +90,94 @@ describe('billing prescription context formatting', () => {
     expect(prompt).not.toContain('Cancelled Medication');
   });
 
-  it('formats unexpired eRx medication history as complexity context', () => {
-    const prompt = formatErxMedicationHistoryForBillingPrompt([
+  it('formats the confirmed current medication list as complexity context', () => {
+    const prompt = formatCurrentMedicationsForBillingPrompt([
       {
-        id: 1,
-        medicationId: 1001,
-        ndc: null,
-        rxcui: null,
-        name: 'Metformin',
-        route: 'Oral',
-        doseForm: 'Tablet',
-        strength: '500 MG',
-        dispenseUnit: 'Tablet',
-        isBrandName: false,
-        genericName: 'metformin',
-        isOtc: false,
-        refills: '3',
-        daysSupply: 30,
-        quantity: 60,
-        classification: 'Antidiabetic',
-        schedule: null,
-        directions: 'Take twice daily.',
-        substitutionsAllowed: true,
-        writtenDate: '2026-01-01',
-        effectiveDate: '2026-01-01',
-        lastFillDate: '2026-02-01',
-        expirationDate: '2099-01-01',
+        name: 'Metformin (500 mg)',
+        status: 'active',
+        type: 'scheduled',
+        intakeInfo: { dose: '500 mg', date: '2026-02-01T14:30:00.000Z' },
       },
       {
-        id: 2,
-        medicationId: 1002,
-        ndc: null,
-        rxcui: null,
-        name: 'Expired Medication',
-        route: null,
-        doseForm: null,
-        strength: null,
-        dispenseUnit: null,
-        isBrandName: false,
-        genericName: null,
-        isOtc: false,
-        refills: '0',
-        daysSupply: null,
-        quantity: 1,
-        classification: null,
-        schedule: null,
-        directions: null,
-        substitutionsAllowed: true,
-        writtenDate: '2020-01-01',
-        effectiveDate: '2020-01-01',
-        lastFillDate: null,
-        expirationDate: '2020-02-01',
+        name: 'Albuterol',
+        status: 'active',
+        type: 'as-needed',
+        intakeInfo: { patientCouldNotConfirmDosage: true },
       },
-    ]);
+      {
+        name: 'Discontinued Medication',
+        status: 'completed',
+        type: 'scheduled',
+        intakeInfo: {},
+      },
+      {
+        // this visit's eRx orders are already described by the prescription context above
+        name: 'Amoxicillin',
+        status: 'active',
+        type: 'prescribed-medication',
+        intakeInfo: {},
+      },
+    ] as MedicationDTO[]);
 
-    expect(prompt).toContain('Available eRx medication history count: 1');
-    expect(prompt).toContain('Medication: Metformin 500 MG Tablet');
-    expect(prompt).toContain('Refills allowed: 3');
-    expect(prompt).not.toContain('Expired Medication');
+    expect(prompt).toContain('Confirmed current medication count: 2');
+    expect(prompt).toContain(
+      'Medication: Metformin (500 mg) | Type: scheduled | Dose: 500 mg | Last taken: 2026-02-01'
+    );
+    expect(prompt).toContain('Medication: Albuterol | Type: as needed | Patient could not confirm dosage');
+    expect(prompt).not.toContain('Discontinued Medication');
+    expect(prompt).not.toContain('Amoxicillin');
+  });
+
+  it('lists the most recently taken medications first, undated ones last', () => {
+    const prompt = formatCurrentMedicationsForBillingPrompt([
+      { name: 'Older', status: 'active', type: 'scheduled', intakeInfo: { date: '2026-01-01T12:00:00.000Z' } },
+      { name: 'Undated', status: 'active', type: 'scheduled', intakeInfo: {} },
+      { name: 'Newer', status: 'active', type: 'scheduled', intakeInfo: { date: '2026-03-01T12:00:00.000Z' } },
+    ] as MedicationDTO[]);
+
+    // The chart-data search behind this list is unsorted, so the formatter owns the ordering.
+    expect(prompt.indexOf('Newer')).toBeLessThan(prompt.indexOf('Older'));
+    expect(prompt.indexOf('Older')).toBeLessThan(prompt.indexOf('Undated'));
+  });
+
+  it('keeps the most recently taken medications when the list exceeds the prompt limit', () => {
+    // 22 confirmed meds, oldest first: an unsorted slice would keep exactly the wrong ones.
+    const medications = Array.from({ length: 22 }, (_, index) => ({
+      name: `Medication ${index}`,
+      status: 'active',
+      type: 'scheduled',
+      intakeInfo: { date: `2026-01-${String(index + 1).padStart(2, '0')}T12:00:00.000Z` },
+    })) as MedicationDTO[];
+
+    const prompt = formatCurrentMedicationsForBillingPrompt(medications);
+
+    // The count reports everything confirmed, not just what fit in the prompt.
+    expect(prompt).toContain('Confirmed current medication count: 22');
+    expect(prompt).toContain('Additional confirmed medications omitted: 2');
+    expect(prompt).toContain('Medication: Medication 21 |');
+    expect(prompt).toContain('Medication: Medication 2 |');
+    // The two stalest entries are the ones dropped.
+    expect(prompt).not.toContain('Medication: Medication 0 |');
+    expect(prompt).not.toContain('Medication: Medication 1 |');
+  });
+
+  it('keeps the offset the chart recorded when formatting the last-taken date', () => {
+    const prompt = formatCurrentMedicationsForBillingPrompt([
+      {
+        name: 'Evening dose',
+        status: 'active',
+        type: 'scheduled',
+        intakeInfo: { date: '2026-02-01T22:30:00.000-05:00' },
+      },
+    ] as MedicationDTO[]);
+
+    // The lambda clock is UTC, where this instant is already 2026-02-02T03:30Z. The chart recorded a
+    // dose taken the evening of Feb 1, and that is the date the coding prompt must see.
+    expect(prompt).toContain('Last taken: 2026-02-01');
+  });
+
+  it('omits the medication section entirely when nothing has been confirmed', () => {
+    expect(formatCurrentMedicationsForBillingPrompt(undefined)).toBe('');
+    expect(formatCurrentMedicationsForBillingPrompt([])).toBe('');
   });
 });

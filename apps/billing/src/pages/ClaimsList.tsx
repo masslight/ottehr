@@ -10,27 +10,34 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
   BillingService,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  ALL_CLAIM_STATUS_OPTIONS_2,
+  ALL_CLAIM_STATUS_OPTIONS_BY_GROUP,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CLAIM_STATUS_GROUPS,
   formatClaimStatusValue,
-  getApiError,
-  MAX_RUN_RULES_ENGINE_CLAIMS,
-  SearchBillingClaimsInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import {
   runBillingRulesEngine,
   searchBillingClaims,
@@ -41,16 +48,20 @@ import {
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { DateRangeInput } from '../components/DateRangeInput';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { formatCurrency } from '../utils/format';
 
 interface Filters {
   searchText?: string;
   arStage?: string;
+  status?: string;
   tag?: string;
   createdFrom?: string;
   createdTo?: string;
+  serviceDateFrom?: string;
+  serviceDateTo?: string;
   payerId?: string;
   patientId?: string;
   type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
@@ -110,7 +121,15 @@ const columns: GridColDef[] = [
   currencyCol('insurancePaid', 'Insurance Paid', 120),
   currencyCol('patientResp', 'Patient Resp', 110),
   currencyCol('patientPaid', 'Patient Paid', 110),
-  currencyCol('claimBalance', 'Claim Balance', 120),
+  {
+    ...currencyCol('claimBalance', 'Claim Balance', 120),
+    renderCell: ({ value, row }) => (
+      <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
+        {!(row as BillingClaimItem).adjudicated && <WarningIconWithTooltip tooltipText={PROVISIONAL_BALANCE_HINT} />}
+        <span>{formatCurrency(value as number)}</span>
+      </Stack>
+    ),
+  },
   { field: 'facility', headerName: 'Facility', width: 140 },
   { field: 'renderingProvider', headerName: 'Provider', width: 140 },
   { field: 'responsibleParty', headerName: 'Responsible Party', width: 140 },
@@ -124,6 +143,7 @@ export default function ClaimsList(): ReactElement {
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
@@ -136,10 +156,13 @@ export default function ClaimsList(): ReactElement {
 
   const [searchText, setSearchText] = useState('');
   const [arStageFilter, setArStageFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
-  const [createdFrom, setDosFrom] = useState('');
-  const [createdTo, setDosTo] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [serviceDateFrom, setServiceDateFrom] = useState('');
+  const [serviceDateTo, setServiceDateTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
@@ -149,6 +172,17 @@ export default function ClaimsList(): ReactElement {
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const statusOptions = useMemo(() => {
+    if (!arStageFilter) {
+      return ALL_CLAIM_STATUS_OPTIONS_2;
+    }
+    const groupKey = CLAIM_STATUS_GROUPS.find((g) => g.arStageCode === arStageFilter)?.key;
+    if (!groupKey) {
+      return ALL_CLAIM_STATUS_OPTIONS_2;
+    }
+    return ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[groupKey];
+  }, [arStageFilter]);
 
   useEffect(() => {
     return (): void => {
@@ -164,6 +198,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setIncomplete(false);
       setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
@@ -172,9 +207,12 @@ export default function ClaimsList(): ReactElement {
         };
         if (filters.searchText) params.searchText = filters.searchText;
         if (filters.arStage) params.arStage = filters.arStage;
+        if (filters.status) params.status = filters.status;
         if (filters.tag) params.tag = filters.tag;
         if (filters.createdFrom) params.createdFrom = filters.createdFrom;
         if (filters.createdTo) params.createdTo = filters.createdTo;
+        if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
+        if (filters.serviceDateTo) params.serviceDateTo = filters.serviceDateTo;
         if (filters.payerId) params.payerId = filters.payerId;
         if (filters.patientId) params.patientId = filters.patientId;
         if (filters.type) params.type = filters.type;
@@ -183,6 +221,7 @@ export default function ClaimsList(): ReactElement {
         const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
+        setIncomplete(Boolean(data.incomplete));
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
@@ -254,9 +293,12 @@ export default function ClaimsList(): ReactElement {
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
       arStage: overrides?.arStage ?? arStageFilter,
+      status: overrides?.status ?? statusFilter,
       tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
+      serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
+      serviceDateTo: overrides?.serviceDateTo ?? serviceDateTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
       type: overrides?.type ?? typeFilter,
@@ -265,9 +307,12 @@ export default function ClaimsList(): ReactElement {
     [
       searchText,
       arStageFilter,
+      statusFilter,
       tagFilter,
       createdFrom,
       createdTo,
+      serviceDateFrom,
+      serviceDateTo,
       selectedPayer,
       selectedPatient,
       typeFilter,
@@ -297,9 +342,12 @@ export default function ClaimsList(): ReactElement {
   const clearFilters = (): void => {
     setSearchText('');
     setArStageFilter('');
+    setStatusFilter('');
     setTagFilter('');
-    setDosFrom('');
-    setDosTo('');
+    setCreatedFrom('');
+    setCreatedTo('');
+    setServiceDateFrom('');
+    setServiceDateTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
     setTypeFilter('');
@@ -312,9 +360,12 @@ export default function ClaimsList(): ReactElement {
   const hasFilters =
     searchText ||
     arStageFilter ||
+    statusFilter ||
     tagFilter ||
     createdFrom ||
     createdTo ||
+    serviceDateFrom ||
+    serviceDateTo ||
     selectedPayer ||
     selectedPatient ||
     typeFilter ||
@@ -386,7 +437,8 @@ export default function ClaimsList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name..."
+        placeholder="Search by patient name, provider name, patient ID, PCN, or claim ID..."
+        helperText="Names match from the start. Patient ID, PCN, and claim ID must be entered in full."
         value={searchText}
         onChange={(e) => handleSearchChange(e.target.value)}
         InputProps={{
@@ -412,6 +464,25 @@ export default function ClaimsList(): ReactElement {
           >
             <MenuItem value="">All</MenuItem>
             {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
+              <MenuItem key={o.code} value={o.code}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              applyFilters({ status: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {statusOptions.map((o) => (
               <MenuItem key={o.code} value={o.code}>
                 {o.label}
               </MenuItem>
@@ -471,7 +542,7 @@ export default function ClaimsList(): ReactElement {
           >
             <MenuItem value="">All</MenuItem>
             {tagOptions.map((t) => (
-              <MenuItem key={t.id} value={t.name}>
+              <MenuItem key={t.id || t.name} value={t.name}>
                 {t.name}
               </MenuItem>
             ))}
@@ -516,30 +587,32 @@ export default function ClaimsList(): ReactElement {
           sx={{ minWidth: 200 }}
         />
 
-        <TextField
-          size="small"
-          type="date"
-          label="Service Date From"
-          value={createdFrom}
-          onChange={(e) => {
-            setDosFrom(e.target.value);
-            applyFilters({ createdFrom: e.target.value });
+        <DateRangeInput
+          label="Service Date"
+          valueFrom={serviceDateFrom}
+          valueTo={serviceDateTo}
+          onChange={(from, to) => {
+            setServiceDateFrom(from);
+            setServiceDateTo(to);
+            applyFilters({
+              serviceDateFrom: from,
+              serviceDateTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
-        <TextField
-          size="small"
-          type="date"
-          label="Service Date To"
-          value={createdTo}
-          onChange={(e) => {
-            setDosTo(e.target.value);
-            applyFilters({ createdTo: e.target.value });
+        <DateRangeInput
+          label="Claim Creation Date"
+          valueFrom={createdFrom}
+          valueTo={createdTo}
+          onChange={(from, to) => {
+            setCreatedFrom(from);
+            setCreatedTo(to);
+            applyFilters({
+              createdFrom: from,
+              createdTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
         {hasFilters && (
@@ -552,6 +625,13 @@ export default function ClaimsList(): ReactElement {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {incomplete && !error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Some claims may be missing from these results. Narrow the search, or use the filters to find a claim you
+          expected to see.
         </Alert>
       )}
 
@@ -571,7 +651,7 @@ export default function ClaimsList(): ReactElement {
         isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
-        slots={dataGridSlots}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'claims' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />

@@ -5,7 +5,8 @@ import { Box, Typography } from '@mui/material';
 import { FC, Fragment, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExternalLabOrderResult, InHouseLabResult, LabType, NonNormalResult } from 'utils';
+import { ExternalLabOrderResult, InHouseLabResult, NonNormalResult } from 'utils/lib/types/api/lab';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 
 interface LabResultsReviewContainerProps {
   resultDetails:

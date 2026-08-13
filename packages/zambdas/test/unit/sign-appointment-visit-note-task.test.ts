@@ -1,4 +1,4 @@
-import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
 import { describe, expect, it } from 'vitest';
 import { getVisitNoteTask } from '../../src/ehr/sign-appointment/index';
 

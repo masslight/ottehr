@@ -22,12 +22,11 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import { PracticeManagedQuestionnaireDTO, PracticeManagedQuestionnaireUpdateStatusData } from 'utils';
-import { usePracticeManagedQuestionnaireList, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
-
-// Deleted forms are soft-deleted so existing patient responses stay viewable
-const isDeleted = (q: PracticeManagedQuestionnaireDTO): boolean => q.status === 'retired';
+import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
+import { usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 
 export const QuestionnaireAdminPage: FC = () => {
   const navigate = useNavigate();
@@ -35,17 +34,15 @@ export const QuestionnaireAdminPage: FC = () => {
 
   const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = usePracticeManagedQuestionnaireUpdate();
 
-  const { data, isLoading, error: loadError } = usePracticeManagedQuestionnaireList();
+  const { active, deleted: deletedQuestionnaires, isLoading, error: loadError } = usePracticeManagedQuestionnaires();
 
-  const managedQuestionnaires = (data?.practiceManagedQuestionnaires || [])
-    .slice()
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  const deletedCount = deletedQuestionnaires.length;
 
-  const deletedCount = managedQuestionnaires.filter(isDeleted).length;
+  const allQuestionnaires = [...active, ...deletedQuestionnaires].sort((a, b) =>
+    (a.title || '').localeCompare(b.title || '')
+  );
 
-  const visibleQuestionnaires = showDeleted
-    ? managedQuestionnaires
-    : managedQuestionnaires.filter((q) => !isDeleted(q));
+  const visibleQuestionnaires = showDeleted ? allQuestionnaires : active;
 
   const toggleStatus = useCallback(
     async (input: PracticeManagedQuestionnaireUpdateStatusData) => {
@@ -71,10 +68,7 @@ export const QuestionnaireAdminPage: FC = () => {
 
   const PageHeader = (): JSX.Element => {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h4" sx={{ color: '#0F347C' }}>
-          Questionnaires
-        </Typography>
+      <AdminHeaderActionSlot>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {deletedCount > 0 && (
             <FormControlLabel
@@ -92,7 +86,7 @@ export const QuestionnaireAdminPage: FC = () => {
             Create Questionnaire
           </ButtonRounded>
         </Box>
-      </Box>
+      </AdminHeaderActionSlot>
     );
   };
 
@@ -124,7 +118,7 @@ export const QuestionnaireAdminPage: FC = () => {
 
       {visibleQuestionnaires.length === 0 ? (
         <Typography variant="body1" color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
-          {managedQuestionnaires.length === 0
+          {allQuestionnaires.length === 0
             ? 'No questionnaires yet. Click "Create Questionnaire" to build one.'
             : 'No active questionnaires. Turn on "Show deleted" to see deleted ones.'}
         </Typography>
@@ -141,7 +135,7 @@ export const QuestionnaireAdminPage: FC = () => {
             </TableHead>
             <TableBody>
               {visibleQuestionnaires.map((q) => {
-                const deleted = isDeleted(q);
+                const deleted = q.status === 'retired';
                 return (
                   <TableRow
                     key={q.id}

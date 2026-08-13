@@ -1,11 +1,11 @@
 import {
   DEFAULT_VITALS_UNIT_INPUT_ORDER,
-  MISSING_AUTH_TOKEN,
-  MISSING_REQUEST_BODY,
   UpdateProgressNoteConfigInputSchema,
   UpdateProgressNoteConfigInputValidated,
-} from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): UpdateProgressNoteConfigInputValidated {
   if (!input.body) {

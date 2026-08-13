@@ -2,17 +2,19 @@ import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-  getAllFhirSearchPages,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
   ServiceModeCoding,
   SLUG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { ServiceMode } from 'utils/lib/types/common';
+import {
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
+} from 'utils/lib/types/constants';
 import { ResourceHandler } from '../resource-handler';
 
 /**

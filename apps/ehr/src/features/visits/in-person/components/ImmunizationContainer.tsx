@@ -2,7 +2,8 @@ import { Box, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ImmunizationOrder, searchRouteByCode } from 'utils';
+import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 
 export const ImmunizationContainer: FC<{
   orders: ImmunizationOrder[];

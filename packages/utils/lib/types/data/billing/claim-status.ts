@@ -1,4 +1,5 @@
-import { Claim } from 'fhir/r4b';
+import { Claim, Extension } from 'fhir/r4b';
+import { ottehrExtensionUrl } from '../../../fhir/systemUrls';
 
 /**
  * Billing claim status indicators.
@@ -188,6 +189,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
   },
 ];
 
+// Full field definitions by key
 export const CLAIM_STATUS_FIELDS_BY_KEY: Record<ClaimStatusFieldKey, ClaimStatusFieldDef> = CLAIM_STATUS_FIELDS.reduce(
   (acc, field) => {
     acc[field.key] = field;
@@ -195,6 +197,30 @@ export const CLAIM_STATUS_FIELDS_BY_KEY: Record<ClaimStatusFieldKey, ClaimStatus
   },
   {} as Record<ClaimStatusFieldKey, ClaimStatusFieldDef>
 );
+
+// All status options across ar stages
+export const ALL_CLAIM_STATUS_OPTIONS: ClaimStatusOption[] = CLAIM_STATUS_FIELDS.flatMap((field) => field.options);
+export const ALL_CLAIM_STATUS_OPTIONS_2: ClaimStatusOption[] = CLAIM_STATUS_FIELDS.reduce((acc, field) => {
+  if (!field.group) return acc;
+  acc.push(...field.options.filter((o) => !acc.some((ao) => ao.code === o.code)));
+  return acc;
+}, [] as ClaimStatusOption[]);
+
+// Status options grouped by group key
+export const ALL_CLAIM_STATUS_OPTIONS_BY_GROUP: Record<ClaimStatusGroupKey, ClaimStatusOption[]> =
+  CLAIM_STATUS_FIELDS.reduce(
+    (acc, field) => {
+      if (!field.group) {
+        return acc;
+      }
+      if (!acc[field.group]) {
+        acc[field.group] = [];
+      }
+      acc[field.group].push(...field.options);
+      return acc;
+    },
+    {} as Record<ClaimStatusGroupKey, ClaimStatusOption[]>
+  );
 
 // Flat map of every status field's resolved code for a claim.
 export type ClaimStatusValues = Record<ClaimStatusFieldKey, string>;
@@ -255,4 +281,33 @@ export function claimStatusValuesToTags(values: Partial<ClaimStatusValues>): { s
     }
   }
   return tags;
+}
+
+export const CLAIM_STATUS_DATE_EXTENSION_URLS = {
+  insuranceFinalized: ottehrExtensionUrl('claim-insurance-finalized-date'),
+  enteredPatientAr: ottehrExtensionUrl('claim-entered-patient-ar-date'),
+} as const;
+
+export function buildClaimStatusDateExtensions(
+  before: Pick<Claim, 'meta' | 'extension'>,
+  afterValues: ClaimStatusValues,
+  recorded: string
+): Extension[] | undefined {
+  const beforeValues = getClaimStatusValues(before);
+  const urls: string[] = [];
+  if (afterValues.insuranceArStatus === 'finalized' && beforeValues.insuranceArStatus !== 'finalized') {
+    urls.push(CLAIM_STATUS_DATE_EXTENSION_URLS.insuranceFinalized);
+  }
+  if (afterValues.arStage === AR_STAGE.patient && beforeValues.arStage !== AR_STAGE.patient) {
+    urls.push(CLAIM_STATUS_DATE_EXTENSION_URLS.enteredPatientAr);
+  }
+  if (urls.length === 0) return undefined;
+  const kept = (before.extension ?? []).filter((ext) => !urls.includes(ext.url));
+  return [
+    ...kept,
+    ...urls.map((url) => ({
+      url,
+      valueDateTime: recorded,
+    })),
+  ];
 }

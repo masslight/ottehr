@@ -24,31 +24,23 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
+import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
+import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { SCHEDULED_FOLLOWUP_OTHER_REASON, SCHEDULED_FOLLOWUP_REASONS } from 'utils/lib/fhir/encounter';
+import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import {
-  APIError,
-  BOOKING_CONFIG,
   CopyableFollowupField,
   CreateAppointmentInputParams,
   CreateSlotParams,
   FollowUpOptions,
-  getAppointmentDurationFromSlot,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  getTimezone,
-  isApiError,
-  PatientInfo,
-  SCHEDULED_FOLLOWUP_OTHER_REASON,
-  SCHEDULED_FOLLOWUP_REASONS,
-  ScheduleType,
-  SERVICE_CATEGORY_SYSTEM,
-  serviceCategorySupportsContext,
-  ServiceMode,
-  ServiceVisitType,
-  SLUG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleType, ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { getAppointmentDurationFromSlot, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { createAppointment, createSlot, getLocations, listServiceCategories } from '../api/api';
 import BookableSelect, { BookableMode, BookableTarget } from '../components/BookableSelect';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -260,7 +252,7 @@ export default function AddPatient(): JSX.Element {
       lastName: getLastName(patientFromUrl),
       dateOfBirth: patientFromUrl.birthDate,
       sex: patientFromUrl.gender,
-      phoneNumber: patientFromUrl.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', ''),
+      phoneNumber: getPhoneNumberDigits(patientFromUrl.telecom?.find((t) => t.system === 'phone')?.value),
     });
     setBirthDate(patientFromUrl.birthDate ? DateTime.fromISO(patientFromUrl.birthDate) : null);
     setShowFields('existingPatientSelected');
@@ -500,7 +492,10 @@ export default function AddPatient(): JSX.Element {
       // first name, last name, and phone are empty strings when untouched
       { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
       { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
-      { field: 'phone', invalid: patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10 },
+      {
+        field: 'phone',
+        invalid: patientInfo.phoneNumber != null && getPhoneNumberDigits(patientInfo.phoneNumber) == null,
+      },
       {
         field: 'dateOfBirth',
         invalid: patientInfo.newPatient ? !birthDate : !patientInfo.dateOfBirth,

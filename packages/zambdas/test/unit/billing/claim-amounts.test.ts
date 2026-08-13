@@ -1,14 +1,24 @@
-import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
-import { describe, expect, it } from 'vitest';
+import Oystehr from '@oystehr/sdk';
+import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { describe, expect, it, Mock, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,
+  ClaimPaymentSummary,
   countEraClaims,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
+  extractReportedCharge,
+  fetchPatientPaidByClaimId,
+  fetchPatientPaymentsByEncounterIds,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
+  summarizePatientBalance,
+  sumPatientPayments,
+  toClaimPatientPayment,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 
@@ -184,6 +194,73 @@ const processEraClaimResponse = (created = '2026-01-01'): ClaimResponse =>
     addItemAdjudications: [[casAdjustment('PR', 5)]],
   });
 
+const paymentNotice = (opts: {
+  id: string;
+  encounterId: string;
+  amount: number;
+  method?: string;
+  paymentDate?: string;
+  created?: string;
+  disposition?: string;
+  checkNumber?: string;
+  withReconciliation?: boolean;
+  status?: PaymentNotice['status'];
+}): PaymentNotice =>
+  ({
+    resourceType: 'PaymentNotice',
+    id: opts.id,
+    status: opts.status ?? 'active',
+    created: opts.created ?? '2026-07-01T12:00:00Z',
+    amount: {
+      value: opts.amount,
+      currency: 'USD',
+    },
+    ...(opts.paymentDate
+      ? {
+          paymentDate: opts.paymentDate,
+        }
+      : {}),
+    request: {
+      type: 'Claim',
+      identifier: {
+        system: ottehrIdentifierSystem('claim-encounter-id'),
+        value: opts.encounterId,
+      },
+    },
+    extension: [
+      {
+        url: PAYMENT_METHOD_EXTENSION_URL,
+        valueString: opts.method ?? 'cash',
+      },
+    ],
+    ...(opts.withReconciliation === false
+      ? {}
+      : {
+          contained: [
+            {
+              resourceType: 'PaymentReconciliation',
+              id: 'contained-reconciliation',
+              status: 'active',
+              created: opts.created ?? '2026-07-01T12:00:00Z',
+              paymentDate: opts.paymentDate ?? '2026-07-01',
+              paymentAmount: {
+                value: opts.amount,
+                currency: 'USD',
+              },
+              disposition: opts.disposition ?? 'cash payment collected manually',
+              ...(opts.checkNumber
+                ? {
+                    paymentIdentifier: {
+                      system: 'https://fhir.ottehr.com/Identifier/check-number',
+                      value: opts.checkNumber,
+                    },
+                  }
+                : {}),
+            },
+          ],
+        }),
+  }) as PaymentNotice;
+
 describe('extractRemitAdjustments', () => {
   it('returns CAS adjustments with group, reason, and amount, skipping payment adjudications', () => {
     const cr = claimResponse('2026-01-01', {
@@ -236,6 +313,28 @@ describe('extractRemitAdjustments', () => {
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60)]],
     });
     expect(extractRemitAdjustments(cr)).toEqual([]);
+  });
+});
+
+describe('extractReportedCharge', () => {
+  it('reads the CLP03 charge from the total on both converter shapes', () => {
+    expect(extractReportedCharge(claimMdClaimResponse())).toBe(100);
+    expect(extractReportedCharge(processEraClaimResponse())).toBe(100);
+  });
+
+  it('sums line-level charges when there is no charge total', () => {
+    const cr = claimResponse('2026-01-01', {
+      itemAdjudications: [[adjudication('charge', 383)], [adjudication('charge', 187)]],
+    });
+    expect(extractReportedCharge(cr)).toBe(570);
+  });
+
+  it('is undefined when the remit reports no charge at all', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60)]],
+    });
+    expect(extractReportedCharge(cr)).toBeUndefined();
   });
 });
 
@@ -413,6 +512,391 @@ describe('summarizeClaimPayments', () => {
     const summary = summarizeClaimPayments([cr], 100);
     expect(summary.patientResp).toBe(0);
     expect(summary.balance).toBe(0);
+  });
+
+  it('subtracts patientPaid from billed for an un-adjudicated claim', () => {
+    expect(summarizeClaimPayments([], 150, 40)).toEqual({
+      allowed: 0,
+      insurancePaid: 0,
+      patientResp: 0,
+      patientPaid: 40,
+      balance: 110,
+      adjudicated: false,
+    });
+  });
+
+  it('subtracts patientPaid from patient responsibility for an adjudicated claim', () => {
+    expect(summarizeClaimPayments([claimMdClaimResponse()], 100, 15)).toEqual({
+      allowed: 80,
+      insurancePaid: 60,
+      patientResp: 20,
+      patientPaid: 15,
+      balance: 5,
+      adjudicated: true,
+    });
+  });
+
+  it('does not double-subtract patientPaid in the fallback patient-responsibility branch', () => {
+    const primary = claimMdClaimResponse('2026-01-01');
+    const bareSecondary = claimResponse('2026-02-01', { totalPaid: 10 });
+    const summary = summarizeClaimPayments([primary, bareSecondary], 100, 4);
+    // responsibility stays allowed - insurancePaid (80 - 70); only the balance nets out the payment
+    expect(summary.patientResp).toBe(10);
+    expect(summary.balance).toBe(6);
+  });
+});
+
+const summary = (over: Partial<ClaimPaymentSummary>): ClaimPaymentSummary => ({
+  allowed: 0,
+  insurancePaid: 0,
+  patientResp: 0,
+  patientPaid: 0,
+  balance: 0,
+  adjudicated: false,
+  ...over,
+});
+
+describe('summarizePatientBalance', () => {
+  it('counts a payment on an un-adjudicated claim as a credit, not a balance owed', () => {
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: false,
+        patientPaid: 14.69,
+        balance: -14.69,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(-14.69);
+    expect(result.claimsWithPatientBalance).toBe(0);
+    expect(result.pendingPayments).toBe(0);
+  });
+
+  it('counts an adjudicated claim with an outstanding patient balance', () => {
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: true,
+        patientResp: 20,
+        patientPaid: 5,
+        balance: 15,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(15);
+    expect(result.claimsWithPatientBalance).toBe(1);
+  });
+
+  it('ignores un-adjudicated billed amounts but nets payments across claims', () => {
+    const result = summarizePatientBalance([
+      // billed pending insurance, no payment, must not count toward the patient
+      summary({
+        adjudicated: false,
+        balance: 200,
+      }),
+      // prepaid credit on an un-adjudicated claim
+      summary({
+        adjudicated: false,
+        patientPaid: 30,
+        balance: -30,
+      }),
+      // adjudicated amount the patient still owes
+      summary({
+        adjudicated: true,
+        patientResp: 40,
+        balance: 40,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(10);
+    expect(result.claimsWithPatientBalance).toBe(1);
+  });
+
+  it('does not count a fully paid claim as outstanding when its balance is float residue', () => {
+    const patientResp = 0.1 + 0.2;
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: true,
+        patientResp,
+        patientPaid: 0.3,
+        balance: patientResp - 0.3,
+      }),
+    ]);
+    expect(result.claimsWithPatientBalance).toBe(0);
+    expect(result.currentBalance).toBe(0);
+  });
+
+  it('keeps the running total at cent precision', () => {
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: true,
+        balance: 0.1,
+      }),
+      summary({
+        adjudicated: true,
+        balance: 0.2,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(0.3);
+  });
+});
+
+describe('sumPatientPayments', () => {
+  it('sums payment amounts', () => {
+    const notices = [
+      paymentNotice({
+        id: 'a',
+        encounterId: 'e',
+        amount: 25,
+      }),
+      paymentNotice({
+        id: 'b',
+        encounterId: 'e',
+        amount: 15,
+      }),
+    ];
+    expect(sumPatientPayments(notices)).toBe(40);
+  });
+
+  it('nets refunds recorded as negative amounts', () => {
+    const notices = [
+      paymentNotice({
+        id: 'a',
+        encounterId: 'e',
+        amount: 30,
+      }),
+      paymentNotice({
+        id: 'r',
+        encounterId: 'e',
+        amount: -12,
+      }),
+    ];
+    expect(sumPatientPayments(notices)).toBe(18);
+  });
+
+  it('returns 0 for no payments', () => {
+    expect(sumPatientPayments([])).toBe(0);
+  });
+
+  it('ignores a cancelled refund, which the webhook writes for a refund that never went through', () => {
+    const notices = [
+      paymentNotice({
+        id: 'a',
+        encounterId: 'e',
+        amount: 100,
+      }),
+      paymentNotice({
+        id: 'r-failed',
+        encounterId: 'e',
+        amount: -40,
+        status: 'cancelled',
+      }),
+    ];
+    expect(sumPatientPayments(notices)).toBe(100);
+  });
+
+  it('ignores draft and entered-in-error notices', () => {
+    const notices = [
+      paymentNotice({
+        id: 'a',
+        encounterId: 'e',
+        amount: 25,
+      }),
+      paymentNotice({
+        id: 'b',
+        encounterId: 'e',
+        amount: 15,
+        status: 'draft',
+      }),
+      paymentNotice({
+        id: 'c',
+        encounterId: 'e',
+        amount: 10,
+        status: 'entered-in-error',
+      }),
+    ];
+    expect(sumPatientPayments(notices)).toBe(25);
+  });
+});
+
+describe('toClaimPatientPayment', () => {
+  it('maps a notice with a contained reconciliation', () => {
+    const notice = paymentNotice({
+      id: 'pn-1',
+      encounterId: 'enc-1',
+      amount: 25,
+      method: 'check',
+      paymentDate: '2026-07-10',
+      disposition: 'check collected at front desk',
+      checkNumber: '1234',
+    });
+    expect(toClaimPatientPayment(notice)).toEqual({
+      paymentNoticeId: 'pn-1',
+      paymentDate: '2026-07-10',
+      amount: 25,
+      method: 'check',
+      description: 'check collected at front desk',
+      checkNumber: '1234',
+      status: 'active',
+    });
+  });
+
+  it('falls back to created and leaves optional fields empty without a contained reconciliation', () => {
+    const notice = paymentNotice({
+      id: 'pn-2',
+      encounterId: 'enc-2',
+      amount: 10,
+      method: 'card',
+      created: '2026-07-05T09:00:00Z',
+      withReconciliation: false,
+    });
+    expect(toClaimPatientPayment(notice)).toEqual({
+      paymentNoticeId: 'pn-2',
+      paymentDate: '2026-07-05T09:00:00Z',
+      amount: 10,
+      method: 'card',
+      description: '',
+      checkNumber: undefined,
+      status: 'active',
+    });
+  });
+});
+
+describe('fetchPatientPaymentsByEncounterIds', () => {
+  it('queries request:identifier as comma-separated system|value and groups by encounter id', async () => {
+    const system = ottehrIdentifierSystem('claim-encounter-id');
+    const notices = [
+      paymentNotice({
+        id: 'pn-1',
+        encounterId: 'enc-1',
+        amount: 10,
+      }),
+      paymentNotice({
+        id: 'pn-2',
+        encounterId: 'enc-2',
+        amount: 20,
+      }),
+      paymentNotice({
+        id: 'pn-3',
+        encounterId: 'enc-1',
+        amount: 5,
+      }),
+    ];
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => notices,
+      link: [],
+    });
+    const oystehr = {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr;
+
+    const result = await fetchPatientPaymentsByEncounterIds(oystehr, ['enc-1', 'enc-2']);
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search.mock.calls[0][0].params[0]).toEqual({
+      name: 'request:identifier',
+      value: `${system}|enc-1,${system}|enc-2`,
+    });
+    expect(result.get('enc-1')?.map((notice) => notice.id)).toEqual(['pn-1', 'pn-3']);
+    expect(result.get('enc-2')?.map((notice) => notice.id)).toEqual(['pn-2']);
+  });
+});
+
+describe('fetchPatientPaidByClaimId', () => {
+  const claimForEncounter = (id: string, encounterId?: string): Claim =>
+    ({
+      resourceType: 'Claim',
+      id,
+      ...(encounterId
+        ? {
+            identifier: [
+              {
+                system: ottehrIdentifierSystem('claim-encounter-id'),
+                value: encounterId,
+              },
+            ],
+          }
+        : {}),
+    }) as Claim;
+
+  const clientReturning = (
+    notices: PaymentNotice[]
+  ): {
+    oystehr: Oystehr;
+    search: Mock;
+  } => {
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => notices,
+      link: [],
+    });
+    return {
+      oystehr: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      search,
+    };
+  };
+
+  it('totals each claim payments via its encounter identifier', async () => {
+    const { oystehr } = clientReturning([
+      paymentNotice({
+        id: 'pn-1',
+        encounterId: 'enc-1',
+        amount: 40,
+      }),
+      paymentNotice({
+        id: 'pn-2',
+        encounterId: 'enc-1',
+        amount: 10,
+      }),
+      paymentNotice({
+        id: 'pn-3',
+        encounterId: 'enc-2',
+        amount: 25,
+      }),
+    ]);
+
+    const result = await fetchPatientPaidByClaimId({
+      oystehr,
+      claims: [claimForEncounter('claim-1', 'enc-1'), claimForEncounter('claim-2', 'enc-2')],
+    });
+
+    expect(result.get('claim-1')).toBe(50);
+    expect(result.get('claim-2')).toBe(25);
+  });
+
+  it('skips claims without an encounter identifier and never searches when none have one', async () => {
+    const { oystehr, search } = clientReturning([]);
+
+    const result = await fetchPatientPaidByClaimId({
+      oystehr,
+      claims: [claimForEncounter('claim-1')],
+    });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(result.has('claim-1')).toBe(false);
+  });
+
+  it('excludes cancelled notices from the per-claim total', async () => {
+    const { oystehr } = clientReturning([
+      paymentNotice({
+        id: 'pn-charge',
+        encounterId: 'enc-1',
+        amount: 100,
+      }),
+      paymentNotice({
+        id: 'pn-refund-failed',
+        encounterId: 'enc-1',
+        amount: -40,
+        status: 'cancelled',
+      }),
+    ]);
+
+    const result = await fetchPatientPaidByClaimId({
+      oystehr,
+      claims: [claimForEncounter('claim-1', 'enc-1')],
+    });
+
+    expect(result.get('claim-1')).toBe(100);
   });
 });
 

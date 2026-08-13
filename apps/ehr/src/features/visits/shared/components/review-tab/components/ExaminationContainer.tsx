@@ -2,7 +2,10 @@ import { Box } from '@mui/material';
 import type { ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { collectKnownExamFields, extractObservationsFromExamComponents } from 'utils';
+import {
+  collectKnownExamFields,
+  extractObservationsFromExamComponents,
+} from 'utils/lib/config-helpers/exam-observations';
 import { useExamObservationsStore } from '../../../stores/appointment/exam-observations.store';
 import { ExamReviewGroup } from './ExamReviewGroup';
 

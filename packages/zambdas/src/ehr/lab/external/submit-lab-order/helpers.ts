@@ -17,23 +17,26 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CoverageAndOrg,
-  CoverageOrgRank,
-  EXTERNAL_LAB_ERROR,
   externalLabOrderUsesFriendlyPatientId,
   getOrderNumber,
-  getPresignedURL,
   getTestDetailsFromActivityDefinition,
-  getTimezone,
   isPSCOrder,
-  LAB_ACCOUNT_NUMBER_SYSTEM,
-  LabPaymentMethod,
-  ORDER_ITEM_UNKNOWN,
   paymentMethodFromCoverage,
-  PaymentResources,
+} from 'utils/lib/helpers/labs/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  LAB_ACCOUNT_NUMBER_SYSTEM,
+  ORDER_ITEM_UNKNOWN,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CoverageAndOrg,
+  CoverageOrgRank,
+  LabPaymentMethod,
+  PaymentResources,
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { validate } from 'uuid';
 import {
   createExternalLabsOrderFormPDF,
@@ -42,6 +45,7 @@ import {
 import { addDocsToLabList, getLabListResource } from '../../../../shared/pdf/lab-pdf-utils';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../../../shared/pdf/labs-results-form-pdf';
 import { PdfInfo } from '../../../../shared/pdf/pdf-utils';
+import { getTimezoneForLabs } from '../../shared/helpers';
 import {
   AOEDisplayForOrderForm,
   getExternalLabOrderResourcesViaServiceRequest,
@@ -49,13 +53,11 @@ import {
   sortCoveragesByPriority,
 } from '../../shared/labs';
 
-export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
-
 type LabOrderResourcesExtended = LabOrderResources & {
   accountNumber: string;
   encounter: Encounter;
   mostRecentSampleCollectionDate?: DateTime<true>;
-  timezone?: string;
+  timezone: string;
   location: Location;
   coveragesAndOrgs?: CoverageAndOrg[];
   questionsAndAnswers?: AOEDisplayForOrderForm[];
@@ -82,7 +84,7 @@ export type resourcesForOrderForm = {
   labOrganization: Organization;
   provider: Practitioner;
   patient: Patient;
-  timezone: string | undefined;
+  timezone: string;
   encounter: Encounter;
   location?: Location;
   paymentResources: PaymentResources;
@@ -183,7 +185,7 @@ export async function getBundledOrderResources(
       bundledOrders[orderNumber] = [serviceRequestID];
     }
 
-    const timezone = result.schedule ? getTimezone(result.schedule) : undefined;
+    const timezone = getTimezoneForLabs(result.schedule);
 
     const sampleCollectionDate = getMostRecentCollectionDate(result.specimens)?.setZone(timezone);
     const sampleCollectionDateFormatted = sampleCollectionDate?.isValid ? sampleCollectionDate : undefined;

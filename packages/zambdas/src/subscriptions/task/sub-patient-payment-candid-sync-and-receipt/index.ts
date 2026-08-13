@@ -1,29 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Encounter, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  getOrCreateCandidApiClient,
-  getStripeAccountForAppointmentOrEncounter,
-  PAYMENT_METHOD_EXTENSION_URL,
-  TIMEZONES,
-} from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getContainedReconciliation, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingPatientPayment } from '../../../billing/payments';
 import { createBillingClient } from '../../../billing/shared';
-import {
-  createClinicalOystehrClient,
-  createPatientPaymentReceiptPdf,
-  getAuth0Token,
-  getStripeClient,
-  performCandidPreEncounterSync,
-  shouldUseCandid,
-  shouldUseOttehrBilling,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { performCandidPreEncounterSync, shouldUseCandid, shouldUseOttehrBilling } from '../../../shared/candid';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
+import { wrapHandler } from '../../../shared/sentry';
+import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -162,9 +155,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           if (currency && currency !== 'USD') {
             throw new Error(`PaymentNotice ${paymentNoticeId} has unexpected currency ${currency}`);
           }
-          const reconciliation = paymentNotice.contained?.find(
-            (resource): resource is PaymentReconciliation => resource.resourceType === 'PaymentReconciliation'
-          );
+          const reconciliation = getContainedReconciliation(paymentNotice);
           const paymentMethod =
             paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '';
           const createdDateTime = DateTime.fromISO(paymentNotice.created);

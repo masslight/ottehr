@@ -1,4 +1,6 @@
-import { AR_STAGE } from 'utils';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
+
+export const PROVISIONAL_BALANCE_HINT = 'No remittance received yet, balance is provisional';
 
 export const CLAIM_STATUS_COLORS: Record<string, 'warning' | 'info' | 'error' | 'success' | 'primary' | 'default'> = {
   open: 'warning',
@@ -41,7 +43,7 @@ const CLAIM_STATUS_VALUE_COLORS: Record<string, ClaimStatusChipColor> = {
   rejected: 'error',
   // AR stage
   [AR_STAGE.insurancePayer]: 'info',
-  [AR_STAGE.patient]: 'primary',
+  [AR_STAGE.patient]: 'success',
   [AR_STAGE.nonInsurancePayer]: 'warning',
   // neutral defaults
   unpaid: 'default',

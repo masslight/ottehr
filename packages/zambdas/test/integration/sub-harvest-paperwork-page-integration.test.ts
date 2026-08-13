@@ -2,9 +2,12 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Account, Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import * as fs from 'fs';
-import { OTTEHR_MODULE, PATIENT_BILLING_ACCOUNT_TYPE, unbundleBatchPostOutput } from 'utils';
+import { PATIENT_BILLING_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
+import { unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { executePageHarvest, HarvestContext } from '../../src/subscriptions/task/sub-harvest-paperwork/page-handlers';
 import questionnaireResponse from '../data/base-qr.json';
 

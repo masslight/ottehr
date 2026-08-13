@@ -2,7 +2,8 @@ import { Grid, Typography } from '@mui/material';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { nameLabTest, OrderableItemSearchResult } from 'utils';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 
 interface ExternalSelectedTestsProps {
   selectedLabs: OrderableItemSearchResult[];

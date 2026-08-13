@@ -7,13 +7,9 @@ import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { getLocations } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  BOOKING_CONFIG,
-  DEFAULT_PREBOOK_MAX_MONTHS_AHEAD,
-  nextAvailableFrom,
-  ScheduleType,
-  ServiceCategoryCode,
-} from 'utils';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { ScheduleType } from 'utils/lib/types/common';
+import { nextAvailableFrom } from 'utils/lib/utils/scheduleUtils';
 import { Slots } from './Slots';
 interface TabPanelProps {
   children?: ReactNode;
@@ -84,11 +80,10 @@ const SlotPicker = ({
 }: SlotPickerProps): JSX.Element => {
   const { oystehrZambda } = useApiClients();
   const theme = useTheme();
-  // How far into the future the "Other dates" calendar lets you book, from the
-  // per-project booking config (falls back to the historical ~1-month window).
-  // Picking a date fetches that day's slots on demand (handleSelectOtherDate),
-  // so widening this alone extends the range — no extra preloading needed.
-  const bookableMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
+  // "Other dates" calendar range in months, from the per-project booking config;
+  // defaults to 1 month when unset (beam sets 12). The tab is always shown here —
+  // slots for a picked day are fetched on demand (handleSelectOtherDate).
+  const prebookMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? 1;
   const [currentTab, setCurrentTab] = useState(0);
   const [nextDay, setNextDay] = useState<boolean>(false);
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
@@ -360,10 +355,9 @@ const SlotPicker = ({
                       }}
                       // Minus one day for timezone shenanigans
                       minDate={firstAvailableDay?.minus({ days: 1 })}
-                      // Allow booking up to bookableMonthsAhead out. Only the
-                      // preloaded slots (2 days) are in slotsList; slots for any
-                      // later date are fetched on demand when it's picked.
-                      maxDate={firstAvailableDay?.plus({ months: bookableMonthsAhead })}
+                      // Allow booking up to prebookMonthsAhead out (default 1).
+                      // Slots for the picked day are fetched on demand.
+                      maxDate={firstAvailableDay?.plus({ months: prebookMonthsAhead })}
                     />
                   </LocalizationProvider>
                   {selectedOtherDate && (

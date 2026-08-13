@@ -12,22 +12,22 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { setNpi } from 'utils/lib/fhir/helpers';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
-  BillingPolicyHolderInput,
-  BillingSubscriberRelationship,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
-  getPayerUrl,
-  setCoveragePlanType,
-  setNpi,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/helpers/rcm/constants';
+import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   claimResourceChangeRequests,
   commitClaimResourceChange,
@@ -47,6 +47,7 @@ import {
   prepareWorkingCopy,
   resolvePayersByRef,
   resourceDisplayName,
+  setClaimRenderingProviderCareTeam,
   setClia,
   setCoverageRelationship,
   setTaxId,
@@ -103,7 +104,6 @@ export async function performEffect(
       const before = structuredClone(coverage);
       const { fields } = params;
       if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
-      if (fields.status !== undefined) coverage.status = fields.status;
       if (fields.relationship === undefined) {
         return commitClaimResourceChange(oystehr, { resource: coverage, before, agent, claimReference });
       }
@@ -238,18 +238,10 @@ async function attachClaimResources(
 
   if (fields.renderingProvider) {
     const copy = await createCopy(oystehr, fields.renderingProvider.type, fields.renderingProvider.id);
-    claim.careTeam = [
-      {
-        sequence: 1,
-        provider: { reference: `${fields.renderingProvider.type}/${copy.id}`, display: resourceDisplayName(copy) },
-        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
-      },
-      ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
-    ];
-    claim.item = claim.item?.map((item) => ({
-      ...item,
-      careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
-    }));
+    setClaimRenderingProviderCareTeam(claim, {
+      reference: `${fields.renderingProvider.type}/${copy.id}`,
+      display: resourceDisplayName(copy),
+    });
   }
 
   if (fields.facilityId) {

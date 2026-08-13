@@ -18,24 +18,17 @@ import { capitalize } from 'lodash';
 import { DateTime } from 'luxon';
 import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';
-import {
-  CashOrCardPayment,
-  createFilesDocumentReferences,
-  FhirAppointmentType,
-  getFullName,
-  getPatientAddress,
-  getPhoneNumberForIndividual,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  OTTEHR_MODULE,
-  PAYMENT_METHOD_EXTENSION_URL,
-  RECEIPT_CODE,
-  removePrefix,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
+import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
@@ -175,7 +168,7 @@ async function getReceiptData(input: {
     oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
     stripeClient.paymentIntents.search(
       {
-        query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+        query: stripeEncounterMetadataQuery(encounterId),
         limit: 100, // default is 10
       },
       { stripeAccount: stripeAccountId }

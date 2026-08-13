@@ -20,7 +20,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { BirthHistoryDTO } from 'utils';
+import { BirthHistoryDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 type BirthHistoryProps = {
   appointmentID?: string;

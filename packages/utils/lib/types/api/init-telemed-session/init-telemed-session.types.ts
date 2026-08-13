@@ -1,4 +1,4 @@
-import { MeetingData } from '../../../main';
+import { MeetingData } from '../../data/telemed/join-call.types';
 
 export interface InitTelemedSessionRequestParams {
   appointmentId: string;

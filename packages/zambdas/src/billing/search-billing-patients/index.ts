@@ -1,13 +1,26 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { BillingPatientOption, FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
+import { BillingPatientOption } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import {
+  clinicalFriendlyIdOfCopy,
+  clinicalPatientIdOfCopy,
+  createBillingClient,
+  EXCLUDE_WORKING_COPIES_PARAMS,
+  fhirName,
+  formatAddress,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+  SOURCE_IDENTIFIER_SYSTEM,
+} from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
+const DEFAULT_PAGE_SIZE = 25;
+const DEFAULT_OFFSET = 0;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -22,25 +35,29 @@ async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPatientsParams
 ): Promise<{ patients: BillingPatientOption[]; total: number; offset: number; pageSize: number }> {
-  const pageSize = params.pageSize ?? 25;
-  const offset = params.offset ?? 0;
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const offset = params.offset ?? DEFAULT_OFFSET;
   const searchParams: { name: string; value: string }[] = [
-    { name: '_count', value: String(pageSize) },
-    { name: '_offset', value: String(offset) },
-    { name: '_sort', value: 'family' },
+    { name: '_sort', value: '-_lastUpdated' },
     { name: '_total', value: 'accurate' },
     ...EXCLUDE_WORKING_COPIES_PARAMS,
   ];
-  if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });
-  if (params.identifier) searchParams.push({ name: 'identifier', value: params.identifier });
+  if (params.uuid) searchParams.push({ name: 'identifier', value: `${SOURCE_IDENTIFIER_SYSTEM}|${params.uuid}` });
+  if (params.identifier)
+    searchParams.push({ name: 'identifier', value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${params.identifier}` });
 
-  const response = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
+  const response = await oystehr.fhir.search<Patient>({
+    resourceType: 'Patient',
+    params: [...searchParams, { name: '_count', value: String(pageSize) }, { name: '_offset', value: String(offset) }],
+  });
+  const total = response.total ?? 0;
+  const results = response.unbundle();
 
-  const patients = response.unbundle().map((p) => {
-    const ids = p.identifier ?? [];
-    const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
+  const patients = results.map((p) => {
+    const clinicalFriendlyId = clinicalFriendlyIdOfCopy(p);
+    const clinicalId = clinicalPatientIdOfCopy(p);
 
     return {
       id: p.id,
@@ -50,9 +67,10 @@ async function performEffect(
       dob: p.birthDate ?? '',
       gender: p.gender ?? '',
       address: formatAddress(p.address?.[0]),
-      friendlyId,
+      clinicalId: clinicalId ?? '',
+      clinicalFriendlyId: clinicalFriendlyId ?? '',
     };
   });
 
-  return { patients, total: response.total ?? 0, offset, pageSize };
+  return { patients, total: total ?? 0, offset, pageSize };
 }

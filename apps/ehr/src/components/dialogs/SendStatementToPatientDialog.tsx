@@ -20,7 +20,9 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { chooseJson, generateStatement, InvoiceablePatientReport, StatementDetails } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { generateStatement, StatementDetails } from 'utils/lib/statements/generate-statement';
+import { InvoiceablePatientReport } from 'utils/lib/types/api/invoicing.types';
 import { useApiClients } from '../../hooks/useAppClients';
 import { RoundedButton } from '../RoundedButton';
 

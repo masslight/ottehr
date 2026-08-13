@@ -14,9 +14,11 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
+import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
+import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
+import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
-  ClaimStatusValues,
-  claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
@@ -24,15 +26,16 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  FHIR_RESOURCE_NOT_FOUND,
-  getCandidPlanTypeCodeFromCoverage,
-  getDefaultClaimSubmissionExtensions,
-  getResourcesFromBatchInlineRequests,
-  InternalError,
-  setCoveragePlanType,
+} from 'utils/lib/helpers/rcm/constants';
+import {
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   withArStageInitialization,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/claim-status';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { HealthcareService, Location, PractitionerRole } from 'fhir/r4b';
-import { getGroupAllLocations, isPractitionerRoleMemberOfGroup } from 'utils';
+import { getGroupAllLocations, isPractitionerRoleMemberOfGroup } from 'utils/lib/fhir/healthcareService';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
 const STALE_TIME_MS = 5 * 60 * 1000;

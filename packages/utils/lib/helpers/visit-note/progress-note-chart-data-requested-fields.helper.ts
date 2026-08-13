@@ -1,7 +1,9 @@
-import { PRIVATE_EXTENSION_BASE_URL, SearchParams } from '../../fhir';
-import { ChartDataRequestedFields, IN_PERSON_NOTE_ID } from '../../types';
+import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir/constants';
+import { SearchParams } from '../../fhir/uri';
 import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
+import { IN_PERSON_NOTE_ID } from '../../types/api/chart-data/chart-data.types';
 import { NOTE_TYPE } from '../../types/api/chart-data/chart-data.types';
+import { ChartDataRequestedFields } from '../../types/api/chart-data/get-chart-data.types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
 export const vitalsObservationsRequest: SearchParams = {
@@ -42,7 +44,8 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   vitalsObservations: vitalsObservationsRequest,
   externalLabResults: {},
   inHouseLabResults: {},
-  radiologyOrders: { _tag: 'radiology', _revinclude: 'DiagnosticReport:based-on' },
+  // DocumentReference:related pulls in external orders' uploaded result files (they have no DiagnosticReport).
+  radiologyOrders: { _tag: 'radiology', _revinclude: ['DiagnosticReport:based-on', 'DocumentReference:related'] },
   practitioners: {},
   medicalDecision: {
     _tag: 'medical-decision',

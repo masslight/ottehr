@@ -1,5 +1,5 @@
-import { PractitionerLicense, ProviderTypeCode } from '../../../main';
-import { RoleType } from '../../../main';
+import { PractitionerLicense, ProviderTypeCode } from '../practitioner.types';
+import { RoleType } from '../user.types';
 
 export interface UpdateUserParams {
   userId: string;

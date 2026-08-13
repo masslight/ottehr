@@ -1,9 +1,11 @@
 name: Intake Login Cache Refresh (Scheduled)
 
 # This workflow runs on a schedule to refresh the intake login cache (user.json)
-# for e2e, e2e2, and e2e3 environments. This ensures that the cached authentication
-# is always fresh and tests can run without re-authenticating each time.
+# for the e2e, e2e2, e2e3, e2e4, and e2e5 environments. This ensures that the cached
+# authentication is always fresh and PR test runs can skip the ~4 minute login step.
 # Jobs run sequentially to avoid SMS conflicts during authentication.
+# Scheduled runs execute on the default branch, so the caches they save are
+# restorable from every branch and PR.
 
 env:
   NODE_VERSION: 22
@@ -15,8 +17,10 @@ env:
 
 on:
   schedule:
-    # Run daily at midnight UTC to refresh e2e, e2e2, and e2e3 caches
-    - cron: "0 0 * * *"
+    # Refresh every 6 hours so PR runs never land in the window where the cached
+    # token has less than TOKEN_VALIDITY_THRESHOLD_MINUTES left (which forces a
+    # slow SMS login in the PR pipeline).
+    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       environment:
@@ -93,7 +97,9 @@ jobs:
       - name: Populate and validate secrets
         uses: ./.github/actions/populate-secrets
         with:
-          environment: ${{ inputs.environment }}
+          # Must be hardcoded per job: inputs.environment is empty on scheduled runs,
+          # which makes secrets.ts fail with "environment parameter is required".
+          environment: e2e
           copy-test-config-files: true
           aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
@@ -133,6 +139,23 @@ jobs:
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
+          }
+
+          // Log the token lifetime so the refresh cadence can be tuned against it
+          try {
+            const authItem = data.origins
+              .flatMap(origin => origin.localStorage || [])
+              .find(item =>
+                item.name?.includes("@@auth0spajs@@") &&
+                !item.name?.includes("@@user@@") &&
+                item.value?.includes("expiresAt")
+              );
+            if (authItem) {
+              const minutesLeft = (JSON.parse(authItem.value).expiresAt * 1000 - Date.now()) / 60000;
+              console.log(`Token time left: ${minutesLeft.toFixed(1)} minutes`);
+            }
+          } catch (e) {
+            console.log("Could not compute token time left:", e.message);
           }
 
           console.log("User.json validated successfully for e2e");
@@ -226,7 +249,9 @@ jobs:
       - name: Populate and validate secrets
         uses: ./.github/actions/populate-secrets
         with:
-          environment: ${{ inputs.environment }}
+          # Must be hardcoded per job: inputs.environment is empty on scheduled runs,
+          # which makes secrets.ts fail with "environment parameter is required".
+          environment: e2e2
           copy-test-config-files: true
           aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
@@ -266,6 +291,23 @@ jobs:
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
+          }
+
+          // Log the token lifetime so the refresh cadence can be tuned against it
+          try {
+            const authItem = data.origins
+              .flatMap(origin => origin.localStorage || [])
+              .find(item =>
+                item.name?.includes("@@auth0spajs@@") &&
+                !item.name?.includes("@@user@@") &&
+                item.value?.includes("expiresAt")
+              );
+            if (authItem) {
+              const minutesLeft = (JSON.parse(authItem.value).expiresAt * 1000 - Date.now()) / 60000;
+              console.log(`Token time left: ${minutesLeft.toFixed(1)} minutes`);
+            }
+          } catch (e) {
+            console.log("Could not compute token time left:", e.message);
           }
 
           console.log("User.json validated successfully for e2e2");
@@ -359,7 +401,9 @@ jobs:
       - name: Populate and validate secrets
         uses: ./.github/actions/populate-secrets
         with:
-          environment: ${{ inputs.environment }}
+          # Must be hardcoded per job: inputs.environment is empty on scheduled runs,
+          # which makes secrets.ts fail with "environment parameter is required".
+          environment: e2e3
           copy-test-config-files: true
           aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
@@ -399,6 +443,23 @@ jobs:
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
+          }
+
+          // Log the token lifetime so the refresh cadence can be tuned against it
+          try {
+            const authItem = data.origins
+              .flatMap(origin => origin.localStorage || [])
+              .find(item =>
+                item.name?.includes("@@auth0spajs@@") &&
+                !item.name?.includes("@@user@@") &&
+                item.value?.includes("expiresAt")
+              );
+            if (authItem) {
+              const minutesLeft = (JSON.parse(authItem.value).expiresAt * 1000 - Date.now()) / 60000;
+              console.log(`Token time left: ${minutesLeft.toFixed(1)} minutes`);
+            }
+          } catch (e) {
+            console.log("Could not compute token time left:", e.message);
           }
 
           console.log("User.json validated successfully for e2e3");
@@ -492,7 +553,9 @@ jobs:
       - name: Populate and validate secrets
         uses: ./.github/actions/populate-secrets
         with:
-          environment: ${{ inputs.environment }}
+          # Must be hardcoded per job: inputs.environment is empty on scheduled runs,
+          # which makes secrets.ts fail with "environment parameter is required".
+          environment: e2e4
           copy-test-config-files: true
           aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
@@ -532,6 +595,23 @@ jobs:
           if (!hasAuth0Token) {
             console.log("No Auth0 token found");
             process.exit(1);
+          }
+
+          // Log the token lifetime so the refresh cadence can be tuned against it
+          try {
+            const authItem = data.origins
+              .flatMap(origin => origin.localStorage || [])
+              .find(item =>
+                item.name?.includes("@@auth0spajs@@") &&
+                !item.name?.includes("@@user@@") &&
+                item.value?.includes("expiresAt")
+              );
+            if (authItem) {
+              const minutesLeft = (JSON.parse(authItem.value).expiresAt * 1000 - Date.now()) / 60000;
+              console.log(`Token time left: ${minutesLeft.toFixed(1)} minutes`);
+            }
+          } catch (e) {
+            console.log("Could not compute token time left:", e.message);
           }
 
           console.log("User.json validated successfully for e2e4");
@@ -627,7 +707,9 @@ jobs:
       - name: Populate and validate secrets
         uses: ./.github/actions/populate-secrets
         with:
-          environment: ${{ inputs.environment }}
+          # Must be hardcoded per job: inputs.environment is empty on scheduled runs,
+          # which makes secrets.ts fail with "environment parameter is required".
+          environment: e2e5
           copy-test-config-files: true
           aws-deploy-role: ${{ vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
@@ -669,6 +751,23 @@ jobs:
             process.exit(1);
           }
 
+          // Log the token lifetime so the refresh cadence can be tuned against it
+          try {
+            const authItem = data.origins
+              .flatMap(origin => origin.localStorage || [])
+              .find(item =>
+                item.name?.includes("@@auth0spajs@@") &&
+                !item.name?.includes("@@user@@") &&
+                item.value?.includes("expiresAt")
+              );
+            if (authItem) {
+              const minutesLeft = (JSON.parse(authItem.value).expiresAt * 1000 - Date.now()) / 60000;
+              console.log(`Token time left: ${minutesLeft.toFixed(1)} minutes`);
+            }
+          } catch (e) {
+            console.log("Could not compute token time left:", e.message);
+          }
+
           console.log("User.json validated successfully for e2e5");
           '
 
@@ -696,3 +795,37 @@ jobs:
             apps/intake/playwright-report-login/
             apps/intake/test-results-login/
           retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}
+
+  # Scheduled-workflow failures are easy to miss (this workflow once failed silently
+  # every night for weeks, forcing every intake E2E PR run through the slow SMS login).
+  # Open or update a tracking issue so failures are visible.
+  notify-failure:
+    needs: [login-e2e, login-e2e2, login-e2e3, login-e2e4, login-e2e5]
+    if: always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or comment on failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          FAILED_ENVS=""
+          [ "${{ needs.login-e2e.result }}" = "failure" ] && FAILED_ENVS="$FAILED_ENVS e2e"
+          [ "${{ needs.login-e2e2.result }}" = "failure" ] && FAILED_ENVS="$FAILED_ENVS e2e2"
+          [ "${{ needs.login-e2e3.result }}" = "failure" ] && FAILED_ENVS="$FAILED_ENVS e2e3"
+          [ "${{ needs.login-e2e4.result }}" = "failure" ] && FAILED_ENVS="$FAILED_ENVS e2e4"
+          [ "${{ needs.login-e2e5.result }}" = "failure" ] && FAILED_ENVS="$FAILED_ENVS e2e5"
+
+          TITLE="Scheduled intake login cache refresh is failing"
+          RUN_URL="${{ github.server_url }}/$REPO/actions/runs/${{ github.run_id }}"
+          BODY=$(printf 'The scheduled intake login cache refresh failed for:%s.\n\nWhile this workflow is failing, intake E2E runs on PRs cannot restore a fresh user.json and pay ~4 extra minutes for the SMS login step.\n\nFailed run: %s' "$FAILED_ENVS" "$RUN_URL")
+
+          EXISTING=$(gh issue list --repo "$REPO" --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "$BODY"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" --body "$BODY"
+          fi

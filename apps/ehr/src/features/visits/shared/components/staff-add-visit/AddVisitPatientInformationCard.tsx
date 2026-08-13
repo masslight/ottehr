@@ -18,7 +18,9 @@ import { FC, MouseEvent, useCallback, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AddVisitErrorState, AddVisitFormState, AddVisitPatientInfo } from 'src/pages/AddPatient';
-import { getFirstName, getLastName, getMiddleName, PersonSex } from 'utils';
+import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
+import { PersonSex } from 'utils/lib/types/common';
 import { AddVisitPatientSearchDialog } from './AddVisitPatientSearchDialog';
 import { AddVisitPatientSearchFields } from './AddVisitPatientSearchFields';
 
@@ -170,7 +172,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
         lastName: getLastName(fhirPatient),
         dateOfBirth: fhirPatient.birthDate,
         sex: fhirPatient.gender,
-        phoneNumber: user.telecom?.find((telecom) => telecom.system === 'phone')?.value?.replace('+1', ''),
+        phoneNumber: getPhoneNumberDigits(user.telecom?.find((telecom) => telecom.system === 'phone')?.value),
       };
       parsedPatients.push(formattedPatientInfo);
     });
@@ -228,7 +230,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
         id: selectedPatient.id,
         newPatient: false,
         dateOfBirth: selectedPatient?.dateOfBirth,
-        phoneNumber: selectedPatient?.phoneNumber?.replace('+1', ''),
+        phoneNumber: getPhoneNumberDigits(selectedPatient?.phoneNumber),
         firstName: selectedPatient?.firstName,
         lastName: selectedPatient?.lastName,
         sex: selectedPatient?.sex as PersonSex,

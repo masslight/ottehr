@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { Closure, OVERRIDE_DATE_FORMAT, Timezone } from '../types/common';
-import { applyOverridesToDailySchedule, DOW, ScheduleDay, ScheduleExtension } from '../utils';
+import { applyOverridesToDailySchedule, DOW, ScheduleDay, ScheduleExtension } from '../utils/scheduleUtils';
 
 export function isClosureOverride(closures: Closure[], timezone: Timezone, currentDate: DateTime): boolean {
   const result = closures.some((closure) => {

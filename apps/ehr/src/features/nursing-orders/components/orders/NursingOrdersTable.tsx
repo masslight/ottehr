@@ -14,7 +14,7 @@ import { ReactElement } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getNursingOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
-import { NursingOrdersSearchBy } from 'utils';
+import { NursingOrdersSearchBy } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
 import { useGetNursingOrders } from './useNursingOrders';
 

@@ -1,5 +1,7 @@
 import { useMutation, UseMutationResult } from '@tanstack/react-query';
-import { AllChartValues, CopyableFollowupField, SaveChartDataRequest } from 'utils';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { CopyableFollowupField } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
 

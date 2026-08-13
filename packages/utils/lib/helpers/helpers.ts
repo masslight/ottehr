@@ -14,32 +14,30 @@ import {
 import { DateTime } from 'luxon';
 import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
-  allLicensesForPractitioner,
   BILLING_RESOURCE_TAG,
-  CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
-  getFullName,
-  INSURANCE_CANDID_PLAN_TYPE_CODES,
-  OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
-} from '../fhir';
-import { CONSENT_FORMS_CONFIG } from '../ottehr-config';
+} from '../fhir/constants';
+import { allLicensesForPractitioner } from '../fhir/helpers';
+import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fhir/insurance';
+import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
+import { getFullName } from '../fhir/patient';
+import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
+import { CashPaymentDTO } from '../types/api/patient-payment-types';
 import {
-  appointmentTypeLabels,
-  appointmentTypeMap,
-  CashPaymentDTO,
-  FhirAppointmentType,
-  PatchPaperworkParameters,
   PHYSICIAN_TYPES,
   PractitionerQualificationCode,
   PROVIDER_TYPE_VALUES,
   ProviderTypeCode,
-  ScheduleOwnerFhirResource,
-} from '../types';
-import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
+} from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { FhirAppointmentType } from '../types/common';
+import { appointmentTypeLabels, appointmentTypeMap } from '../types/data/appointments/appointments.types';
+import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
+import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -328,21 +326,34 @@ export function validateDefined<T>(value: T, name: string): NonNullable<T> {
   return value;
 }
 
-export function standardizePhoneNumber(phoneNumber: string | undefined): string | undefined {
-  // input format:  some arbitrary format which may or may not include (, ), -, +1
-  // output format: (XXX) XXX-XXXX
+/**
+ * Extracts the bare 10-digit national number from an arbitrarily formatted phone string
+ * (e.g. "+12021234567", "(202) 123-4567", "202-123-4567"), stripping any formatting
+ * characters and a leading US country code. Returns undefined when the input can't be
+ * parsed to a 10-digit number. Use this to normalize FHIR-sourced phone values before
+ * feeding them to inputs/validation that expect unformatted digits.
+ */
+export function getPhoneNumberDigits(phoneNumber: string | undefined): string | undefined {
   if (!phoneNumber) {
     return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
-    phoneNumberDigits = digits;
-  } else if (digits.length === 11 && digits.startsWith('1')) {
-    phoneNumberDigits = digits.slice(1);
+    return digits;
   }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return digits.slice(1);
+  }
+
+  return undefined;
+}
+
+export function standardizePhoneNumber(phoneNumber: string | undefined): string | undefined {
+  // input format:  some arbitrary format which may or may not include (, ), -, +1
+  // output format: (XXX) XXX-XXXX
+  const phoneNumberDigits = getPhoneNumberDigits(phoneNumber);
 
   if (!phoneNumberDigits) {
     return undefined;
@@ -411,6 +422,12 @@ export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
     throw new Error('Invalid phone number');
   }
   return `(${phoneDigits.slice(0, 3)}) ${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
+};
+
+export const toTenDigitPhoneNumber = (value: string | undefined): string | undefined => {
+  const digits = value?.replace(/\D/g, '') ?? '';
+  const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  return local.length === 10 ? local : undefined;
 };
 
 export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {

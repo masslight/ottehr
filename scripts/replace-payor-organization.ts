@@ -1,6 +1,7 @@
 import { Coverage } from 'fhir/r4b';
 import { replaceOperation } from 'utils';
-import { createClinicalOystehrClient, fetchAllPages, getPatchBinary } from '../packages/zambdas/src/shared';
+import { fetchAllPages } from '../packages/zambdas/src/shared/fhir';
+import { createClinicalOystehrClient, getPatchBinary } from '../packages/zambdas/src/shared/helpers';
 
 /**
  * How to use (won't update coverages): npm run replace-payor-organization -- --project-id=some_project_id  --token=some_token --old-id=id_to_replace --new-id=id_to_insert

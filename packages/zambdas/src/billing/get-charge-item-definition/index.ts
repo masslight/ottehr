@@ -1,14 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
-  CPT_CODE_SYSTEM,
-  EXTENSION_URL_CPT_MODIFIER,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/billing.types';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   createBillingClient,
@@ -81,7 +83,7 @@ export function transformChargeItemDefinition(cid: ChargeItemDefinition): Billin
         if (!pc) {
           return undefined;
         }
-        if (!pc.amount || !pc.amount.value) {
+        if (!pc.amount || pc.amount.value === undefined) {
           return undefined;
         }
         const coding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);

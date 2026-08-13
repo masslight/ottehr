@@ -24,7 +24,8 @@ import {
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
-import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
+import { ERXStatus } from 'src/features/visits/shared/components/ERX';
+import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -35,21 +36,25 @@ import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useInHouseMedicationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import {
   computeBillableUnits,
-  ExtendedMedicationDataForResponse,
-  getApiError,
   getMedicationName,
-  IN_HOUSE_CONTAINED_MEDICATION_ID,
-  InHouseMedicationQuickPickData,
-  MEDICAL_HISTORY_CONFIG,
-  MedicationData,
   medicationExtendedToMedicationData,
+} from 'utils/lib/fhir/medication-administration';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  ExtendedMedicationDataForResponse,
+  MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import { InHouseMedicationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import {
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
-  RoleType,
-  UpdateMedicationOrderInput,
-} from 'utils';
+} from 'utils/lib/types/constants';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
@@ -105,7 +110,7 @@ export const EditableMedicationCard: React.FC<{
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
   const { oystehr, oystehrZambda } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
-  const [erxEnabled, setErxEnabled] = useState(false);
+  const [erxEnabled, setErxEnabled] = useState(isCreating && !!draft?.medicationId);
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
@@ -658,7 +663,10 @@ export const EditableMedicationCard: React.FC<{
   const interactionsMessage: InteractionsMessage | undefined = useMemo(() => {
     if (
       (!localValues.medicationId && !medication) ||
-      (erxEnabled && erxStatus === ERXStatus.READY && interactionsCheckState.medicationId !== localValues.medicationId)
+      (erxEnabled &&
+        erxStatus === ERXStatus.READY &&
+        interactionsCheckState.status !== 'error' &&
+        interactionsCheckState.medicationId !== localValues.medicationId)
     ) {
       return undefined;
     }
@@ -794,7 +802,7 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
-        <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
+        <ERXInteractionsReadiness onStatusChanged={setERXStatus} />
       ) : null}
       {medication?.id && (
         <DeleteDialog

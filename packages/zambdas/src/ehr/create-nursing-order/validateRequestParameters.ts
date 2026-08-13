@@ -1,5 +1,6 @@
-import { CreateNursingOrderInputSchema, CreateNursingOrderInputValidated } from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { CreateNursingOrderInputSchema, CreateNursingOrderInputValidated } from 'utils/lib/types/data/orders/types';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): CreateNursingOrderInputValidated {
   console.group('validateRequestParameters');

@@ -1,20 +1,28 @@
 import { Box, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { InputMask } from 'ui-components';
-import { AllStates, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE, stateCodeToFullName } from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isPostalCodeValid } from 'utils/lib/helpers/helpers';
+import { AllStates, stateCodeToFullName } from 'utils/lib/types/common';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
-export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }): ReactElement {
+export function AddressFields({
+  requireFullZip,
+  required = true,
+}: {
+  requireFullZip?: boolean;
+  required?: boolean;
+}): ReactElement {
   const { control } = useFormContext();
   return (
     <>
       <Controller
         name="line1"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
-            label="Address 1 *"
+            label={required ? 'Address 1 *' : 'Address 1'}
             size="small"
             fullWidth
             value={field.value}
@@ -42,10 +50,17 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
       <Controller
         name="city"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        rules={{
+          required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false,
+          validate: (value) => {
+            if (!value) return true;
+            if (value.length < 2) return 'Must be least 2 chars long';
+            return true;
+          },
+        }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
-            label="City *"
+            label={required ? 'City *' : 'City'}
             size="small"
             fullWidth
             value={field.value}
@@ -59,15 +74,15 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
         <Controller
           name="state"
           control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+          rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
           render={({ field, fieldState: { error: fieldError } }) => (
             <FormControl size="small" fullWidth>
               <InputLabel id="state-select-label" error={!!fieldError}>
-                State *
+                {required ? 'State *' : 'State'}
               </InputLabel>
               <Select
                 aria-describedby={fieldError ? 'state-helper-text' : undefined}
-                label="State *"
+                label={required ? 'State *' : 'State'}
                 labelId="state-select-label"
                 size="small"
                 fullWidth
@@ -95,14 +110,15 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
           name="zip"
           control={control}
           rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false,
             validate: (value) =>
-              (value && isPostalCodeValid(value, requireFullZip)) ||
+              !value ||
+              isPostalCodeValid(value, requireFullZip) ||
               `ZIP code must be 5 digits,${!requireFullZip ? ' optionally' : ''} with a 4-digit extension`,
           }}
           render={({ field, fieldState: { error: fieldError } }) => (
             <TextField
-              label="ZIP Code *"
+              label={required ? 'ZIP Code *' : 'ZIP Code'}
               size="small"
               fullWidth
               value={field.value}

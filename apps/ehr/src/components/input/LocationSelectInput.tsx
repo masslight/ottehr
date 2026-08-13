@@ -1,7 +1,8 @@
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getAllFhirSearchPages, isLocationInPerson, isLocationVirtual } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {

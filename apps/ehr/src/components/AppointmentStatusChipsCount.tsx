@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { ReactElement } from 'react';
-import { InPersonAppointmentInformation } from 'utils';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { classifyAppointments } from '../helpers';
 import { InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 

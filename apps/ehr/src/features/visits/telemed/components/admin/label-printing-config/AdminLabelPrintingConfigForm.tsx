@@ -17,15 +17,15 @@ import { ReactElement } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
-  APIError,
-  getLabelTypeMetadata,
   LabelOrientationSchema,
   LabelPrintingConfig,
   LabelPrintingConfigSchema,
   MANUFACTURER_TO_LABEL_MAPPING,
   PrintModeSchema,
   SupportedPrinterManufacturerSchema,
-} from 'utils';
+} from 'utils/lib/types/data/printing';
+import { APIError } from 'utils/lib/types/errors';
+import { getLabelTypeMetadata } from 'utils/lib/utils/printing';
 
 export interface AdminPrintingConfigFormProps {
   defaultValues: LabelPrintingConfig;

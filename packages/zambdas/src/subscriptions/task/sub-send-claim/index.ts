@@ -1,20 +1,24 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { chooseJson, getOrCreateCandidApiClient, getSecret, MISSING_REQUEST_SECRETS, SecretsKeys } from 'utils';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { getOptionalSecret, getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { APIError, isApiError, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  createClinicalOystehrClient,
   createEncounterFromAppointment,
-  getAuth0Token,
-  sendErrors,
   shouldSendClaim,
   shouldUseCandid,
   shouldUseOttehrBilling,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from '../../../shared/candid';
+import { sendErrors, sendWarning } from '../../../shared/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -159,6 +163,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           );
       } catch (patchError) {
         console.error('Error patching task status in top level catch:', patchError);
+      }
+      // A typed API error means the claim can't be created because the data it needs is missing or
+      // incomplete (e.g. the provider has no NPI). The Task is marked failed with the reason, which is
+      // where the operational fix belongs — the software behaved as designed, so return an error
+      // response instead of throwing. Report it to Sentry as a warning rather than an exception: still
+      // visible and alertable, but out of the error stream developers triage for bugs.
+      if (isApiError(error)) {
+        const { code, message, statusCode } = error as APIError;
+        console.error(`[CLAIM SUBMISSION] Claim not created for task ${taskId}: ${message}`);
+        sendWarning(
+          'Claim could not be created because required data is missing',
+          getOptionalSecret(SecretsKeys.ENVIRONMENT, input.secrets) ?? '',
+          { taskId, code, reason: message }
+        );
+        return lambdaResponse(statusCode ?? 400, { message, code });
       }
       throw error;
     }

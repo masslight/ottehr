@@ -1,16 +1,11 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { OystehrAPIClient } from 'ui-components';
-import {
-  BookableItemListResponse,
-  GetBookableItemListParams,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  GetTelemedLocationsResponse,
-  PatientInfo,
-  PromiseReturnType,
-} from 'utils';
+import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { BookableItemListResponse, GetBookableItemListParams, PromiseReturnType } from 'utils/lib/types/common';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { GetTelemedLocationsResponse } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
 
 export const useCreateAppointmentMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['createAppointment']>>,

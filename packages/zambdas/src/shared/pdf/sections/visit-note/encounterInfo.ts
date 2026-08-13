@@ -1,4 +1,4 @@
-import { isAnnotationFollowupEncounter } from 'utils';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { DataComposer } from '../../pdf-common';
 import { EncounterDataInput, EncounterInfo } from '../../types';
 

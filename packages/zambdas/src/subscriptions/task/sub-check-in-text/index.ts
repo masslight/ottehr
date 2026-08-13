@@ -1,14 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, getPatientFirstName, Secrets, TaskStatus } from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  reportMissingUserRelatedPerson,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getPatientContactEmail, getPatientFirstName } from 'utils/lib/fhir/patient';
+import { Secrets } from 'utils/lib/secrets';
+import { TaskStatus } from 'utils/lib/types/common';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';

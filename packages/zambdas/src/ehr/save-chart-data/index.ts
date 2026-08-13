@@ -11,27 +11,25 @@ import {
   Patient,
   Practitioner,
 } from 'fhir/r4b';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
-  createCodeableConcept,
-  DispositionFollowUpType,
   ExamObservationDTO,
-  getPatchBinary,
-  getProviderNameWithProfession,
   PATIENT_VITALS_META_SYSTEM,
-  SCHOOL_WORK_NOTE,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
-  checkOrCreateM2MClientToken,
   createAccidentCondition,
-  createClinicalOystehrClient,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
   followUpToPerformerMap,
-  getMyPractitionerId,
+  followUpTypeFromPerformerType,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -48,20 +46,22 @@ import {
   makeSchoolWorkDR,
   makeServiceRequestResource,
   prepareAddendumNotes,
-  redactZambdaInputForLogging,
-  saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
   updateEncounterReasonForVisit,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { redactZambdaInputForLogging } from '../../shared/errors';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createExamObservationComments,
   getAllExamFieldsMetadata,
@@ -125,7 +125,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.timeLog('time', 'before fetching resources');
-  // get encounter and resources
   console.log(`Getting encounter ${encounterId}`);
   // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
   // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
@@ -146,7 +145,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const appointment = allResources.find((res) => res.resourceType === 'Appointment');
   console.log(`Got encounter with id ${encounter.id}`);
 
-  // validate that patient from encounter exists
   if (patient?.id === undefined) throw new Error(`Encounter ${encounter.id} must be associated with a patient... `);
   console.log(`Got patient with id ${patient.id}`);
   console.timeLog('time', 'after fetching resources');
@@ -160,14 +158,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const additionalResourcesForResponse: FhirResource[] = [];
 
   if (chiefComplaint) {
-    // convert chief complaint Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, chiefComplaint, 'chief-complaint'))
     );
   }
 
   if (historyOfPresentIllness) {
-    // convert history of present illness Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(
         makeConditionResource(encounterId, patient.id, historyOfPresentIllness, 'history-of-present-illness')
@@ -184,18 +180,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   if (ros) {
-    // convert ROS to Conditions preserve FHIR resource ID, add to encounter
     saveOrUpdateRequests.push(saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, ros, 'ros')));
   }
 
-  // convert Medical Conditions [] to Conditions [] and preserve FHIR resource IDs
   conditions?.forEach((condition) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id!, condition, 'medical-condition'))
     );
   });
 
-  // convert Medications [] to MedicationStatement+Medication [] and preserve FHIR resource IDs
   medications?.forEach((medication) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(
@@ -204,7 +197,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   });
 
-  // convert Allergy [] to AllergyIntolerance [] and preserve FHIR resource IDs
   allergies?.forEach((allergy) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(makeAllergyResource(encounterId, patient.id!, allergy, 'known-allergy'))
@@ -224,7 +216,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   });
 
   if (surgicalHistoryNote) {
-    // convert Procedure to Procedure (FHIR) and preserve FHIR resource IDs
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(
         makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
@@ -232,7 +223,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  // convert Observation[] to Observation (FHIR) [] and preserve FHIR resource IDs
   observations?.forEach((element) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(
@@ -267,7 +257,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   });
 
-  // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
   examObservations?.forEach((element) => {
     const allExamFields = getAllExamFieldsMetadata();
     const examObservationComments = createExamObservationComments();
@@ -291,14 +280,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   });
 
-  // 8b. convert ROS observations to Observation (FHIR)
   rosObservations?.forEach((element) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element))
     );
   });
 
-  // 9. convert Medical Decision to ClinicalImpression (FHIR) and preserve FHIR resource IDs
   if (medicalDecision) {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(
@@ -307,7 +294,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
   cptCodes?.forEach((element) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
@@ -320,15 +306,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  // 11 convert provider instructions to Communication (FHIR) and preserve FHIR resource IDs
   instructions?.forEach((element) => {
     saveOrUpdateRequests.push(
       saveOrUpdateResourceRequest(makeCommunicationResource(encounterId, patient.id!, element, 'patient-instruction'))
     );
   });
 
-  // 12 convert disposition to Encounter.hospitalization (FHIR) update
-  // and ServiceRequest (FHIR) resource creation
   if (disposition) {
     saveOrUpdateRequests.push(
       createDispositionServiceRequest({
@@ -341,7 +324,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
 
-    // creating sub followUps for disposition
     const subFollowUpCode: CodeableConcept = createCodeableConcept(
       [
         {
@@ -365,11 +347,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
         'Computed tomography (procedure)'
       );
-      const existedSubFollowUpId = filterServiceRequestsFromFhir(
-        allResources,
-        subFollowUpMetaTag,
-        followUpPerformer?.coding?.[0]
-      )[0]?.id;
+      // Match the existing ServiceRequest by resolved follow-up type (coding code OR text) —
+      // filtering by coding alone matches nothing for the coding-less 'other'/'lurie-ct'
+      // performer types and would grab the first sub-follow-up of any type.
+      const existedSubFollowUpId = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag).find(
+        (subFollowUp) => followUpTypeFromPerformerType(subFollowUp.performerType) === followUp.type
+      )?.id;
 
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
@@ -390,18 +373,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // remove sub follow-ups that are not in the current request
     const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
     existingSubFollowUps.forEach((subFollowUp) => {
-      const subFollowUpType = Object.keys(followUpToPerformerMap).find(
-        (key) =>
-          followUpToPerformerMap[key as DispositionFollowUpType]?.coding?.[0].code ===
-          subFollowUp.performerType?.coding?.[0].code
-      );
+      const subFollowUpType = followUpTypeFromPerformerType(subFollowUp.performerType);
       if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
         saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
       }
     });
   }
 
-  // 13 convert diagnosis to Condition (FHIR) resources and mention them in Encounter.diagnosis
   if (diagnosis) {
     if (!encounter.diagnosis) {
       updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
@@ -416,27 +394,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
 
-  // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
   if (patientInfoConfirmed) {
     updateEncounterOperations.push(...updateEncounterPatientInfoConfirmed(encounter, patientInfoConfirmed));
   }
 
-  // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
   if (addToVisitNote) {
     updateEncounterOperations.push(...updateEncounterAddToVisitNote(encounter, addToVisitNote));
   }
 
-  // convert FreeTextNote to Condition (FHIR) resource and mention them in Encounter.extension
   if (addendumNote) {
     updateEncounterOperations.push(...updateEncounterAddendumNote(encounter, addendumNote));
   }
 
-  // convert FreeTextNote to Encounter.extension
   if (reasonForVisit) {
     updateEncounterOperations.push(...updateEncounterReasonForVisit(encounter, reasonForVisit));
   }
 
-  // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
   if (newSchoolWorkNote) {
     if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
     const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
@@ -453,7 +426,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       )
     );
   }
-  // updating schoolWork note DocumentReference status 'published' | 'unpublished'
   if (schoolWorkNotes) {
     const documentReferences = allResources.filter(
       (resource) => resource.resourceType === 'DocumentReference'
@@ -485,7 +457,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     existingByAddendumId = await prepareAddendumNotes(oystehr, notes, currentPractitioner.id!, practitionerDisplay);
   }
 
-  // convert notes to Communication (FHIR) resources
   notes?.forEach((element) => {
     const existing = element.resourceId ? existingByAddendumId.get(element.resourceId) : undefined;
     const note = makeNoteResource(encounterId, patient.id!, element, existing);
@@ -493,7 +464,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     saveOrUpdateRequests.push(request);
   });
 
-  // convert birth history to Observation (FHIR) resources
   birthHistory?.forEach((element) => {
     const birthHistoryElement = makeBirthHistoryObservationResource(encounterId, patient.id!, element, 'birth-history');
     const request = saveOrUpdateResourceRequest(birthHistoryElement);

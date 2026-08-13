@@ -15,8 +15,10 @@ import { FC, useEffect, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
-import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
-import { CreditCardInfo } from 'utils';
+import { AddCreditCardForm } from 'ui-components/lib/components/AddCreditCardForm';
+import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
+import { loadStripe } from 'ui-components/lib/utils/stripe';
+import { CreditCardInfo } from 'utils/lib/types/data/payment/payment-method-types';
 
 interface CardOption {
   id: string;
@@ -95,7 +97,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     return hasNone || addingOne;
   })();
 
-  const initializing = isSetupDataFetching || isSetupDataLoading;
+  const initializing = isSetupDataLoading && !isSetupDataRefetching;
 
   const cardOptions: CardOption[] = [
     ...cards.map((card) => ({ id: card.id, label: labelForCard(card), brand: card.brand })),

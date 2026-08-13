@@ -1,0 +1,264 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Otitis externa (swimmer’s ear)",
+  "patient": {
+    "firstName": "Pat",
+    "lastName": "Sample",
+    "dateOfBirth": "1985-01-01",
+    "sex": "female",
+    "email": "pat.sample@example.com",
+    "phoneNumber": "+12015550100",
+    "address": {
+      "line1": "100 Main Street",
+      "city": "New Brunswick",
+      "state": "NJ",
+      "postalCode": "08901"
+    },
+    "race": "Other Race",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET100200300",
+        "groupNumber": "GRP-AET-100",
+        "planName": "Aetna Choice PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Ear pain - right ear pain and drainage, worse with touch, after swimming",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+  "emCode": {
+    "code": "99213",
+    "display": "Office visit, established, low complexity"
+  },
+  "vitals": {
+    "temperature": {
+      "value": 37,
+      "unit": "C"
+    },
+    "heartRate": {
+      "value": 78
+    },
+    "bloodPressure": {
+      "systolic": 122,
+      "diastolic": 78
+    },
+    "respirationRate": {
+      "value": 16
+    },
+    "oxygenSaturation": {
+      "value": 99
+    },
+    "weight": {
+      "value": 75,
+      "unit": "kg"
+    },
+    "height": {
+      "value": 170,
+      "unit": "cm"
+    }
+  },
+  "diagnoses": [
+    {
+      "code": "H60.339",
+      "display": "Other infective otitis externa, unspecified ear",
+      "isPrimary": true
+    }
+  ],
+  "exam": [
+    {
+      "field": "alert",
+      "value": true
+    },
+    {
+      "field": "active",
+      "value": true
+    },
+    {
+      "field": "in-no-acute-distress",
+      "value": true
+    },
+    {
+      "field": "well-hydrated",
+      "value": true
+    },
+    {
+      "field": "normocephalic",
+      "value": true
+    },
+    {
+      "field": "atraumatic",
+      "value": true
+    },
+    {
+      "field": "right-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "left-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "lids-and-lashes-normal",
+      "value": true
+    },
+    {
+      "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "no-effusion",
+      "value": true
+    },
+    {
+      "field": "normal-canals",
+      "value": true
+    },
+    {
+      "field": "normal-external-ear",
+      "value": true
+    },
+    {
+      "field": "moist-mucous-membranes",
+      "value": true
+    },
+    {
+      "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+      "value": true
+    },
+    {
+      "field": "uvula-midline",
+      "value": true
+    },
+    {
+      "field": "normal-appearance-of-neck",
+      "value": true
+    },
+    {
+      "field": "no-rash",
+      "value": true
+    },
+    {
+      "field": "warm-and-dry",
+      "value": true
+    },
+    {
+      "field": "regular-rate-and-rhythm-with-no-murmur",
+      "value": true
+    },
+    {
+      "field": "extremities-are-warm-and-well-perfused",
+      "value": true
+    },
+    {
+      "field": "good-air-movement-throughout-lung-fields",
+      "value": true
+    },
+    {
+      "field": "no-signs-of-respiratory-distress",
+      "value": true
+    },
+    {
+      "field": "chest-is-clear-to-auscultation-bilaterally",
+      "value": true
+    },
+    {
+      "field": "soft",
+      "value": true
+    },
+    {
+      "field": "nondistended",
+      "value": true
+    },
+    {
+      "field": "nontender",
+      "value": true
+    },
+    {
+      "field": "moves-all-extremities-symmetrically",
+      "value": true
+    },
+    {
+      "field": "no-obvious-injury-or-swelling",
+      "value": true
+    },
+    {
+      "field": "normal-mental-status",
+      "value": true
+    },
+    {
+      "field": "normal-tone",
+      "value": true
+    },
+    {
+      "field": "ears-comment",
+      "value": true,
+      "note": "Right ear canal erythematous and edematous with debris; marked pain on tragal manipulation and auricle traction; TM not well visualized but no perforation seen."
+    }
+  ],
+  "reviewOfSystems": [
+    {
+      "field": "ros-ent-ear-pain-reports"
+    },
+    {
+      "field": "ros-ent-ear-drainage-reports"
+    },
+    {
+      "field": "ros-constitutional-fever-denies"
+    },
+    {
+      "field": "ros-ent-hearing-loss-denies"
+    },
+    {
+      "field": "ros-ent-sore-throat-denies"
+    }
+  ],
+  "medicalDecision": "Painful, edematous external auditory canal with pain on tragal manipulation after water exposure — acute otitis externa. No signs of malignant otitis externa. Topical antibiotic-steroid drops prescribed, keep ear dry, return precautions for spreading erythema or fever.",
+  "prescriptions": [
+    {
+      "name": "ciprofloxacin-dexamethasone otic suspension",
+      "sig": "Instill 4 drops into the right ear twice daily for 7 days"
+    }
+  ],
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Topical drops for swimmer’s ear, keep ear dry. Return for fever, facial swelling, or worsening pain.",
+    "followUpIn": 3
+  },
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

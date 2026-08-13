@@ -1,79 +1,89 @@
 import Oystehr from '@oystehr/sdk';
+import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
-  apiErrorToThrow,
-  BillingChargeItemDefinition,
-  BillingCodeOption,
-  BillingProviderOption,
-  BillingRulesResponse,
-  chooseJson,
-  ClaimDetailResponse,
+  AddClaimNoteInputSchema,
+  BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
-  CreatedClaimResponse,
-  CreatedResourceResponse,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
-  DeletedResponse,
   DeleteServiceFacilityInputSchema,
-  EraDetailResponse,
   ExportClaimX12InputSchema,
-  ExportClaimX12Response,
+  GetBillingPatientBalanceInputSchema,
   GetBillingProviderInputSchema,
-  GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
-  GetClaimHistoryResponse,
   GetEraDetailInputSchema,
   GetPatientCoveragesInputSchema,
-  GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
-  PatientDetailResponse,
   RecordBillingManualPaymentInputSchema,
-  RecordBillingManualPaymentResponse,
-  RunBillingRulesEngineInputSchema,
-  RunBillingRulesEngineResponse,
-  SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
-  SavedResourceResponse,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
-  SearchBillingClaimsResponse,
-  SearchBillingErasResponse,
   SearchBillingLocationsInputSchema,
-  SearchBillingLocationsResponse,
+  SearchBillingPatientARClaimsInputSchema,
   SearchBillingPatientsInputSchema,
-  SearchBillingPatientsResponse,
   SearchBillingPayersInputSchema,
-  SearchBillingPayersResponse,
-  SearchBillingProcedureCodesResponse,
   SearchBillingProvidersInputSchema,
-  SearchBillingProvidersResponse,
   SearchBillingServicesInputSchema,
-  SearchBillingServicesResponse,
-  SearchBillingTagsResponse,
   SearchChargeItemDefinitionsInputSchema,
-  SearchChargeItemDefinitionsResponse,
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
-  SearchServiceFacilitiesResponse,
-  ServiceFacilityItem,
   TagBillingClaimInputSchema,
-  TaggedClaimResponse,
+  UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingChargeItemDefinition,
+  BillingCodeOption,
+  BillingProviderOption,
+  ClaimDetailResponse,
+  CreatedClaimResponse,
+  CreatedResourceResponse,
+  DeletedResponse,
+  EraDetailResponse,
+  ExportClaimX12Response,
+  GetBillingPatientBalanceResponse,
+  GetPatientCoveragesResponse,
+  OkResponse,
+  PatientDetailResponse,
+  RecordBillingManualPaymentResponse,
+  SavedResourceResponse,
+  SearchBillingClaimsResponse,
+  SearchBillingErasResponse,
+  SearchBillingLocationsResponse,
+  SearchBillingPatientARClaimsResponse,
+  SearchBillingPatientsResponse,
+  SearchBillingPayersResponse,
+  SearchBillingProvidersResponse,
+  SearchBillingServicesResponse,
+  SearchBillingTagsResponse,
+  SearchChargeItemDefinitionsResponse,
+  SearchCodeResponse,
+  SearchServiceFacilitiesResponse,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
+import {
+  BillingRulesResponse,
+  GetBillingRulesInputSchema,
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+  SaveBillingRulesInputSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import z from 'zod';
 
 async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?: Record<string, unknown>): Promise<T> {
@@ -139,6 +149,18 @@ export const searchBillingClaims = (
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
 
+export const searchBillingPatientARClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingPatientARClaimsInputSchema>
+): Promise<SearchBillingPatientARClaimsResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-patient-ar-claims', parameters);
+
+export const getBillingPatientBalance = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPatientBalanceInputSchema>
+): Promise<GetBillingPatientBalanceResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-patient-balance', parameters);
+
 export const getBillingClaimDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetClaimDetailInputSchema>
@@ -162,7 +184,12 @@ export const updateBillingResource = (
 export const tagBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof TagBillingClaimInputSchema>
-): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+
+export const addBillingClaimNote = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimNoteInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'add-billing-claim-note', parameters);
 
 // --- Providers ---
 
@@ -257,7 +284,7 @@ export const deleteBillingServiceFacility = (
 export const searchBillingProcedureCodes = async (
   oystehr: Oystehr,
   parameters: { query: string }
-): Promise<SearchBillingProcedureCodesResponse> => {
+): Promise<SearchCodeResponse> => {
   const [cpt, hcpcs] = await Promise.all([
     oystehr.terminology.searchCpt({ query: parameters.query, searchType: 'all', limit: 50 }),
     oystehr.terminology.searchHcpcs({ query: parameters.query, searchType: 'all', limit: 50 }),
@@ -273,9 +300,43 @@ export const searchBillingProcedureCodes = async (
   return { codes };
 };
 
-// TODO(oystehr): no ICD-10 (diagnosis) terminology search yet — the SDK only exposes searchCpt/searchHcpcs.
-// When Oystehr adds ICD-10, add `searchBillingDiagnosisCodes` here (direct terminology call) and make the
-// diagnosis fields autocompletes. Until then diagnoses stay free-text.
+export const searchBillingDiagnosisCodes = async (
+  oystehr: Oystehr,
+  parameters: { query: string }
+): Promise<SearchCodeResponse> => {
+  const icd = await oystehr.terminology.searchIcd10({ query: parameters.query, searchType: 'all', limit: 50 });
+  const seen = new Set<string>();
+  const codes: BillingCodeOption[] = [];
+  for (const c of icd.codes) {
+    if (seen.has(c.code)) continue;
+    seen.add(c.code);
+    codes.push({ code: c.code, display: c.display });
+  }
+  codes.sort((a, b) => a.code.localeCompare(b.code));
+  return { codes };
+};
+
+// Display text for exact procedure codes (the ERA drill-in shows "I&D of Abscess (10060)").
+// Submitted claims store bare codes, so the terminology service is the only description source;
+// codes it doesn't know are omitted and the caller falls back to the bare code.
+export const lookupProcedureDescriptions = async (
+  oystehr: Oystehr,
+  codes: string[]
+): Promise<Record<string, string>> => {
+  const descriptions: Record<string, string> = {};
+  await Promise.all(
+    [...new Set(codes.filter(Boolean))].map(async (code) => {
+      try {
+        const { codes: found } = await searchBillingProcedureCodes(oystehr, { query: code });
+        const display = found.find((option) => option.code === code)?.display;
+        if (display) descriptions[code] = display;
+      } catch {
+        // unknown code — bare code is shown instead
+      }
+    })
+  );
+  return descriptions;
+};
 
 // --- Tags ---
 
@@ -312,6 +373,11 @@ export const matchClaimResponseToClaim = (
   parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
 ): Promise<any> => executeBillingZambda(oystehr, 'match-claim-response', parameters);
 
+export const unmatchClaimResponse = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UnmatchClaimResponseInputSchema>
+): Promise<any> => executeBillingZambda(oystehr, 'unmatch-claim-response', parameters);
+
 // --- ChargeItemDefinitions --
 
 export const searchChargeItemDefinitions = (
@@ -339,6 +405,12 @@ export const deleteChargeItemDefinition = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteChargeItemDefinitionInputSchema>
 ): Promise<void> => executeBillingZambda(oystehr, 'delete-charge-item-definition', parameters);
+
+export const bulkAddChargeItemDefinitionProcedureCodes = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BulkAddChargeItemDefinitionProcedureCodesInputSchema>
+): Promise<BillingChargeItemDefinition> =>
+  executeBillingZambda(oystehr, 'bulk-add-charge-item-definition-procedure-codes', parameters);
 
 // --- Payments ---
 

@@ -6,7 +6,7 @@ import { DocumentReference, Practitioner } from 'fhir/r4b';
 import { ReactElement, useState } from 'react';
 import { AiChatHistory } from 'src/components/AiChatHistory';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getPresignedURL } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getDocumentReferenceSource, getSource } from '../../../shared/components/OttehrAi';
 
 interface PlayRecordProps {

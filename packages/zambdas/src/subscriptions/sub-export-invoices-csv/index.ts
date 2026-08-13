@@ -11,28 +11,28 @@ import {
   Task as FhirTask,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES, PATIENT_BILLING_ACCOUNT_TYPE, RCM_TASK_SYSTEM, RcmTaskCode } from 'utils/lib/fhir/constants';
+import { getPatientReferenceFromAccount, getResponsiblePartyFromAccount } from 'utils/lib/fhir/helpers';
+import { getFullName } from 'utils/lib/fhir/patient';
 import {
-  BUCKET_NAMES,
+  getLatestTaskOutput,
+  invoiceTaskSourceSearchParam,
+  mapInvoiceTaskStatusToDisplay,
+  parseInvoiceTaskInput,
+} from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import {
   EXPORT_CSV_OUTPUT_URL_CODE,
   EXPORT_INVOICES_CSV_TASK_SYSTEM,
-  formatDateConfigurable,
-  getFullName,
-  getLatestTaskOutput,
-  getPatientReferenceFromAccount,
-  getResponsiblePartyFromAccount,
-  getSecret,
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
-  mapInvoiceTaskStatusToDisplay,
-  parseInvoiceTaskInput,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
-  SecretsKeys,
-  TIMEZONES,
+  InvoiceTaskSource,
+  InvoiceTaskSources,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { getResponsiblePartyRelationship } from '../../ehr/get-invoices-tasks';
 import { accountMatchesType } from '../../ehr/shared/harvest';
 import { wrapTaskHandler } from '../task/helpers';
@@ -98,6 +98,7 @@ interface ExportFilters {
   sortField?: string;
   sortDirection?: string;
   hideZeroBalance?: boolean;
+  source?: InvoiceTaskSource;
 }
 
 export const index = wrapTaskHandler('sub-export-invoices-csv', async (input, oystehr) => {
@@ -172,6 +173,7 @@ function extractFilters(task: FhirTask): ExportFilters {
     if (code === 'sort-field') filters.sortField = inp.valueString;
     if (code === 'sort-direction') filters.sortDirection = inp.valueString;
     if (code === 'hide-zero-balance') filters.hideZeroBalance = inp.valueBoolean;
+    if (code === 'filter-source') filters.source = InvoiceTaskSources.find((source) => source === inp.valueString);
   }
   return filters;
 }
@@ -232,7 +234,7 @@ async function getFhirResourcesPage(
   filters: ExportFilters,
   offset: number
 ): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
-  const { status, sortField, sortDirection, hideZeroBalance } = filters;
+  const { status, sortField, sortDirection, hideZeroBalance, source } = filters;
   const resolvedSortField = sortField ?? InvoiceSortFieldValues.finalizationDate;
   const resolvedSortDirection = sortDirection ?? InvoiceSortDirectionValues.desc;
   const sortPrefix = resolvedSortDirection === InvoiceSortDirectionValues.desc ? '-' : '';
@@ -267,6 +269,10 @@ async function getFhirResourcesPage(
       name: 'business-status:not',
       value: `${INVOICE_TASK_BUSINESS_STATUS_SYSTEM}|${ZERO_BALANCE_BUSINESS_STATUS_CODE}`,
     });
+  }
+  const sourceParam = invoiceTaskSourceSearchParam(source);
+  if (sourceParam) {
+    params.push(sourceParam);
   }
 
   const bundle = await oystehr.fhir.search({ resourceType: 'Task', params });

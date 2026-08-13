@@ -1,7 +1,8 @@
 import { FormControl, TextField, Typography, useTheme } from '@mui/material';
 import { Controller } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { isNPIValidWithChecksum, RoleType } from 'utils';
+import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { ProviderTypeField } from './ProviderType';
 import { ProviderDetailsProps } from './types';
 

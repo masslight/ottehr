@@ -5,25 +5,20 @@ import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SelectSlot } from 'src/components/SelectSlot';
+import { breakpoints } from 'src/providers/IntakeThemeProviderBase';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components';
-import {
-  BOOKING_CONFIG,
-  BRANDING_CONFIG,
-  createLocalDateTime,
-  DATE_FULL_NO_YEAR,
-  DATETIME_FULL_NO_YEAR,
-  DEFAULT_PREBOOK_MAX_MONTHS_AHEAD,
-  nextAvailableFrom,
-  ScheduleType,
-  ServiceCategoryCode,
-} from 'utils';
 import { i18n } from 'utils/lib/frontend';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { ScheduleType } from 'utils/lib/types/common';
+import { createLocalDateTime } from 'utils/lib/utils/date';
+import { nextAvailableFrom } from 'utils/lib/utils/scheduleUtils';
+import { DATE_FULL_NO_YEAR, DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { otherColors } from '../IntakeThemeProvider';
-import { breakpoints } from '../providers';
-import { useOystehrAPIClient } from '../telemed/utils';
-import { SelectSlot } from '.';
 import { ErrorDialog, ErrorDialogConfig } from './ErrorDialog';
 
 interface TabPanelProps {
@@ -110,13 +105,17 @@ const Schedule = ({
   // calendar fetches the picked day's slots (like the EHR picker) rather than
   // being limited to the days preloaded in slotData.
   const apiClient = useOystehrAPIClient({ tokenless: true });
-  const onDemandDates = Boolean(bookableSlug);
+  // The extended "Other dates" calendar is opt-in per project via
+  // prebookMaxMonthsAhead: when set (e.g. beam=12) the calendar fetches slots on
+  // demand up to that many months out; when unset we keep the legacy behavior —
+  // only the preloaded days (Today/Tomorrow) are selectable.
+  const prebookMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead;
+  const onDemandDates = Boolean(bookableSlug) && !!prebookMonthsAhead && prebookMonthsAhead > 0;
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
   const [otherDateSlotsLoading, setOtherDateSlotsLoading] = useState(false);
   // Tracks the most recently requested other-date so out-of-order slot responses
   // from earlier clicks are ignored (avoids showing date A's slots under date B).
   const latestOtherDateReq = useRef<string | null>(null);
-  const bookableMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
 
   const processingSubmit = useMemo(() => {
     return slotAvailableCheckPending || submitPending;
@@ -490,7 +489,7 @@ const Schedule = ({
                     minDate={firstAvailableDay?.minus({ days: 1 })}
                     maxDate={
                       onDemandDates
-                        ? firstAvailableDay?.plus({ months: bookableMonthsAhead })
+                        ? firstAvailableDay?.plus({ months: prebookMonthsAhead ?? 0 })
                         : // Plus one month for month picker dropdown
                           DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })
                     }

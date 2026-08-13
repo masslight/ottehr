@@ -2,17 +2,20 @@ import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   dispositionCheckboxOptions,
-  followUpInOptions,
-  getDefaultNote,
   getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
+} from 'utils/lib/fhir/disposition';
+import {
+  followUpInOptions,
+  getDefaultNote,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
-} from 'utils';
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { AddendumEntry, PdfSection, PlanData } from '../../types';
 import { AllChartData, FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
@@ -50,11 +53,14 @@ export const composePlanData: DataComposer<
   const specialty = getSpecialtyTransferDisplay(disposition?.specialty, disposition?.specialtyOther);
 
   const subSpecialtyFollowup =
-    additionalChartData?.disposition?.followUp?.map((followUp) => {
-      const display = dispositionCheckboxOptions.find((option) => option.name === followUp.type)!.label;
+    additionalChartData?.disposition?.followUp?.flatMap((followUp) => {
+      // Skip follow-up types with no matching checkbox option (e.g. legacy/unknown types) —
+      // throwing here would 500 the whole visit-note PDF generation at sign time.
+      const display = dispositionCheckboxOptions.find((option) => option.name === followUp.type)?.label;
+      if (!display) return [];
       let note = '';
-      if (followUp.type === 'other') note = `: ${followUp.note}`;
-      return `${display} ${note}`;
+      if (followUp.type === 'other' && followUp.note) note = `: ${followUp.note}`;
+      return [`${display} ${note}`];
     }) ?? [];
 
   const workSchoolExcuse: string[] = [];

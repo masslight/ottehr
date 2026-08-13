@@ -1,11 +1,8 @@
 import { List, Resource } from 'fhir/r4b';
-import {
-  chartDataTagSystem,
-  collectKnownExamFields,
-  collectKnownRosFields,
-  examConfig,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-} from 'utils';
+import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems';
 import { describe, expect, test } from 'vitest';
 import { analyzeTemplateVersionData } from '../../src/ehr/shared/template-helpers';
 import seed from '../../src/scripts/data/global-templates-seed.json';

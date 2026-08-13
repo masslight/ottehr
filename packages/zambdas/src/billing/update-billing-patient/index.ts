@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Patient } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { Patient, ProvenanceAgent } from 'fhir/r4b';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { buildAddress, createBillingClient, fetchById } from '../shared';
 import { UpdateBillingPatientParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -13,12 +16,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const agent = await complexValidation(oystehr, params, input.headers?.Authorization);
+
+  const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: UpdateBillingPatientParams): Promise<{ id: string }> {
+// A claim-scoped edit (the claim screen editing the claim's patient working copy) is recorded in
+// that claim's history, so it needs the acting user; master-screen edits carry no claim context
+// and keep working without a resolvable caller.
+async function complexValidation(
+  oystehr: Oystehr,
+  params: UpdateBillingPatientParams,
+  authorizationHeader: string | undefined
+): Promise<ProvenanceAgent | undefined> {
+  if (!params.claimId) return undefined;
+  return resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets);
+}
+
+export async function performEffect(
+  oystehr: Oystehr,
+  params: UpdateBillingPatientParams,
+  agent?: ProvenanceAgent
+): Promise<{ id: string }> {
   const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
+  const before = structuredClone(patient);
 
   patient.name = [{ family: params.lastName, given: [params.firstName] }];
 
@@ -48,6 +70,17 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingPatientParam
 
   if (params.address) patient.address = [buildAddress(params.address)];
   else delete patient.address;
+
+  if (params.claimId && agent) {
+    // Write the update and its claim-history Provenance in one transaction.
+    await commitClaimResourceChange(oystehr, {
+      resource: patient,
+      before,
+      agent,
+      claimReference: `Claim/${params.claimId}`,
+    });
+    return { id: params.patientId };
+  }
 
   const updated = await oystehr.fhir.update<Patient>(patient);
   return { id: updated.id! };

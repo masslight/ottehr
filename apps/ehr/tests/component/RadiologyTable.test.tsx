@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
-import { GetRadiologyOrderListZambdaOrder, RadiologyOrderStatus } from 'utils';
+import { GetRadiologyOrderListZambdaOrder, RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RadiologyTable } from '../../src/features/radiology/components/RadiologyTable';
 
@@ -38,6 +38,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       orderAddedDateTime: '2024-12-20T10:00:00Z',
       visitDateTime: '2024-12-20T09:00:00Z',
       providerName: 'Dr. John Doe',
+      providerId: 'practitioner-1',
       status: RadiologyOrderStatus.pending,
       appointmentId: 'appt1',
       isStat: false,
@@ -51,6 +52,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       orderAddedDateTime: '2024-12-19T14:30:00Z',
       visitDateTime: '2024-12-19T13:00:00Z',
       providerName: 'Dr. Jane Smith',
+      providerId: 'practitioner-2',
       status: RadiologyOrderStatus.final,
       appointmentId: 'appt2',
       isStat: true,

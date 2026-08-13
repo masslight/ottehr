@@ -4,7 +4,8 @@ import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedHistorySubsectionTypography } from 'src/features/visits/in-person/components/MedHistorySubsectionTypography';
-import { DATE_FORMAT, MedicationDTO } from 'utils';
+import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 
 export const CurrentMedicationGroup = ({

@@ -13,7 +13,7 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -21,6 +21,7 @@ import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProvider } from '../hooks/useProvider';
+import { formatTaxId } from '../utils/format';
 
 interface ProviderRow {
   id: string;
@@ -47,7 +48,12 @@ const columns: GridColDef[] = [
     ),
   },
   { field: 'npi', headerName: 'NPI', width: 130 },
-  { field: 'taxId', headerName: 'Tax ID / EIN', width: 140 },
+  {
+    field: 'taxId',
+    headerName: 'Tax ID / EIN',
+    width: 140,
+    renderCell: (params) => <>{formatTaxId(params.value ?? '')}</>,
+  },
   { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
 ];
 
@@ -152,7 +158,7 @@ export function BillingProvidersList(): ReactElement {
         onRowClick={(params) => navigate(`/billing-providers/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />

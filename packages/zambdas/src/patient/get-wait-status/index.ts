@@ -2,19 +2,19 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
-import {
-  appointmentTypeForAppointment,
-  createOystehrClient,
-  getAppointmentResourceById,
-  getInPersonVisitStatus,
-  getLocationIdFromAppointment,
-  getSecret,
-  PROJECT_WEBSITE,
-  SecretsKeys,
-  WaitingRoomResponse,
-} from 'utils';
-import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
+import { appointmentTypeForAppointment, getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { WaitingRoomResponse } from 'utils/lib/types/data/get-wait-status.types';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
+import { getUser } from '../../shared/auth';
+import { getVideoEncounterForAppointment } from '../../shared/encounters';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
 
