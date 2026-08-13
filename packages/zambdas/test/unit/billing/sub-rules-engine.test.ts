@@ -228,15 +228,13 @@ describe('sub-rules-engine performEffect', () => {
       actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
     });
 
-    const result = await performEffect(
-      oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
-      AGENT
+    await expect(
+      async () =>
+        await performEffect(oystehr, { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model }, AGENT)
+    ).rejects.toMatchInlineSnapshot(
+      `[Error: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule bad" failed');
-    expect(result.statusReason).toContain('held for review');
     expect(submitClaimRcm).not.toHaveBeenCalled();
     const requests = transaction.mock.calls[0][0].requests;
     const claimPut = requests.find(
