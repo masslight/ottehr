@@ -182,6 +182,21 @@ describe('cleanup-billing-claim-exports', () => {
     expect(mockOystehrClient.z3.deleteObject).not.toHaveBeenCalled();
   });
 
+  it('leaves an export task that came back without an id untouched', async () => {
+    stubTasks([
+      {
+        ...finishedTask('task-1', minutesAgo(30), 'billing-claims-export-task-1.csv'),
+        id: undefined,
+      },
+    ]);
+
+    const result = await handler(makeInput());
+
+    expect(mockOystehrClient.z3.deleteObject).not.toHaveBeenCalled();
+    expect(mockOystehrClient.fhir.patch).not.toHaveBeenCalled();
+    expect(JSON.parse(result.body).deletedFiles).toBe(0);
+  });
+
   it('keeps going when one object cannot be deleted', async () => {
     stubTasks([
       finishedTask('task-1', minutesAgo(30), 'billing-claims-export-task-1.csv'),

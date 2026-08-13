@@ -50,6 +50,12 @@ export async function cleanupExportTaskFiles({
 
   let deletedFiles = 0;
   for (const task of expired) {
+    const taskId = task.id;
+    if (!taskId) {
+      console.warn('Skipping an export task the search returned without an id');
+      continue;
+    }
+
     // A finished export Task holds the Z3 url of the CSV it produced.
     const outputIndex = exportOutputIndex(task);
     if (outputIndex === -1) continue;
@@ -74,7 +80,7 @@ export async function cleanupExportTaskFiles({
     try {
       await oystehr.fhir.patch<Task>({
         resourceType: 'Task',
-        id: task.id ?? '',
+        id: taskId,
         operations: [
           {
             op: 'remove',
@@ -83,7 +89,7 @@ export async function cleanupExportTaskFiles({
         ],
       });
     } catch (error) {
-      console.error(`Deleted ${objectPath} but could not drop its url from Task/${task.id}:`, error);
+      console.error(`Deleted ${objectPath} but could not drop its url from Task/${taskId}:`, error);
     }
   }
 
