@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   clinicalFriendlyIdIdentifier,
   clinicalPatientIdentifier,
-  EXCLUDE_WORKING_COPIES_PARAMS,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
@@ -137,7 +136,6 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
     expect(search).toHaveBeenCalledWith({
       resourceType: 'Patient',
       params: [
-        ...EXCLUDE_WORKING_COPIES_PARAMS,
         {
           name: '_count',
           value: '200',

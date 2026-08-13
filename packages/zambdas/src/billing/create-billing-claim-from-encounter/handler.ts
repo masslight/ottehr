@@ -18,6 +18,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  Identifier,
   Location,
   Organization,
   Patient,
@@ -35,13 +36,12 @@ import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   FHIR_IDENTIFIER_NPI,
-  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
-import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
@@ -76,9 +76,10 @@ import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers
 import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
-  addClinicalPatientIdentifiers,
   billingCopyMatches,
   BillingFhirResource,
+  clinicalFriendlyIdIdentifier,
+  clinicalPatientIdentifier,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -190,27 +191,37 @@ export async function performEffect(
 
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
-  let mainPatientRequestIndex: number | undefined;
   if (!mainPatient) {
-    mainPatient = copyPatient(clinicalResources.patient);
+    mainPatient = copyPatient({
+      patient: clinicalResources.patient,
+      clinicalId: clinicalResources.patient.id!,
+      clinicalFriendlyId: getPatientFriendlyId(clinicalResources.patient),
+    });
     mainPatient.id = 'urn:uuid:main-patient';
-    mainPatientRequestIndex = requests.length;
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
-    const updatedMainPatient = copyPatient(clinicalResources.patient);
+    const updatedMainPatient = copyPatient({
+      patient: clinicalResources.patient,
+      clinicalId: clinicalResources.patient.id!,
+      clinicalFriendlyId: getPatientFriendlyId(clinicalResources.patient),
+    });
     updatedMainPatient.id = mainPatient.id;
-    if (mainPatient.identifier) updatedMainPatient.identifier = mainPatient.identifier;
-    if (!billingCopyMatches(mainPatient, updatedMainPatient)) {
+    if (!billingCopyMatches(withoutIdentifier(mainPatient), withoutIdentifier(updatedMainPatient))) {
       mainPatient = updatedMainPatient;
-      mainPatientRequestIndex = requests.length;
       requests.push({ method: 'PUT', url: `/Patient/${mainPatient.id}`, resource: updatedMainPatient });
       order.push('patient');
     }
   }
 
   // Create working copy from main patient
-  const claimPatient = copyPatient(mainPatient, true);
+  const claimPatient = copyPatient({
+    patient: mainPatient,
+    workingCopy: true,
+    clinicalId: clinicalResources.patient.id!,
+    clinicalFriendlyId: getPatientFriendlyId(clinicalResources.patient),
+  });
+
   claimPatient.id = 'urn:uuid:claim-patient';
   requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatient.id });
   order.push('patient');
@@ -489,18 +500,6 @@ export async function performEffect(
     throw InternalError;
   }
 
-  try {
-    await addClinicalPatientIdentifiers({
-      oystehr: billingOystehr,
-      patient:
-        (mainPatientRequestIndex === undefined ? undefined : (entries[mainPatientRequestIndex] as Patient)) ??
-        mainPatient,
-      clinicalPatientId: clinicalResources.patient.id!,
-    });
-  } catch (err) {
-    console.error('Failed to add clinical patient identifier on main billing patient', err);
-  }
-
   // Adopt any payments the stripe webhook recorded before this claim existed
   try {
     await reconcilePaymentNoticesForClaim(billingOystehr, createdClaim);
@@ -602,15 +601,30 @@ export function getClaimCoveragesForEncounter(
   }
 }
 
-function copyPatient(patient: Patient, workingCopy?: boolean): Patient {
+function copyPatient({
+  patient,
+  workingCopy,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  patient: Patient;
+  workingCopy?: boolean;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+}): Patient {
   const copy = workingCopy
     ? prepareWorkingCopy<Patient>(patient, patient.id!)
     : prepareCopy<Patient>(patient, patient.id!);
-  let friendlyId = patient.identifier?.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value;
-  friendlyId ??= patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
-  if (friendlyId) {
-    copy.extension ??= [];
-    copy.extension.push({ url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: friendlyId });
+  if (!clinicalId && !clinicalFriendlyId) return copy;
+  copy.extension ??= [];
+  copy.identifier ??= [];
+  if (clinicalId) {
+    // Source reference in extension is managed by prepareCopy
+    copy.identifier.push(clinicalPatientIdentifier(clinicalId));
+  }
+  if (clinicalFriendlyId) {
+    copy.extension.push({ url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: clinicalFriendlyId });
+    copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
   }
   return copy;
 }
@@ -1303,4 +1317,10 @@ export async function complexValidation(
   const clinicalResources = await getClinicalResources(clinicalOystehr, params);
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   return { clinicalResources, billingResources };
+}
+
+function withoutIdentifier<T extends { identifier?: Identifier[] }>(resource: T): Omit<T, 'meta'> {
+  const fields = { ...resource };
+  delete fields.identifier;
+  return fields;
 }
