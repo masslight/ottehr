@@ -68,6 +68,18 @@ describe('pollExportTask', () => {
     expect(checkStatus).toHaveBeenCalledTimes(10);
   });
 
+  it('does not wait after the check that gives up', async () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const checkStatus = vi.fn().mockResolvedValue(status('in-progress'));
+
+    await expect(poll(checkStatus)).rejects.toThrow('Export timed out');
+
+    const waits = setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 1);
+    expect(checkStatus).toHaveBeenCalledTimes(10);
+    expect(waits).toHaveLength(9);
+    setTimeoutSpy.mockRestore();
+  });
+
   it('lets a failed status check surface instead of retrying forever', async () => {
     await expect(poll(vi.fn().mockRejectedValue(new Error('network down')))).rejects.toThrow('network down');
   });

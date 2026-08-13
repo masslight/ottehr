@@ -22,7 +22,7 @@ export async function pollExportTask({
     // Anything this build doesn't recognize counts as still running, so an unknown Task status
     // waits for the timeout rather than being reported as an outcome.
     if (TERMINAL_STATUSES.includes(status.status)) return status;
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 
   throw new Error('Export timed out');
