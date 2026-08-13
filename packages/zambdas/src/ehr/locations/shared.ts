@@ -1,10 +1,12 @@
 import { Address, ContactPoint, Extension, Location } from 'fhir/r4b';
 import {
+  isValidSlug,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
   ROOM_EXTENSION_URL,
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   SLUG_SYSTEM,
+  SLUG_VALIDATION_MESSAGE,
   slugFromName,
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
@@ -35,7 +37,12 @@ export const locationFieldsSchema = {
   rooms: z.array(z.string()).optional(),
   isVirtual: z.boolean().optional(),
   isInPerson: z.boolean().optional(),
-  slug: z.string().optional(),
+  // Empty string clears the slug (see applyLocationFields below); any other value
+  // must be URL-safe since slugs drive booking links/lookups. Mirrors admin-update-group.
+  slug: z
+    .string()
+    .refine((val) => val.length === 0 || isValidSlug(val), { message: `"slug" ${SLUG_VALIDATION_MESSAGE}` })
+    .optional(),
   timezone: z.string().optional(),
   stripeAccountId: z.string().nullish(),
   advapacsLocationId: z.string().nullish(),

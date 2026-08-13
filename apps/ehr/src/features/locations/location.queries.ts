@@ -3,6 +3,7 @@ import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { createLocation, deleteLocation, getLocation, toggleLocationActive, updateLocation } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import {
   CreateLocationParams,
@@ -27,11 +28,10 @@ export const useLocationsListQuery = (): UseQueryResult<Location[], Error> => {
   return useQuery({
     queryKey: [LOCATIONS_LIST_KEY],
     queryFn: async () => {
-      const resources = await oystehr!.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [{ name: '_count', value: '1000' }],
-      });
-      return resources.unbundle().sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+      // Paginate — a single _count-capped search silently drops Locations past the
+      // first page in larger orgs. getAllFhirSearchPages follows every page.
+      const resources = await getAllFhirSearchPages<Location>({ resourceType: 'Location', params: [] }, oystehr!);
+      return resources.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
     },
     enabled: !!oystehr,
   });

@@ -48,7 +48,7 @@ const DeleteLocationSchema = z.object({
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   if (!input.body) throw MISSING_REQUEST_BODY;
-  if (!input.headers.Authorization) {
+  if (!input.headers?.Authorization) {
     throw {
       code: APIErrorCode.MISSING_AUTH_TOKEN,
       message: 'Authorization header is required',
