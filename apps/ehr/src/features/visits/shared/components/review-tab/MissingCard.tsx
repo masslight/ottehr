@@ -33,6 +33,7 @@ import {
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { computeSignBlockers } from './sign-blockers';
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
@@ -97,16 +98,20 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  if (
-    primaryDiagnosis &&
-    (!mdmRequired || medicalDecision) &&
-    emCode &&
-    hpi &&
-    !suggestionNote &&
-    !isPatientVerificationMissing &&
-    !accidentMissingDate &&
-    !accidentMissingState
-  ) {
+  // Same shared rules the sign button and the Easy Chart page use, so this card can't claim the note
+  // is complete while the button refuses to sign it (or vice versa). `suggestionNote` stays separate:
+  // it's an AI HPI-quality hint, not a hard blocker. Lab-results blockers are excluded here because
+  // this card is about MISSING DATA the provider can go fill in — pending results aren't that.
+  const blockers = computeSignBlockers({
+    hasPrimaryDiagnosis: !!primaryDiagnosis,
+    medicalDecision,
+    hasEmCode: !!emCode,
+    hpi,
+    patientInfoConfirmed,
+    accident: chartFields?.accident,
+    mdmRequired,
+  });
+  if (!blockers.some((b) => b.group === 'missing-data' || b.group === 'patient-info') && !suggestionNote) {
     return null;
   }
 

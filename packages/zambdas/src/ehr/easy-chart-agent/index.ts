@@ -8,6 +8,10 @@ import {
   EasyChartNoteTextField as NoteTextField,
   EasyChartTokenUsage,
 } from 'utils';
+import {
+  buildEasyChartIntentSchemaProperties,
+  easyChartIntentHasRequiredFields,
+} from 'utils/lib/helpers/easy-chart-capabilities';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { requireEasyChartCaller } from '../../shared/easy-chart/auth';
@@ -18,58 +22,24 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-agent';
 
-// Exported for the digit-loop schema guard test.
+// Intent shape (kind enum + fields) comes from the capability registry in utils — see
+// buildEasyChartIntentSchemaProperties, which also documents the digit-loop guard on the numeric
+// fields. Exported for the digit-loop schema guard test.
 export const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     intent: {
       type: 'object',
-      properties: {
-        kind: { type: 'string', enum: KIND_VALUES as unknown as string[] },
-        display: { type: 'string' },
-        searchTerms: { type: 'array', items: { type: 'string' } },
-        strength: { type: 'string' },
-        doseForm: { type: 'string' },
-        isPrimary: { type: 'boolean' },
-        code: { type: 'string' },
-        message: { type: 'string' },
-        procedureMatch: { type: 'string' },
-        text: { type: 'string' }, // add-patient-instruction / set-disposition note text
-        dispositionType: { type: 'string' }, // set-disposition: pcp | ed | specialty | another | ip
-        // DIGIT-LOOP GUARD: followUpInDays/value/systolic/diastolic are deliberately `string`, NOT
-        // `number` — under Vertex constrained decoding a JSON number has no closing token, so a
-        // flash-lite digit run self-reinforces to the token cap (see planner-core RESPONSE_SCHEMA).
-        // coerceNumericStepFields() restores the numeric contract right after parse; do NOT change
-        // these back to `number`.
-        followUpInDays: { type: 'string' }, // set-disposition: "follow up in N days"
-        finding: { type: 'string', enum: ['reports', 'denies'] },
-        updates: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              field: { type: 'string' },
-              value: { type: 'string' },
-            },
-            required: ['field', 'value'],
-          },
-        },
-        field: { type: 'string' },
-        newText: { type: 'string' },
-        // set-vital: numeric vitals use `value` (+ `unit` for temp); BP uses systolic/diastolic. The
-        // client/normalizer recovers these from `display` too, so the model only has to get `display` right.
-        value: { type: 'string' }, // string, not number — digit-loop guard (see above)
-        unit: { type: 'string' },
-        systolic: { type: 'string' }, // string, not number — digit-loop guard (see above)
-        diastolic: { type: 'string' }, // string, not number — digit-loop guard (see above)
-      },
+      properties: buildEasyChartIntentSchemaProperties('agent'),
       required: ['kind'],
     },
   },
   required: ['intent'],
 };
 
-const buildPrompt = (message: string, noteContext?: Partial<Record<NoteTextField, string>>): string => {
+// Exported for the capability-coverage test (it asserts the prompt documents every action kind the
+// agent surface offers).
+export const buildPrompt = (message: string, noteContext?: Partial<Record<NoteTextField, string>>): string => {
   // Note: in this codebase the in-person Chief Complaint textarea is backed by the
   // historyOfPresentIllness chart-data key, and vice versa (CC <-> HPI swap). The labels
   // above describe what the provider sees, so the LLM should reason about "HPI" / "CC" by
@@ -499,11 +469,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const finding: 'reports' | 'denies' = /^denies\b/i.test(display) || i.finding === 'denies' ? 'denies' : 'reports';
       intent = { kind: 'add-ros-finding', display, searchTerms, finding };
     } else {
-      // Add / remove kinds without extras
+      // Add / remove kinds without extras. The cast is unavoidable here (the kind is only known as a
+      // string at runtime), so the registry gate above it is what keeps it honest: the object is
+      // proven to carry every field its kind needs before we assert the type.
       intent = { kind: i.kind, display, searchTerms } as EasyChartAgentIntent;
     }
   } else {
     intent = { kind: 'unknown', message: `Unknown action kind "${i.kind}".` };
+  }
+
+  // Registry gate. Every branch above builds an intent from whatever the model happened to emit; this
+  // is the one check that the result can actually be EXECUTED. Without it a kind whose required field
+  // is missing (an add-* with a blank display, a set-vital with no field) reached the client as a
+  // well-typed intent and died there as a bare "no match" — indistinguishable, to the provider, from
+  // "there was nothing to chart". Say what went wrong instead.
+  if (
+    intent.kind !== 'unknown' &&
+    !easyChartIntentHasRequiredFields(intent.kind, intent as unknown as Record<string, unknown>)
+  ) {
+    console.log(`Agent: ${intent.kind} intent missing required fields`);
+    intent = {
+      kind: 'unknown',
+      message: `I understood that as "${intent.kind.replace(
+        /-/g,
+        ' '
+      )}" but couldn't extract enough to act on. Try rephrasing with the specific item.`,
+    };
   }
 
   const output: EasyChartAgentOutput = { intent, usage };

@@ -20,6 +20,11 @@ import {
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   Secrets,
 } from 'utils';
+import {
+  buildEasyChartIntentSchemaProperties,
+  EASY_CHART_NUMERIC_INTENT_FIELDS,
+  easyChartIntentHasRequiredFields,
+} from 'utils/lib/helpers/easy-chart-capabilities';
 import { findHolderList } from '../../ehr/shared/template-helpers';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../ai';
 import { STRICT_ICD10, validateIntentCode } from './codes';
@@ -113,6 +118,9 @@ function parseFollowUpDays(text: string): number | null {
   return null;
 }
 
+// Step shape (kind enum + fields) comes from the capability registry in utils — see
+// buildEasyChartIntentSchemaProperties. The registry documents the digit-loop guard on the numeric
+// fields and the planner-only `sourceText` provenance field.
 export const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
@@ -120,50 +128,7 @@ export const RESPONSE_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        properties: {
-          kind: { type: 'string', enum: KIND_VALUES as unknown as string[] },
-          display: { type: 'string' },
-          searchTerms: { type: 'array', items: { type: 'string' } },
-          strength: { type: 'string' },
-          doseForm: { type: 'string' },
-          isPrimary: { type: 'boolean' },
-          code: { type: 'string' },
-          message: { type: 'string' },
-          procedureMatch: { type: 'string' },
-          updates: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                field: { type: 'string' },
-                value: { type: 'string' },
-              },
-              required: ['field', 'value'],
-            },
-          },
-          field: { type: 'string' },
-          newText: { type: 'string' },
-          text: { type: 'string' }, // add-patient-instruction / set-disposition note text
-          dispositionType: { type: 'string' }, // set-disposition: pcp | ed | specialty | another | ip
-          followUpInDays: { type: 'string' }, // set-disposition: "follow up in N days"
-          finding: { type: 'string', enum: ['reports', 'denies'] },
-          // set-vital: numeric vitals use `value` (+ `unit` for temp/weight/height); BP uses systolic/diastolic.
-          // DIGIT-LOOP GUARD: value/systolic/diastolic/followUpInDays are deliberately `string`, NOT
-          // `number`. With `type:'number'`, Vertex constrained decoding has no closing token for a JSON
-          // number, so when flash-lite emits one of these on a step kind where it's meaningless (e.g.
-          // `"value": 0.` on add-diagnosis) the digit run self-reinforces at temperature 0 and runs to
-          // the token cap — 31% of run9 planner calls died at MAX_TOKENS this way. A string gives the
-          // decoder a closing-quote escape at every position. coerceNumericStepFields() restores the
-          // numeric contract server-side right after parse; do NOT change these back to `number`.
-          value: { type: 'string' },
-          unit: { type: 'string' },
-          systolic: { type: 'string' },
-          diastolic: { type: 'string' },
-          // PROVENANCE: the verbatim snippet from the narrative that justifies this step. Empty
-          // string for steps INFERRED rather than spoken (default-normal exam, template defaults,
-          // codes deduced from context). The client marks items sourced-vs-inferred from this.
-          sourceText: { type: 'string' },
-        },
+        properties: buildEasyChartIntentSchemaProperties('planner'),
         required: ['kind'],
       },
     },
@@ -171,8 +136,9 @@ export const RESPONSE_SCHEMA = {
   required: ['steps'],
 };
 
-// The step-level numeric fields RESPONSE_SCHEMA declares as strings (see the digit-loop guard there).
-const NUMERIC_STEP_FIELDS = ['value', 'systolic', 'diastolic', 'followUpInDays'] as const;
+// The step-level numeric fields the response schemas declare as strings (the digit-loop guard) —
+// single-sourced in the capability registry alongside those schemas.
+const NUMERIC_STEP_FIELDS = EASY_CHART_NUMERIC_INTENT_FIELDS;
 
 // Restores the numeric contract on a parsed model-output object IN PLACE for the named fields: the
 // response schemas emit numeric fields as strings (digit-loop guard), but downstream consumers expect
@@ -946,6 +912,14 @@ export async function runEasyChartPlanner(
     if (!item || typeof item !== 'object') continue;
     const i = item as Record<string, unknown>;
     if (typeof i.kind !== 'string' || !(KIND_VALUES as readonly string[]).includes(i.kind)) continue;
+    // Registry gate: a step missing a field its kind cannot execute without (an add-* with no
+    // display, an update-procedure with no updates) used to travel all the way to the client and
+    // settle as a bare "no match" the provider reads as "nothing to chart". Drop it here instead —
+    // the plan's step list then never shows a step that could not possibly have worked.
+    if (!easyChartIntentHasRequiredFields(i.kind, i)) {
+      console.log(`Planner: dropped ${i.kind} step missing required fields`);
+      continue;
+    }
     // Same fallback as the single-shot agent — sniff the narrative for a dose-form keyword if
     // the LLM omitted it. The narrative is the only place the form might appear since the
     // planner emits searchTerms focused on the ingredient name.

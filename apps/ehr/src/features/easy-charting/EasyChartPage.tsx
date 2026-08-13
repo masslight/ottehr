@@ -21,13 +21,17 @@ import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { getPatientName } from 'src/shared/utils';
 import { CommandPaletteItem } from 'src/state/command-palette.store';
 import {
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
+  DEFAULT_PROGRESS_NOTE_CONFIG,
+  examConfig,
   formatWeightKg,
+  INCOMPATIBLE_EXAM_VERSION_MESSAGE,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
@@ -41,17 +45,19 @@ import {
 import { showEnvironmentBanner } from '../../App';
 import { AmbientScribeFab } from '../visits/in-person/components/progress-note/AmbientScribeFab';
 import { useGetImmunizationOrders } from '../visits/in-person/hooks/useImmunization';
+import { ExamMigrationWarning } from '../visits/shared/components/exam-tab/ExamMigrationWarning';
+import { computeExamConfigState } from '../visits/shared/components/exam-tab/useExamConfigState';
+import { computeSignBlockers } from '../visits/shared/components/review-tab/sign-blockers';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 import { useStopAmbientScribeOnLeave } from '../visits/shared/stores/audioRecording.store';
 import { AssistantColumn } from './AssistantColumn';
 import { chartHasSubstantiveContent } from './chart-content';
-import {} from './chart-types';
-import { computeChartWarnings } from './intent-logic';
+import { computeChartWarnings, signBlockerInputFromChartData } from './intent-logic';
 import { NoteSections } from './NoteSections';
 import { useAiProvenance } from './useAiProvenance';
 import { useChartAssistant } from './useChartAssistant';
-import { useChartData } from './useChartData';
+import { useEasyChartData } from './useEasyChartData';
 import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
 import { useTranscriptPolling } from './useTranscriptPolling';
 
@@ -77,6 +83,7 @@ export default function EasyChartPage(): JSX.Element {
     chartData,
     setChartData,
     chartDataRef,
+    reloadChartData,
     loading,
     error,
     labOrders,
@@ -91,7 +98,7 @@ export default function EasyChartPage(): JSX.Element {
     deleteChartedResource,
     handleConfirmPatientInfo,
     handleMakePrimary,
-  } = useChartData({
+  } = useEasyChartData({
     encounterId,
     onResourceDeleted: (resourceId) => onResourceDeletedRef.current(resourceId),
   });
@@ -136,6 +143,37 @@ export default function EasyChartPage(): JSX.Element {
   const [appointmentStart, setAppointmentStart] = useState<string | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [reasonForVisit, setReasonForVisit] = useState<string | null>(null);
+  // The Encounter + Appointment resources themselves (not just the ids derived from them below) —
+  // needed for the exam-config mismatch check, which depends on the encounter's exam migration
+  // version and whether this is a locked telemed visit.
+  const [encounter, setEncounter] = useState<Encounter | null>(null);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
+
+  // The practice's progress-note settings. Easy Chart is an alternative surface for the SAME note, so
+  // the settings that govern it at Review & Sign have to govern it here too — otherwise a practice
+  // that made MDM optional still sees it demanded (or worse, one that requires it doesn't), and the
+  // note the provider signs is judged by rules this page never showed them.
+  const { data: progressNoteConfig } = useProgressNoteConfig();
+  const mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
+
+  // Exam-config parity with the regular chart. An encounter charted under an older exam layout
+  // carries checked observations whose fields the current config no longer defines: the exam tab and
+  // the progress note detect those and offer a one-click migration, and without the same check here
+  // the Easy Chart note silently renders them as raw field names (and the assistant is blind to
+  // them). Same computation both places — see computeExamConfigState.
+  const { unmatchedExamFields, displayExamMigrationWarning, hasIncompatibleExamConfig } = useMemo(
+    () =>
+      computeExamConfigState({
+        config: examConfig.default.components,
+        checkedFields: (chartData?.examObservations ?? [])
+          .filter((o) => o.value === true)
+          .map((o) => o.field)
+          .filter((f): f is string => !!f),
+        appointment: appointment ?? undefined,
+        encounter: encounter ?? undefined,
+      }),
+    [chartData?.examObservations, appointment, encounter]
+  );
 
   // Review & Sign parity sections that are NOT part of the chart-data fetch (precompute-cache
   // safety: separate queries, never piggybacked on fetchEasyChartData's requested fields).
@@ -323,12 +361,14 @@ export default function EasyChartPage(): JSX.Element {
           resourceType: 'Encounter',
           id: encounterId,
         });
+        if (!cancelled) setEncounter(encounter);
         const ref = encounter.appointment?.[0]?.reference;
         const id = ref?.startsWith('Appointment/') ? ref.slice('Appointment/'.length) : null;
         if (!cancelled && id) setAppointmentId(id);
         if (id) {
           const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id });
           if (!cancelled) {
+            setAppointment(appointment);
             setReasonForVisit(appointment.description ?? null);
             // For the privacy-policy acknowledgement line at the bottom of the note.
             setAppointmentStart(appointment.start ?? null);
@@ -422,7 +462,13 @@ export default function EasyChartPage(): JSX.Element {
             </Box>
           );
         }
-        const warnings = computeChartWarnings(chartData);
+        // Two kinds of finding in one panel: the assistant's own mistakes (duplicate codes,
+        // contradictory ROS) and the shared Review & Sign blockers, so a clean panel here really does
+        // mean a signable note. Blockers first — they're what stops the visit closing.
+        const warnings = [
+          ...computeSignBlockers(signBlockerInputFromChartData(chartData, mdmRequired)),
+          ...computeChartWarnings(chartData),
+        ];
         const flaggedNoteFields =
           [...noteFieldMeta.values()].filter((m) => m.needsReview).length +
           [...instructionMeta.values()].filter((m) => m.needsReview).length;
@@ -490,6 +536,26 @@ export default function EasyChartPage(): JSX.Element {
           </Box>
         );
       })()}
+      {/* Exam-config mismatch, same two states the exam tab and progress note show. The incompatible
+          case (a LOCKED legacy telemed visit) can't be migrated from here, so it only warns; the
+          migratable case offers the same one-click migration, then refetches this page's chart. */}
+      {hasIncompatibleExamConfig && displayExamMigrationWarning ? (
+        <Box sx={{ mb: 1.5 }}>
+          <Typography color="text.secondary" variant="body2">
+            {INCOMPATIBLE_EXAM_VERSION_MESSAGE}
+          </Typography>
+        </Box>
+      ) : (
+        displayExamMigrationWarning && (
+          <Box sx={{ mb: 1.5 }}>
+            <ExamMigrationWarning
+              unmatchedFields={unmatchedExamFields}
+              encounterId={encounterId}
+              onMigrated={reloadChartData}
+            />
+          </Box>
+        )
+      )}
       <NoteSections
         data={chartData}
         freshlyAdded={freshlyAdded}

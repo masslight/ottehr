@@ -14,13 +14,16 @@ import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient'
 import { AiField, EasyChartLabOrder } from './chart-types';
 import { fetchEasyChartData } from './intent-logic';
 
-// The easy-chart page's chart-data layer: the GetChartDataResponse state + its synchronous-read
+// The easy-chart page's chart-data layer. Named useEasyChartData, NOT useChartData: the regular chart
+// already has a useChartData in appointment.store (~57 consumers) and it is a different thing — a
+// react-query READ hook over the appointment store, which this page deliberately does not populate.
+// This one owns WRITES for one encounter: the GetChartDataResponse state + its synchronous-read
 // mirror, initial load, the save→merge path (with the freshly-added flash), charted-resource
 // deletion (with the red-flash removal), lab orders, and the exactly-one-primary-diagnosis
 // invariant. Everything here talks to the chart; nothing here knows about intents, plans, the
 // conversation, or AI provenance — the page wires those through the returned mutators and the
 // onResourceDeleted callback.
-export function useChartData({
+export function useEasyChartData({
   encounterId,
   onResourceDeleted,
 }: {
@@ -32,6 +35,7 @@ export function useChartData({
   chartData: GetChartDataResponse | null;
   setChartData: React.Dispatch<React.SetStateAction<GetChartDataResponse | null>>;
   chartDataRef: React.MutableRefObject<GetChartDataResponse | null>;
+  reloadChartData: () => Promise<void>;
   loading: boolean;
   error: string | null;
   labOrders: EasyChartLabOrder[];
@@ -87,6 +91,19 @@ export function useChartData({
     return () => {
       cancelled = true;
     };
+  }, [apiClient, encounterId]);
+
+  // Re-fetch the whole chart. Most writes merge their response in place (see mergeSaveResponse), so
+  // this is for the cases where the chart changed OUTSIDE this page's own saves — currently the exam
+  // data migration, which rewrites observation fields server-side.
+  const reloadChartData = useCallback(async (): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    try {
+      setChartData(await fetchEasyChartData(apiClient, encounterId));
+    } catch (e) {
+      console.error('Easy chart reload failed:', e);
+      setError('Could not reload the chart for this encounter.');
+    }
   }, [apiClient, encounterId]);
 
   // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
@@ -443,6 +460,7 @@ export function useChartData({
     chartData,
     setChartData,
     chartDataRef,
+    reloadChartData,
     loading,
     error,
     labOrders,

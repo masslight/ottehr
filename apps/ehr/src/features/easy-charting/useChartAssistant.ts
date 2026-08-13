@@ -20,6 +20,7 @@ import {
   type ExamObservationDTO,
   fahrenheitToCelsius,
   GetChartDataResponse,
+  getDispositionDefaultTextFromProgressNoteConfig,
   LabPaymentMethod,
   LBS_IN_KG,
   mapDispositionTypeToLabel,
@@ -45,6 +46,7 @@ import {
   easyChartReview,
   listTemplates,
 } from '../../api/api';
+import { useProgressNoteConfig } from '../../hooks/useProgressNoteConfig';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
 import {
   AddExamFindingIntent,
@@ -169,6 +171,9 @@ export function useChartAssistant({
 }) {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
+  // Read directly rather than threading it through props: it's a shared react-query cache key, so
+  // this is the same fetch the page and the regular chart's cards already share.
+  const { data: progressNoteConfig } = useProgressNoteConfig();
 
   // Per-field promise chain so rapid inline edits (and a concurrent planner edit) to the same
   // note field serialize instead of racing each other through saveChartData/mergeSaveResponse.
@@ -1144,7 +1149,11 @@ export function useChartAssistant({
         try {
           const disposition: DispositionDTO = {
             type,
-            note: intent.text ?? '',
+            // When the dictation gave no disposition note, fall back to the practice's configured
+            // default for this disposition type — the same text the Disposition card prefills in the
+            // regular chart. Saving an empty note instead produced a disposition the provider had
+            // configured boilerplate for, minus the boilerplate.
+            note: intent.text?.trim() || getDispositionDefaultTextFromProgressNoteConfig(progressNoteConfig, type),
             ...(intent.followUpInDays != null ? { followUpIn: intent.followUpInDays } : {}),
           };
           await saveAndMerge({ encounterId, disposition });

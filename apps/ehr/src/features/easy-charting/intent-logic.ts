@@ -20,8 +20,10 @@ import {
   RosFindingState,
   SaveChartDataRequest,
 } from 'utils';
+import { easyChartFieldForKind } from 'utils/lib/helpers/easy-chart-capabilities';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
+import { computeSignBlockers } from '../visits/shared/components/review-tab/sign-blockers';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
 import {
   AddExamFindingIntent,
@@ -1727,10 +1729,15 @@ export interface ChartWarning {
   text: string;
 }
 
-// Deterministic lint over the charted note. Intentionally conservative: only flags things that are
-// almost always genuine mistakes (exact-duplicate codes, contradictory ROS polarity, primary-dx
-// sanity, a diagnosed encounter with no E&M). No fuzzy/laterality guessing — those would produce
-// false positives that train the provider to ignore the panel.
+// Deterministic lint for the mistakes THE ASSISTANT makes: exact-duplicate codes, two primary
+// diagnoses, a symptom recorded as both reported and denied. Intentionally conservative — no
+// fuzzy/laterality guessing, which would produce false positives that train the provider to ignore
+// the panel.
+//
+// Scope note: this used to also re-implement five of Review & Sign's SIGN BLOCKERS (no primary dx, no
+// E&M, MDM, pending in-house results, reflex tests) while missing four others, so a clean panel here
+// did not mean a signable note. Those rules now come from computeSignBlockers, which both surfaces
+// share; the page merges them into the same panel. Keep this function to AI-error lint only.
 export function computeChartWarnings(data: GetChartDataResponse): ChartWarning[] {
   const warnings: ChartWarning[] = [];
   const norm = (s?: string): string => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -1749,11 +1756,10 @@ export function computeChartWarnings(data: GetChartDataResponse): ChartWarning[]
     }
   }
 
-  // Primary-diagnosis sanity.
+  // Primary-diagnosis sanity. "No primary at all" is a SIGN BLOCKER and belongs to
+  // computeSignBlockers; more than one primary is an assistant error the regular chart's UI can't even
+  // produce, so it stays here.
   const primaries = dx.filter((d) => d.isPrimary);
-  if (dx.length > 0 && primaries.length === 0) {
-    warnings.push({ id: 'no-primary-dx', text: 'No primary diagnosis is set.' });
-  }
   if (primaries.length > 1) {
     warnings.push({
       id: 'multi-primary-dx',
@@ -1792,24 +1798,27 @@ export function computeChartWarnings(data: GetChartDataResponse): ChartWarning[]
     }
   }
 
-  // Completeness nudge: a diagnosed encounter with no E&M level.
-  if (dx.length > 0 && !data.emCode) {
-    warnings.push({ id: 'no-em', text: 'Diagnoses are charted but no E&M level is set.' });
-  }
-
-  // Sign blockers mirrored from Review & Sign's gating (ReviewAndSignButton): outstanding in-house
-  // results / reflex tests block signing, so surface them before the provider leaves the page.
-  if ((data.inHouseLabResults?.resultsPending?.length ?? 0) > 0) {
-    warnings.push({ id: 'inhouse-lab-results-pending', text: 'In-house lab results pending.' });
-  }
-  if ((data.inHouseLabResults?.reflexTestsPending?.length ?? 0) > 0) {
-    warnings.push({
-      id: 'reflex-test-results-pending',
-      text: `Reflex test results pending (${data.inHouseLabResults!.reflexTestsPending!.join(', ')}).`,
-    });
-  }
-
   return warnings;
+}
+
+// Build computeSignBlockers' input from the easy-chart page's chart data. Kept next to the lint above
+// so the two are read together, and so the CC↔HPI storage swap is applied in exactly one place on
+// this page: Review & Sign reads the HPI from chartFields.chiefComplaint.text, and this input must
+// agree or the two surfaces disagree about whether the HPI is empty.
+export function signBlockerInputFromChartData(
+  data: GetChartDataResponse,
+  mdmRequired: boolean
+): Parameters<typeof computeSignBlockers>[0] {
+  return {
+    hasPrimaryDiagnosis: (data.diagnosis ?? []).some((d) => d.isPrimary),
+    medicalDecision: data.medicalDecision?.text,
+    hasEmCode: !!data.emCode,
+    hpi: data.chiefComplaint?.text,
+    patientInfoConfirmed: data.patientInfoConfirmed?.value,
+    accident: data.accident,
+    inHouseLabResults: data.inHouseLabResults,
+    mdmRequired,
+  };
 }
 
 // Normalize a string for loose comparison: lowercase, strip whitespace and unit punctuation that
@@ -2271,20 +2280,34 @@ export function noteFieldDriftReason(
   return null;
 }
 
-// Search-based add intents that auto-chart with the needs-review highlight + click-to-correct,
-// and the field each maps to. (CPT/E&M, exam findings and procedures use different mechanisms.)
-// Typed as an exact Record over AddSearchIntent's kinds rather than Record<string, …>: with a plain
-// string key a typo'd or renamed kind compiled fine and resolved to `undefined` at runtime, charting
-// the item with no `field` — so it lost its click-to-correct affordance silently. Now both a missing
-// kind and an unknown one are build errors.
-export const KIND_TO_FIELD = {
-  'add-allergy': 'allergies',
-  'add-condition': 'conditions',
-  'add-medication': 'medications',
-  'add-surgical-history': 'surgicalHistory',
-  'add-hospitalization': 'episodeOfCare',
-  'add-diagnosis': 'diagnosis',
-} as const satisfies Record<AddSearchIntent['kind'], ChartedField>;
+// Search-based add intents that auto-chart with the needs-review highlight + click-to-correct, and
+// the chart-data field each maps to. (CPT/E&M, exam findings and procedures use different mechanisms.)
+//
+// DERIVED from the capability registry rather than restated: the registry's chartField is typed as
+// keyof AllChartValues, so this map now inherits that guarantee — a renamed chart-data property breaks
+// the registry entry, and a kind whose registry entry lost its chartField breaks the assertion below.
+// It used to be a hand-written Record<string, ChartedField>, where a typo'd key compiled fine and
+// resolved to `undefined`, charting the item with no `field` and silently losing its correct
+// affordance.
+export const KIND_TO_FIELD = Object.fromEntries(
+  (
+    [
+      'add-allergy',
+      'add-condition',
+      'add-medication',
+      'add-surgical-history',
+      'add-hospitalization',
+      'add-diagnosis',
+    ] as const satisfies readonly AddSearchIntent['kind'][]
+  ).map((kind) => [kind, easyChartFieldForKind(kind)] as const)
+) as Record<AddSearchIntent['kind'], ChartedField>;
+
+// The registry must actually supply a chartField for every kind above — Object.fromEntries can't
+// prove it, so assert it at module load. A registry entry that lost its chartField would otherwise
+// produce `undefined` here and reintroduce exactly the bug this map was tightened to prevent.
+for (const [kind, field] of Object.entries(KIND_TO_FIELD)) {
+  if (!field) throw new Error(`easy-chart: no chartField registered for intent kind "${kind}"`);
+}
 export const FIELD_TO_KIND: Record<ChartedField, AddSearchIntent['kind']> = {
   allergies: 'add-allergy',
   conditions: 'add-condition',

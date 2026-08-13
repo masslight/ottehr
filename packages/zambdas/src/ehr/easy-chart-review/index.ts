@@ -14,6 +14,11 @@ import {
   getOptionalSecret,
   SecretsKeys,
 } from 'utils';
+import {
+  buildEasyChartIntentSchemaProperties,
+  easyChartIntentHasRequiredFields,
+  easyChartKindsForSurface,
+} from 'utils/lib/helpers/easy-chart-capabilities';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { requireEasyChartEncounterAccess } from '../../shared/easy-chart/auth';
@@ -48,26 +53,11 @@ const CATEGORY_VALUES = [
 // just the ones the five review categories need (plus a little headroom). Each is replayed
 // client-side through the same per-intent handlers the planner uses, so accepting a card needs
 // no new charting logic.
-// `satisfies` makes this a checked SUBSET of the action vocabulary rather than a free-form list of
-// strings: a typo, or a kind that has since been renamed in EasyChartAgentIntent, is a build error
-// here instead of a review suggestion the client silently drops as unrecognized.
-const ACTION_KINDS = [
-  'edit-note-text',
-  'add-diagnosis',
-  'remove-diagnosis',
-  'add-condition',
-  'set-em-code',
-  'add-cpt',
-  'remove-cpt',
-  'remove-em-code',
-  'add-ros-finding',
-  'add-exam-finding',
-  'remove-exam-finding',
-  'add-medication',
-  'remove-medication',
-  'set-disposition',
-  'provider-note',
-] as const satisfies readonly EasyChartIntentKind[];
+// Derived from the capability registry: the kinds whose `surfaces` include 'review'. It used to be a
+// hand-written list here, which meant the review could offer an action the client had renamed, or
+// silently lose one that was added to the vocabulary for it. Deliberately a SUBSET of the full
+// vocabulary — the review corrects a written note, it does not chart a visit from scratch.
+const ACTION_KINDS: readonly EasyChartIntentKind[] = easyChartKindsForSurface('review');
 
 // exported for unit tests (schema pin: no raw `number` fields — see the digit-loop guard below)
 export const RESPONSE_SCHEMA = {
@@ -88,26 +78,11 @@ export const RESPONSE_SCHEMA = {
             type: 'array',
             items: {
               type: 'object',
-              properties: {
-                kind: { type: 'string', enum: ACTION_KINDS as unknown as string[] },
-                display: { type: 'string' },
-                searchTerms: { type: 'array', items: { type: 'string' } },
-                code: { type: 'string' },
-                isPrimary: { type: 'boolean' },
-                field: { type: 'string' },
-                newText: { type: 'string' },
-                finding: { type: 'string', enum: ['reports', 'denies'] },
-                strength: { type: 'string' },
-                doseForm: { type: 'string' },
-                // set-disposition (the "disposition" check): where the patient goes next.
-                text: { type: 'string' },
-                dispositionType: { type: 'string' },
-                // DIGIT-LOOP GUARD: `string`, not `number` — a raw JSON number has no closing token
-                // under Vertex constrained decoding, and a stray `"followUpInDays": 0.` on a non-
-                // disposition action can digit-loop to the token cap (the planner's dominant MAX_TOKENS
-                // failure; seen here at ~1%). coerceNumericStepFields() restores the number after parse.
-                followUpInDays: { type: 'string' },
-              },
+              // Action shape (kind enum + fields) from the capability registry in utils — see
+              // buildEasyChartIntentSchemaProperties, which documents the digit-loop guard that keeps
+              // followUpInDays a string (a stray `"followUpInDays": 0.` on a non-disposition action
+              // digit-loops to the token cap; seen here at ~1% of calls).
+              properties: buildEasyChartIntentSchemaProperties('review'),
               // isPrimary is REQUIRED (not just allowed): the diagnosis-swap card is a
               // remove-diagnosis + add-diagnosis pair, and when the model omits isPrimary on the
               // add the client charts it as secondary — swapping the primary dx then leaves the
@@ -404,38 +379,20 @@ export function carrySwapPrimaryFromChartState(
   add.isPrimary = /\(primary\)|\[PRIMARY\]/i.test(segment);
 }
 
-// A single action is well-formed enough for the client to replay.
+// A single action is well-formed enough for the client to replay. The per-kind required fields come
+// from the capability registry, so this no longer re-states them (they used to be a hand-written
+// if-chain here that could disagree with the agent's and the planner's copies of the same rules).
 function isValidAction(a: unknown): a is Record<string, unknown> {
   if (!a || typeof a !== 'object') return false;
   const r = a as Record<string, unknown>;
   if (typeof r.kind !== 'string' || !(ACTION_KINDS as readonly string[]).includes(r.kind)) return false;
-  if (r.kind === 'edit-note-text') {
-    return (
-      typeof r.field === 'string' &&
-      (NOTE_TEXT_FIELDS as readonly string[]).includes(r.field) &&
-      typeof r.newText === 'string' &&
-      !!r.newText.trim()
-    );
+  if (!easyChartIntentHasRequiredFields(r.kind, r)) return false;
+  // The one check beyond "required fields are present": the note field has to be one the chart
+  // actually has, or the edit targets nothing.
+  if (r.kind === 'edit-note-text' && !(NOTE_TEXT_FIELDS as readonly string[]).includes(r.field as string)) {
+    return false;
   }
-  if (r.kind === 'set-em-code' || r.kind === 'add-cpt' || r.kind === 'remove-cpt') {
-    return typeof r.code === 'string' && !!r.code.trim();
-  }
-  if (r.kind === 'provider-note') {
-    // Rendered as a chat bubble client-side (the dropped-commitment check); only needs its text.
-    return typeof r.text === 'string' && !!r.text.trim();
-  }
-  if (r.kind === 'set-disposition') {
-    // The client's set-disposition dispatch needs a type (falls back to 'another' for an unknown
-    // value) and the disposition note text; followUpInDays is optional.
-    return (
-      typeof r.dispositionType === 'string' &&
-      !!r.dispositionType.trim() &&
-      typeof r.text === 'string' &&
-      !!r.text.trim()
-    );
-  }
-  // add/remove-* search-based intents only need a display to drive the client search/match.
-  return typeof r.display === 'string' && !!r.display.trim();
+  return true;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

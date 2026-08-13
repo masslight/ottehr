@@ -13,6 +13,7 @@ import {
   ProcedureDTO,
   ProcedureQuickPickData,
 } from 'utils';
+import { EasyChartChartField } from 'utils/lib/helpers/easy-chart-capabilities';
 import { ExamLeaf, RosLeaf } from './exam-ros-catalog';
 
 // The five free-text note fields, keyed by their actual chart-data key (NOT the display label —
@@ -24,24 +25,24 @@ export type ChartNoteKey =
   | 'ros'
   | 'medicalDecision';
 
+// Both unions below name properties of the chart-data payload, so they are CONSTRAINED to the DTO's
+// keys rather than being free-form strings. That matters because these values are used as computed
+// keys against save-chart-data / delete-chart-data (`{ [field]: [dto] }`), where TypeScript cannot
+// check the key on its own — renaming a property on AllChartValues used to leave these unions
+// pointing at a key the zambda no longer reads, and the only symptom was a delete that appeared to
+// work (the row vanished optimistically) and came back on reload. Now it fails right here.
+type ChartDataField<T extends EasyChartChartField> = T;
+
 // The structured, SEARCH-based chart-data fields (resolved via runIntentSearch + buildIntentPayload).
-export type ChartedField =
-  | 'allergies'
-  | 'conditions'
-  | 'medications'
-  | 'surgicalHistory'
-  | 'episodeOfCare'
-  | 'diagnosis';
+export type ChartedField = ChartDataField<
+  'allergies' | 'conditions' | 'medications' | 'surgicalHistory' | 'episodeOfCare' | 'diagnosis'
+>;
 // All fields that support AI click-to-correct — adds the CODE-based billing fields (E&M is a scalar,
 // CPT is an array) and the structured OBSERVATION fields (exam + ROS), which resolve against the
 // exam/ROS leaf catalogs instead of a terminology/text search.
 export type AiField =
   | ChartedField
-  | 'cptCodes'
-  | 'emCode'
-  | 'examObservations'
-  | 'rosObservations'
-  | 'vitalsObservations';
+  | ChartDataField<'cptCodes' | 'emCode' | 'examObservations' | 'rosObservations' | 'vitalsObservations'>;
 
 // Provenance for an item the assistant auto-charted and that still needs the provider's review.
 // `field` ties it to the chart-data; `lowConfidence` is set when the auto-pick was ambiguous.
