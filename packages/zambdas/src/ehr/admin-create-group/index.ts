@@ -3,9 +3,10 @@ import { HealthcareService } from 'fhir/r4b';
 import { isValidSlug, ScheduleStrategyCoding, SLUG_SYSTEM, slugFromName } from 'utils/lib/fhir/constants';
 import { groupCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { CreateProviderGroupParams } from 'utils/lib/types/api/schedules';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { APIErrorCode, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { callerHasRole, checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -35,6 +36,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     safeJsonParse(input.body)
   ) as unknown as CreateProviderGroupParams;
   const { secrets } = input;
+
+  if (
+    !(await callerHasRole(input.headers?.Authorization, secrets, [RoleType.Administrator, RoleType.CustomerSupport]))
+  ) {
+    throw {
+      code: APIErrorCode.NOT_AUTHORIZED,
+      message: 'You are not permitted to create provider groups.',
+    };
+  }
 
   const trimmedName = name.trim();
   const slug = slugFromName(trimmedName);

@@ -1,5 +1,4 @@
 import { Address, ContactPoint, Extension, Location } from 'fhir/r4b';
-import { userMe } from 'utils/lib/auth/user-me.helper';
 import {
   LOCATION_REVIEW_LINK_EXTENSION_URL,
   ROOM_EXTENSION_URL,
@@ -22,6 +21,7 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
 import { z } from 'zod';
+import { callerHasRole } from '../../shared/auth';
 
 /**
  * Zod shape for the intrinsic Location fields, shared by create + update so their
@@ -52,19 +52,7 @@ const PAYMENT_FIELD_ROLES: ReadonlyArray<string> = [RoleType.CustomerSupport];
 export const callerCanEditPaymentFields = async (
   authorizationHeader: string | undefined,
   secrets: Secrets | null
-): Promise<boolean> => {
-  if (!authorizationHeader) return false;
-  const token = authorizationHeader.replace(/^Bearer\s+/i, '');
-  if (!token) return false;
-  try {
-    const caller = await userMe(token, secrets);
-    const callerRoles = (caller.roles ?? []).map((role) => role.name);
-    return callerRoles.some((role) => PAYMENT_FIELD_ROLES.includes(role));
-  } catch (err) {
-    console.error('Failed to resolve caller from Authorization header:', err);
-    return false;
-  }
-};
+): Promise<boolean> => callerHasRole(authorizationHeader, secrets, PAYMENT_FIELD_ROLES);
 
 const TELECOM_MANAGED_SYSTEMS: ReadonlyArray<ContactPoint['system']> = ['phone', 'url', 'fax'];
 

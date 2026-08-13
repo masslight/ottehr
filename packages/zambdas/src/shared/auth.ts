@@ -9,6 +9,31 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 
+/**
+ * Authorization gate for role-restricted endpoints. Resolves the caller from a
+ * Bearer `Authorization` header and returns true iff they hold at least one of
+ * `allowedRoles`. Fails closed: a missing/blank header or any userMe failure
+ * yields false, never a throw. This is the generalized form of
+ * callerCanEditPaymentFields (which now delegates here).
+ */
+export async function callerHasRole(
+  authorizationHeader: string | undefined,
+  secrets: Secrets | null,
+  allowedRoles: ReadonlyArray<string>
+): Promise<boolean> {
+  if (!authorizationHeader) return false;
+  const token = authorizationHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  try {
+    const caller = await userMe(token, secrets);
+    const callerRoles = (caller.roles ?? []).map((role) => role.name);
+    return callerRoles.some((role) => allowedRoles.includes(role));
+  } catch (err) {
+    console.error('Failed to resolve caller from Authorization header:', err);
+    return false;
+  }
+}
+
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;
 

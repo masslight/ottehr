@@ -1,8 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Schedule } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { callerHasRole, checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -26,6 +27,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!input.body) throw MISSING_REQUEST_BODY;
   const { scheduleId, active } = safeValidate(ToggleScheduleActiveSchema, safeJsonParse(input.body));
   const { secrets } = input;
+
+  if (
+    !(await callerHasRole(input.headers?.Authorization, secrets, [RoleType.Administrator, RoleType.CustomerSupport]))
+  ) {
+    throw {
+      code: APIErrorCode.NOT_AUTHORIZED,
+      message: "You are not permitted to change a schedule's active state.",
+    };
+  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
