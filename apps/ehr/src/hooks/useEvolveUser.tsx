@@ -27,12 +27,6 @@ export interface EvolveUser extends User {
   userInitials: string;
   lastLogin: string | undefined;
   hasRole: (role: RoleType[]) => boolean;
-  /**
-   * Whether the user's Practitioner has an NPI on file. NPI-gated actions (sign/co-sign a note,
-   * e-prescribe, order external labs & imaging, submit claims, order in-house medications) are
-   * hidden/disabled when this is false — e.g. for the Clinician role, which has no NPI.
-   */
-  hasNPI: boolean;
 }
 
 interface EvolveUserState {
@@ -59,8 +53,6 @@ export default function useEvolveUser(): EvolveUser | undefined {
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );
-
-  const hasNPI = Boolean(profile && getNPIIdentifier(profile)?.value);
 
   const userRoles = user?.roles;
   const hasRole = useCallback(
@@ -152,11 +144,10 @@ export default function useEvolveUser(): EvolveUser | undefined {
         profileResource: profile,
         isProviderHasEverythingToBeEnrolled,
         hasRole,
-        hasNPI,
       };
     }
     return undefined;
-  }, [hasNPI, hasRole, isProviderHasEverythingToBeEnrolled, lastLogin, profile, user, userInitials, userName]);
+  }, [hasRole, isProviderHasEverythingToBeEnrolled, lastLogin, profile, user, userInitials, userName]);
 }
 
 // const MINUTE = 1000 * 60; // For Credentials Sync

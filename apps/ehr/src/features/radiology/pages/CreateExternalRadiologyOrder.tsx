@@ -18,7 +18,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { InputMask } from 'ui-components';
 import {
   DiagnosisDTO,
@@ -63,7 +62,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
-  const hasNPI = useEvolveUser()?.hasNPI ?? false;
   const isEditMode = !!initialOrder;
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -308,8 +306,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                   appointmentId={appointmentIdFromUrl || ''}
                   submitting={submitting}
                   submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
-                  disabled={!hasNPI}
-                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
+                  errors={error}
                   cancelUrl={
                     initialOrder
                       ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
