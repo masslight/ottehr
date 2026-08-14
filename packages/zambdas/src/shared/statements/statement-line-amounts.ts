@@ -9,11 +9,15 @@ export function shareByCharge(totalCents: number, chargeCents: number[]): number
 }
 
 export function applyPaymentToLines(paymentCents: number, owedCents: number[]): number[] {
-  let remaining = paymentCents;
+  if (owedCents.length === 0) return [];
 
-  return owedCents.map((owed) => {
-    const applied = Math.min(remaining, owed);
-    remaining -= applied;
-    return applied;
+  let remaining = paymentCents;
+  const applied = owedCents.map((owed) => {
+    const toApply = Math.min(remaining, owed);
+    remaining -= toApply;
+    return toApply;
   });
+  applied[applied.length - 1] += remaining;
+
+  return applied;
 }

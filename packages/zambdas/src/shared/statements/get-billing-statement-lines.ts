@@ -96,7 +96,7 @@ export function computeBillingStatementAmounts(params: {
     0
   );
   const chargedCents = insurancePaidCents + patientRespCents;
-  const patientPaidCents = Math.min(toCents(payments.patientPaid), patientRespCents);
+  const patientPaidCents = toCents(payments.patientPaid);
   const deductibleSumCents = latestRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0

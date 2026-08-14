@@ -42,20 +42,20 @@ describe('applyPaymentToLines', () => {
     expect(applyPaymentToLines(7000, [2000, 6800])).toEqual([2000, 5000]);
   });
 
-  it('stops at what the visit owes, leaving the excess as an account credit', () => {
+  it('carries what the lines cannot absorb onto the last line as the patient credit', () => {
     const applied = applyPaymentToLines(10_000, [2000, 6800]);
 
-    expect(applied).toEqual([2000, 6800]);
-    expect(sum(applied)).toBe(8800);
+    expect(applied).toEqual([2000, 8000]);
+    expect(sum(applied)).toBe(10_000);
+    expect(applyPaymentToLines(5000, [0, 0])).toEqual([0, 5000]);
   });
 
   it('skips a line that owes nothing rather than borrowing against it', () => {
     expect(applyPaymentToLines(3000, [0, 6800])).toEqual([0, 3000]);
   });
 
-  it('applies nothing when there is no payment, nothing owed, or no lines', () => {
+  it('applies nothing when there is no payment, and nothing at all when there are no lines', () => {
     expect(applyPaymentToLines(0, [2000, 6800])).toEqual([0, 0]);
-    expect(applyPaymentToLines(5000, [0, 0])).toEqual([0, 0]);
     expect(applyPaymentToLines(5000, [])).toEqual([]);
   });
 });

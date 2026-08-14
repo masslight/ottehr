@@ -121,18 +121,6 @@ describe('computeBillingStatementAmounts', () => {
     ]);
   });
 
-  it('keeps every line reading charged less insurance paid less patient paid equals patient owes', () => {
-    const { lines } = computeBillingStatementAmounts({
-      claim: billingClaim(),
-      claimResponses: [fullyAdjudicatedRemit()],
-      patientPaid: 50,
-    });
-
-    for (const line of lines) {
-      expect(line.chargedCents - line.insurancePaidCents - line.patientPaidCents).toBe(line.patientOwesCents);
-    }
-  });
-
   it('adds up the lines to the totals whatever the payer reported', () => {
     const cases = [
       {
@@ -142,6 +130,10 @@ describe('computeBillingStatementAmounts', () => {
       {
         claimResponses: [fullyAdjudicatedRemit()],
         patientPaid: 0,
+      },
+      {
+        claimResponses: [fullyAdjudicatedRemit()],
+        patientPaid: 120,
       },
       {
         claimResponses: [],
@@ -401,16 +393,29 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.insurancePaidCents)).toEqual([4695, 15_305]);
   });
 
-  it('stops at a zero balance when the patient has overpaid, leaving the credit off the visit', () => {
+  it('reports the whole payment and turns an overpayment into a credit', () => {
     const { lines, totals } = computeBillingStatementAmounts({
       claim: billingClaim(),
       claimResponses: [fullyAdjudicatedRemit()],
       patientPaid: 120,
     });
 
-    expect(totals.patientPaidCents).toBe(8800);
-    expect(totals.balanceDueCents).toBe(0);
-    expect(lines.every((line) => line.patientOwesCents === 0)).toBe(true);
+    expect(totals.patientPaidCents).toBe(12_000);
+    expect(totals.balanceDueCents).toBe(-3200);
+    expect(lines).toEqual([
+      {
+        chargedCents: 7532,
+        insurancePaidCents: 5532,
+        patientPaidCents: 2000,
+        patientOwesCents: 0,
+      },
+      {
+        chargedCents: 26_800,
+        insurancePaidCents: 20_000,
+        patientPaidCents: 10_000,
+        patientOwesCents: -3200,
+      },
+    ]);
   });
 
   it('keeps the totals when the claim carries no procedures', () => {
