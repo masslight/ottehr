@@ -186,8 +186,8 @@ describe('computeBillingStatementAmounts', () => {
     });
 
     expect(totals.balanceDueCents).toBe(9800);
-    // the extra 10 belongs to no procedure, so it lands on the last line
-    expect(lines.map((line) => line.patientOwesCents)).toEqual([2000, 7800]);
+    // the extra 10 belongs to no procedure, so both carry it in proportion to their charges
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([2234, 7566]);
   });
 
   it('sums insurance payments across remits but takes responsibility from the latest', () => {
@@ -213,6 +213,45 @@ describe('computeBillingStatementAmounts', () => {
     expect(totals.balanceDueCents).toBe(5300);
     expect(lines.map((line) => line.insurancePaidCents)).toEqual([5532, 21_500]);
     expect(lines.map((line) => line.patientOwesCents)).toEqual([0, 5300]);
+  });
+
+  it('keeps every amount at or above zero when a later remit reverses a payment it cannot trace', () => {
+    // the payer takes its payment back under a procedure code the claim never carried, so the
+    // reversal cannot be joined to a claim line and only counts toward the claim-level total
+    const takeBack = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99999',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, -255.32), casAdjustment('PR', 88, '2')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [fullyAdjudicatedRemit(), takeBack],
+      patientPaid: 0,
+    });
+
+    expect(totals.insurancePaidCents).toBe(0);
+    expect(totals.balanceDueCents).toBe(8800);
+    expect(lines).toEqual([
+      {
+        chargedCents: 2065,
+        insurancePaidCents: 0,
+        patientPaidCents: 0,
+        patientOwesCents: 2065,
+      },
+      {
+        chargedCents: 6735,
+        insurancePaidCents: 0,
+        patientPaidCents: 0,
+        patientOwesCents: 6735,
+      },
+    ]);
   });
 
   it('surfaces the deductible the payer applied', () => {

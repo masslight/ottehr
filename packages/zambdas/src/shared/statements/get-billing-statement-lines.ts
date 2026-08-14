@@ -67,12 +67,13 @@ function sumByClaimLine(
 }
 
 function fitToTotal(totalCents: number, attributed: number[], chargeCents: number[]): number[] {
-  const attributedTotal = attributed.reduce((total, cents) => total + cents, 0);
-  if (attributedTotal === 0) return shareByCharge(totalCents, chargeCents);
+  const perLine = attributed.map((cents) => Math.max(cents, 0));
+  const attributedTotal = perLine.reduce((total, cents) => total + cents, 0);
+  const unattributed = totalCents - attributedTotal;
+  if (attributedTotal === 0 || unattributed < 0) return shareByCharge(totalCents, chargeCents);
 
-  const fitted = [...attributed];
-  fitted[fitted.length - 1] += totalCents - attributedTotal;
-  return fitted;
+  const shares = shareByCharge(unattributed, chargeCents);
+  return perLine.map((cents, index) => cents + shares[index]);
 }
 
 export function computeBillingStatementAmounts(params: {
