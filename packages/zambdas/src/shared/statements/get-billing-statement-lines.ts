@@ -90,14 +90,18 @@ export function computeBillingStatementAmounts(params: {
 
   const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid);
 
-  const insurancePaidCents = toCents(payments.insurancePaid);
-  const patientRespCents = payments.adjudicated ? toCents(payments.patientResp) : toCents(claim.total?.value);
+  const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
+  const patientRespCents = Math.max(
+    payments.adjudicated ? toCents(payments.patientResp) : toCents(claim.total?.value),
+    0
+  );
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = Math.min(toCents(payments.patientPaid), patientRespCents);
-  const deductibleCents = Math.min(
-    latestRemitLines.reduce((total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible), 0),
-    patientRespCents
+  const deductibleSumCents = latestRemitLines.reduce(
+    (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
+    0
   );
+  const deductibleCents = Math.min(Math.max(deductibleSumCents, 0), patientRespCents);
 
   const totals = {
     chargedCents,

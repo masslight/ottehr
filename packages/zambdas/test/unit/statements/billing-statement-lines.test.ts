@@ -254,6 +254,53 @@ describe('computeBillingStatementAmounts', () => {
     ]);
   });
 
+  it('reads a fully reversed remit as nothing owed rather than as negative amounts', () => {
+    const reversal = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, -55.32), casAdjustment('PR', -20, '2')],
+        }),
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, -200), casAdjustment('PR', -68, '2')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [fullyAdjudicatedRemit(), reversal],
+      patientPaid: 0,
+    });
+
+    expect(totals).toEqual({
+      chargedCents: 0,
+      insurancePaidCents: 0,
+      patientPaidCents: 0,
+      balanceDueCents: 0,
+      deductibleCents: 0,
+    });
+    expect(lines).toEqual([
+      {
+        chargedCents: 0,
+        insurancePaidCents: 0,
+        patientPaidCents: 0,
+        patientOwesCents: 0,
+      },
+      {
+        chargedCents: 0,
+        insurancePaidCents: 0,
+        patientPaidCents: 0,
+        patientOwesCents: 0,
+      },
+    ]);
+  });
+
   it('surfaces the deductible the payer applied', () => {
     const remit = claimResponse({
       item: [
@@ -273,6 +320,38 @@ describe('computeBillingStatementAmounts', () => {
 
     expect(totals.deductibleCents).toBe(10_400);
     expect(totals.balanceDueCents).toBe(10_400);
+  });
+
+  it('drops the deductible back to zero when the payer reverses the one it applied', () => {
+    const applied = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('PR', 104, '1')],
+        }),
+      ],
+    });
+    const reversal = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('PR', -104, '1')],
+        }),
+      ],
+    });
+
+    const { totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [applied, reversal],
+      patientPaid: 0,
+    });
+
+    expect(totals.deductibleCents).toBe(0);
+    expect(totals.balanceDueCents).toBe(0);
   });
 
   it('bills the whole visit to the patient until insurance has adjudicated', () => {
