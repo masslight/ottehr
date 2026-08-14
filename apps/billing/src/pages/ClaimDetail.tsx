@@ -89,6 +89,7 @@ import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceL
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
+import { DateInput } from '../components/DateInput';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
@@ -345,13 +346,7 @@ export default function ClaimDetail(): ReactElement {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Date of Service
                   </Typography>
-                  <TextField
-                    type="date"
-                    size="small"
-                    value={serviceDate}
-                    onChange={(e) => setServiceDate(e.target.value)}
-                    sx={{ width: 165 }}
-                  />
+                  <DateInput size="small" value={serviceDate} onChange={(value) => setServiceDate(value)} />
                 </Box>
                 <Meta label="Claim ID" value={claim.id} />
                 <Box>
