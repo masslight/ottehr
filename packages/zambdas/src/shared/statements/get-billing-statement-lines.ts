@@ -169,7 +169,11 @@ export async function getBillingStatementLines(input: BillingStatementLinesInput
       const line = amounts.lines[index];
       return {
         cpt,
-        description: coding?.display ? `${cpt} - ${coding.display}` : await getProcedureCodeTitle(cpt, clinicalOystehr),
+        description: await getProcedureCodeTitle({
+          code: cpt,
+          display: coding?.display,
+          oystehr: clinicalOystehr,
+        }),
         charged: formatCurrencyFromCents(line.chargedCents),
         insurancePaid: formatCurrencyFromCents(line.insurancePaidCents),
         patientPaid: formatCurrencyFromCents(line.patientPaidCents),

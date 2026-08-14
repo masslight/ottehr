@@ -264,7 +264,10 @@ async function getCandidStatementLines(
 
       return {
         cpt: serviceLine.procedureCode,
-        description: await getProcedureCodeTitle(serviceLine.procedureCode, oystehr),
+        description: await getProcedureCodeTitle({
+          code: serviceLine.procedureCode,
+          oystehr,
+        }),
         charged: formatCurrencyFromCents(chargeAfterAdjustments),
         insurancePaid: formatCurrencyFromCents(insurancePaid),
         patientPaid: formatCurrencyFromCents(patientPaid),
