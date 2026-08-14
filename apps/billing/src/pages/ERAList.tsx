@@ -75,15 +75,8 @@ const columns: GridColDef[] = [
     ),
   },
   { field: 'claimCount', headerName: 'Claims', width: 80, align: 'right', headerAlign: 'right' },
-  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right', type: 'number' },
-  {
-    field: 'unmatchedCount',
-    headerName: 'Unmatched',
-    width: 100,
-    align: 'right',
-    headerAlign: 'right',
-    type: 'number',
-  },
+  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right' },
+  { field: 'unmatchedCount', headerName: 'Unmatched', width: 100, align: 'right', headerAlign: 'right' },
 ];
 
 export default function ERAList(): ReactElement {
@@ -94,7 +87,7 @@ export default function ERAList(): ReactElement {
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 5 });
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ERA-level filters
@@ -348,9 +341,6 @@ export default function ERAList(): ReactElement {
             }}
           >
             <MenuItem value="">All</MenuItem>
-            <MenuItem value="allMatched">All Matched</MenuItem>
-            <MenuItem value="allUnmatched">All Unmatched</MenuItem>
-            <MenuItem value="anyMatched">Any Matched</MenuItem>
             <MenuItem value="anyUnmatched">Any Unmatched</MenuItem>
           </Select>
         </FormControl>
@@ -469,7 +459,7 @@ export default function ERAList(): ReactElement {
         onRowClick={(params) => navigate(`/eras/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        pageSizeOptions={[5, 50, 100]}
+        pageSizeOptions={[25, 50, 100]}
         slots={dataGridSlots({ showCsvExport: true, csvFileName: 'eras' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
