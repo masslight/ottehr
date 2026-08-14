@@ -30,6 +30,8 @@ export const RULE_OPERATORS = [
   'notContains',
   'startsWith',
   'notStartsWith',
+  'matches',
+  'notMatches',
   'exists',
   'notExists',
 ] as const;
@@ -43,9 +45,13 @@ export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
 // requires a non-empty value for these — a partial NPI or ZIP is a legitimate fragment — whereas
 // exact-match operators validate the full value against the field's format/options.
 export const FRAGMENT_OPERATORS: readonly RuleOperator[] = ['contains', 'notContains', 'startsWith', 'notStartsWith'];
+// Operators whose value is a regular expression pattern, not a literal — validation checks that the
+// pattern compiles instead of checking it against the field's format/options.
+export const REGEX_OPERATORS: readonly RuleOperator[] = ['matches', 'notMatches'];
 export const operatorNeedsValue = (op: RuleOperator): boolean => !NO_VALUE_OPERATORS.includes(op);
 export const operatorIsMultiValue = (op: RuleOperator): boolean => MULTI_VALUE_OPERATORS.includes(op);
 export const operatorTakesFragment = (op: RuleOperator): boolean => FRAGMENT_OPERATORS.includes(op);
+export const operatorIsRegex = (op: RuleOperator): boolean => REGEX_OPERATORS.includes(op);
 
 // Operator semantics shared by the rule-builder UI (labels) and the generated documentation
 // (labels + descriptions). `dateLabel` overrides the label when the field being compared is a date.
@@ -94,6 +100,19 @@ export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> 
     description: 'A text property begins with the value (e.g. member ID starts with XKD).',
   },
   notStartsWith: { label: 'does not start with', description: 'The negation of "starts with".' },
+  matches: {
+    label: 'matches pattern',
+    description:
+      'A text property matches the regular expression; a list property matches when any entry does. Standard ' +
+      '(unanchored) semantics: the pattern can match anywhere in the value — anchor with ^ and $ to match the ' +
+      'whole value, e.g. ^9938[1-7]$ matches exactly CPT codes 99381 through 99387.',
+  },
+  notMatches: {
+    label: 'does not match pattern',
+    description:
+      'The negation of "matches pattern": a text property does not match the regular expression; a list property ' +
+      'matches when no entry does.',
+  },
   exists: { label: 'is present', description: 'The property has a (non-empty) value on the claim.' },
   notExists: { label: 'is empty', description: 'The property is missing or empty on the claim.' },
 };
