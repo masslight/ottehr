@@ -10,6 +10,7 @@ import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
   operatorIsMultiValue,
+  operatorIsRegex,
   operatorNeedsValue,
   operatorTakesFragment,
   RuleAction,
@@ -164,13 +165,18 @@ const SCALAR_OPS: RuleOperator[] = [
   'notContains',
   'startsWith',
   'notStartsWith',
+  'matches',
+  'notMatches',
   'exists',
   'notExists',
 ];
-const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
+const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'matches', 'notMatches', 'exists', 'notExists'];
+// Provider/facility reference values ("Practitioner/<id>") are opaque ids — pattern matching them
+// is meaningless, so ref-typed fields skip the regex operators.
+const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
-const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'exists', 'notExists'];
+const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatches', 'exists', 'notExists'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
@@ -335,7 +341,7 @@ const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: s
       label: 'Provider (from list)',
       group,
       valueType: 'provider',
-      operators: ENUM_OPS,
+      operators: REF_OPS,
       settable: true,
       description:
         `Which ${noun} the claim uses, as a reference resource from the ${
@@ -619,7 +625,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     label: 'Facility (from list)',
     group: 'serviceFacility',
     valueType: 'facility',
-    operators: ENUM_OPS,
+    operators: REF_OPS,
     settable: true,
     description:
       "Which service facility the claim uses, as a reference resource from the Service Facilities page. Conditions compare against the resource the claim's current facility was copied from; " +
@@ -928,6 +934,23 @@ const NUMBER_VALUE_PROBLEM = 'Must be a number';
 const VALUE_REQUIRED_PROBLEM = 'Value is required';
 const SINGLE_VALUE_PROBLEM = 'This operator compares a single value, not a list';
 
+// Regex-operator values are patterns, not literals: instead of the strict format/options checks they
+// must compile (and stay small — a hard length cap bounds pathological patterns). The evaluator
+// still compiles defensively at run time, but this is the gate that keeps bad patterns out.
+export const MAX_REGEX_PATTERN_LENGTH = 500;
+
+export function regexPatternProblem(pattern: string): string | undefined {
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+    return `Pattern must be at most ${MAX_REGEX_PATTERN_LENGTH} characters`;
+  }
+  try {
+    new RegExp(pattern);
+    return undefined;
+  } catch {
+    return 'Must be a valid regular expression';
+  }
+}
+
 // FHIR resource ids are 1-64 chars of letters, digits, '-' and '.'.
 const PROVIDER_REF_REGEX = /^(Practitioner|Organization)\/[A-Za-z0-9.-]{1,64}$/;
 const FACILITY_REF_REGEX = /^Location\/[A-Za-z0-9.-]{1,64}$/;
@@ -955,7 +978,8 @@ const strictValueProblem = (
 
 // One condition value's problem, or undefined. Operator-aware: exists/notExists take no value;
 // every other operator requires a non-empty value (in/notIn: a non-empty list of non-empty values);
-// fragment operators skip the strict checks; exact-match operators validate each value in full.
+// regex operators require a compilable pattern; fragment operators skip the strict checks;
+// exact-match operators validate each value in full.
 export function ruleConditionValueProblem(
   def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format'>,
   operator: RuleOperator,
@@ -967,6 +991,8 @@ export function ruleConditionValueProblem(
   if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  // Validate the raw (untrimmed) scalar: whitespace can be a meaningful part of a pattern.
+  if (operatorIsRegex(operator)) return regexPatternProblem(typeof value === 'string' ? value : '');
   if (operatorTakesFragment(operator)) return undefined;
   for (const v of values) {
     const problem = strictValueProblem(def, v);
@@ -996,6 +1022,7 @@ export function serviceLineMatchValueProblem(
   if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  if (operatorIsRegex(operator)) return regexPatternProblem(typeof value === 'string' ? value : '');
   if (operatorTakesFragment(operator)) return undefined;
   // List-valued line properties (modifiers) compare a single entry; no strict format applies.
   if (def.valueType === 'list') return undefined;

@@ -1,5 +1,6 @@
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
+import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
@@ -7,16 +8,15 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
+import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
-import PinDropOutlinedIcon from '@mui/icons-material/PinDropOutlined';
 import PinOutlinedIcon from '@mui/icons-material/PinOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
-import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
@@ -30,6 +30,7 @@ import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
 import { StethoscopeIcon } from 'src/features/admin/icons/StethoscopeIcon';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import LocationsListPage from 'src/features/locations/LocationsListPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
 import EmployersTab from 'src/features/visits/telemed/components/admin/employers/EmployersTab';
@@ -40,10 +41,10 @@ import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-s
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
 import QuickPicksAdminPage from 'src/features/visits/telemed/components/admin/QuickPicksAdminPage';
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
-import States from 'src/features/visits/telemed/components/admin/VirtualLocationsPage';
 import AdminCustomFoldersPage from 'src/pages/AdminCustomFoldersPage';
 import MedicationsConfigurationPage from 'src/pages/configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from 'src/pages/Employees';
+import ProviderGroupsPage from 'src/pages/ProviderGroupsPage';
 import InvoiceablePatients from 'src/pages/reports/InvoiceablePatients';
 import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
@@ -53,7 +54,6 @@ import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.
 import { RoleType } from 'utils/lib/types/api/user.types';
 import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
-import { PaymentLocationsList } from './BillingConfiguration';
 
 /** Context derived from the URL that the deeper-nested admin pages still rely on. */
 export interface AdminNavContext {
@@ -84,8 +84,14 @@ export interface AdminNavGroup {
 
 export const adminNavGroups: AdminNavGroup[] = [
   {
-    label: 'Services & Locations',
+    label: 'Practice',
     items: [
+      {
+        label: 'Locations',
+        path: '/admin/locations',
+        icon: <ApartmentOutlinedIcon />,
+        render: () => <LocationsListPage />,
+      },
       {
         label: 'Services',
         path: '/admin/services',
@@ -99,10 +105,10 @@ export const adminNavGroups: AdminNavGroup[] = [
         render: () => <SchedulesPage />,
       },
       {
-        label: 'Virtual Locations',
-        path: '/admin/virtual-locations',
-        icon: <PublicOutlinedIcon />,
-        render: () => <States />,
+        label: 'Provider groups',
+        path: '/admin/provider-groups',
+        icon: <Groups2OutlinedIcon />,
+        render: () => <ProviderGroupsPage />,
       },
     ],
   },
@@ -184,12 +190,6 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/billing/employers',
         icon: <BusinessCenterOutlinedIcon />,
         render: () => <EmployersTab />,
-      },
-      {
-        label: 'Payment Locations',
-        path: '/admin/billing/payment-locations',
-        icon: <PinDropOutlinedIcon />,
-        render: () => <PaymentLocationsList />,
       },
       {
         label: 'Invoicing',

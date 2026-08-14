@@ -5,6 +5,7 @@ package-lock.json merge=package-version
 
 # Keep current branch version of all config files during merges
 config/oystehr/*.json merge=ours
+config/runtime-seed/*.json merge=ours
 config/oystehr-core/apps.json merge=union
 config/oystehr-core/buckets.json merge=union
 config/oystehr-core/m2ms.json merge=union

@@ -55,6 +55,8 @@ export function ChargeItemDefinitionDetailSection({
   const [cidDefault, setCidDefault] = useState<CIDDefaultInputValue>(cid.default ?? '');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [procCodeSearch, setProcCodeSearch] = useState('');
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const filteredCodes = useMemo(
     () => cid.procedureCodes.filter((pc) => pc.code.includes(procCodeSearch)),
@@ -119,20 +121,25 @@ export function ChargeItemDefinitionDetailSection({
   );
 
   const removeProcedureCode = useCallback(
-    async (rowIdx: number) => {
-      if (!oystehrZambda) throw new Error('Client not ready');
+    async (code: BillingChargeItemDefinitionProcedureCode): Promise<void> => {
+      if (!oystehrZambda) return;
+      // the row comes from the filtered list, so match by identity rather than by rendered index
       const payload: z.input<typeof UpdateChargeItemDefinitionInputSchema> = {
         type: type,
         chargeItemDefinitionId: cid.id!,
-        procedureCodes: [...cid.procedureCodes.slice(0, rowIdx), ...cid.procedureCodes.slice(rowIdx + 1)],
+        procedureCodes: cid.procedureCodes.filter((pc) => pc !== code),
       };
 
+      setRemoving(true);
+      setRemoveError(null);
       try {
         await updateChargeItemDefinition(oystehrZambda, payload);
+        await onSaved();
       } catch (err) {
-        throw getApiError({ error: err, defaultError: 'Failed ot add procedure code' });
+        setRemoveError(getApiError({ error: err, defaultError: 'Failed to delete procedure code' }));
+      } finally {
+        setRemoving(false);
       }
-      await onSaved();
     },
     [cid.id, cid.procedureCodes, onSaved, oystehrZambda, type]
   );
@@ -201,6 +208,11 @@ export function ChargeItemDefinitionDetailSection({
           Manage the procedure codes (CPT/HCPCS) and their associated amounts for this{' '}
           {ChargeItemDefinitionLabels[type].singularText}.
         </Typography>
+        {removeError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {removeError}
+          </Alert>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <TextField
             size="small"
@@ -271,7 +283,12 @@ export function ChargeItemDefinitionDetailSection({
                     <Box sx={{ width: '20%', px: 2, fontSize: '0.875rem' }}>${row.amount.toFixed(2)}</Box>
                     <Box sx={{ width: '15%', px: 2, display: 'flex', gap: 0.5 }}>
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => removeProcedureCode(rowIdx)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={removing}
+                          onClick={() => void removeProcedureCode(row)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

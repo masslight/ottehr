@@ -1,6 +1,6 @@
 import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Location, Organization } from 'fhir/r4b';
+import { Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
@@ -11,7 +11,6 @@ import {
   adminUpdateInHouseLab,
   adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
-  adminUpdateLocationSupportPhones,
   adminUpdateSupportDialog,
   bulkUpdateInsuranceStatus,
   createEmCode,
@@ -33,7 +32,6 @@ import {
   updateRadiologyQuickPick,
 } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BulkUpdateInsuranceStatusInput } from 'utils/lib/types/api/bulk-update-insurance-status.types';
@@ -78,43 +76,8 @@ import {
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
 } from 'utils/lib/types/data/printing';
-import {
-  AdminUpdateLocationSupportPhonesInput,
-  AdminUpdateSupportDialogInput,
-  GetSupportDialogOutput,
-} from 'utils/lib/types/data/support-dialog';
+import { AdminUpdateSupportDialogInput, GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
 import { APIError, isApiError } from 'utils/lib/types/errors';
-
-export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> => {
-  const { oystehr } = useApiClients();
-
-  return useQuery({
-    queryKey: ['virtual-locations'],
-
-    queryFn: async () => {
-      const resources = await oystehr!.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [
-          {
-            name: 'address-state:missing',
-            value: 'false',
-          },
-        ],
-      });
-
-      return resources
-        .unbundle()
-        .filter(isLocationVirtual)
-        .sort((a, b) => {
-          const stateA = a.address?.state || '';
-          const stateB = b.address?.state || '';
-          return stateA.localeCompare(stateB);
-        });
-    },
-
-    enabled: !!oystehr,
-  });
-};
 
 export const useInsurancesQuery = (ids?: string[], enabled?: boolean): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();
@@ -693,33 +656,6 @@ export const useAdminUpdateSupportDialog = (): UseMutationResult<void, Error, Ad
     onError: (error: any) => {
       safelyCaptureException(error);
       let message = 'Failed to update support dialog.';
-      if (isApiError(error)) message = (error as APIError).message;
-      enqueueSnackbar(message, { variant: 'error' });
-    },
-  });
-};
-
-export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
-  void,
-  Error,
-  AdminUpdateLocationSupportPhonesInput
-> => {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ['admin-update-location-support-phones'],
-    mutationFn: async (input: AdminUpdateLocationSupportPhonesInput) => {
-      if (!oystehrZambda) throw new Error('oystehr client is undefined');
-      await adminUpdateLocationSupportPhones(oystehrZambda, input);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['schedule-list'] });
-      enqueueSnackbar('Support phone numbers updated', { variant: 'success' });
-    },
-    onError: (error: any) => {
-      safelyCaptureException(error);
-      let message = 'Failed to update support phone numbers.';
       if (isApiError(error)) message = (error as APIError).message;
       enqueueSnackbar(message, { variant: 'error' });
     },

@@ -215,18 +215,20 @@ describe('buildClaimCoverageCopies', () => {
 });
 
 describe('attachPrimaryCoverageToClaim', () => {
-  const makeClaim = (insurance: Claim['insurance']): Claim =>
-    ({
-      resourceType: 'Claim',
-      id: 'claim-1',
-      status: 'draft',
-      use: 'claim',
-      type: { coding: [] },
-      patient: { reference: 'Patient/claim-patient' },
-      provider: {},
-      priority: { coding: [] },
-      insurance,
-    }) as Claim;
+  // No `as Claim` assertion: annotating the return type checks the literal against Claim, so a
+  // missing required element (created, here) fails the build instead of being cast away.
+  const makeClaim = (insurance: Claim['insurance']): Claim => ({
+    resourceType: 'Claim',
+    id: 'claim-1',
+    status: 'draft',
+    use: 'claim',
+    type: { coding: [] },
+    patient: { reference: 'Patient/claim-patient' },
+    created: '2026-01-01',
+    provider: {},
+    priority: { coding: [] },
+    insurance,
+  });
 
   it('makes the coverage the focal entry, keeps the secondary, and re-points the insurer', () => {
     const claim = makeClaim([
