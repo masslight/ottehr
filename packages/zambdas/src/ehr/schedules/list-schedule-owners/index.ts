@@ -12,7 +12,6 @@ import {
   ScheduleListItem,
   ScheduleOwnerFhirResource,
 } from 'utils/lib/types/api/schedules';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { Closure, ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
@@ -59,6 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // 'Practitioner' — one row per provider, summarizing across all of their PRs.
     effectInput = await complexValidationForPractitioner(validatedParameters, oystehr);
   }
+
   const response = performEffect(effectInput);
 
   return {
@@ -93,13 +93,21 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
           supportPhoneNumber,
           active,
         },
-        schedules: schedules.map((schedule) => ({
-          resourceType: schedule.resourceType,
-          timezone: getTimezone(schedule) ?? TIMEZONES[0],
-          id: schedule.id!,
-          upcomingScheduleChanges: getItemOverrideInformation(schedule),
-          todayHoursISO: getHoursOfOperationForToday(schedule),
-        })),
+        schedules: schedules.map((entry) => {
+          const schedule = entry.schedule;
+          return {
+            resourceType: schedule.resourceType,
+            timezone: getTimezone(schedule) ?? TIMEZONES[0],
+            id: schedule.id!,
+            upcomingScheduleChanges: getItemOverrideInformation(schedule),
+            todayHoursISO: getHoursOfOperationForToday(schedule),
+            locationId: entry.locationId,
+            locationName: entry.locationName,
+            categoryLabels: entry.categoryLabels,
+            // A PR schedule is live only if both the Schedule and its role are active.
+            active: schedule.active !== false && entry.roleActive !== false,
+          };
+        }),
       };
     })
     .sort((a, b) => {
@@ -136,10 +144,25 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   };
 };
 
+/**
+ * A schedule plus the per-PR context the combined Schedules list needs to render
+ * a "Provider · Location" pair. location fields, categoryLabels, and roleActive
+ * are populated only for provider (PractitionerRole) schedules; Location/Group
+ * schedules carry just the schedule.
+ */
+interface ScheduleEntry {
+  schedule: Schedule;
+  locationId?: string;
+  locationName?: string;
+  categoryLabels?: string[];
+  /** Owning PractitionerRole.active — combined with Schedule.active for liveness. */
+  roleActive?: boolean;
+}
+
 interface EffectInput {
   list: {
     owner: ScheduleOwnerFhirResource;
-    schedules: Schedule[];
+    schedules: ScheduleEntry[];
     /** Override for getNameForOwner — for Practitioner rows, getFullName(). */
     displayName?: string;
     /** Override for the address column. */
@@ -156,41 +179,34 @@ interface EffectInput {
 const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   input: BasicInput,
   oystehr: Oystehr
-): Promise<{ list: { owner: T; schedules: Schedule[] }[] }> => {
+): Promise<{ list: { owner: T; schedules: ScheduleEntry[] }[] }> => {
   const { ownerType } = input;
-  // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
-  // schedule resources.
-  // Paginated: >1000 schedules would otherwise silently drop owners whose schedule lands on a later page.
-  // Location owners are returned regardless of status: the admin Schedules
-  // list shows inactive Locations too (with an "Active" Yes/No column), so a
-  // Location deactivated from the General tab stays visible and can be
-  // reactivated. The owner DTO carries `active` so the table can render it.
-  const ownerParams: { name: string; value: string }[] = [];
-  const [schedules, owners] = await Promise.all([
-    getAllFhirSearchPages<Schedule>(
-      {
-        resourceType: 'Schedule',
-        params: [
-          {
-            name: 'actor:missing',
-            value: 'false',
-          },
-          {
-            name: 'active',
-            value: 'true',
-          },
-        ],
-      },
-      oystehr
-    ),
-    getAllFhirSearchPages<T>(
+  // One owner-side search with a scoped _revinclude. Returns every owner —
+  // Locations and Groups appear even when they own no schedule, because the
+  // create-schedule / create-group flows reuse this endpoint as an owner
+  // picker — plus ONLY the Schedules actored by this owner type. Owners are
+  // returned regardless of status (an inactive Location stays visible with an
+  // "Active" column and can be reactivated); the owner DTO carries `active`.
+  //
+  // This previously fetched from the Schedule side — every active schedule with
+  // any actor — and discarded the non-matching ones. That pulled every
+  // PractitionerRole- and Group-actored schedule too (the bulk of the project's
+  // schedules, each carrying a large JSON hours/overrides extension), which
+  // dominated the endpoint's latency. Scoping to `Schedule:actor:<ownerType>`
+  // fetches a strict subset. Paginated so an owner whose schedule lands on a
+  // later page isn't dropped.
+  const resources = await timed(`[${ownerType}] owner search (+ scoped schedules)`, () =>
+    getAllFhirSearchPages<ScheduleOwnerFhirResource | Schedule>(
       {
         resourceType: ownerType,
-        params: ownerParams,
+        params: [{ name: '_revinclude', value: `Schedule:actor:${ownerType}` }],
       },
       oystehr
-    ),
-  ]);
+    )
+  );
+  const owners = resources.filter((r) => r.resourceType === ownerType) as T[];
+  const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule');
+  console.log(`[list-schedule-owners][${ownerType}] fetched ${schedules.length} schedules, ${owners.length} owners`);
 
   const scheduleOwnerMap = schedules.reduce((acc, schedule) => {
     const ownerRef = schedule.actor?.find((actor) => actor.reference)?.reference;
@@ -213,7 +229,7 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     (o) => o.resourceType !== 'HealthcareService' || !isServiceCategoryHealthcareService(o as HealthcareService)
   );
   const list = filteredOwners.map((owner) => {
-    const schedules = scheduleOwnerMap.get(owner.id!) ?? [];
+    const schedules = (scheduleOwnerMap.get(owner.id!) ?? []).map((schedule) => ({ schedule }));
     return {
       owner,
       schedules,
@@ -222,86 +238,42 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   return { list };
 };
 
-// One row per active provider. Shows everyone, including providers who have
-// not yet had any schedule configured — their row reads as 0 schedules /
-// empty locations / empty categories, and the link still routes to the
-// employee detail page where setup happens.
+// One entry per provider that owns at least one schedule; the combined Schedules
+// list expands each into per-PractitionerRole "Provider · Location" child rows.
+// Providers with no schedule are omitted here — the list is per-schedule, and
+// un-scheduled providers are set up from the Employees page
+// (PractitionerRoleList → "Set up scheduling").
 //
 // Row id is the Oystehr User.id (not Practitioner.id) so /admin/employee/:id
 // and getUserDetails resolve correctly.
 const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  // PR-side bundle gives us PRs + their Practitioners + Locations + categories
-  // + Schedules. We then union these Practitioners with the full active
-  // Practitioner set so unconfigured providers also surface.
+  // The combined Schedules list only shows providers that own at least one
+  // schedule, and every such provider is reachable through a PractitionerRole.
+  // So a single PR-side bundle — PRs + their Practitioners + Locations +
+  // categories + Schedules — is all we need. We deliberately do NOT fetch the
+  // full Practitioner set or the project's Users here:
+  //   - The old "union with all active Practitioners" existed to surface
+  //     un-scheduled providers, which this list no longer shows.
+  //   - Resolving each Practitioner to its Oystehr User (to key rows by User
+  //     id) meant paging the Provider-role users — the single slowest call in
+  //     the endpoint. Rows are keyed by Practitioner id instead; the frontend
+  //     resolves the User id lazily, only for the "Manage provider" link.
   // Paginated: bigger orgs (many Locations × many Practitioners × multiple
-  // PRs each) can blow past a single-page _count cap, silently dropping rows
-  // from the admin list. Matches the pagination pattern used in the other
-  // function in this file. user.list() is deprecated by the SDK; listV2
-  // with cursor pagination is the supported path.
-  //
-  // Scope the user fetch to the Provider role rather than every User in the
-  // project. Users include patients (tens of thousands in production), and
-  // paging through all of them — at limit 100 per sequential round trip —
-  // is what timed this endpoint out. We only ever keep Practitioners that
-  // map to a User here, and only providers get a Practitioner profile + the
-  // Provider role, so role-scoping returns exactly the candidate set (a few
-  // hundred) without changing the output.
-  const fetchProviderUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
-    const roles = await oystehr.role.list();
-    const providerRole = roles.find((r) => r.name === RoleType.Provider);
-    if (!providerRole) {
-      console.error(`No "${RoleType.Provider}" role found; no provider rows can be resolved.`);
-      return [];
-    }
-    const collected: Awaited<ReturnType<typeof oystehr.user.listV2>>['data'] = [];
-    // The SDK types nextCursor as `string | null`. Treat any non-string-non-empty
-    // value as "no more pages" so a stray `''` from the server can't trigger
-    // an infinite loop (`'' !== null` would otherwise re-enter the do/while
-    // with a falsy cursor and re-fetch page 1 forever).
-    let cursor: string | null = null;
-    do {
-      const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2({
-        ...(cursor ? { cursor } : {}),
-        limit: 1000,
-        roleId: providerRole.id,
-        sort: 'name',
-      });
-      collected.push(...response.data);
-      cursor = response.metadata.nextCursor;
-    } while (cursor);
-    return collected;
-  };
-  const overallStart = Date.now();
-  const [prResources, allPractitioners, allUsers] = await Promise.all([
-    timed('PractitionerRole search (with _include/_revinclude)', () =>
-      getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>(
-        {
-          resourceType: 'PractitionerRole',
-          params: [
-            { name: 'active', value: 'true' },
-            { name: '_include', value: 'PractitionerRole:practitioner' },
-            { name: '_include', value: 'PractitionerRole:location' },
-            { name: '_include', value: 'PractitionerRole:service' },
-            { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-          ],
-        },
-        oystehr
-      )
-    ),
-    timed('Practitioner search (active=true)', () =>
-      getAllFhirSearchPages<Practitioner>(
-        {
-          resourceType: 'Practitioner',
-          params: [{ name: 'active', value: 'true' }],
-        },
-        oystehr
-      )
-    ),
-    timed('fetchProviderUsers (Provider-role users)', () => fetchProviderUsers()),
-  ]);
-  console.log(
-    `[list-schedule-owners] all parallel fetches done in ${Date.now() - overallStart}ms ` +
-      `(prResources=${prResources.length}, activePractitioners=${allPractitioners.length}, providerUsers=${allUsers.length})`
+  // PRs each) can blow past a single-page _count cap, silently dropping rows.
+  const prResources = await getAllFhirSearchPages<
+    PractitionerRole | Practitioner | Location | Schedule | HealthcareService
+  >(
+    {
+      resourceType: 'PractitionerRole',
+      params: [
+        { name: 'active', value: 'true' },
+        { name: '_include', value: 'PractitionerRole:practitioner' },
+        { name: '_include', value: 'PractitionerRole:location' },
+        { name: '_include', value: 'PractitionerRole:service' },
+        { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+      ],
+    },
+    oystehr
   );
 
   const roles = prResources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
@@ -310,19 +282,8 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
   const schedules = prResources.filter((r): r is Schedule => r.resourceType === 'Schedule');
   const healthcareServices = prResources.filter((r): r is HealthcareService => r.resourceType === 'HealthcareService');
 
-  // Union of active practitioners (preserves identity by id).
-  const allPractitionersById = new Map<string, Practitioner>();
-  for (const p of allPractitioners) if (p.id) allPractitionersById.set(p.id, p);
-  for (const p of includedPractitioners) if (p.id) allPractitionersById.set(p.id, p);
-
-  // Map each Practitioner to its corresponding Oystehr User. Only providers
-  // with a User account (i.e., login-able) appear — otherwise editing them
-  // through /admin/employee/:id wouldn't work anyway.
-  const userIdByPractitionerId = new Map<string, string>();
-  for (const u of allUsers) {
-    const profileId = u.profile?.split('/')[1];
-    if (profileId) userIdByPractitionerId.set(profileId, u.id);
-  }
+  const practitionersById = new Map<string, Practitioner>();
+  for (const p of includedPractitioners) if (p.id) practitionersById.set(p.id, p);
 
   // Aggregate PRs per Practitioner so we can summarize across roles. Skip
   // group-membership PRs (no Location) — they aren't schedules.
@@ -344,60 +305,66 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
     rolesByPractitionerId.set(practitionerId, arr);
   }
 
-  const list = [...allPractitionersById.values()]
-    .filter((p) => p.id && userIdByPractitionerId.has(p.id))
+  const list = [...practitionersById.values()]
     .map((practitioner) => {
       const practitionerRoles = rolesByPractitionerId.get(practitioner.id!) ?? [];
       const locationNames = new Set<string>();
-      const categoryLabels = new Set<string>();
-      const ownedSchedules: Schedule[] = [];
+      const categoryLabelsAgg = new Set<string>();
+      // One entry per (role → schedule) so the list can render a per-location
+      // child row for each of the provider's schedules.
+      const scheduleEntries: ScheduleEntry[] = [];
       for (const role of practitionerRoles) {
         const locationRef = role.location?.[0]?.reference;
         const location = locations.find((l) => `Location/${l.id}` === locationRef);
-        if (location?.name) locationNames.add(location.name);
+        const locationId = location?.id ?? locationRef?.split('/')[1];
+        const locationName = location?.name;
+        if (locationName) locationNames.add(locationName);
         // A PR with the all-categories toggle on offers every service in the
         // catalog; show that as a single "All services" badge rather than
         // expanding the full list (which could be long and changes any time
-        // a category is added).
+        // a category is added). `healthcareService[]` carries both category
+        // refs AND group-membership refs, so the category-tag filter keeps a
+        // group's name from surfacing as a phantom service.
+        let categoryLabels: string[];
         if (getPractitionerRoleAllCategories(role)) {
-          categoryLabels.add('All services');
+          categoryLabels = ['All services'];
         } else {
-          // `healthcareService[]` carries both service-category refs AND
-          // group-membership refs. Without the category-tag filter, a PR that
-          // belongs to a group would have the group's name surface as a
-          // phantom service in the admin rollup.
+          const labels = new Set<string>();
           for (const ref of role.healthcareService ?? []) {
             const hsId = ref.reference?.split('/')[1];
             const hs = healthcareServices.find((h) => h.id === hsId);
-            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) categoryLabels.add(hs.name);
+            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) labels.add(hs.name);
           }
+          // Emit at least one label so consumers can `.join()` unconditionally
+          // (empty + toggle off = offers nothing, not "all services").
+          categoryLabels = labels.size > 0 ? [...labels] : ['No services'];
         }
+        categoryLabels.forEach((c) => categoryLabelsAgg.add(c));
+        const roleActive = role.active !== false;
         for (const s of schedules) {
           if (s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`)) {
-            ownedSchedules.push(s);
+            scheduleEntries.push({ schedule: s, locationId, locationName, categoryLabels, roleActive });
           }
         }
       }
-      // Emit at least one label so consumers can `.join()` unconditionally.
-      // Pre-toggle, callers fell back to "All services" on empty, which is now
-      // wrong (empty + toggle off = offers nothing — see PR-level
-      // all-categories work).
-      const categoryLabelsArray = categoryLabels.size > 0 ? [...categoryLabels] : ['No services'];
+      const categoryLabelsArray = categoryLabelsAgg.size > 0 ? [...categoryLabelsAgg] : ['No services'];
       return {
-        owner: { ...practitioner, id: userIdByPractitionerId.get(practitioner.id!)! },
-        schedules: ownedSchedules,
+        // Rows are keyed by Practitioner id. The frontend resolves the owning
+        // User id lazily (only the "Manage provider" link needs it), which
+        // keeps the project-wide user scan off this list's critical path.
+        owner: practitioner,
+        schedules: scheduleEntries,
         displayName: getFullName(practitioner),
         providerSchedulesSummary: {
           locationNames: [...locationNames],
           categoryLabels: categoryLabelsArray,
-          // Count owned Schedule resources, not PractitionerRoles. A PR may
-          // be missing its Schedule (in-flight setup, soft-deleted Schedule)
-          // or — less commonly — have more than one. The UI column labeled
-          // "Schedules" should reflect what was actually found.
-          scheduleCount: ownedSchedules.length,
+          scheduleCount: scheduleEntries.length,
         },
       };
-    });
+    })
+    // Providers with no schedule at all are omitted — the combined list is
+    // per-schedule; un-scheduled providers are set up from the Employees page.
+    .filter((item) => item.schedules.length > 0);
   return { list };
 };
 
