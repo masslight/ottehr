@@ -518,7 +518,12 @@ export class ResourceHandler {
     throw new Error(
       `Patient ${patientId} only had ${count}/${expectedCount} active coverages after ${
         (maxAttempts * delayMs) / 1000
-      }s — harvest did not create the expected Coverage resources`
+      }s — harvest did not create the expected Coverage resources. Before suspecting the harvest ` +
+        `subscriptions: check the log above for "Error processing paperwork" (paperwork patch/submit ` +
+        `failures are logged but swallowed, and an unsubmitted QuestionnaireResponse never triggers ` +
+        `harvest), and verify the env has payer Organizations ` +
+        `(Organization?active=true&type=...|pay) — an empty payer list invalidates the ` +
+        `payment-option-page patch.`
     );
   }
 

@@ -737,6 +737,18 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
       ],
     })
   ).unbundle();
+  // Fail fast with the real cause: on an env with no payer Organizations the carriers below become
+  // undefined, patch-paperwork rejects the payment-option-page answers, the QR never completes, and
+  // every test in this file dies 60s later behind a misleading "harvest did not create Coverages"
+  // timeout instead of this message.
+  if (insuranceCarriersOptions.length < 2) {
+    throw new Error(
+      `Expected at least 2 active payer Organizations on this environment ` +
+        `(Organization?active=true&type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}) but found ` +
+        `${insuranceCarriersOptions.length}. The env is missing insurance-payer seed data — run ` +
+        `\`npm run update-insurances-and-payer-orgs <env>\` in packages/zambdas to seed it.`
+    );
+  }
   const ic1 = insuranceCarriersOptions.at(0);
   const ic2 = insuranceCarriersOptions.at(1);
   insuranceCarrier1 = {
