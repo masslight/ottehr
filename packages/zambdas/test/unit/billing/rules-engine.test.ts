@@ -34,7 +34,13 @@ import {
   evaluateOperator,
   executeRule,
 } from '../../../src/billing/rules-engine/evaluator';
-import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
+import {
+  buildRulesEngineKickoffTask,
+  listToRules,
+  RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SYSTEM,
+  rulesToList,
+} from '../../../src/billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
@@ -1293,12 +1299,30 @@ describe('rules-engine serialization', () => {
 describe('rules-engine kickoff task', () => {
   it("builds a requested Task focused on the claim, carrying the engine's own code", () => {
     for (const engine of RULES_ENGINE_TYPES) {
-      const task = buildRulesEngineKickoffTask(engine, 'claim-123');
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', false);
       expect(task.status).toBe('requested');
       expect(task.focus?.reference).toBe('Claim/claim-123');
       expect(task.code?.coding?.[0]).toEqual({
         system: RULES_ENGINE_TASK_SYSTEM,
         code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it("builds a requested Task focused on the claim, carrying the engine's own code, skipping rules", () => {
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true);
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.[0].type.coding?.[0]).toEqual({
+        system: RULES_ENGINE_INPUT_SYSTEM,
+        code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
       });
     }
     const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);

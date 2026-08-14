@@ -351,6 +351,7 @@ export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
 // asynchronously.
 export const RunBillingRulesEngineInputSchema = z.object({
   claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+  skipRules: z.boolean().default(false),
 });
 export type RunBillingRulesEngineInput = z.output<typeof RunBillingRulesEngineInputSchema>;
 
