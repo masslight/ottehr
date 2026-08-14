@@ -106,7 +106,7 @@ export const DateRangeInput = ({ label, valueFrom, valueTo, onChange, size, data
         value={displayValue}
         onClick={openPicker}
         size={size ?? 'small'}
-        InputLabelProps={{ shrink: true }}
+        InputLabelProps={{ shrink: !!displayValue || anchorEl != null }}
         inputProps={{
           readOnly: true,
           'data-testid': dataTestId,
