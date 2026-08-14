@@ -23,14 +23,19 @@ import {
   DocumentTableActions,
   PatientDocumentsExplorerTable,
 } from '../../src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
-import { PatientDocumentInfo } from '../../src/hooks/useGetPatientDocs';
+import { PatientDocumentAttachment, PatientDocumentInfo } from '../../src/hooks/useGetPatientDocs';
 
-const makeDocument = (id: string, fileName: string, typeCodes?: string[]): PatientDocumentInfo => ({
+const makeDocument = (
+  id: string,
+  fileName: string,
+  typeCodes?: string[],
+  attachment: Partial<PatientDocumentAttachment> = {}
+): PatientDocumentInfo => ({
   id,
   typeCodes,
   docName: fileName,
   whenAddedDate: '2026-05-05T00:00:00.000Z',
-  attachments: [{ title: fileName, z3Url: `https://z3.example/${fileName}` }],
+  attachments: [{ title: fileName, z3Url: `https://z3.example/${fileName}`, ...attachment }],
 });
 
 const makeActions = (overrides: Partial<DocumentTableActions> = {}): DocumentTableActions => ({
@@ -70,6 +75,26 @@ describe('PatientDocumentsExplorerTable', () => {
     // Generated archives and prior fax packets are audit/export artifacts, not new source documents.
     expect(screen.getAllByRole('button', { name: 'Send Fax' })).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(3);
+  });
+
+  it('offers the fax action on the stored content type when the URL has no extension', () => {
+    renderTable(
+      [makeDocument('doc-1', 'scan', undefined, { z3Url: 'https://z3.example/scan', contentType: 'image/png' })],
+      makeActions()
+    );
+
+    expect(screen.getByRole('button', { name: 'Send Fax' })).toBeInTheDocument();
+  });
+
+  it('withholds the fax action when only the display title looks faxable', () => {
+    // The server decides on the stored attachment, so a title that merely ends in .pdf must not
+    // offer an action the send would then drop.
+    renderTable(
+      [makeDocument('doc-1', 'record.pdf', undefined, { z3Url: 'https://z3.example/record', contentType: undefined })],
+      makeActions()
+    );
+
+    expect(screen.queryByRole('button', { name: 'Send Fax' })).not.toBeInTheDocument();
   });
 
   it('hides the fax action when the caller disallows it', () => {

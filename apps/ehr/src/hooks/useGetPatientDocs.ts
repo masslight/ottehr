@@ -51,6 +51,8 @@ export type PatientDocumentAttachment = {
   fileNameFromUrl?: string;
   z3Url?: string;
   presignedUrl?: string;
+  /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
+  contentType?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
@@ -592,6 +594,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         title,
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
+        contentType: docRefAttachment.contentType,
       } as PatientDocumentAttachment;
     });
 };

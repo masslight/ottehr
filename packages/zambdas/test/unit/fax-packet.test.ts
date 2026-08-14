@@ -40,6 +40,7 @@ import {
   buildAndUploadPacketForRecipient,
   buildFaxPacketBody,
   buildFaxPacketSection,
+  createFaxPacketByteBudget,
   faxPacketLimitGuidance,
   interleaveFaxPacketSections,
 } from '../../src/shared/fax/build-fax-packet';
@@ -371,6 +372,90 @@ describe('buildFaxPacketSection', () => {
     ).rejects.toThrow(
       'Fax packet part "Visit/Progress Note" Unsupported fax attachment type: application/pdf. The entire fax was not sent.'
     );
+  });
+
+  it('downloads a section with bounded concurrency instead of all at once', async () => {
+    const pdf = await makePdfBytes(1);
+    let inFlight = 0;
+    let peakInFlight = 0;
+    mockCreatePresignedUrl.mockImplementation(async (_token: string, url: string) => {
+      inFlight++;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return url;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(pdf.buffer) })
+    );
+
+    await buildFaxPacketSection({
+      token: 'token',
+      subject,
+      parts: Array.from({ length: 25 }, (_unused, index) => ({
+        title: `Document ${index}`,
+        z3Url: `https://z3.example/doc-${index}.pdf`,
+      })),
+    });
+
+    // A record with hundreds of documents must not open one request per document at once.
+    expect(peakInFlight).toBeGreaterThan(1);
+    expect(peakInFlight).toBeLessThanOrEqual(5);
+  });
+
+  it('stops downloading once the source documents exceed the size limit', async () => {
+    // Each part is a quarter of the budget, so the fifth one crosses it and the rest are never fetched.
+    const chunk = new Uint8Array(FAX_PACKET_MAX_BYTES / 4);
+    let downloads = 0;
+    mockCreatePresignedUrl.mockImplementation(async (_token: string, url: string) => {
+      downloads++;
+      return url;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(chunk.buffer) })
+    );
+
+    await expect(
+      buildFaxPacketSection({
+        token: 'token',
+        subject,
+        budget: createFaxPacketByteBudget('medical-record'),
+        parts: Array.from({ length: 40 }, (_unused, index) => ({
+          title: `Document ${index}`,
+          z3Url: `https://z3.example/doc-${index}.pdf`,
+        })),
+      })
+    ).rejects.toThrow(/exceeds the 20 MB limit\. Fax the needed documents individually instead\./);
+
+    expect(downloads).toBeLessThan(40);
+  });
+
+  it('spends one budget across every section of a multi-visit packet', async () => {
+    const pdf = await makePdfBytes(1);
+    const budget = createFaxPacketByteBudget('visits');
+    mockCreatePresignedUrl.mockImplementation(async (_token: string, url: string) => url);
+    const oversized = new Uint8Array(FAX_PACKET_MAX_BYTES);
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => {
+        const bytes = call++ === 0 ? pdf : oversized;
+        return Promise.resolve({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(bytes.buffer) });
+      })
+    );
+
+    const section = (title: string): Parameters<typeof buildFaxPacketSection>[0] => ({
+      token: 'token',
+      subject,
+      budget,
+      parts: [{ title, z3Url: `https://z3.example/${title}.pdf` }],
+    });
+
+    await expect(buildFaxPacketSection(section('first'))).resolves.toBeDefined();
+    // The second visit draws down the same budget, so it is the one that reports the limit.
+    await expect(buildFaxPacketSection(section('second'))).rejects.toThrow(/exceeds the 20 MB limit/);
   });
 });
 

@@ -6,12 +6,19 @@ import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { Secrets } from 'utils/lib/secrets';
 import { FAX_DOCUMENT_ORDER, FaxPacketSource } from 'utils/lib/types/api/fax.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { mapWithConcurrency } from '../concurrency';
 import { FaxCoverSheetSubject } from '../pdf/types';
 import { getAppointmentAndRelatedResources } from '../pdf/visit-details-pdf/get-video-resources';
-import { buildFaxPacketSection, FaxPacketSection } from './build-fax-packet';
+import { buildFaxPacketSection, createFaxPacketByteBudget, FaxPacketSection } from './build-fax-packet';
 import { collectDocumentParts, collectMedicalRecordParts } from './collect-patient-documents';
 import { collectFaxParts } from './collect-visit-documents';
 import { resolvePatientDisplayId, resolveVisitTypeLabel } from './run-fax-packet';
+
+/**
+ * How many visits are looked up at once. Each lookup is a wide `_include` search, so the fan-out is
+ * kept well below the ten visits a packet may carry.
+ */
+const VISIT_LOOKUP_CONCURRENCY = 3;
 
 /** Everything a packet needs that depends on what is being faxed rather than on who receives it. */
 export interface FaxPacketPlan {
@@ -88,31 +95,30 @@ const resolveVisits = async (args: {
 }): Promise<FaxPacketPlan> => {
   const { oystehr, token, secrets, sourceType, appointmentIds, expectedPatientId } = args;
 
-  const visits = await Promise.all(
-    appointmentIds.map(async (appointmentId) => {
-      const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
-      if (!visitResources?.appointment?.id || !visitResources.patient?.id) {
-        throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Visit resources could not be resolved for appointment ${appointmentId}`);
-      }
-      // The caller names the patient whose record is being faxed; a visit belonging to anyone else
-      // is not theirs to send.
-      if (expectedPatientId && visitResources.patient.id !== expectedPatientId) {
-        throw INVALID_INPUT_ERROR(`Visit ${appointmentId} does not belong to this patient`);
-      }
-      return visitResources;
-    })
-  );
+  const visits = await mapWithConcurrency(appointmentIds, VISIT_LOOKUP_CONCURRENCY, async (appointmentId) => {
+    const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+    if (!visitResources?.appointment?.id || !visitResources.patient?.id) {
+      throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Visit resources could not be resolved for appointment ${appointmentId}`);
+    }
+    // The caller names the patient whose record is being faxed; a visit belonging to anyone else
+    // is not theirs to send.
+    if (expectedPatientId && visitResources.patient.id !== expectedPatientId) {
+      throw INVALID_INPUT_ERROR(`Visit ${appointmentId} does not belong to this patient`);
+    }
+    return visitResources;
+  });
 
-  const sections = (
-    await Promise.all(
-      visits.map(async (visitResources) => {
-        const parts = await collectFaxParts({ oystehr, token, secrets, kinds: FAX_DOCUMENT_ORDER, visitResources });
-        // A visit with nothing to send is skipped rather than introduced by an empty cover sheet.
-        if (parts.length === 0) return undefined;
-        return buildFaxPacketSection({ token, subject: buildVisitSubject(visitResources), parts });
-      })
-    )
-  ).filter((section): section is FaxPacketSection => section !== undefined);
+  // Sections are built one at a time, and each one downloads its documents with its own bounded pool.
+  // The size limit belongs to the packet, so every section draws down the same budget and an
+  // oversized selection stops at the visit that crosses it.
+  const budget = createFaxPacketByteBudget(sourceType);
+  const sections: FaxPacketSection[] = [];
+  for (const visitResources of visits) {
+    const parts = await collectFaxParts({ oystehr, token, secrets, kinds: FAX_DOCUMENT_ORDER, visitResources });
+    // A visit with nothing to send is skipped rather than introduced by an empty cover sheet.
+    if (parts.length === 0) continue;
+    sections.push(await buildFaxPacketSection({ token, subject: buildVisitSubject(visitResources), parts, budget }));
+  }
 
   const first = visits[0];
   const singleVisit = visits.length === 1 ? first : undefined;
@@ -153,7 +159,9 @@ const resolvePatientDocuments = async (args: {
   return {
     sourceType,
     patient,
-    sections: parts.length ? [await buildFaxPacketSection({ token, subject, parts })] : [],
+    sections: parts.length
+      ? [await buildFaxPacketSection({ token, subject, parts, budget: createFaxPacketByteBudget(sourceType) })]
+      : [],
     listResources,
   };
 };

@@ -249,9 +249,11 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
  */
 const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean => {
   if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
-  // The stored file name and the display title can each be the one carrying the extension.
-  return (docInfo.attachments ?? []).some(
-    (attachment) => isFaxableAttachment({ url: attachment.z3Url }) || isFaxableAttachment({ url: attachment.title })
+  // Judged on the stored attachment, exactly as the server judges it when the fax is built — a
+  // display title is not a MIME type, and offering an action the server will drop is worse than
+  // hiding one it would have accepted.
+  return (docInfo.attachments ?? []).some((attachment) =>
+    isFaxableAttachment({ url: attachment.z3Url, contentType: attachment.contentType })
   );
 };
 

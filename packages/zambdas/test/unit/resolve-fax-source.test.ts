@@ -14,7 +14,8 @@ vi.mock('../../src/shared/fax/collect-visit-documents', () => ({
 }));
 
 const mockBuildFaxPacketSection = vi.fn();
-vi.mock('../../src/shared/fax/build-fax-packet', () => ({
+vi.mock('../../src/shared/fax/build-fax-packet', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
   buildFaxPacketSection: (...args: unknown[]) => mockBuildFaxPacketSection(...args),
 }));
 
@@ -124,6 +125,50 @@ describe('resolveFaxPacketPlan', () => {
     });
 
     expect(plan.sections.map((section) => section.subject.visitId)).toEqual(['appointment-1']);
+  });
+
+  it('looks visits up with bounded concurrency and builds their sections one at a time', async () => {
+    let visitLookupsInFlight = 0;
+    let peakVisitLookups = 0;
+    mockGetAppointmentAndRelatedResources.mockImplementation(async (_oystehr: unknown, appointmentId: string) => {
+      visitLookupsInFlight++;
+      peakVisitLookups = Math.max(peakVisitLookups, visitLookupsInFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      visitLookupsInFlight--;
+      return visitResources(appointmentId);
+    });
+
+    let sectionBuildsInFlight = 0;
+    let peakSectionBuilds = 0;
+    mockBuildFaxPacketSection.mockImplementation(async ({ subject, parts }: any) => {
+      sectionBuildsInFlight++;
+      peakSectionBuilds = Math.max(peakSectionBuilds, sectionBuildsInFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      sectionBuildsInFlight--;
+      return { subject, parts, bytes: new Uint8Array([1]), pageCount: 2 };
+    });
+
+    await resolve({
+      type: 'visits',
+      patientId: PATIENT_ID,
+      appointmentIds: Array.from({ length: 10 }, (_unused, index) => `appointment-${index}`),
+    });
+
+    expect(peakVisitLookups).toBeLessThanOrEqual(3);
+    // Sections download their own documents in parallel, so they are assembled one visit at a time.
+    expect(peakSectionBuilds).toBe(1);
+  });
+
+  it('spends one size budget across every visit of a packet', async () => {
+    await resolve({
+      type: 'visits',
+      patientId: PATIENT_ID,
+      appointmentIds: ['appointment-1', 'appointment-2'],
+    });
+
+    const budgets = mockBuildFaxPacketSection.mock.calls.map((call) => call[0].budget);
+    expect(budgets).toHaveLength(2);
+    expect(budgets[0]).toBe(budgets[1]);
   });
 
   it('refuses a visit that belongs to another patient', async () => {
