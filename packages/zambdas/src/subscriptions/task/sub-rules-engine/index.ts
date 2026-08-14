@@ -43,14 +43,10 @@ import {
   BILLING_WORKING_COPY_TAG,
   clinicalPatientIdOfCopy,
   createBillingClient,
-  EXCLUDE_WORKING_COPIES_PARAMS,
   fetchById,
   fetchClaimGraph,
-  findPatientBillingAccount,
-  findPatientWorkersCompAccount,
+  fetchPatientCoverages,
   findRulesEngineList,
-  getCoverageInsuranceType,
-  getPatientAccounts,
   hasTag,
   listToRulesReportingMalformed,
 } from '../../../billing/shared';
@@ -208,42 +204,18 @@ async function loadPatientCoverageContext(
   const sourcePatientId = patient ? clinicalPatientIdOfCopy(patient) : undefined;
   if (!sourcePatientId) return undefined;
 
-  const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
-    oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [{ name: 'beneficiary', value: `Patient/${sourcePatientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-    }),
-    oystehr.fhir.search<RelatedPerson>({
-      resourceType: 'RelatedPerson',
-      params: [{ name: 'patient', value: `Patient/${sourcePatientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-    }),
-    getPatientAccounts(oystehr, sourcePatientId),
-  ]);
-
-  const pbillAccount = findPatientBillingAccount(accounts);
-  const wcompAccount = findPatientWorkersCompAccount(accounts);
-  const subscribersById = new Map(
-    subscriberBundle
-      .unbundle()
-      .filter((rp): rp is RelatedPerson & { id: string } => !!rp.id)
-      .map((rp) => [rp.id, rp])
-  );
+  const records = await fetchPatientCoverages(oystehr, sourcePatientId);
 
   const context: NonNullable<RulesEngineClaimModel['patientCoverageContext']> = {
     byType: {},
     typeByCoverageRef: new Map(),
   };
-  for (const coverage of coverageBundle.unbundle()) {
-    // The engine must never attach a cancelled coverage (mirrors findCoverageOfType); working
-    // copies are already excluded by the search. The first active occupant of a slot wins, so a
-    // coverage that lost its slot to another reads as absent rather than as that slot.
+  for (const { coverage, insuranceType, subscriber } of records) {
+    // The engine must never attach a cancelled coverage (mirrors findCoverageOfType). The first
+    // active occupant of a slot wins, so a coverage that lost its slot to another reads as absent
+    // rather than as that slot.
     if (!coverage.id || coverage.status === 'cancelled') continue;
-    const insuranceType = getCoverageInsuranceType(coverage, pbillAccount, wcompAccount);
     if (!insuranceType || context.byType[insuranceType]) continue;
-    const subscriberRef = coverage.subscriber?.reference;
-    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
-      ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
-      : undefined;
     context.byType[insuranceType] = { coverage, subscriber };
     context.typeByCoverageRef.set(`Coverage/${coverage.id}`, insuranceType);
   }

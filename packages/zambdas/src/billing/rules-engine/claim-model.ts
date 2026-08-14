@@ -41,9 +41,10 @@ import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engi
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
+  attachPrimaryCoverageToClaim,
+  buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
-  ensureClaimInsurance,
   getClaimService,
   getClaimType,
   getClaimTypeCoding,
@@ -567,15 +568,16 @@ const setPrimaryCoverageFromPatient = (model: RulesEngineClaimModel, value: stri
     model.createdCopyIds?.delete(replacedSubscriber.id);
   }
 
-  const copy = prepareWorkingCopy<Coverage>(entry.coverage, entry.coverage.id);
-  copy.beneficiary = { reference: patientRef };
-  if (holdsRelatedPerson && entry.subscriber?.id) {
-    const subscriberCopy = prepareWorkingCopy<RelatedPerson>(entry.subscriber, entry.subscriber.id);
-    subscriberCopy.patient = { reference: patientRef };
+  // The same copies the claim editor builds when a coverage is picked from the patient; here they
+  // are linked by urn placeholder, which persistModel resolves inside the run's transaction.
+  const { coverage: copy, subscriber: subscriberCopy } = buildClaimCoverageCopies({
+    coverage: entry.coverage,
+    subscriber: entry.subscriber,
+    patientReference: patientRef,
+  });
+  if (subscriberCopy) {
     copy.subscriber = { reference: registerCreatedCopy(model, undefined, subscriberCopy) };
     model.subscribers = [...model.subscribers, subscriberCopy];
-  } else {
-    copy.subscriber = { reference: patientRef };
   }
 
   const reference = registerCreatedCopy(model, replacedPrimary, copy);
@@ -583,16 +585,16 @@ const setPrimaryCoverageFromPatient = (model: RulesEngineClaimModel, value: stri
 
   const payorRef = copy.payor?.[0]?.reference;
   const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
-  // The insurance entry's display must always be present: claim-history diffs fall back to the raw
-  // reference when it is missing, and this entry's reference is a transient urn that must never be
-  // recorded. The stable source coverage reference is the fallback of last resort.
-  const entryDisplay = payerLabel ?? `Coverage/${entry.coverage.id}`;
-  // ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached and
-  // keeps any secondary entry (re-sequenced after the new primary), mirroring update-billing-claim.
-  model.claim.insurance = ensureClaimInsurance([
-    { sequence: 1, focal: true, coverage: { reference, display: entryDisplay } },
-    ...(model.claim.insurance ?? []).filter((i) => i.sequence !== 1),
-  ]);
+  attachPrimaryCoverageToClaim({
+    claim: model.claim,
+    coverageReference: reference,
+    // The display must always be present: claim-history diffs fall back to the raw reference when
+    // it is missing, and this entry's reference is a transient urn that must never be recorded.
+    // The stable source coverage reference is the fallback of last resort.
+    display: payerLabel ?? `Coverage/${entry.coverage.id}`,
+    payerReference: payorRef,
+  });
+  // The insurer carries the payer label alone — never the coverage-reference fallback.
   if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
