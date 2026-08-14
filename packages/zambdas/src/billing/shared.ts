@@ -1101,6 +1101,47 @@ export function buildBillingCoverage(params: {
   return coverage;
 }
 
+// The per-claim working copies of one of the patient's coverages and its standalone policy holder,
+// re-pointed at the claim's patient. Linking and persisting them is the caller's job, because the
+// reference form differs: the claim editor creates them and stores real ids, while the rules engine
+// mints urn:uuid placeholders resolved inside its own transaction. When the claim has no patient
+// reference the copies keep the original's references (nothing to re-point at) and no policy-holder
+// copy is made — matching what the claim editor does.
+export function buildClaimCoverageCopies(params: {
+  coverage: Coverage;
+  subscriber?: RelatedPerson;
+  patientReference?: string;
+}): { coverage: Coverage; subscriber?: RelatedPerson } {
+  const coverage = prepareWorkingCopy<Coverage>(params.coverage, params.coverage.id);
+  if (!params.patientReference) return { coverage };
+
+  coverage.beneficiary = { reference: params.patientReference };
+  // Self by default; a standalone policy holder is linked by the caller once its reference exists.
+  coverage.subscriber = { reference: params.patientReference };
+  if (!params.subscriber?.id) return { coverage };
+
+  const subscriber = prepareWorkingCopy<RelatedPerson>(params.subscriber, params.subscriber.id);
+  subscriber.patient = { reference: params.patientReference };
+  return { coverage, subscriber };
+}
+
+// Point the claim's primary (focal) coverage slot at `coverageReference` and its insurer at the
+// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
+// ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
+export function attachPrimaryCoverageToClaim(params: {
+  claim: Claim;
+  coverageReference: string;
+  display?: string;
+  payerReference?: string;
+}): void {
+  const { claim, coverageReference, display, payerReference } = params;
+  claim.insurance = ensureClaimInsurance([
+    { sequence: 1, focal: true, coverage: { reference: coverageReference, display } },
+    ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
+  ]);
+  if (payerReference) claim.insurer = { reference: payerReference, display };
+}
+
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
 // account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
 const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
@@ -1143,6 +1184,62 @@ export function getCoverageInsuranceType(
   if (pbillEntry?.priority === 1) return 'primary';
   if (pbillEntry?.priority === 2) return 'secondary';
   return undefined;
+}
+
+// One of the patient's coverages as the billing app sees it: the coverage, the slot its billing
+// accounts place it in, and its standalone policy holder (when the subscriber is a RelatedPerson
+// rather than the patient).
+export interface PatientCoverageRecord {
+  coverage: Coverage;
+  // Undefined when an account references the coverage without one of the canonical placements
+  // (PBILLACCT priority 1/2, WCOMPACCT).
+  insuranceType?: BillingInsuranceType;
+  subscriber?: RelatedPerson;
+}
+
+// Every coverage the patient's billing accounts reference, resolved to its slot and policy holder.
+// Shared by the claim detail coverage picker (get-patient-coverages) and the rules engine's
+// "Coverage (from patient)" prefetch so both read the patient's coverages one way. Working copies
+// are excluded — these are the patient's reference coverages, which claims copy from.
+export async function fetchPatientCoverages(oystehr: Oystehr, patientId: string): Promise<PatientCoverageRecord[]> {
+  const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientAccounts(oystehr, patientId),
+  ]);
+
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+  const subscribersById = new Map(subscriberBundle.unbundle().map((rp) => [rp.id ?? '', rp]));
+
+  // Only coverages an account references are the patient's billing coverages; anything else on the
+  // patient is not part of their insurance setup.
+  const referencedByAccount = (coverage: Coverage): boolean => {
+    const ref = `Coverage/${coverage.id}`;
+    return [pbillAccount, wcompAccount].some(
+      (account) => account?.coverage?.some((c) => c.coverage?.reference === ref)
+    );
+  };
+
+  return coverageBundle
+    .unbundle()
+    .filter(referencedByAccount)
+    .map((coverage) => {
+      const subscriberRef = coverage.subscriber?.reference;
+      return {
+        coverage,
+        insuranceType: getCoverageInsuranceType(coverage, pbillAccount, wcompAccount),
+        subscriber: subscriberRef?.startsWith('RelatedPerson/')
+          ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
+          : undefined,
+      };
+    });
 }
 
 type AccountWriteRequest = BatchInputPostRequest<Account> | BatchInputPutRequest<Account>;
