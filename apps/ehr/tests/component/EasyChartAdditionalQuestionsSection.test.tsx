@@ -1,5 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { asqLabels, NOTE_TYPE, NoteDTO, ObservationDTO, patientScreeningQuestionsConfig } from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import { describe, expect, it } from 'vitest';
 import {
   AdditionalQuestionsSection,

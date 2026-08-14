@@ -4,7 +4,7 @@
 // Patient Instructions to match Review & Sign's Plan ordering.
 import { Link, Stack, Typography } from '@mui/material';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
-import { SchoolWorkNoteExcuseDocFileDTO } from 'utils';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { Section } from './note-ui';
 
 export function SchoolWorkExcuseSection({

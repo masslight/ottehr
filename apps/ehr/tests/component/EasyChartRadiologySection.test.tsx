@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { RadiologyDTO } from 'utils';
+import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 import { describe, expect, it, vi } from 'vitest';
 import { RadiologySection } from '../../src/features/easy-charting/RadiologySection';
 

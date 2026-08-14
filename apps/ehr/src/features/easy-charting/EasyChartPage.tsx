@@ -22,26 +22,26 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { getPatientName } from 'src/shared/utils';
+import { getPatientName } from 'src/shared/utils/getPatientName';
 import { CommandPaletteItem } from 'src/state/command-palette.store';
+import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
+import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
-  DEFAULT_PROGRESS_NOTE_CONFIG,
-  examConfig,
-  formatWeightKg,
-  INCOMPATIBLE_EXAM_VERSION_MESSAGE,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
-  ProcedureDTO,
-  ProcedureQuickPickData,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
-} from 'utils';
+} from 'utils/lib/types/api/procedures.constants';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { showEnvironmentBanner } from '../../App';
 import { AmbientScribeFab } from '../visits/in-person/components/progress-note/AmbientScribeFab';
 import { useGetImmunizationOrders } from '../visits/in-person/hooks/useImmunization';
@@ -49,8 +49,8 @@ import { ExamMigrationWarning } from '../visits/shared/components/exam-tab/ExamM
 import { computeExamConfigState } from '../visits/shared/components/exam-tab/useExamConfigState';
 import { computeSignBlockers } from '../visits/shared/components/review-tab/sign-blockers';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
+import { useStopAmbientScribeOnLeave } from '../visits/shared/hooks/useStopAmbientScribeOnLeave';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
-import { useStopAmbientScribeOnLeave } from '../visits/shared/stores/audioRecording.store';
 import { AssistantColumn } from './AssistantColumn';
 import { chartHasSubstantiveContent } from './chart-content';
 import { computeChartWarnings, signBlockerInputFromChartData } from './intent-logic';

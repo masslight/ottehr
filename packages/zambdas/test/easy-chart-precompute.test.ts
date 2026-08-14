@@ -4,7 +4,7 @@ import {
   EASY_CHART_PRECOMPUTED_PLAN_VERSION,
   EasyChartPlannerOutput,
   EasyChartPrecomputedPlan,
-} from 'utils';
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import { describe, expect, it } from 'vitest';
 import { buildPrecomputedPlanExtension, precomputeEasyChartPlan } from '../src/shared/easy-chart/precompute';
 

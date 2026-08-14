@@ -6,7 +6,8 @@
 // we render 'h:mm a'. Times format in the browser's local timezone (DateTime.fromISO default).
 import { Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ImmunizationOrder, searchRouteByCode } from 'utils';
+import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { Section } from './note-ui';
 
 export function ImmunizationSection({ orders }: { orders: ImmunizationOrder[] }): JSX.Element {

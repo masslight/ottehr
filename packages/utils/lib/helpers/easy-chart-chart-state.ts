@@ -4,9 +4,12 @@
 // cache-equality key, so both sides MUST build it byte-identically. Keep every formatting detail
 // stable; any change invalidates existing cached plans (which is safe — they just miss).
 import type { ExamItemConfig } from 'config-types';
-import { examConfig, getRosFindingStateFromKey, RosFindingState } from '../ottehr-config';
-import { EasyChartNoteContext, GetChartDataResponse } from '../types';
+import { examConfig } from '../ottehr-config/examination';
+import { getRosFindingStateFromKey } from '../ottehr-config/review-of-systems';
+import { RosFindingState } from '../ottehr-config/review-of-systems/in-person.config';
 import type { ExamObservationDTO } from '../types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from '../types/api/chart-data/get-chart-data.types';
+import { EasyChartNoteContext } from '../types/data/easy-chart-agent.types';
 
 // Walk examConfig once to map every leaf exam field name to its most-specific section label
 // (e.g. "Right ear" inside the "Ears" card) so we can group abnormal findings by body section.

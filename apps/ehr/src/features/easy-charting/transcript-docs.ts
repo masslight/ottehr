@@ -1,4 +1,4 @@
-import { AIChatDetails } from 'utils';
+import { AIChatDetails } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 // A transcript document is a DocumentReference carrying an inline attachment titled 'Transcript'
 // with data — the shape both ambient-scribe recordings and the intake chatbot leave on the

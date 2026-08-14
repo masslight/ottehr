@@ -3,38 +3,41 @@ import type { Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useRef, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
+import { buildEasyChartNoteContext, buildEasyChartStateSummary } from 'utils/lib/helpers/easy-chart-chart-state';
+import { rosObsLabel } from 'utils/lib/helpers/easy-chart-chart-state';
+import { fahrenheitToCelsius, roundTemperatureForSave } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { rosField } from 'utils/lib/ottehr-config/review-of-systems';
+import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import type { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  buildEasyChartNoteContext,
-  buildEasyChartStateSummary,
   CPTCodeDTO,
-  CreateLabPaymentMethod,
-  DataEntryTestItem,
   DiagnosisDTO,
   DispositionDTO,
   DispositionType,
+  ProcedureDTO,
+  VitalsObservationDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import {
   EASY_CHART_PRECOMPUTED_PLAN_VERSION,
   EasyChartAgentIntent,
   EasyChartPlannerStep,
   EasyChartPrecomputedPlan,
   EasyChartTokenUsage,
-  type ExamObservationDTO,
-  fahrenheitToCelsius,
-  GetChartDataResponse,
-  getDispositionDefaultTextFromProgressNoteConfig,
+} from 'utils/lib/types/data/easy-chart-agent.types';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  CreateLabPaymentMethod,
   LabPaymentMethod,
-  LBS_IN_KG,
-  mapDispositionTypeToLabel,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
-  ProcedureDTO,
-  ProcedureQuickPickData,
-  rosField,
-  RosFindingState,
-  roundTemperatureForSave,
-  SaveChartDataRequest,
-  VitalFieldNames,
-  VitalsObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
+import { getDispositionDefaultTextFromProgressNoteConfig } from 'utils/lib/utils/progress-note-config';
 import {
   applyTemplate,
   createExternalLabOrder,
@@ -97,7 +100,6 @@ import {
   pickPrimaryPromotion,
   preferredExamLeaf,
   procedureDtoFromQuickPick,
-  rosObsLabel,
   runIntentSearch,
   strengthCompatible,
   synthAddIntent,

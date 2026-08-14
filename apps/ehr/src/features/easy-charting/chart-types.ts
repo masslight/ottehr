@@ -1,19 +1,17 @@
 // Shared types for the easy-chart page: charted-field/meta shapes used across the note renderer,
 // the intent dispatcher, and the conversation state machine.
 import type { Encounter } from 'fhir/r4b';
+import { EasyChartChartField } from 'utils/lib/helpers/easy-chart-capabilities';
+import type { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DiagnosisDTO, ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { EasyChartAgentIntent, EasyChartPlannerStep } from 'utils/lib/types/data/easy-chart-agent.types';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import {
   CreateLabPaymentMethod,
-  DataEntryTestItem,
-  DiagnosisDTO,
-  EasyChartAgentIntent,
-  EasyChartPlannerStep,
-  type ExamObservationDTO,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
-  ProcedureDTO,
-  ProcedureQuickPickData,
-} from 'utils';
-import { EasyChartChartField } from 'utils/lib/helpers/easy-chart-capabilities';
+} from 'utils/lib/types/data/labs/labs.types';
 import { ExamLeaf, RosLeaf } from './exam-ros-catalog';
 
 // The five free-text note fields, keyed by their actual chart-data key (NOT the display label —

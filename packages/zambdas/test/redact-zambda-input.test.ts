@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { redactZambdaInputForLogging } from '../src/shared/errors';
-import { ZambdaInput } from '../src/shared/types';
+import { ZambdaInput } from '../src/shared/types/common';
 
 const buildInput = (): ZambdaInput => ({
   body: JSON.stringify({ encounterId: 'enc-123', note: 'patient reports headache' }),

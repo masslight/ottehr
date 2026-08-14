@@ -4,7 +4,7 @@
 // start isn't available the line renders without it.
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { formatDateToMDYWithTime } from 'utils';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 
 export function PrivacyPolicyLine({ appointmentStart }: { appointmentStart?: string }): JSX.Element {
   const start = formatDateToMDYWithTime(appointmentStart, DateTime.local().zoneName);

@@ -1,4 +1,5 @@
-import { EASY_CHART_NOTE_TEXT_FIELDS, EasyChartNoteContext, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
+import { EASY_CHART_NOTE_TEXT_FIELDS, EasyChartNoteContext } from 'utils/lib/types/data/easy-chart-agent.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../types/common';
 
 // Shared request-body parsing for the easy-chart zambdas. Missing/malformed bodies are caller

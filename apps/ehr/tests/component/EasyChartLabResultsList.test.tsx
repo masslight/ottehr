@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { EncounterExternalLabResult, EncounterInHouseLabResult, NonNormalResult } from 'utils';
+import { EncounterExternalLabResult, EncounterInHouseLabResult, NonNormalResult } from 'utils/lib/types/api/lab';
 import { describe, expect, it } from 'vitest';
 import { hasLabResultsToShow, LabResultsList } from '../../src/features/easy-charting/LabResultsList';
 

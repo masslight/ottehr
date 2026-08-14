@@ -1,17 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { HealthcareService, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
-import {
-  DeletePatientDocumentInput,
-  DeletePatientDocumentOutput,
-  EasyChartAgentInput,
-  EasyChartAgentOutput,
-  EasyChartPlannerInput,
-  EasyChartPlannerOutput,
-  EasyChartReviewInput,
-  EasyChartReviewOutput,
-  EHRVisitDetails,
-} from 'utils';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { AdHocBillingInput, AdHocBillingOutput } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersInput, AdHocEncountersOutput } from 'utils/lib/types/adhoc/datasets/encounters';
@@ -266,10 +255,22 @@ import {
   RenameCustomFolderOutput,
 } from 'utils/lib/types/data/custom-folder.types';
 import {
+  DeletePatientDocumentInput,
+  DeletePatientDocumentOutput,
+} from 'utils/lib/types/data/delete-patient-document.types';
+import {
   RotateInsuranceCardImageInput,
   RotateInsuranceCardImageResponse,
   VisitDocuments,
 } from 'utils/lib/types/data/documents';
+import {
+  EasyChartAgentInput,
+  EasyChartAgentOutput,
+  EasyChartPlannerInput,
+  EasyChartPlannerOutput,
+  EasyChartReviewInput,
+  EasyChartReviewOutput,
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import {
   GetPatientMedicalRecordInput,
   GetPatientMedicalRecordOutput,
@@ -364,6 +365,7 @@ import {
   UploadPatientConditionPhotoInput,
   UploadPatientConditionPhotoOutput,
 } from 'utils/lib/types/data/upload-patient-condition-photo.types';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
 
 export interface PatchOperation {

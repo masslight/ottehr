@@ -1,10 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { requireEasyChartEncounterAccess } from '../../shared/easy-chart/auth';
 import { runEasyChartPlanner } from '../../shared/easy-chart/planner-core';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // The planner pipeline itself lives in shared/easy-chart/planner-core so the ambient-scribe

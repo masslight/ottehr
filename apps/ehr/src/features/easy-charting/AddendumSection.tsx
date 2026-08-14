@@ -7,7 +7,7 @@
 // separately in EasyChartPage. Adding/editing addenda stays in the regular chart.
 import { Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { NoteDTO } from 'utils';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { Section } from './note-ui';
 
 // Soft-deleted addenda are tombstones — never shown here.

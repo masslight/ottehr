@@ -15,7 +15,7 @@ import {
   ExternalLabOrderResult,
   InHouseLabResult,
   NonNormalResult,
-} from 'utils';
+} from 'utils/lib/types/api/lab';
 
 // Whether there's anything worth a section — same gating Review & Sign uses (results received OR
 // results pending, per lab kind).

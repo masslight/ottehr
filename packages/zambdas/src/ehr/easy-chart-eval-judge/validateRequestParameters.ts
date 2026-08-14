@@ -1,6 +1,7 @@
-import { MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { getUserToken, ZambdaInput } from '../../shared';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { getUserToken } from '../../shared/auth';
 import { parseJsonBody } from '../../shared/easy-chart/validation';
+import { ZambdaInput } from '../../shared/types/common';
 
 export interface EasyChartEvalJudgeInput {
   transcript: string;

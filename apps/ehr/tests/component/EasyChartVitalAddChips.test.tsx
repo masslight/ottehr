@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { GetChartDataResponse, LBS_IN_KG, VitalsObservationDTO } from 'utils';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it, vi } from 'vitest';
 import { NoteSections } from '../../src/features/easy-charting/NoteSections';
 import { VitalAddChips } from '../../src/features/easy-charting/VitalAddChips';

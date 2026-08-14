@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
-import { NOTE_TYPE, NoteDTO } from 'utils';
+import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { AddendumSection, hasAddendaToShow } from '../../src/features/easy-charting/AddendumSection';
 

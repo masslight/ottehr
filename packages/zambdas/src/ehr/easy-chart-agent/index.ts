@@ -1,5 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  buildEasyChartIntentSchemaProperties,
+  easyChartIntentHasRequiredFields,
+} from 'utils/lib/helpers/easy-chart-capabilities';
+import {
   EASY_CHART_INTENT_KINDS as KIND_VALUES,
   EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
   EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
@@ -7,17 +11,14 @@ import {
   EasyChartAgentOutput,
   EasyChartNoteTextField as NoteTextField,
   EasyChartTokenUsage,
-} from 'utils';
-import {
-  buildEasyChartIntentSchemaProperties,
-  easyChartIntentHasRequiredFields,
-} from 'utils/lib/helpers/easy-chart-capabilities';
-import { wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { requireEasyChartCaller } from '../../shared/easy-chart/auth';
 import { coerceNumericStepFields } from '../../shared/easy-chart/planner-core';
 import { detectSpeakerLabels, sniffDoseFormScoped, sniffIcdCodeScoped } from '../../shared/easy-chart/sniffers';
 import { normalizeVitalIntent, VITAL_FIELDS } from '../../shared/easy-chart/vitals';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-agent';

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { DispositionDTO } from 'utils';
+import { DispositionDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { DispositionSection } from '../../src/features/easy-charting/DispositionSection';
 

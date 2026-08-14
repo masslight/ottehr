@@ -9,7 +9,7 @@ import {
   useMergedMedicationHistoryQuickPicks,
 } from 'src/hooks/useMergedQuickPicks';
 import { CommandPaletteItem } from 'src/state/command-palette.store';
-import { SaveChartDataRequest } from 'utils';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 
 // Registers practice quick-picks (allergies, conditions, meds-history) plus the static
 // surgical-history / hospitalization option lists as command-palette items scoped to the

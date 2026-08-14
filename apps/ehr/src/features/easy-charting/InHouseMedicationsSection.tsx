@@ -4,7 +4,9 @@
 // get-medication-orders query (wired in EasyChartPage — NOT part of the chart-data fetch);
 // the notes arrive with chartData.notes (NOTE_TYPE.MEDICATION).
 import { Stack, Typography } from '@mui/material';
-import { createMedicationString, ExtendedMedicationDataForResponse, NoteDTO } from 'utils';
+import { createMedicationString } from 'utils/lib/fhir/medication-administration';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { Section } from './note-ui';
 
 export function InHouseMedicationsSection({

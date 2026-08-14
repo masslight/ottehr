@@ -2,6 +2,12 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  buildEasyChartIntentSchemaProperties,
+  easyChartIntentHasRequiredFields,
+  easyChartKindsForSurface,
+} from 'utils/lib/helpers/easy-chart-capabilities';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
+import {
   EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
   EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
   EasyChartAgentIntent,
@@ -11,16 +17,9 @@ import {
   EasyChartReviewOutput,
   EasyChartSuggestion,
   EasyChartTokenUsage,
-  getOptionalSecret,
-  SecretsKeys,
-} from 'utils';
-import {
-  buildEasyChartIntentSchemaProperties,
-  easyChartIntentHasRequiredFields,
-  easyChartKindsForSurface,
-} from 'utils/lib/helpers/easy-chart-capabilities';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { requireEasyChartEncounterAccess } from '../../shared/easy-chart/auth';
 import { validateIntentCode } from '../../shared/easy-chart/codes';
 import { IcdSearchFn } from '../../shared/easy-chart/icd-search';
@@ -28,6 +27,8 @@ import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-char
 import { coerceNumericStepFields } from '../../shared/easy-chart/planner-core';
 import { detectDispositionLanguage, DispositionLanguageMatch } from '../../shared/easy-chart/sniffers';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-review';

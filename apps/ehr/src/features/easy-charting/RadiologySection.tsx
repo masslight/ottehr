@@ -5,7 +5,7 @@
 // chartData.radiologyOrders (fetched via progressNoteChartDataRequestedFields).
 import { Box, Stack, Typography } from '@mui/material';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
-import { RadiologyDTO } from 'utils';
+import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 import { Section } from './note-ui';
 
 // Reads arrive base64-encoded HTML — decode like Review & Sign, falling back to the raw string.

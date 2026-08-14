@@ -9,7 +9,8 @@ import { ErxGetPharmacyResponse } from '@oystehr/sdk';
 import { captureException } from '@sentry/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { formatPhoneNumberDisplay, formatZipcodeForDisplay, PrescribedMedicationDTO } from 'utils';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { Section } from './note-ui';
 
 export function PrescriptionsSection({ prescriptions }: { prescriptions: PrescribedMedicationDTO[] }): JSX.Element {

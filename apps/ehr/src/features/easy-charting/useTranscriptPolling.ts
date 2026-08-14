@@ -1,6 +1,6 @@
 import { captureException } from '@sentry/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AIChatDetails } from 'utils';
+import { AIChatDetails } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
 import { hasNewTranscriptDocument, transcriptDocumentIds } from './transcript-docs';
 

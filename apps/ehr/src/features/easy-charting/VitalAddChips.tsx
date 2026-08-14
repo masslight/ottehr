@@ -9,7 +9,7 @@
 // the user clicks elsewhere, so in practice it converges to one open line).
 import { Box, Chip } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { VitalEntryEditor } from './note-ui';
 import { VITAL_LABEL } from './vitals-display';
 

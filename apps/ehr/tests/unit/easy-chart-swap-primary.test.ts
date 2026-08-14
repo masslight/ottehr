@@ -1,4 +1,6 @@
-import { DiagnosisDTO, EasyChartAgentIntent, GetChartDataResponse } from 'utils';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { EasyChartAgentIntent } from 'utils/lib/types/data/easy-chart-agent.types';
 import { describe, expect, it } from 'vitest';
 import { carrySwapPrimary, pickPrimaryPromotion } from '../../src/features/easy-charting/intent-logic';
 

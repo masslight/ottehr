@@ -8,7 +8,9 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Encounter } from 'fhir/r4b';
-import { NOT_AUTHORIZED, RoleType, Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { isTestM2MClient, requireUserWithRole } from '../auth';
 import { createClinicalOystehrClient } from '../helpers';
 

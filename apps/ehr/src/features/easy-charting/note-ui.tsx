@@ -16,7 +16,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement, VitalsObservationDTO } from 'utils';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AiChartedMeta } from './chart-types';
 import { formatVital, VITAL_LABEL, vitalUnitFields } from './vitals-display';
 

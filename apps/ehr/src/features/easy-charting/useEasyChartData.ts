@@ -1,13 +1,11 @@
 import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  DiagnosisDTO,
-  GetChartDataResponse,
-  InHouseOrderListPageItemDTO,
-  LabOrderListPageDTO,
-  SaveChartDataRequest,
-} from 'utils';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { InHouseOrderListPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { LabOrderListPageDTO } from 'utils/lib/types/data/labs/labs.types';
 import { deleteInHouseLabOrder, deleteLabOrder, getExternalLabOrders, getInHouseOrders } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';

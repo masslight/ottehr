@@ -6,16 +6,15 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Extension } from 'fhir/r4b';
+import { buildEasyChartNoteContext, buildEasyChartStateSummary } from 'utils/lib/helpers/easy-chart-chart-state';
+import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  buildEasyChartNoteContext,
-  buildEasyChartStateSummary,
   EASY_CHART_PRECOMPUTED_PLAN_EXTENSION_URL,
   EASY_CHART_PRECOMPUTED_PLAN_VERSION,
   EasyChartPlannerOutput,
   EasyChartPrecomputedPlan,
-  progressNoteChartDataRequestedFields,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import { getChartData } from '../../ehr/get-chart-data';
 import { runEasyChartPlanner } from './planner-core';
 

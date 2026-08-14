@@ -1,5 +1,5 @@
 import { DocumentReference } from 'fhir/r4b';
-import { AIChatDetails } from 'utils';
+import { AIChatDetails } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import {
   containsTranscriptHeader,

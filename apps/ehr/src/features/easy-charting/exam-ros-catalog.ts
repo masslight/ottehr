@@ -1,12 +1,12 @@
 // Exam / ROS leaf catalogs: flattened indexes of every checkable finding in examConfig and
 // the ROS config, used by the intent matchers and the note renderer.
 import type { ExamItemConfig } from 'config-types';
-import { examConfig, InPersonRosConfig } from 'utils';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 
-// buildFieldToSectionLabel / FIELD_TO_SECTION_LABEL moved to utils (easy-chart-chart-state) so the
-// server-side plan precompute builds the identical chart-state summary; re-exported for existing
-// importers.
-export { buildFieldToSectionLabel, FIELD_TO_SECTION_LABEL } from 'utils';
+// buildFieldToSectionLabel / FIELD_TO_SECTION_LABEL live in utils (easy-chart-chart-state) so the
+// server-side plan precompute builds the identical chart-state summary. Importers take them straight
+// from there — this file used to re-export them, which is a barrel by another name.
 
 // Section label → its free-text comment field. The exam tab is mostly checkboxes plus one
 // free-text area per section; findings the matcher can't confidently map to a checkbox get

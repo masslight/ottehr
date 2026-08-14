@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { SchoolWorkNoteExcuseDocFileDTO } from 'utils';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it, vi } from 'vitest';
 import { SchoolWorkExcuseSection } from '../../src/features/easy-charting/SchoolWorkExcuseSection';
 
@@ -8,8 +8,11 @@ import { SchoolWorkExcuseSection } from '../../src/features/easy-charting/School
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: () => ({ getAccessTokenSilently: async () => 'test-token' }),
 }));
-vi.mock('utils', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('utils')>()),
+// Mock the DECLARING module, not the 'utils' barrel: useExcusePresignedFiles imports getPresignedURL
+// from this path directly, so a barrel-level mock no longer intercepts it and the test would make a
+// real network call (the no-network setup fails it).
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>()),
   getPresignedURL: async (url: string) => `${url}?presigned`,
 }));
 

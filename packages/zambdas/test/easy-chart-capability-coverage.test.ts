@@ -7,7 +7,6 @@
 // prompt ever tells the model the action exists. The model then never emits it and the feature looks
 // like it "doesn't work" with nothing failing anywhere. These tests are what turn that into a red
 // build: offer a capability on a surface, and that surface's prompt has to mention it.
-import { EASY_CHART_INTENT_KINDS } from 'utils';
 import {
   EASY_CHART_CAPABILITIES,
   EASY_CHART_INTENT_FIELD_SCHEMAS,
@@ -19,6 +18,7 @@ import {
   easyChartKindsForSurface,
   type EasyChartSurface,
 } from 'utils/lib/helpers/easy-chart-capabilities';
+import { EASY_CHART_INTENT_KINDS } from 'utils/lib/types/data/easy-chart-agent.types';
 import { describe, expect, it } from 'vitest';
 import { buildPrompt as buildAgentPrompt, RESPONSE_SCHEMA as AGENT_SCHEMA } from '../src/ehr/easy-chart-agent/index';
 import { buildPrompt as buildPlannerPrompt } from '../src/ehr/easy-chart-planner/index';

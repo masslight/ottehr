@@ -1,7 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { TranscribeAudioOutput } from 'utils';
-import { checkOrCreateM2MClientToken, createPresignedUrl, wrapHandler, ZambdaInput } from '../../shared';
+import { TranscribeAudioOutput } from 'utils/lib/types/data/easy-charting.types';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'transcribe-audio';

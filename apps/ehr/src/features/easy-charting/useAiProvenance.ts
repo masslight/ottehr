@@ -1,15 +1,11 @@
 import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ExamObservationDTO,
-  GetChartDataResponse,
-  MedicationDTO,
-  ProcedureDTO,
-  rosField,
-  RosFindingState,
-  SaveChartDataRequest,
-} from 'utils';
+import { rosField } from 'utils/lib/ottehr-config/review-of-systems';
+import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { ExamObservationDTO, MedicationDTO, ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { useApiClients } from '../../hooks/useAppClients';
 import { useEMCodes } from '../visits/shared/hooks/useEMCodes';
 import { AiAlternative } from './AiChartedItem';

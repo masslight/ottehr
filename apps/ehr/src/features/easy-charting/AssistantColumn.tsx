@@ -20,14 +20,14 @@ import { DocumentReference } from 'fhir/r4b';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { EASY_CHART_PRIMED_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { AIChatDetails } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  AIChatDetails,
   EASY_CHART_NOTE_TEXT_FIELD_LABELS,
   EASY_CHART_PRECOMPUTED_PLAN_EXTENSION_URL,
-  EASY_CHART_PRIMED_EXTENSION_URL,
   EasyChartAgentIntent,
   EasyChartPrecomputedPlan,
-} from 'utils';
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import { getDocumentReferenceSource, getSource } from '../visits/shared/components/OttehrAi';
 import {
   AddExamFindingIntent,

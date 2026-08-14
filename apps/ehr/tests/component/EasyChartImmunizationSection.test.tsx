@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
-import { ImmunizationOrder } from 'utils';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { describe, expect, it } from 'vitest';
 import { ImmunizationSection } from '../../src/features/easy-charting/ImmunizationSection';
 

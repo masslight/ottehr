@@ -6,8 +6,15 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { List } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  chunkThings,
+  buildEasyChartIntentSchemaProperties,
+  EASY_CHART_NUMERIC_INTENT_FIELDS,
+  easyChartIntentHasRequiredFields,
+} from 'utils/lib/helpers/easy-chart-capabilities';
+import { Secrets } from 'utils/lib/secrets';
+import {
   EASY_CHART_INTENT_KINDS as KIND_VALUES,
   EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
   EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
@@ -17,14 +24,7 @@ import {
   EasyChartPlannerOutput,
   EasyChartPlannerStep,
   EasyChartTokenUsage,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  Secrets,
-} from 'utils';
-import {
-  buildEasyChartIntentSchemaProperties,
-  EASY_CHART_NUMERIC_INTENT_FIELDS,
-  easyChartIntentHasRequiredFields,
-} from 'utils/lib/helpers/easy-chart-capabilities';
+} from 'utils/lib/types/data/easy-chart-agent.types';
 import { findHolderList } from '../../ehr/shared/template-helpers';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../ai';
 import { STRICT_ICD10, validateIntentCode } from './codes';

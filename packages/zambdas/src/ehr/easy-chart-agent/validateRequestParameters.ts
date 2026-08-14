@@ -1,6 +1,8 @@
-import { EasyChartAgentInput, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { getUserToken, ZambdaInput } from '../../shared';
+import { EasyChartAgentInput } from 'utils/lib/types/data/easy-chart-agent.types';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { getUserToken } from '../../shared/auth';
 import { parseJsonBody, validateNoteContext } from '../../shared/easy-chart/validation';
+import { ZambdaInput } from '../../shared/types/common';
 
 export function validateRequestParameters(
   input: ZambdaInput

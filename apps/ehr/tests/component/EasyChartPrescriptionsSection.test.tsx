@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { PrescribedMedicationDTO } from 'utils';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrescriptionsSection } from '../../src/features/easy-charting/PrescriptionsSection';
 

@@ -12,7 +12,8 @@
 //     immunization, in-house med, vitals) — those live in client draft stores, keyed by encounter;
 //   - appointment STATUS (must be discharged) — that's the visit's workflow state.
 // ReviewAndSignButton keeps owning both, since it's the only surface with access to them.
-import { AccidentDTO, EncounterInHouseLabResult } from 'utils';
+import { AccidentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { EncounterInHouseLabResult } from 'utils/lib/types/api/lab';
 
 // How ReviewAndSignButton bins these into user-facing messages. Keeping the grouping in the shared
 // rules lets that button reproduce its existing wording exactly (one collapsed "fill in the missing

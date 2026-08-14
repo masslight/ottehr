@@ -3,24 +3,24 @@
 import CheckIcon from '@mui/icons-material/Check';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { Box, Button, Divider, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { FIELD_TO_SECTION_LABEL } from 'utils/lib/helpers/easy-chart-chart-state';
+import type { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   DiagnosisDTO,
-  type ExamObservationDTO,
-  ExtendedMedicationDataForResponse,
-  GetChartDataResponse,
-  ImmunizationOrder,
   MedicationDTO,
   NOTE_TYPE,
   NoteDTO,
   ProcedureDTO,
   VitalsObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { AddendumSection, hasAddendaToShow } from './AddendumSection';
 import { AdditionalQuestionsSection, hasAdditionalQuestions } from './AdditionalQuestionsSection';
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import { AiChartedMeta, AiField, ChartNoteKey, EasyChartLabOrder, ProcedureProvenance } from './chart-types';
 import { DispositionSection } from './DispositionSection';
-import { FIELD_TO_SECTION_LABEL } from './exam-ros-catalog';
 import { ImmunizationSection } from './ImmunizationSection';
 import { InHouseMedicationsSection } from './InHouseMedicationsSection';
 import InlineNoteField from './InlineNoteField';

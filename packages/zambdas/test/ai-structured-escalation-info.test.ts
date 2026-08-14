@@ -1,4 +1,4 @@
-import { EasyChartEscalationInfo } from 'utils';
+import { EasyChartEscalationInfo } from 'utils/lib/types/data/easy-chart-agent.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { invokeChatbotStructured } from '../src/shared/ai';
 

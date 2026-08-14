@@ -4,15 +4,13 @@
 // arrive in the chart-data fetch via progressNoteChartDataRequestedFields.notes).
 import { Stack, Typography } from '@mui/material';
 import {
-  ASQ_FIELD,
-  ASQKeys,
-  asqLabels,
   formatScreeningQuestionWithNote,
-  NoteDTO,
-  ObservationDTO,
-  patientScreeningQuestionsConfig,
   shouldDisplayScreeningQuestion,
-} from 'utils';
+} from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import { Section } from './note-ui';
 
 // Question label + formatted answer rows, in config order — same selection/formatting rules as

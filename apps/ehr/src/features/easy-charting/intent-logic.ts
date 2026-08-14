@@ -2,25 +2,26 @@
 // (templates, exam/ROS leaves, procedures, labs, removals), search-result ranking, payload
 // building, chart warnings, and the deterministic note-drift detector.
 import Oystehr from '@oystehr/sdk';
+import { easyChartFieldForKind } from 'utils/lib/helpers/easy-chart-capabilities';
+import { FIELD_TO_SECTION_LABEL } from 'utils/lib/helpers/easy-chart-chart-state';
+import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
+import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import type { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   AllergyDTO,
   CPTCodeDTO,
   DiagnosisDTO,
-  EasyChartAgentIntent,
-  type ExamObservationDTO,
-  GetChartDataResponse,
-  getRosFindingStateFromKey,
   HospitalizationDTO,
   MedicalConditionDTO,
   MedicationDTO,
   ProcedureDTO,
-  ProcedureQuickPickData,
-  progressNoteChartDataRequestedFields,
-  radiologyStudiesConfig,
-  RosFindingState,
-  SaveChartDataRequest,
-} from 'utils';
-import { easyChartFieldForKind } from 'utils/lib/helpers/easy-chart-capabilities';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { EasyChartAgentIntent } from 'utils/lib/types/data/easy-chart-agent.types';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
 import { computeSignBlockers } from '../visits/shared/components/review-tab/sign-blockers';
@@ -41,7 +42,7 @@ import {
   TemplateMatch,
   UpdateProcedureIntent,
 } from './chart-types';
-import { ExamLeaf, FIELD_TO_SECTION_LABEL, RosLeaf, SECTION_LABEL_TO_CARD } from './exam-ros-catalog';
+import { ExamLeaf, RosLeaf, SECTION_LABEL_TO_CARD } from './exam-ros-catalog';
 
 export async function fetchEasyChartData(
   apiClient: NonNullable<ReturnType<typeof useOystehrAPIClient>>,
@@ -1399,7 +1400,6 @@ export function findRosRemoveMatchesScored(
 
 // rosObsLabel ("Denies Eye pain") moved to utils (easy-chart-chart-state) so the server-side plan
 // precompute builds the identical chart-state summary; re-exported for existing importers.
-export { rosObsLabel } from 'utils';
 
 export function findProcedureMatches(
   intent: AddProcedureIntent,

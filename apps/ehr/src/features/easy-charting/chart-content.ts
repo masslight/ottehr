@@ -1,4 +1,4 @@
-import { AllChartValues } from 'utils';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 const hasText = (note: { text?: string } | undefined): boolean => !!note?.text?.trim();
 

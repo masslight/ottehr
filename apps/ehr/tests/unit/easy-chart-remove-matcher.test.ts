@@ -1,4 +1,4 @@
-import { GetChartDataResponse } from 'utils';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { RemoveIntent } from '../../src/features/easy-charting/chart-types';
 import { findRemoveMatches } from '../../src/features/easy-charting/intent-logic';

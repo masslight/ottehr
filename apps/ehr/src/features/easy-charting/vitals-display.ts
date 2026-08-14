@@ -1,17 +1,15 @@
 // Vitals display + unit-entry helpers for the easy-chart note (formatting stored metric values
 // back into the practice-configured display units, and the editable unit-field descriptors).
+import { formatHeightObservationValue } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
   celsiusToFahrenheit,
   fahrenheitToCelsius,
-  formatHeightObservationValue,
-  formatWeightKg,
-  formatWeightLbs,
-  LBS_IN_KG,
   roundTemperatureForSave,
   roundTemperatureValue,
-  vitalsConfig,
-  VitalsObservationDTO,
-} from 'utils';
+} from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { formatWeightKg, formatWeightLbs, LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { vitalsConfig } from 'utils/lib/ottehr-config/vitals';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const VITAL_LABEL: Record<string, string> = {
   'vital-temperature': 'Temp',

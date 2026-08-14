@@ -1,9 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { RoleType } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { invokeChatbotVertexAI, parseStructuredModelOutput } from '../../shared/ai';
 import { requireEasyChartCaller } from '../../shared/easy-chart/auth';
 import { coerceNumericFields } from '../../shared/easy-chart/planner-core';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-eval-judge';

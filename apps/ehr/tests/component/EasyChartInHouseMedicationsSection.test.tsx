@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { ExtendedMedicationDataForResponse, NOTE_TYPE, NoteDTO } from 'utils';
+import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { describe, expect, it } from 'vitest';
 import { InHouseMedicationsSection } from '../../src/features/easy-charting/InHouseMedicationsSection';
 

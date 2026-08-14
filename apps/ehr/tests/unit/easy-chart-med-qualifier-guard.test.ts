@@ -1,4 +1,4 @@
-import { EasyChartAgentIntent } from 'utils';
+import { EasyChartAgentIntent } from 'utils/lib/types/data/easy-chart-agent.types';
 import { describe, expect, it } from 'vitest';
 import { SearchResult } from '../../src/features/easy-charting/chart-types';
 import { rankMedicationResults, unsupportedMedQualifiers } from '../../src/features/easy-charting/intent-logic';

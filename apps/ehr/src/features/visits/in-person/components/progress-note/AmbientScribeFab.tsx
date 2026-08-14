@@ -1,7 +1,7 @@
 import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
 import React from 'react';
-import { AIChatDetails } from 'utils';
+import { AIChatDetails } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { RecordAudioContainer } from './RecordAudioContainer';
 
 interface AmbientScribeFabProps {
