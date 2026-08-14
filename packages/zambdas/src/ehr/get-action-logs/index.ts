@@ -6,6 +6,7 @@ import { OUTBOUND_DELIVERY_TASK_CODES, OUTBOUND_DELIVERY_TASK_SYSTEM } from 'uti
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
+  getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
@@ -167,6 +168,7 @@ function composeEntry(
   const patient = patients.get(patientId);
   const appointment = appointments.get(appointmentId);
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
+  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(task);
   const status = getOutboundDeliveryAttemptStatus(
     task,
     recipient.communicationId ? communications.get(recipient.communicationId) : undefined
@@ -181,10 +183,17 @@ function composeEntry(
     appointmentId,
     visitDate: appointment?.start,
     documentReferenceId: recipient.documentReferenceId,
+    documentTitle: getDocumentTitle(recipient.documentReferenceId, faxPacket.parts),
     canRetry:
       status === 'failed' &&
-      Boolean(appointmentId) &&
+      Boolean(channel === 'fax' ? recipient.documentReferenceId || appointmentId : appointmentId) &&
       Boolean(recipient.address?.trim()) &&
       !retriedAttemptIds.has(task.id!),
   };
 }
+
+const getDocumentTitle = (documentReferenceId: string | undefined, faxPacketParts: string[]): string | undefined => {
+  if (faxPacketParts.length === 1) return faxPacketParts[0];
+  if (faxPacketParts.length > 1) return `Fax packet (${faxPacketParts.length} documents)`;
+  return documentReferenceId ? 'Visit Note' : undefined;
+};

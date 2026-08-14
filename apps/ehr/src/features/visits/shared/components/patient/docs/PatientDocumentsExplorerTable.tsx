@@ -26,7 +26,8 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
-import { isFaxableAttachment } from 'utils';
+import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { isFaxableAttachment } from 'utils/lib/utils/file';
 
 export enum DocumentTableActionType {
   ActionDownload = 'ActionDownload',
@@ -246,11 +247,13 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
  * Only documents a fax can actually carry get the action — offering it for a medical-record archive
  * or another unsupported format would fail later with "nothing faxable".
  */
-const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean =>
+const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean => {
+  if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
   // The stored file name and the display title can each be the one carrying the extension.
-  (docInfo.attachments ?? []).some(
+  return (docInfo.attachments ?? []).some(
     (attachment) => isFaxableAttachment({ url: attachment.z3Url }) || isFaxableAttachment({ url: attachment.title })
   );
+};
 
 const configureTableColumns = (actions: DocumentTableActions): GridColDef<PatientDocumentInfo>[] => {
   return [

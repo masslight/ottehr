@@ -25,8 +25,9 @@ import {
 } from '../../src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { PatientDocumentInfo } from '../../src/hooks/useGetPatientDocs';
 
-const makeDocument = (id: string, fileName: string): PatientDocumentInfo => ({
+const makeDocument = (id: string, fileName: string, typeCodes?: string[]): PatientDocumentInfo => ({
   id,
+  typeCodes,
   docName: fileName,
   whenAddedDate: '2026-05-05T00:00:00.000Z',
   attachments: [{ title: fileName, z3Url: `https://z3.example/${fileName}` }],
@@ -58,13 +59,17 @@ describe('PatientDocumentsExplorerTable', () => {
 
   it('offers the fax action only for documents a fax can carry', () => {
     renderTable(
-      [makeDocument('doc-1', 'visit-note.pdf'), makeDocument('doc-2', 'medical_record_black_oliver.zip')],
+      [
+        makeDocument('doc-1', 'visit-note.pdf'),
+        makeDocument('doc-2', 'medical_record_black_oliver.zip', ['medical-record-export']),
+        makeDocument('doc-3', 'FaxPacket.pdf', ['fax-packet']),
+      ],
       makeActions()
     );
 
-    // The generated medical-record archive would fail as "nothing faxable", so it offers no fax.
+    // Generated archives and prior fax packets are audit/export artifacts, not new source documents.
     expect(screen.getAllByRole('button', { name: 'Send Fax' })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(3);
   });
 
   it('hides the fax action when the caller disallows it', () => {

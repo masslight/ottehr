@@ -1,7 +1,14 @@
 import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it } from 'vitest';
+import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './faxDocuments';
-import { FAX_STATUS_POLL_INTERVALS_MS, FAX_STATUS_POLL_TIMEOUT_MS, nextFaxPollInterval } from './faxPolling';
+import {
+  FAX_STATUS_POLL_INTERVALS_MS,
+  FAX_STATUS_POLL_TIMEOUT_MS,
+  faxHistoryQueryKey,
+  faxStatusTimeoutMessage,
+  nextFaxPollInterval,
+} from './faxPolling';
 import {
   applySaveAsPcp,
   canAddRecipient,
@@ -136,5 +143,14 @@ describe('faxPolling', () => {
   it('derives the timeout from the schedule plus a grace period', () => {
     const scheduleTotal = FAX_STATUS_POLL_INTERVALS_MS.reduce((sum, ms) => sum + ms, 0);
     expect(FAX_STATUS_POLL_TIMEOUT_MS).toBeGreaterThan(scheduleTotal);
+  });
+
+  it('points timeout guidance and refreshes at the history for the source', () => {
+    expect(faxStatusTimeoutMessage(visitSource)).toContain("visit's fax history");
+    expect(faxHistoryQueryKey(visitSource)).toEqual(['get-visit-fax-history', 'appointment-1']);
+
+    const patientSource = { type: 'medical-record', patientId: 'patient-1' } as const;
+    expect(faxStatusTimeoutMessage(patientSource)).toContain("patient's fax history");
+    expect(faxHistoryQueryKey(patientSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
   });
 });

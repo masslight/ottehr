@@ -7,3 +7,9 @@ export const ACTION_LOG_CHANNEL_COPY: Record<
   fax: { title: 'Fax', label: 'fax', plural: 'faxes', addressLabel: 'Fax Number' },
   email: { title: 'Email', label: 'email', plural: 'emails', addressLabel: 'Email Address' },
 };
+
+export const actionLogsQueryKey = (channel: ActionLogChannel, patientId?: string): readonly unknown[] => [
+  'get-action-logs',
+  channel,
+  patientId,
+];

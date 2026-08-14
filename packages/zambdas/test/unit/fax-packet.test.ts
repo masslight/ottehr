@@ -36,7 +36,13 @@ vi.mock('../../src/shared/pdf/merge-pdfs', async (importOriginal) => {
   };
 });
 
-import { buildAndUploadPacketForRecipient, buildFaxPacketBody } from '../../src/shared/fax/build-fax-packet';
+import {
+  buildAndUploadPacketForRecipient,
+  buildFaxPacketBody,
+  buildFaxPacketSection,
+  faxPacketLimitGuidance,
+  interleaveFaxPacketSections,
+} from '../../src/shared/fax/build-fax-packet';
 import { collectFaxParts, resolveFaxDocumentAvailability } from '../../src/shared/fax/collect-visit-documents';
 import { FullAppointmentResourcePackage } from '../../src/shared/pdf/visit-details-pdf/types';
 
@@ -336,8 +342,43 @@ describe('buildFaxPacketBody', () => {
   });
 });
 
+describe('interleaveFaxPacketSections', () => {
+  it('places each visit cover immediately before that visit body', () => {
+    const bytes = interleaveFaxPacketSections(
+      [new Uint8Array([1]), new Uint8Array([2])],
+      [{ bytes: new Uint8Array([10]) }, { bytes: new Uint8Array([20]) }]
+    );
+
+    expect(bytes.map((part) => part[0])).toEqual([1, 10, 2, 20]);
+  });
+});
+
+describe('buildFaxPacketSection', () => {
+  it('fails the whole fax explicitly when declared metadata hides unsupported bytes', async () => {
+    await expect(
+      buildFaxPacketSection({
+        token: 'token',
+        subject,
+        parts: [
+          {
+            kind: 'progress-note',
+            title: 'Visit/Progress Note',
+            contentType: 'application/pdf',
+            bytes: new Uint8Array([0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]),
+          },
+        ],
+      })
+    ).rejects.toThrow(
+      'Fax packet part "Visit/Progress Note" Unsupported fax attachment type: application/pdf. The entire fax was not sent.'
+    );
+  });
+});
+
 describe('buildAndUploadPacketForRecipient', () => {
-  const runWithBody = async (body: { bytes: Uint8Array; pageCount: number }): Promise<unknown> =>
+  const runWithBody = async (
+    body: { bytes: Uint8Array; pageCount: number },
+    sourceType: 'visits' | 'medical-record' = 'visits'
+  ): Promise<unknown> =>
     buildAndUploadPacketForRecipient({
       oystehr,
       token: 'token',
@@ -348,6 +389,7 @@ describe('buildAndUploadPacketForRecipient', () => {
       patientId: 'patient-1',
       appointmentId: APPOINTMENT_ID,
       encounterId: ENCOUNTER_ID,
+      sourceType,
       listResources: [],
     });
 
@@ -355,7 +397,8 @@ describe('buildAndUploadPacketForRecipient', () => {
     const bytes = await makePdfBytes(FAX_PACKET_MAX_PAGES);
 
     await expect(runWithBody({ bytes, pageCount: FAX_PACKET_MAX_PAGES })).rejects.toThrow(
-      `Fax packet is ${FAX_PACKET_MAX_PAGES + 1} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit.`
+      `Fax packet is ${FAX_PACKET_MAX_PAGES + 1} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit. ` +
+        faxPacketLimitGuidance('visits')
     );
     expect(mockCreatePresignedUrl).not.toHaveBeenCalled();
     expect(mockUploadObjectToZ3).not.toHaveBeenCalled();
@@ -365,7 +408,9 @@ describe('buildAndUploadPacketForRecipient', () => {
     mergeOverride.bytes = new Uint8Array(FAX_PACKET_MAX_BYTES + 1);
     const bytes = await makePdfBytes(2);
 
-    await expect(runWithBody({ bytes, pageCount: 2 })).rejects.toThrow(/exceeds the 20 MB limit/);
+    await expect(runWithBody({ bytes, pageCount: 2 }, 'medical-record')).rejects.toThrow(
+      /exceeds the 20 MB limit\. Fax the needed documents individually instead\./
+    );
     expect(mockUploadObjectToZ3).not.toHaveBeenCalled();
   });
 });

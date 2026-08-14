@@ -34,7 +34,7 @@ import { getActionLogs } from '../../api/api';
 import DateSearch from '../../components/DateSearch';
 import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
-import { ACTION_LOG_CHANNEL_COPY } from './actionLogs.constants';
+import { ACTION_LOG_CHANNEL_COPY, actionLogsQueryKey } from './actionLogs.constants';
 import { RetryActionButton } from './RetryActionButton';
 
 const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
@@ -104,7 +104,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
     isError,
     refetch,
   } = useQuery<GetActionLogsOutput>({
-    queryKey: ['get-action-logs', channel, patientId, patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
+    queryKey: [...actionLogsQueryKey(channel, patientId), patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehr client is not defined');
       return getActionLogs(oystehrZambda, {
@@ -227,7 +227,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
           ) : (
             logs.map((log) => (
               <TableRow key={log.attemptId}>
-                <TableCell>{log.documentReferenceId ? 'Visit Note' : '-'}</TableCell>
+                <TableCell>{log.documentTitle ?? '-'}</TableCell>
                 {!patientId && <TableCell>{log.patientName ?? '-'}</TableCell>}
                 <TableCell>
                   {log.appointmentId ? (

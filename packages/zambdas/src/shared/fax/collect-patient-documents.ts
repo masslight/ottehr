@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { getFileNameFromUrl, isFaxableAttachment } from 'utils/lib/utils/file';
-import { collectPatientRecordAttachments, getAllPatientDocumentReferences } from '../patient-documents';
+import { getFileNameFromUrl, getMimeType, isFaxableAttachment } from 'utils/lib/utils/file';
+import {
+  collectPatientRecordAttachments,
+  getAllPatientDocumentReferences,
+  isFaxPacket,
+  isMedicalRecordExport,
+} from '../patient-documents';
 import { FaxPacketPart } from './collect-visit-documents';
 
 /**
@@ -16,6 +21,7 @@ const toParts = (documents: DocumentReference[]): FaxPacketPart[] =>
     .map((attachment) => ({
       title: attachment.title || getFileNameFromUrl(attachment.url) || 'Document',
       z3Url: attachment.url,
+      contentType: attachment.contentType ?? getMimeType(attachment.url),
     }));
 
 /** Oldest first, so the packet reads in the order the record was created. */
@@ -40,6 +46,11 @@ export const collectDocumentParts = async (
   });
   if (document.subject?.reference !== `Patient/${patientId}`) {
     throw INVALID_INPUT_ERROR('The requested document does not belong to this patient');
+  }
+  if (isFaxPacket(document) || isMedicalRecordExport(document)) {
+    throw INVALID_INPUT_ERROR(
+      'Generated medical record exports and fax packets cannot be used as fax source documents'
+    );
   }
   return toParts([document]);
 };

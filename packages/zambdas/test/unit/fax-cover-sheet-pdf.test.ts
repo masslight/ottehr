@@ -1,6 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, test } from 'vitest';
-import { createFaxCoverSheetPdfBytes } from '../../src/shared/pdf/fax-cover-sheet-pdf';
+import { createFaxCoverSheetPdfBytes, getFaxCoverSheetTitle } from '../../src/shared/pdf/fax-cover-sheet-pdf';
 import { FaxCoverSheetData } from '../../src/shared/pdf/types';
 
 const fullData: FaxCoverSheetData = {
@@ -48,6 +48,27 @@ const minimalData: FaxCoverSheetData = {
 };
 
 describe('createFaxCoverSheetPdfBytes', () => {
+  test('builds the three cover titles from the packet subject', () => {
+    expect(getFaxCoverSheetTitle(fullData)).toBe('Urgent Care Visit of Black, Oliver');
+    expect(
+      getFaxCoverSheetTitle({
+        ...fullData,
+        subject: {
+          ...fullData.subject,
+          visitTypeLabel: 'Medical Record',
+          visitId: undefined,
+          dateOfService: undefined,
+        },
+      })
+    ).toBe('Medical Record of Black, Oliver');
+    expect(
+      getFaxCoverSheetTitle({
+        ...fullData,
+        subject: { patientName: 'Black, Oliver', patientId: 'MRN-0001234' },
+      })
+    ).toBe('Black, Oliver');
+  });
+
   test('returns a non-empty Uint8Array that loads as a PDF', async () => {
     const bytes = await createFaxCoverSheetPdfBytes(fullData);
 

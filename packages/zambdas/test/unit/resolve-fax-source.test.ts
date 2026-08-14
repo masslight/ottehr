@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Patient } from 'fhir/r4b';
+import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetAppointmentAndRelatedResources = vi.fn();
@@ -87,6 +88,7 @@ describe('resolveFaxPacketPlan', () => {
     const plan = await resolve({ type: 'visit', appointmentId: 'appointment-1' });
 
     expect(plan.sections).toHaveLength(1);
+    expect(plan.sourceType).toBe('visit');
     expect(plan.sections[0].subject).toMatchObject({
       visitId: 'appointment-1',
       dateOfService: '05/05/2026',
@@ -104,6 +106,7 @@ describe('resolveFaxPacketPlan', () => {
     });
 
     expect(plan.sections.map((section) => section.subject.visitId)).toEqual(['appointment-1', 'appointment-2']);
+    expect(plan.sourceType).toBe('visits');
     // A packet spanning visits belongs to none of them, so it is filed on the patient instead.
     expect(plan.appointmentId).toBeUndefined();
     expect(plan.encounterId).toBeUndefined();
@@ -137,11 +140,17 @@ describe('resolveFaxPacketPlan', () => {
     searchResults = [
       docRef('doc-2', 'https://z3.example/doc-2.pdf'),
       docRef('doc-1', 'https://z3.example/doc-1.pdf'),
-      docRef('doc-3', 'https://z3.example/medical_record.zip'),
+      docRef('doc-3', 'https://z3.example/medical_record.zip', {
+        type: { coding: [{ code: MEDICAL_RECORD_EXPORT_CODE }] },
+      }),
+      docRef('doc-4', 'https://z3.example/prior-fax-packet.pdf', {
+        type: { coding: [{ code: FAX_PACKET_CODE }] },
+      }),
     ];
 
     const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID });
 
+    expect(plan.sourceType).toBe('medical-record');
     expect(plan.sections[0].subject).toMatchObject({ visitTypeLabel: 'Medical Record', patientId: PATIENT_ID });
     expect(plan.sections[0].subject.visitId).toBeUndefined();
     // Oldest first, and the record's own zip archive is not part of the record.
@@ -151,11 +160,27 @@ describe('resolveFaxPacketPlan', () => {
     ]);
   });
 
+  it('preserves the content type needed to render image documents', async () => {
+    searchResults = [
+      docRef('doc-1', 'https://z3.example/photo.png', {
+        content: [{ attachment: { url: 'https://z3.example/photo.png', contentType: 'image/png' } }],
+      }),
+    ];
+
+    await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+
+    expect(mockBuildFaxPacketSection.mock.calls[0][0].parts[0]).toMatchObject({
+      z3Url: 'https://z3.example/photo.png',
+      contentType: 'image/png',
+    });
+  });
+
   it('faxes one document under the patient it belongs to, with no visit label', async () => {
     documentsById = { 'doc-1': docRef('doc-1', 'https://z3.example/doc-1.pdf') };
 
     const plan = await resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' });
 
+    expect(plan.sourceType).toBe('document');
     expect(plan.sections[0].subject.visitTypeLabel).toBeUndefined();
     expect(mockBuildFaxPacketSection.mock.calls[0][0].parts).toHaveLength(1);
   });
@@ -167,6 +192,18 @@ describe('resolveFaxPacketPlan', () => {
 
     await expect(resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' })).rejects.toEqual(
       expect.objectContaining({ message: expect.stringContaining('does not belong to this patient') })
+    );
+  });
+
+  it('refuses a prior fax packet as a new single-document source', async () => {
+    documentsById = {
+      'doc-1': docRef('doc-1', 'https://z3.example/prior-fax.pdf', {
+        type: { coding: [{ code: FAX_PACKET_CODE }] },
+      }),
+    };
+
+    await expect(resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' })).rejects.toEqual(
+      expect.objectContaining({ message: expect.stringContaining('cannot be used as fax source documents') })
     );
   });
 

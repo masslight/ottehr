@@ -15,6 +15,7 @@ import { resolvePatientDisplayId, resolveVisitTypeLabel } from './run-fax-packet
 
 /** Everything a packet needs that depends on what is being faxed rather than on who receives it. */
 export interface FaxPacketPlan {
+  sourceType: FaxPacketSource['type'];
   patient: Patient;
   sections: FaxPacketSection[];
   /** Set only when the packet is about exactly one visit, so it can be filed against that visit. */
@@ -41,12 +42,19 @@ export const resolveFaxPacketPlan = async (args: {
 
   switch (source.type) {
     case 'visit':
-      return resolveVisits({ oystehr, token, secrets, appointmentIds: [source.appointmentId] });
+      return resolveVisits({
+        oystehr,
+        token,
+        secrets,
+        sourceType: source.type,
+        appointmentIds: [source.appointmentId],
+      });
     case 'visits':
       return resolveVisits({
         oystehr,
         token,
         secrets,
+        sourceType: source.type,
         appointmentIds: source.appointmentIds,
         expectedPatientId: source.patientId,
       });
@@ -54,6 +62,7 @@ export const resolveFaxPacketPlan = async (args: {
       return resolvePatientDocuments({
         oystehr,
         token,
+        sourceType: source.type,
         patientId: source.patientId,
         visitTypeLabel: 'Medical Record',
         collect: () => collectMedicalRecordParts(oystehr, source.patientId),
@@ -62,6 +71,7 @@ export const resolveFaxPacketPlan = async (args: {
       return resolvePatientDocuments({
         oystehr,
         token,
+        sourceType: source.type,
         patientId: source.patientId,
         collect: () => collectDocumentParts(oystehr, source.patientId, source.documentReferenceId),
       });
@@ -72,10 +82,11 @@ const resolveVisits = async (args: {
   oystehr: Oystehr;
   token: string;
   secrets: Secrets | null;
+  sourceType: Extract<FaxPacketSource['type'], 'visit' | 'visits'>;
   appointmentIds: string[];
   expectedPatientId?: string;
 }): Promise<FaxPacketPlan> => {
-  const { oystehr, token, secrets, appointmentIds, expectedPatientId } = args;
+  const { oystehr, token, secrets, sourceType, appointmentIds, expectedPatientId } = args;
 
   const visits = await Promise.all(
     appointmentIds.map(async (appointmentId) => {
@@ -92,17 +103,21 @@ const resolveVisits = async (args: {
     })
   );
 
-  const sections: FaxPacketSection[] = [];
-  for (const visitResources of visits) {
-    const parts = await collectFaxParts({ oystehr, token, secrets, kinds: FAX_DOCUMENT_ORDER, visitResources });
-    // A visit with nothing to send is skipped rather than introduced by an empty cover sheet.
-    if (parts.length === 0) continue;
-    sections.push(await buildFaxPacketSection({ token, subject: buildVisitSubject(visitResources), parts }));
-  }
+  const sections = (
+    await Promise.all(
+      visits.map(async (visitResources) => {
+        const parts = await collectFaxParts({ oystehr, token, secrets, kinds: FAX_DOCUMENT_ORDER, visitResources });
+        // A visit with nothing to send is skipped rather than introduced by an empty cover sheet.
+        if (parts.length === 0) return undefined;
+        return buildFaxPacketSection({ token, subject: buildVisitSubject(visitResources), parts });
+      })
+    )
+  ).filter((section): section is FaxPacketSection => section !== undefined);
 
   const first = visits[0];
   const singleVisit = visits.length === 1 ? first : undefined;
   return {
+    sourceType,
     patient: first.patient!,
     sections,
     appointmentId: singleVisit?.appointment.id,
@@ -116,11 +131,12 @@ const resolveVisits = async (args: {
 const resolvePatientDocuments = async (args: {
   oystehr: Oystehr;
   token: string;
+  sourceType: Extract<FaxPacketSource['type'], 'medical-record' | 'document'>;
   patientId: string;
   visitTypeLabel?: string;
   collect: () => Promise<Awaited<ReturnType<typeof collectMedicalRecordParts>>>;
 }): Promise<FaxPacketPlan> => {
-  const { oystehr, token, patientId, visitTypeLabel, collect } = args;
+  const { oystehr, token, sourceType, patientId, visitTypeLabel, collect } = args;
 
   const [patient, parts, listResources] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
@@ -135,6 +151,7 @@ const resolvePatientDocuments = async (args: {
   };
 
   return {
+    sourceType,
     patient,
     sections: parts.length ? [await buildFaxPacketSection({ token, subject, parts })] : [],
     listResources,

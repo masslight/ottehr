@@ -82,7 +82,8 @@ export const performEffect = async (
     ),
   ]);
 
-  // Excludes previously generated medical-record archives so they are never bundled into a new one.
+  // Excludes previously generated medical-record archives and sent fax packets. Besides preventing
+  // recursive exports, this keeps another recipient's cover-sheet details out of a downloaded record.
   const attachments = collectPatientRecordAttachments(documentReferences);
 
   console.log(

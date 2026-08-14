@@ -1,20 +1,87 @@
-import { PDFDocument } from 'pdf-lib';
+import { PageSizes, PDFDocument } from 'pdf-lib';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { createPresignedUrl } from '../z3Utils';
 
+// Match the existing fax cover renderer so image-backed packets do not mix A4 and Letter pages.
+const [PAGE_WIDTH, PAGE_HEIGHT] = PageSizes.A4;
+const IMAGE_MARGIN = 24;
+
 /**
- * Downloads the PDF stored at the given z3 url, presigning it for download first.
+ * Downloads a file stored at the given z3 url, presigning it for download first.
  * Throws a descriptive error if the download fails.
  */
-export async function downloadPdfBytes(z3Url: string, token: string): Promise<Uint8Array> {
+export async function downloadFileBytes(z3Url: string, token: string): Promise<Uint8Array> {
   const presignedUrl = await createPresignedUrl(token, z3Url, 'download');
   const response = await fetch(presignedUrl);
 
   if (!response.ok) {
-    throw new Error(`Failed to download PDF from ${z3Url}: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to download file from ${z3Url}: ${response.status} ${response.statusText}`);
   }
 
   return new Uint8Array(await response.arrayBuffer());
 }
+
+/**
+ * Converts a supported image to a one-page PDF, or returns PDF bytes unchanged. Fax transport accepts one
+ * PDF, while patient documents may be stored as PNG or JPEG attachments. The bytes are authoritative and
+ * the declared type is used only for diagnostics, so a mislabeled file fails closed instead of producing an
+ * incomplete packet.
+ */
+export async function normalizeFileToPdf(bytes: Uint8Array, contentType?: string): Promise<Uint8Array> {
+  const detectedType = detectFileType(bytes);
+  if (detectedType === MIME_TYPES.PDF) return bytes;
+
+  const pdf = await PDFDocument.create();
+  const image =
+    detectedType === MIME_TYPES.PNG
+      ? await pdf.embedPng(bytes)
+      : detectedType === MIME_TYPES.JPEG || detectedType === MIME_TYPES.JPG
+      ? await pdf.embedJpg(bytes)
+      : undefined;
+  if (!image) throw new Error(`Unsupported fax attachment type: ${contentType || 'unknown'}`);
+
+  const landscape = image.width > image.height;
+  const pageWidth = landscape ? PAGE_HEIGHT : PAGE_WIDTH;
+  const pageHeight = landscape ? PAGE_WIDTH : PAGE_HEIGHT;
+  const scale = Math.min((pageWidth - IMAGE_MARGIN * 2) / image.width, (pageHeight - IMAGE_MARGIN * 2) / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  const page = pdf.addPage([pageWidth, pageHeight]);
+  page.drawImage(image, {
+    x: (pageWidth - width) / 2,
+    y: (pageHeight - height) / 2,
+    width,
+    height,
+  });
+  return pdf.save();
+}
+
+const detectFileType = (bytes: Uint8Array): string | undefined => {
+  // The PDF header may legally appear after a short binary preamble, but must be within the first 1024 bytes.
+  const pdfHeaderEnd = Math.min(bytes.length - 3, 1024);
+  for (let index = 0; index < pdfHeaderEnd; index++) {
+    if (bytes[index] === 0x25 && bytes[index + 1] === 0x50 && bytes[index + 2] === 0x44 && bytes[index + 3] === 0x46) {
+      return MIME_TYPES.PDF;
+    }
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return MIME_TYPES.PNG;
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return MIME_TYPES.JPEG;
+  }
+  return undefined;
+};
 
 /**
  * Merges the given PDFs into a single document, in order. The first part is used as the base

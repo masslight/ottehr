@@ -78,6 +78,7 @@ export const deliverFaxPacket = async (args: {
         patientId,
         appointmentId,
         encounterId,
+        sourceType: plan.sourceType,
         listResources: plan.listResources,
       });
 

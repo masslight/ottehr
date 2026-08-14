@@ -17,7 +17,7 @@ import { PdfInfo } from './pdf-utils';
  * whose `content[0].attachment.title` equals the new file's title (and reuses it outright when both
  * title and url match). Callers must therefore pass a `pdfInfo.title` that is unique per packet —
  * `buildAndUploadPacketForRecipient` derives it from the upload filename, which carries a timestamp
- * and a recipient hash. With a unique title nothing older is ever patched to `superseded`.
+ * and a random UUID. With a unique title nothing older is ever patched to `superseded`.
  */
 export async function makeFaxPacketDocumentReference(args: {
   oystehr: Oystehr;

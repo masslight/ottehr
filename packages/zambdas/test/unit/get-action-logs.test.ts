@@ -63,6 +63,7 @@ describe('get-action-logs', () => {
       status: 'sent',
       patientName: 'Lovelace, Ada',
       documentReferenceId: 'doc-1',
+      documentTitle: 'Visit Note',
       canRetry: false,
     });
   });
@@ -127,6 +128,32 @@ describe('get-action-logs', () => {
     const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
 
     expect(result.logs[0].canRetry).toBe(true);
+  });
+
+  it('labels packet attempts from their parts and allows patient-level fax retries', async () => {
+    const patientPacket: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        recipientAddress: '+12125551234',
+        documentReferenceId: 'packet-1',
+        faxPacketParts: ['Insurance card', 'Lab result'],
+      }),
+      id: 'attempt-patient-packet',
+      status: 'failed',
+    };
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [patientPacket, patient], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0 });
+
+    const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0]).toMatchObject({
+      appointmentId: undefined,
+      documentTitle: 'Fax packet (2 documents)',
+      canRetry: true,
+    });
   });
 
   it('does not allow retry when the stored recipient is empty', async () => {

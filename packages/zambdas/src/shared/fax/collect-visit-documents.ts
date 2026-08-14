@@ -33,6 +33,8 @@ export interface FaxPacketPart {
   documentReferenceId?: string;
   /** Set when the part comes from an existing DocumentReference. */
   z3Url?: string;
+  /** MIME type of a stored part. Patient-level documents may be PDF, PNG, or JPEG. */
+  contentType?: string;
   /** Set when the part was generated on the fly. */
   bytes?: Uint8Array;
 }
@@ -199,6 +201,7 @@ const partsFromDocRefs = (kind: FaxDocumentKind, docRefs: DocumentReference[]): 
       title: docRef.content?.[0]?.attachment?.title || FAX_DOCUMENT_LABELS[kind],
       documentReferenceId: docRef.id,
       z3Url: docRef.content?.[0]?.attachment?.url,
+      contentType: docRef.content?.[0]?.attachment?.contentType,
     }))
     .filter((part) => !!part.z3Url);
 

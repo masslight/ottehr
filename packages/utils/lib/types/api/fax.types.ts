@@ -78,18 +78,38 @@ export const FaxPacketSourceSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('visits'),
     patientId: z.string().uuid(),
-    appointmentIds: z.array(z.string().uuid()).min(1).max(FAX_MAX_VISITS),
+    appointmentIds: z
+      .array(z.string().uuid())
+      .min(1)
+      .max(FAX_MAX_VISITS)
+      .refine((appointmentIds) => new Set(appointmentIds).size === appointmentIds.length, {
+        message: 'Each visit can only be selected once',
+      }),
   }),
   z.object({ type: z.literal('medical-record'), patientId: z.string().uuid() }),
   z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
 ]);
 export type FaxPacketSource = z.infer<typeof FaxPacketSourceSchema>;
 
+const CurrentSendFaxPacketInputSchema = z.object({
+  source: FaxPacketSourceSchema,
+  recipients: z.array(FaxRecipientSchema).min(1).max(FAX_MAX_RECIPIENTS),
+});
+
+/**
+ * Browser tabs opened before the source contract was deployed still submit `appointmentId`.
+ * Normalize that request at the boundary so a rolling deployment does not break an in-progress visit.
+ */
 export const SendFaxPacketInputSchema = z
-  .object({
-    source: FaxPacketSourceSchema,
-    recipients: z.array(FaxRecipientSchema).min(1).max(FAX_MAX_RECIPIENTS),
-  })
+  .preprocess((value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const request = value as Record<string, unknown>;
+    if (request.source || typeof request.appointmentId !== 'string') return value;
+    return {
+      ...request,
+      source: { type: 'visit', appointmentId: request.appointmentId },
+    };
+  }, CurrentSendFaxPacketInputSchema)
   .refine(
     (value) => value.recipients.filter((recipient) => recipient.saveAsPcp).length <= 1,
     'Only one recipient can be saved as the patient PCP'

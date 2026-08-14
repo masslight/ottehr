@@ -74,6 +74,7 @@ const visitResources = (over: Record<string, unknown> = {}): any => ({
 
 /** One already-built section, standing in for whatever the source resolved to. */
 const plan = (over: Record<string, unknown> = {}): any => ({
+  sourceType: 'visit',
   patient: basePatient(),
   sections: [
     {
@@ -170,6 +171,7 @@ describe('deliverFaxPacket', () => {
       }),
       expect.anything()
     );
+    expect(mockBuildAndUploadPacketForRecipient).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'visit' }));
   });
 
   it('keeps sending when a middle recipient fails, and never leaks the raw error', async () => {

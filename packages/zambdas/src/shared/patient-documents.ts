@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 
 /** One attachment of a patient document, reduced to what the medical-record exports need. */
 export interface PatientRecordAttachment {
@@ -36,10 +36,14 @@ export const getAllPatientDocumentReferences = async (
 export const isMedicalRecordExport = (docRef: DocumentReference): boolean =>
   (docRef.type?.coding ?? []).some((coding) => coding.code === MEDICAL_RECORD_EXPORT_CODE);
 
-/** Flattens exportable documents to their attachments, dropping previously generated archives. */
+/** A transmitted packet may carry recipient details and must never become source material for a later export. */
+export const isFaxPacket = (docRef: DocumentReference): boolean =>
+  (docRef.type?.coding ?? []).some((coding) => coding.code === FAX_PACKET_CODE);
+
+/** Flattens exportable documents, dropping generated archives and sent packets to prevent recursive exports. */
 export const collectPatientRecordAttachments = (documentReferences: DocumentReference[]): PatientRecordAttachment[] =>
   documentReferences
-    .filter((docRef) => !isMedicalRecordExport(docRef))
+    .filter((docRef) => !isMedicalRecordExport(docRef) && !isFaxPacket(docRef))
     .flatMap((docRef) =>
       (docRef.content ?? [])
         .map((content) => content.attachment)

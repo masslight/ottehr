@@ -39,6 +39,14 @@ describe('send-fax-packet - validateRequestParameters', () => {
     });
   });
 
+  test('normalises the legacy appointmentId request shape to a visit source', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput({ appointmentId: APPOINTMENT_ID, recipients: [{ faxNumber: '2125551234' }] }, { secrets })
+    );
+
+    expect(result.source).toEqual(VISIT_SOURCE);
+  });
+
   test('throws when the source type is unknown', () => {
     expect(() =>
       validateRequestParameters(createMockZambdaInput(body({ source: { type: 'everything' } }), { secrets }))
@@ -70,6 +78,23 @@ describe('send-fax-packet - validateRequestParameters', () => {
         )
       )
     ).toThrow();
+  });
+
+  test('throws when the same visit is selected more than once', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          body({
+            source: {
+              type: 'visits',
+              patientId: PATIENT_ID,
+              appointmentIds: [APPOINTMENT_ID, APPOINTMENT_ID],
+            },
+          }),
+          { secrets }
+        )
+      )
+    ).toThrow(/Each visit can only be selected once/);
   });
 
   test('normalises every recipient fax number to +1 and the last ten digits', () => {

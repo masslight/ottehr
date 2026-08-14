@@ -57,6 +57,7 @@ export type PatientDocumentAttachment = {
 // "date": "2024-09-02T10:22:53.870Z",
 export type PatientDocumentInfo = {
   id: string;
+  typeCodes?: string[];
   //TODO: probably be DocumentReference's [parent DomainResource.text] value to have ability to use _text search modifier
   docName: string;
   //TODO: remove
@@ -772,6 +773,7 @@ export interface UploadPatientDocumentResponse {
 const createDocumentInfo = (documentReference: DocumentReference): PatientDocumentInfo => {
   return {
     id: documentReference.id!,
+    typeCodes: documentReference.type?.coding?.flatMap((coding) => (coding.code ? [coding.code] : [])),
     docName: debug__createDisplayedDocumentName(documentReference),
     whenAddedDate: documentReference.date,
     attachments: extractDocumentAttachments(documentReference),

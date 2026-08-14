@@ -7,7 +7,7 @@ import {
   GetFaxPacketPreviewOutput,
   GetFaxPacketStatusOutput,
 } from 'utils/lib/types/api/fax.types';
-import { FAX_STATUS_POLL_TIMEOUT_MS } from '../model/faxPolling';
+import { FAX_STATUS_POLL_TIMEOUT_MS, faxHistoryQueryKey, faxStatusTimeoutMessage } from '../model/faxPolling';
 import { toSendFaxPacketInput } from '../model/faxRecipients';
 import { FaxFormValues } from '../model/types';
 import { useFaxPacketPreview } from './useFaxPacketPreview';
@@ -36,8 +36,6 @@ export interface UseSendFaxResult {
 export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResult => {
   // Only a single-visit packet has a document checklist to preview; the other sources send a fixed set.
   const previewAppointmentId = source?.type === 'visit' ? source.appointmentId : undefined;
-  // Visit-scoped history is what a visit send invalidates; other sources have none to refresh.
-  const appointmentId = previewAppointmentId;
   const [isOpen, setIsOpen] = useState(false);
   // Every queued send is tracked independently, so sending a second fax for the same visit never abandons
   // the first. Jobs stay here (and keep polling) regardless of whether the dialog is open.
@@ -48,6 +46,7 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
 
   const handled = useRef<Set<string>>(new Set());
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const taskSources = useRef<Map<string, FaxPacketSource>>(new Map());
   const pendingTaskIdRef = useRef<string | undefined>(undefined);
   pendingTaskIdRef.current = pendingTaskId;
 
@@ -71,9 +70,11 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
         setIsOpen(false);
       }
       setActiveTaskIds((prev) => prev.filter((id) => id !== taskId));
-      void queryClient.invalidateQueries({ queryKey: ['get-visit-fax-history', appointmentId] });
+      const taskSource = taskSources.current.get(taskId);
+      taskSources.current.delete(taskId);
+      if (taskSource) void queryClient.invalidateQueries({ queryKey: faxHistoryQueryKey(taskSource) });
     },
-    [appointmentId, queryClient]
+    [queryClient]
   );
 
   const open = useCallback(() => {
@@ -94,16 +95,14 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
     async (values: FaxFormValues): Promise<void> => {
       if (!source) return;
       const { taskId } = await sendMutation.mutateAsync(toSendFaxPacketInput(source, values));
+      taskSources.current.set(taskId, source);
 
       timers.current.set(
         taskId,
         setTimeout(() => {
           if (handled.current.has(taskId)) return;
           handled.current.add(taskId);
-          enqueueSnackbar(
-            "We couldn't confirm whether the fax was sent. Check the visit's fax history before resending.",
-            { variant: 'warning' }
-          );
+          enqueueSnackbar(faxStatusTimeoutMessage(source), { variant: 'warning' });
           finishJob(taskId);
         }, FAX_STATUS_POLL_TIMEOUT_MS)
       );
