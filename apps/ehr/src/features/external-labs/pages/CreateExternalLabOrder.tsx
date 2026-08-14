@@ -36,19 +36,22 @@ import {
   useChartData,
   useSaveChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  APIErrorCode,
-  CreateLabPaymentMethod,
-  DiagnosisDTO,
-  getAttendingPractitionerId,
   HL7_NOTE_CHAR_LIMIT,
   LAB_PAYMENT_METHOD_DISPLAY,
+  PSC_HOLD_LOCALE,
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
-  PSC_HOLD_LOCALE,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useCreateExternalLabStore, useMarkDraftNavigatedAway } from '../../../state/draft-data.store';
@@ -123,6 +126,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   );
   const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
   const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
+  // Ordering external labs is NPI-gated — block users without an NPI on file (e.g. the Clinician role).
+  const hasNPI = useEvolveUser()?.hasNPI ?? false;
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>(
     draft.selectedPaymentMethod ?? formStateDefaults.selectedPaymentMethod
   );
@@ -760,7 +765,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
                     data-testid={dataTestIds.externalLabs.createPg.createExternalLabOrderBtn}
-                    disabled={isOrderingDisabled}
+                    disabled={isOrderingDisabled || !hasNPI}
                     loading={submitting}
                     type="submit"
                     variant="contained"
@@ -769,6 +774,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Order
                   </LoadingButton>
                 </Grid>
+                {!hasNPI && (
+                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
+                    <Typography sx={{ color: theme.palette.error.main }}>
+                      You need an NPI on file to order external labs
+                    </Typography>
+                  </Grid>
+                )}
                 {Array.isArray(error) &&
                   error.length > 0 &&
                   error.map((msg, idx) => (

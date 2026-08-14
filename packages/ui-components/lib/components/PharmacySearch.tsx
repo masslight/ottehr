@@ -1,7 +1,8 @@
 import SearchIcon from '@mui/icons-material/Search';
 import { Autocomplete, Box, debounce, InputAdornment, ListItem, Skeleton, TextField, Typography } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { PharmacyCollectionAnswerSetInput, PlacesResult, SearchPlacesInput, SearchPlacesOutput } from 'utils';
+import { PharmacyCollectionAnswerSetInput } from 'utils/lib/helpers/paperwork/pharmacy.helpers';
+import { PlacesResult, SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
 
 interface PharmacySearchProps {
   handlePharmacySelection: (input: PharmacyCollectionAnswerSetInput) => void;

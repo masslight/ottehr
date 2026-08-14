@@ -4,7 +4,7 @@ import { DesktopTimePicker, LocalizationProvider } from '@mui/x-date-pickers-pro
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 type Props = {
   name: string;

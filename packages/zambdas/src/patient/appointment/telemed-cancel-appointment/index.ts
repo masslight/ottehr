@@ -4,37 +4,30 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { cancelAppointmentResource, getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { FHIR_ZAPEHR_URL } from 'utils/lib/fhir/constants';
+import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
+import { getLocationResource } from 'utils/lib/fhir/location';
+import { getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { TelemedCancelationTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  cancelAppointmentResource,
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
-  createOystehrClient,
-  FHIR_ZAPEHR_URL,
-  getAppointmentResourceById,
-  getLocationIdFromAppointment,
-  getLocationResource,
-  getPatchBinary,
-  getPatientContactEmail,
-  getRelatedPersonsForPatient,
-  getSecret,
-  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-  TelemedCancelationTemplateData,
-} from 'utils';
-import {
-  AuditableZambdaEndpoints,
-  checkOrCreateM2MClientToken,
-  createAuditEvent,
-  getEmailClient,
-  getVideoEncounterForAppointment,
-  reportMissingUserRelatedPerson,
-  sendSmsToRelatedPersons,
-  validateBundleAndExtractAppointment,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/api/cancel-telemed-appointment.types';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { getEmailClient, sendSmsToRelatedPersons } from '../../../shared/communication';
+import { getVideoEncounterForAppointment } from '../../../shared/encounters';
+import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
+import { validateBundleAndExtractAppointment } from '../../../shared/validateBundleAndExtractAppointment';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'telemed-cancel-appointment';

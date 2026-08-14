@@ -1,8 +1,8 @@
 import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
-import { getPatientName } from 'src/shared/utils';
-import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getPatientName } from 'src/shared/utils/getPatientName';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 import { VisitNoteItem } from '../../VisitNoteItem';
 

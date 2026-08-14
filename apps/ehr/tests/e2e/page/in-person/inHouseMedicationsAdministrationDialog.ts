@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { Patient } from 'fhir/r4b';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getFirstName, getLastName } from 'utils';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 
 export class AdministeredDialogue {
   #page: Page;

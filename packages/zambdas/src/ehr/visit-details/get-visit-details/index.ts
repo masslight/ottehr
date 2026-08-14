@@ -8,40 +8,49 @@ import {
   Flag,
   Location,
   Patient,
+  Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
+import { getEmailForIndividual, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
-  ConsentDetails,
-  DISPLAY_DATE_FORMAT,
-  EHRVisitDetails,
-  FHIR_RESOURCE_NOT_FOUND,
-  flattenQuestionnaireAnswers,
-  getAttestedConsentFromEncounter,
-  getConsentAndRelatedDocRefsForAppointment,
-  getEmailForIndividual,
-  getFullestAvailableName,
-  getNameFromScheduleResource,
+  deconstructCanonicalUrl,
+  getCanonicalQuestionnaire,
   getQuestionnaireForQR,
-  getTimezone,
-  INVALID_RESOURCE_ID_ERROR,
-  isAnnotationFollowupEncounter,
-  isValidUUID,
+  selectIntakeQuestionnaireResponse,
+} from 'utils/lib/fhir/questionnaires';
+import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import {
+  isPracticeManagedQ,
   makeStandaloneFormDTO,
+  qrSentManually,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { PersistedFhirResource, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { ConsentDetails, EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_RESOURCE_ID_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
-  PersistedFhirResource,
-  qrSentManually,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  selectIntakeQuestionnaireResponse,
-  StandaloneFormDTO,
-  Timezone,
-  TIMEZONES,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/errors';
+import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';
@@ -57,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+  const effectInput = await complexValidation(validatedParameters, oystehr, secrets);
   console.debug('complexValidation success', JSON.stringify(effectInput));
 
   const resources = performEffect(effectInput);
@@ -81,6 +90,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     scheduleOwner,
     guarantorResource,
     standAloneForms,
+    intakePaperworkFlowForms,
   } = input;
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
@@ -116,6 +126,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyEmail,
     consentIsAttested,
     standAloneForms,
+    intakePaperworkFlowForms,
   };
 
   if (schedule) {
@@ -144,9 +155,10 @@ interface EffectInput {
   location?: Location;
   guarantorResource?: Patient | RelatedPerson | undefined;
   standAloneForms?: StandaloneFormDTO[];
+  intakePaperworkFlowForms?: StandaloneFormDTO[];
 }
 
-const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
+const complexValidation = async (input: Input, oystehr: Oystehr, secrets: Secrets | null): Promise<EffectInput> => {
   const { appointmentId } = input;
 
   const searchResults = (
@@ -215,7 +227,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
-  const [docRefsAndConsents, accountResources, standAloneForms] = await Promise.all([
+  const [docRefsAndConsents, accountResources, standAloneForms, intakePaperworkFlowForms] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment(
       {
         appointmentId,
@@ -225,6 +237,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
     getStandaloneFormsForAppointment(appointment, oystehr),
+    getIntakePaperworkFlowForms(qr, oystehr, secrets),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -239,6 +252,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     guarantorResource,
     ...docRefsAndConsents,
     standAloneForms,
+    intakePaperworkFlowForms,
   };
 };
 
@@ -347,4 +361,47 @@ const getStandaloneFormsForAppointment = async (
   return results
     .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
     .map((r) => r.value);
+};
+
+/**
+ * Builds one StandaloneFormDTO per form bundled in the visit's paperwork so those responses render in the Custom Paperwork area alongside standalone forms.
+ */
+const getIntakePaperworkFlowForms = async (
+  qr: QuestionnaireResponse,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<StandaloneFormDTO[] | undefined> => {
+  let questionnaire: Questionnaire | undefined;
+
+  // this really shouldn't happen, but if it does it should not kill get-visit-details
+  try {
+    questionnaire = await getQuestionnaireForQR(qr, oystehr);
+  } catch (e) {
+    console.log(`Error getting Questionnaire for QuestionnaireResponse/${qr.id}`, e);
+    const errorMessage = `Error getting Questionnaire for QuestionnaireResponse/${qr.id}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    // no need to error and fail the call but this would be odd so alerting
+    await sendErrors(errorMessage, ENVIRONMENT);
+  }
+
+  if (!questionnaire || !questionnaire.derivedFrom) return;
+  const flowQuestionnaire = questionnaire;
+
+  const results = await Promise.allSettled(
+    (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {
+      const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
+
+      return getCanonicalQuestionnaire({ url, version }, oystehr);
+    })
+  );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  const forms = results
+    .filter((r): r is PromiseFulfilledResult<Questionnaire> => r.status === 'fulfilled')
+    .map((r) => r.value)
+    .filter((form) => isPracticeManagedQ(form))
+    .map((form) => makeStandaloneFormDTO(form, qr));
+
+  return forms.length > 0 ? forms : undefined;
 };

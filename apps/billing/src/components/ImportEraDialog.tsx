@@ -15,7 +15,8 @@ import {
 import { Bundle } from 'fhir/r4b';
 import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { importEra } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import AlertDialog from './AlertDialog';

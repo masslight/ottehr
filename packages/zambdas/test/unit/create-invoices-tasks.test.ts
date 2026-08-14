@@ -1,7 +1,7 @@
 import type Oystehr from '@oystehr/sdk';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Encounter } from 'fhir/r4b';
-import { RcmTaskCodings } from 'utils';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { createTaskForEncounter } from '../../src/cron/create-invoices-tasks/index';
 import type { ParsedInvoicingConfig } from '../../src/rcm/invoice-config/helpers';

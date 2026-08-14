@@ -1,7 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { ProcedureDTO } from 'utils';
+import { ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 type ProcedureWithEncounterId = ProcedureDTO & { encounterId: string };
 

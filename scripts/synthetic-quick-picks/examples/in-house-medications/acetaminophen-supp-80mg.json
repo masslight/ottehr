@@ -1,0 +1,9 @@
+{
+  "name": "Acetaminophen 80 mg suppository (peds)",
+  "medicationId": "90393d1c-b6af-4309-80b0-c729c040a155",
+  "medicationName": "Acetaminophen (80mg Suppository)",
+  "dose": 80,
+  "units": "mg",
+  "route": "37161004",
+  "instructions": "Pediatric: 80 mg PR if vomiting / unable to tolerate PO."
+}

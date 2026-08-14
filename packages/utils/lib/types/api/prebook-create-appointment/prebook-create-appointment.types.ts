@@ -1,7 +1,7 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
-import { ServiceCategoryCode } from '../../../ottehr-config';
+import { ServiceCategoryCode } from '../../../ottehr-config/booking';
 import { CanonicalUrl, ServiceMode, Timezone } from '../../common';
-import { PatientInfo } from '../../data';
+import { PatientInfo } from '../../data/telemed/appointments/create-appointment.types';
 import { ScheduleOwnerFhirResource } from '../schedules';
 
 /** Fields the scheduled-follow-up flow can copy from the initial visit (OTR-2467). */
@@ -55,7 +55,9 @@ export interface CreateSlotParams {
   walkin?: boolean;
   postTelemedLabOnly?: boolean;
   originalBookingUrl?: string;
-  /** Optional questionnaire canonical URL to use for appointments booked on this slot */
+  /** Optional questionnaire canonical URL to use for appointments booked on this slot,
+   * if a practice managed paperwork flow exists for a given project, that questionnaire url wins over this one
+   */
   questionnaireCanonical?: CanonicalUrl;
   /**
    * Location the slot is being offered at. Persisted via the slot-at-

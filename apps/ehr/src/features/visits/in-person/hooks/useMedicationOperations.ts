@@ -1,6 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
-import { ExtendedMedicationDataForResponse, GetMedicationOrdersInput, UpdateMedicationOrderInput } from 'utils';
+import {
+  ExtendedMedicationDataForResponse,
+  GetMedicationOrdersInput,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
 import {
   useCreateUpdateMedicationOrder,
   useGetMedicationOrders,

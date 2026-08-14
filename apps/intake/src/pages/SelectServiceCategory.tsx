@@ -4,11 +4,12 @@ import HealthMetricIcon from '@theme/icons/health-metric.svg?react';
 import PersonalInjuryIcon from '@theme/icons/personal-injury.svg?react';
 import { ReactNode, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BOOKING_CONFIG, serviceCategorySupportsContext } from 'utils';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
 import ServiceCategoryPicker, { ServiceCategoryOption } from '../components/ServiceCategoryPicker';
 import { useServiceCategories } from '../hooks/useServiceCategories';
-import { CustomContainer } from '../telemed/features/common';
 import { deriveServiceModeFromPath } from './selectServiceCategoryMode';
 
 // hardcoding this for now. could move into config someday but more trouble than it's worth at the moment

@@ -1,12 +1,9 @@
-import {
-  AdminUpdatePrintingConfigInput,
-  INVALID_INPUT_ERROR,
-  LabelPrintingConfigSchema,
-  MISSING_REQUEST_BODY,
-  Secrets,
-} from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { AdminUpdatePrintingConfigInput, LabelPrintingConfigSchema } from 'utils/lib/types/data/printing';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 const validationSchema = z.object({
   deviceId: z.string().optional(),

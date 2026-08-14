@@ -4,7 +4,7 @@ import { InPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgr
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { InPersonRosConfig } from 'utils';
+import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 
 const resourceHandler = new ResourceHandler(`review-of-systems-${DateTime.now().toMillis()}`);
 

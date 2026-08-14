@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import { CustomDialog } from 'ui-components';
+import { CustomDialog } from 'ui-components/lib/components/intake/CustomDialog';
 import { UploadPhotosWrapper } from './UploadPhotosWrapper';
 
 type UploadPhotosDialogProps = { onClose: () => void };

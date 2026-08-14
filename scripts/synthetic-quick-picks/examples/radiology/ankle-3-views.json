@@ -1,0 +1,8 @@
+{
+  "name": "Ankle X-Ray, 3 Views",
+  "cptCode": "73610",
+  "cptDisplay": "Radiologic examination, ankle; complete, minimum of 3 views",
+  "studyName": "X-Ray Ankle 3 Views (AP, Mortise, Lateral)",
+  "clinicalHistory": "Ankle pain after twist or fall — Ottawa ankle rules positive, evaluate for fracture",
+  "stat": false
+}

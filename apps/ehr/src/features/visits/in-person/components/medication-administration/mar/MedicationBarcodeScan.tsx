@@ -2,7 +2,7 @@ import { styled, Typography, useTheme } from '@mui/material';
 import React from 'react';
 // import { ScanStatusChip } from '../statuses/ScanStatusChip';
 // import { MedicationField } from '../medicationTypes';
-import { ExtendedMedicationDataForResponse } from 'utils';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { BarIcon } from './BarIcon';
 
 interface MedicationNameProps {

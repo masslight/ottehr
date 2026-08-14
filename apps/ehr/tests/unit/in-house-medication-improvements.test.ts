@@ -1,5 +1,5 @@
 import { Medication } from 'fhir/r4b';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils';
+import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, test } from 'vitest';
 import {
   fieldsConfig,

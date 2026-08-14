@@ -1,9 +1,12 @@
 import { Box } from '@mui/system';
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppointmentStore } from '../../features/appointments';
-import { createIOSMessageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
-import { UploadPhotosWrapper } from '../../features/upload-photos';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import {
+  createIOSMessageCloseWebView,
+  sendIOSAppMessage,
+} from 'src/telemed/features/ios-communication/iosCommunicationChannel';
+import { UploadPhotosWrapper } from 'src/telemed/features/upload-photos/UploadPhotosWrapper';
 
 export function IOSPatientPhotosEditPage(): JSX.Element {
   const [searchParams, _] = useSearchParams();

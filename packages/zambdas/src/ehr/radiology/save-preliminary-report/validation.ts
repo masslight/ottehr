@@ -1,13 +1,26 @@
-import { SaveRadiologyReportZambdaInput, SaveRadiologyReportZambdaInputSchema, Secrets } from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  SavePreliminaryRadiologyReportZambdaInput,
+  SavePreliminaryRadiologyReportZambdaInputSchema,
+} from 'utils/lib/types/api/radiology';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface ValidatedInput {
-  body: SaveRadiologyReportZambdaInput;
+  body: SavePreliminaryRadiologyReportZambdaInput;
   callerAccessToken: string;
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = safeValidate(SaveRadiologyReportZambdaInputSchema, validateJsonBody(input));
+  const body = safeValidate(SavePreliminaryRadiologyReportZambdaInputSchema, validateJsonBody(input));
+
+  // Diagnosis is optional at order time but required when saving a preliminary read. The shared input
+  // schema keeps diagnosisCodes optional (the final-report flow ignores it), so enforce it here.
+  if (body.diagnosisCodes == null || body.diagnosisCodes.length === 0) {
+    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCodes']);
+  }
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {

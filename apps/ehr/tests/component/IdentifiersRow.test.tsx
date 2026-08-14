@@ -5,7 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetPatientFriendlyId = vi.fn();
 
-vi.mock('utils', () => ({
+// IdentifiersRow imports getPatientFriendlyId from its declaring module, not the 'utils' barrel,
+// so the mock has to target that module or it silently stops intercepting.
+vi.mock('utils/lib/fhir/patient', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   getPatientFriendlyId: (...args: any[]) => mockGetPatientFriendlyId(...args),
 }));
 

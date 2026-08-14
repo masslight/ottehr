@@ -1,15 +1,15 @@
 // ============= admin questionnaire builder helpers ===================== //
 
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { PaperworkContext } from 'ui-components';
+import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
+import { QR_DISTRIBUTION_TAG } from 'utils/lib/fhir/constants';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
-  mapQuestionnaireAndValueSetsToItemsList,
   QAndQRResponse,
-  QR_DISTRIBUTION_TAG,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.types';
 
 export const stubPaperworkResponseForPreview = (questionnaire: Questionnaire): QAndQRResponse => {
   // mapQuestionnaireAndValueSetsToItemsList mutates its input items in place, so pass a deep
@@ -80,6 +80,8 @@ export function stubPaperworkContext(
     paperworkComponentHelpers: {
       handleSearchPlaces: undefined,
       createZ3Object: undefined,
+      getInsuranceCardSuggestions: undefined,
+      getPhotoIdSuggestions: undefined,
       aIInterviewStart: undefined,
       aIInterviewHandleAnswer: undefined,
       setDefaultPaymentMethod: undefined,

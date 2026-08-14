@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
 import { intakeFlowPageRoute } from 'src/App';
+import { PageContainer } from 'src/components/CustomContainer';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { PageContainer } from '../components';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,

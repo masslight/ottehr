@@ -1,13 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  BOOKING_CONFIG,
-  BRANDING_CONFIG,
-  createQuestionnaireItemFromConfig,
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  PATIENT_RECORD_CONFIG,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from 'utils';
+import { createQuestionnaireItemFromConfig } from 'utils/lib/config-helpers/shared-questionnaire';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 
 // The previous version of this script also wrote
 //   config/oystehr/in-person-intake-questionnaire.json

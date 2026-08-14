@@ -2,7 +2,7 @@ import { Box, Grid, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { NursingOrderHistoryRow } from 'utils';
+import { NursingOrderHistoryRow } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
 const formatDateTime = (dateString: string): string => {

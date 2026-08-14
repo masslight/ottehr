@@ -1,8 +1,8 @@
 import { Alert, Box, Snackbar } from '@mui/material';
 import { FC, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
+import { useCreateInviteMutation } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import PageForm from '../../../components/PageForm';
-import { useCreateInviteMutation } from '../waiting-room';
 
 type InviteParticipantsFormProps = {
   isGetInvitesFetching: boolean;

@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, DomainResource, ServiceRequest } from 'fhir/r4b';
+import { DocumentReference, DomainResource, Observation, ServiceRequest } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   GetRadiologyOrderPdfZambdaOutput,
-  M2MClientMockType,
-} from 'utils';
+} from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE } from '../../src/shared/pdf/radiology-order-form-pdf';
 import {
   InsertFullAppointmentDataBaseResult,
@@ -44,6 +44,28 @@ describe('radiology get-order-pdf integration tests', () => {
         id: resource.id!,
       });
     }
+  };
+
+  /**
+   * Search indexing lags writes, so a weight the order form is expected to pick up has to be visible
+   * to the same query the zambda runs before printing — otherwise the assertions race the index.
+   */
+  const waitUntilWeightIsSearchable = async (observationId: string, encounterId: string): Promise<void> => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      // Status-agnostic: this waits on the retracted weight too, which the order form's own query skips.
+      const found = (
+        await oystehrAdmin.fhir.search<Observation>({
+          resourceType: 'Observation',
+          params: [
+            { name: 'encounter', value: `Encounter/${encounterId}` },
+            { name: 'code', value: 'http://loinc.org|29463-7' },
+          ],
+        })
+      ).unbundle();
+      if (found.some((observation) => observation.id === observationId)) return;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error(`Observation/${observationId} never became searchable`);
   };
 
   it('should generate an order-form PDF for an external order and link the DocumentReference', async () => {
@@ -112,27 +134,92 @@ describe('radiology get-order-pdf integration tests', () => {
     );
     expect(docRef.content?.[0]?.attachment?.url).toBeDefined();
 
-    // A reprint supersedes the previous order-form PDF and returns a fresh current docRef.
-    const secondPdfOutput = (
+    // A reprint of an unchanged order hands back the form already on file.
+    const reprintOutput = (
       await oystehrTestUserM2M.zambda.execute({
         id: 'RADIOLOGY-GET-ORDER-PDF',
         serviceRequestId: orderOutput.serviceRequestId,
       })
     ).output as GetRadiologyOrderPdfZambdaOutput;
-    expect(secondPdfOutput.documentReferenceId).toBeDefined();
+    expect(reprintOutput.documentReferenceId).toBe(docRef.id);
+    expect(reprintOutput.presignedURL).toMatch(/^https?:\/\//);
 
-    const secondDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
-      resourceType: 'DocumentReference',
-      id: secondPdfOutput.documentReferenceId,
+    // Editing invalidates that copy, so the next print regenerates it.
+    const { encounterId: _encounterId, ...editableFields } = createOrderInput;
+    await oystehrTestUserM2M.zambda.execute({
+      id: 'RADIOLOGY-UPDATE-ORDER',
+      serviceRequestId: orderOutput.serviceRequestId,
+      consentObtained: false,
+      edit: { ...editableFields, clinicalHistory: 'Took a second arrow to the knee' },
     });
-    if (secondDocRef.id !== docRef.id) {
-      resourcesToCleanup.push(secondDocRef);
-      const supersededDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
-        resourceType: 'DocumentReference',
-        id: docRef.id!,
-      });
-      expect(supersededDocRef.status).toBe('superseded');
-    }
-    expect(secondDocRef.status).toBe('current');
+
+    const afterEditOutput = (
+      await oystehrTestUserM2M.zambda.execute({
+        id: 'RADIOLOGY-GET-ORDER-PDF',
+        serviceRequestId: orderOutput.serviceRequestId,
+      })
+    ).output as GetRadiologyOrderPdfZambdaOutput;
+    expect(afterEditOutput.documentReferenceId).not.toBe(docRef.id);
+
+    const regeneratedDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: afterEditOutput.documentReferenceId,
+    });
+    resourcesToCleanup.push(regeneratedDocRef);
+    expect(regeneratedDocRef.status).toBe('current');
+
+    const supersededDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: docRef.id!,
+    });
+    expect(supersededDocRef.status).toBe('superseded');
+
+    // The form prints the recorded weight, so recording one invalidates the stored copy.
+    const weightObservation = await oystehrAdmin.fhir.create<Observation>({
+      resourceType: 'Observation',
+      status: 'final',
+      code: { coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body weight' }] },
+      subject: { reference: `Patient/${baseResources.patient.id}` },
+      encounter: { reference: `Encounter/${baseResources.encounter.id}` },
+      effectiveDateTime: new Date().toISOString(),
+      valueQuantity: { value: 70, unit: 'kg' },
+    });
+    resourcesToCleanup.push(weightObservation);
+    await waitUntilWeightIsSearchable(weightObservation.id!, baseResources.encounter.id!);
+
+    const afterWeightOutput = (
+      await oystehrTestUserM2M.zambda.execute({
+        id: 'RADIOLOGY-GET-ORDER-PDF',
+        serviceRequestId: orderOutput.serviceRequestId,
+      })
+    ).output as GetRadiologyOrderPdfZambdaOutput;
+    expect(afterWeightOutput.documentReferenceId).not.toBe(regeneratedDocRef.id);
+
+    const withWeightDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: afterWeightOutput.documentReferenceId,
+    });
+    resourcesToCleanup.push(withWeightDocRef);
+
+    // Newest by effective date, but retracted — the stored copy must stand.
+    const erroredWeightObservation = await oystehrAdmin.fhir.create<Observation>({
+      resourceType: 'Observation',
+      status: 'entered-in-error',
+      code: { coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body weight' }] },
+      subject: { reference: `Patient/${baseResources.patient.id}` },
+      encounter: { reference: `Encounter/${baseResources.encounter.id}` },
+      effectiveDateTime: new Date(Date.now() + 1_000).toISOString(),
+      valueQuantity: { value: 999, unit: 'kg' },
+    });
+    resourcesToCleanup.push(erroredWeightObservation);
+    await waitUntilWeightIsSearchable(erroredWeightObservation.id!, baseResources.encounter.id!);
+
+    const afterErroredWeightOutput = (
+      await oystehrTestUserM2M.zambda.execute({
+        id: 'RADIOLOGY-GET-ORDER-PDF',
+        serviceRequestId: orderOutput.serviceRequestId,
+      })
+    ).output as GetRadiologyOrderPdfZambdaOutput;
+    expect(afterErroredWeightOutput.documentReferenceId).toBe(withWeightDocRef.id);
   }, 120_000);
 });

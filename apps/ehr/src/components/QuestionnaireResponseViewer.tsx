@@ -2,7 +2,9 @@ import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { ReactElement, useMemo } from 'react';
-import { formatQuestionnaireItemValueToString, IntakeQuestionnaireItem, StandaloneFormDTO } from 'utils';
+import { formatQuestionnaireItemValueToString } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO }): ReactElement => {
   const { allItems, questionnaireResponse } = form;

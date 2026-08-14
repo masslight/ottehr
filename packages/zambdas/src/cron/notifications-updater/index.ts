@@ -14,55 +14,56 @@ import {
 } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
+} from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getVideoRoomResourceExtension } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import {
+  checkEncounterHasPractitioner,
+  getFullestAvailableName,
+  getProviderNotificationPreferencesV2,
+  getProviderNotificationSettingsForPractitioner,
+  hasExplicitProviderNotificationPreferencesV2,
+} from 'utils/lib/fhir/patient';
+import { getPatchBinary, getPatchOperationForNewMetaTag, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import {
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
   CATEGORY_NOTIFICATION_TAG_CODE,
   CATEGORY_NOTIFICATION_TAG_SYSTEM,
-  checkEncounterHasPractitioner,
-  ERX_TASK,
-  getAllFhirSearchPages,
-  getFullestAvailableName,
-  getInPersonVisitStatus,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  getProviderNotificationPreferencesV2,
-  getProviderNotificationSettingsForPractitioner,
-  getUiTaskCategoryForCode,
-  getVideoRoomResourceExtension,
-  hasExplicitProviderNotificationPreferencesV2,
-  notificationRowMatchesLocation,
-  NotificationRowPref,
-  OTTEHR_MODULE,
-  OttehrTaskSystem,
   PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
   ProviderNotificationSettings,
-  removePrefix,
-  RoleType,
-  Secrets,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-  UI_TASK_CATEGORY_LABELS,
-  USER_TIMEZONE_EXTENSION_URL,
-  VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
   VIRTUAL_VISIT_SCHEDULED_TAG_CODE,
   VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM,
-  VisitStatusLabel,
   WAITING_ROOM_NOTIFIED_TAG_CODE,
   WAITING_ROOM_NOTIFIED_TAG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/api/practitioner.types';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getEmployees,
-  getRoleMembers,
-  getRoles,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  getUiTaskCategoryForCode,
+  notificationRowMatchesLocation,
+  NotificationRowPref,
+  ProviderNotificationPreferencesV2,
+  UI_TASK_CATEGORY_LABELS,
+} from 'utils/lib/types/api/provider-notifications';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { OttehrTaskSystem } from 'utils/lib/types/common';
+import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
+import { ERX_TASK, FAX_TASK } from 'utils/lib/types/data/tasks/types';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
+import { ZambdaInput } from '../../shared/types/common';
+import { getEmployees, getRoleMembers, getRoles } from '../../shared/users.helper';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {
@@ -88,12 +89,7 @@ export function resolveTaskRecipients(
 let m2mToken: string;
 
 export const index = wrapHandler('notification-Updater', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const sendSMSPractitionerCommunications: {
-    [key: string]: {
-      practitioner: Practitioner;
-      communications: { communication: Communication; method: ProviderNotificationMethod | undefined }[];
-    };
-  } = {};
+  const sendSMSPractitionerCommunications: SMSBufferByPractitionerId = {};
 
   const createCommunicationRequests: BatchInputPostRequest<Communication>[] = [];
   const updateCommunicationRequests: BatchInputRequest<Communication>[] = [];
@@ -519,30 +515,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
   // SMS is sent only AFTER the FHIR transaction commits: if the idempotency tags aren't stamped, no SMS
   // goes out, so the next run can retry without double-texting.
-  const smsToSend: { practitionerRef: string; message: string }[] = [];
-  Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
-    try {
-      const { practitioner, communications } = sendSMSPractitionerCommunications[id];
-      const hasSmsTelecom = practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value));
-      if (!hasSmsTelecom) return;
-      communications.forEach(({ communication, method }) => {
-        const smsEligible =
-          method === ProviderNotificationMethod.phone || method === ProviderNotificationMethod['phone and computer'];
-        if (smsEligible && communication.payload?.[0].contentString) {
-          smsToSend.push({
-            practitionerRef: `Practitioner/${practitioner.id!}`,
-            message: communication.payload[0].contentString,
-          });
-        }
-      });
-    } catch (error) {
-      console.error(
-        `Error trying to prepare SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
-        error
-      );
-      captureException(error);
-    }
-  });
+  const smsToSend = buildSMSSendList(sendSMSPractitionerCommunications);
 
   console.log(`Update appointment requests: ${JSON.stringify(updateAppointmentRequests)}`);
   console.log(`Create communications requests: ${JSON.stringify(createCommunicationRequests)}`);
@@ -867,6 +840,66 @@ export function getCommunicationStatus(notificationSettings: ProviderNotificatio
   return communicationStatusForMethod(notificationSettings.method);
 }
 
+/** Per-practitioner buffer of notifications that still need an SMS, accumulated over one cron run. */
+export type SMSBufferByPractitionerId = {
+  [practitionerId: string]: {
+    practitioner: Practitioner;
+    communications: { communication: Communication; method: ProviderNotificationMethod | undefined }[];
+  };
+};
+
+/**
+ * Flattens the per-practitioner SMS buffer into the actual send list, at most one text per handset per
+ * distinct message.
+ *
+ * Both telemed notifications fan out to EVERY provider whose row matches, so one event legitimately
+ * produces one Communication per provider. But several Practitioner records can resolve to the SAME
+ * `sms` number — a duplicated staff record, a shared practice line, or (in test environments) one
+ * tester's number saved on several provider accounts — and a single Practitioner can carry the same
+ * number in more than one `sms` telecom. Each of those lands as the same text on the same handset while
+ * only ONE in-app notification exists for the logged-in user, which is exactly the reported
+ * "one notification on the computer but two SMS".
+ *
+ * The bell can't collapse these (it filters Communications by `recipient`, so it only ever shows the
+ * logged-in provider's own copy), so the de-dup has to happen here, on (handset, message).
+ */
+export function buildSMSSendList(buffer: SMSBufferByPractitionerId): { practitionerRef: string; message: string }[] {
+  const smsToSend: { practitionerRef: string; message: string }[] = [];
+  const alreadyQueued = new Set<string>();
+
+  Object.keys(buffer).forEach((id) => {
+    try {
+      const { practitioner, communications } = buffer[id];
+      const smsTelecom = practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value));
+      if (!smsTelecom) return;
+      const practitionerRef = `Practitioner/${practitioner.id!}`;
+      // Key on the number so two Practitioner records sharing a handset collapse into one text; fall back
+      // to the reference when the stored value can't be normalized (then we can only de-dup per record).
+      const handset = normalizePhoneNumber(smsTelecom.value) || practitionerRef;
+
+      communications.forEach(({ communication, method }) => {
+        const smsEligible =
+          method === ProviderNotificationMethod.phone || method === ProviderNotificationMethod['phone and computer'];
+        const message = communication.payload?.[0].contentString;
+        if (!smsEligible || !message) return;
+
+        const dedupeKey = `${handset}|${message}`;
+        if (alreadyQueued.has(dedupeKey)) {
+          console.log(`Skipping duplicate SMS for ${practitionerRef}: same message already queued for this number`);
+          return;
+        }
+        alreadyQueued.add(dedupeKey);
+        smsToSend.push({ practitionerRef, message });
+      });
+    } catch (error) {
+      console.error(`Error trying to prepare SMS notifications for practitioner ${buffer[id].practitioner.id}`, error);
+      captureException(error);
+    }
+  });
+
+  return smsToSend;
+}
+
 /** Phone-only → 'completed' (drives SMS-only); anything using the computer → 'in-progress' (lights the bell). */
 export function communicationStatusForMethod(method: ProviderNotificationMethod | undefined): Communication['status'] {
   return method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
@@ -908,6 +941,12 @@ export function resolveAssignmentDelivery(
   input: AssignmentDeliveryInput
 ): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
   const { task, recipient, hasExplicitPrefs, prefs, legacySettings, categoryNotifiedThisRun, taskLocationId } = input;
+
+  // FAX_NOTIFICATIONS_DISABLED: while inbound-fax notifications are off, this gate must stay — the fax
+  // category is commented out of TASK_CODE_TO_UI_CATEGORY, which would otherwise make an assigned fax
+  // task look "uncategorized" and fall through to the legacy always-on flag below. Delete it together
+  // with re-enabling the category.
+  if (task.groupIdentifier?.value === FAX_TASK.category) return { notify: false };
 
   if (task.owner && hasExplicitPrefs) {
     // Migrated staff route category task notifications through their V2 preferences.

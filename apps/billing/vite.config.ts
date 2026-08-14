@@ -20,6 +20,17 @@ export default ({ mode }: { mode: string }): UserConfig => {
   return defineConfig({
     envDir,
     plugins: [react(), viteTsconfigPaths()],
+    resolve: {
+      preserveSymlinks: true,
+      // Resolve the workspace packages to their real source directories. `preserveSymlinks`
+      // otherwise resolves them inside node_modules, where vite treats them as prebundlable deps:
+      // it serves their source raw and, with it, their transitive deps — fatal for CJS ones like
+      // `prop-types` (reached via react-imask) that have no named exports to give.
+      alias: [
+        { find: /^utils(\/|$)/, replacement: path.resolve(__dirname, '../../packages/utils') + '/' },
+        { find: /^ui-components(\/|$)/, replacement: path.resolve(__dirname, '../../packages/ui-components') + '/' },
+      ],
+    },
     server: {
       open: !process.env.VITE_NO_OPEN,
       host: '0.0.0.0',

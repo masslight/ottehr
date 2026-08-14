@@ -22,17 +22,16 @@ import { SURGICAL_HISTORY_OPTIONS } from 'src/features/visits/shared/components/
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
-  AiObservationField,
-  AiSuggestionItem,
   AllergyDTO,
   CPTCodeDTO,
-  GetChartDataResponse,
   HospitalizationDTO,
   MedicalConditionDTO,
   MedicationDTO,
-  ObservationTextFieldDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { AiSuggestionItem, ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 
 interface SearchResult {
   id?: number;

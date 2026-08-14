@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { ChargeMasterDesignation, chooseJson } from 'utils';
+import { ChargeMasterDesignation } from 'utils/lib/fhir/constants';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 
 const CREATE_CHARGE_MASTER_ZAMBDA_ID = 'create-charge-master';
 const UPDATE_CHARGE_MASTER_ZAMBDA_ID = 'update-charge-master';

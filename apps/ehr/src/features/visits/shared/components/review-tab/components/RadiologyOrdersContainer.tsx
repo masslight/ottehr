@@ -2,7 +2,7 @@ import { Box, Divider, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
-import { RadiologyDTO } from 'utils';
+import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
   radiologyOrders: RadiologyDTO[];
@@ -68,6 +68,12 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
               <span style={{ fontWeight: 'bold' }}>Clinical History: </span>
               {order.clinicalHistory}
             </Typography>
+            {order.performedBy && (
+              <Typography>
+                <span style={{ fontWeight: 'bold' }}>Performed by: </span>
+                {order.performedBy.name}
+              </Typography>
+            )}
             {/* External orders have no read to render — the study heading above is the result. */}
             {!order.external && renderReport(order)}
           </Box>

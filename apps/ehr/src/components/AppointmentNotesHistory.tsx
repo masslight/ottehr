@@ -16,12 +16,12 @@ import Oystehr from '@oystehr/sdk';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Appointment } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { EHRVisitDetails } from 'utils';
+import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { formatLastModifiedTag } from '../helpers';
 import { patchAppointmentComment } from '../helpers';
 import { NoteHistory } from '../helpers/activityLogsUtils';
 import { EvolveUser } from '../hooks/useEvolveUser';
-import { EditPatientInfoDialog } from './dialogs';
 
 interface AppointmentNotesHistoryProps {
   appointment: Appointment | undefined;

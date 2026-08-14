@@ -32,7 +32,7 @@ import {
   resolveOrderRoutingFromFollowUpLookup,
 } from 'src/features/visits/in-person/routing/helpers';
 import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy } from 'utils';
+import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy } from 'utils/lib/types/data/in-house/in-house.types';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';

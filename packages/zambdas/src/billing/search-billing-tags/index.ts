@@ -1,9 +1,13 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Basic, Bundle } from 'fhir/r4b';
-import { BillingTag, CLAIM_TAG_SYSTEM } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, searchTagBasics, TAG_DESCRIPTION_URL } from '../shared';
+import { Bundle } from 'fhir/r4b';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
+import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { createBillingClient, isSystemTag, searchTagBasics, TAG_DESCRIPTION_URL } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-tags';
@@ -16,28 +20,50 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> {
+export async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> {
   const basics = await searchTagBasics(oystehr);
-  const usageCounts = await getTagUsageCounts(oystehr, basics);
 
-  const tags: BillingTag[] = basics.map((b) => {
-    const name = b.code?.text ?? '';
-    return {
-      id: b.id ?? '',
-      name,
-      description: b.extension?.find((e) => e.url === TAG_DESCRIPTION_URL)?.valueString ?? '',
-      usage: usageCounts.get(name) ?? 0,
-      updatedAt: b.meta?.lastUpdated ?? '',
-    };
-  });
+  // System-managed tags are always reported, even before their Basic definitions exist (e.g. Hold
+  // before any rules List has been saved). They get synthetic entries with no id/updatedAt — but
+  // real usage counts, since claims can carry a system tag the moment the system applies it.
+  const storedNames = basics.map((b) => b.code?.text).filter((name): name is string => !!name);
+  const unstoredSystemTags = SYSTEM_MANAGED_TAGS.filter((def) => !storedNames.includes(def.name));
+
+  const usageCounts = await getTagUsageCounts(oystehr, [
+    ...new Set(storedNames),
+    ...unstoredSystemTags.map((def) => def.name),
+  ]);
+
+  const tags: BillingTag[] = [
+    ...basics.map((b) => {
+      const name = b.code?.text ?? '';
+      const systemDef = SYSTEM_MANAGED_TAGS.find((def) => def.name === name);
+      return {
+        id: b.id ?? '',
+        name,
+        description:
+          b.extension?.find((e) => e.url === TAG_DESCRIPTION_URL)?.valueString ?? systemDef?.description ?? '',
+        usage: usageCounts.get(name) ?? 0,
+        updatedAt: b.meta?.lastUpdated ?? '',
+        isSystemTag: isSystemTag(b),
+      };
+    }),
+    ...unstoredSystemTags.map((def) => ({
+      id: '',
+      name: def.name,
+      description: def.description,
+      usage: usageCounts.get(def.name) ?? 0,
+      updatedAt: '',
+      isSystemTag: true,
+    })),
+  ];
 
   return { tags };
 }
 
 // Count-only search per tag (_count=0 + _total=accurate) reads Bundle.total without fetching claims.
-async function getTagUsageCounts(oystehr: Oystehr, tags: Basic[]): Promise<Map<string, number>> {
+async function getTagUsageCounts(oystehr: Oystehr, tagNames: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
-  const tagNames = tags.map((t) => t.code?.text).filter(Boolean) as string[];
   if (tagNames.length === 0) return counts;
 
   const requests: BatchInputGetRequest[] = tagNames.map((name) => ({

@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { useQueries } from '@tanstack/react-query';
 import { FC } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 

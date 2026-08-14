@@ -1,9 +1,13 @@
-import { NonNormalResult, NonNormalResultContained } from 'utils';
+import { NonNormalResult, NonNormalResultContained } from 'utils/lib/types/api/lab';
 import { ICON_STYLE } from '../../pdf-consts';
 import { rgbNormalized } from '../../pdf-utils';
 import { PdfAssets, PdfClient, PdfStyles, TextStyle } from '../../types';
 
 export type LabType = 'inhouse' | 'external';
+
+const ABNORMAL_STATUS_COLOR = rgbNormalized(150, 68, 0);
+const INCONCLUSIVE_STATUS_COLOR = rgbNormalized(74, 74, 74);
+const NORMAL_STATUS_COLOR = rgbNormalized(38, 102, 42);
 
 export type LabsRenderData = {
   orders: string[]; // names of all the tests ordered
@@ -69,14 +73,10 @@ export function renderLabsSection(
 
           if (flag === NonNormalResult.Abnormal) {
             client.drawImage(icons.abnormal, resultFlagIconStyle, regularTextNoLineAfter);
-            client.drawTextSequential('Abnormal', { ...style, color: rgbNormalized(237, 108, 2) }, getCurBounds());
+            client.drawTextSequential('Abnormal', { ...style, color: ABNORMAL_STATUS_COLOR }, getCurBounds());
           } else if (flag === NonNormalResult.Inconclusive) {
             client.drawImage(icons.inconclusive, resultFlagIconStyle, regularTextNoLineAfter);
-            client.drawTextSequential(
-              'Inconclusive',
-              { ...style, color: rgbNormalized(117, 117, 117) },
-              getCurBounds()
-            );
+            client.drawTextSequential('Inconclusive', { ...style, color: INCONCLUSIVE_STATUS_COLOR }, getCurBounds());
           }
         });
       }
@@ -85,7 +85,7 @@ export function renderLabsSection(
       client.drawImage(icons.normal, resultFlagIconStyle, regularTextNoLineAfter);
       client.drawTextSequential(
         'Normal',
-        { ...styles.textStyles.regularText, color: rgbNormalized(46, 125, 50) },
+        { ...styles.textStyles.regularText, color: NORMAL_STATUS_COLOR },
         getCurBounds()
       );
     }

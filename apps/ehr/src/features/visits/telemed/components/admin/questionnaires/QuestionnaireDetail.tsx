@@ -4,7 +4,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageContainer from 'src/layout/PageContainer';
-import { PracticeManagedQuestionnaire } from 'utils';
+import { PracticeManagedQuestionnaire } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { useGetPracticeManagedQuestionnaireGet, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 import { QuestionnaireBuilder } from './components/QuestionnaireBuilder';
 

@@ -1,5 +1,9 @@
-import { CPTCodeDTO, isValidUUID, LateralityValue, Pagination, Task } from 'utils';
 import { z } from 'zod';
+import { LateralityValue } from '../../../fhir/radiology';
+import { isValidUUID } from '../../../validation/helper';
+import { Pagination } from '../../data/pagination.types';
+import { Task } from '../../data/tasks/types';
+import { CPTCodeDTO } from '../chart-data/chart-data.types';
 
 /** Patient-safety flags surfaced on an external radiology order. Form-only — never derived from chart data. */
 export const RADIOLOGY_SAFETY_FLAGS = ['implants', 'metal', 'pacemaker', 'pregnancy', 'contrast-allergy'] as const;
@@ -24,6 +28,12 @@ export const RadiologyPerformingOrganizationSchema = z.object({
 });
 export type RadiologyPerformingOrganization = z.infer<typeof RadiologyPerformingOrganizationSchema>;
 
+/** The practitioner who performed an in-house study, read back from `ServiceRequest.performer`. */
+export interface RadiologyPerformedBy {
+  id: string;
+  name: string;
+}
+
 export const RadiologyLateralityModifierSchema = z.object({
   display: z.string(),
   code: z.string(),
@@ -31,7 +41,9 @@ export const RadiologyLateralityModifierSchema = z.object({
 
 export const CreateRadiologyZambdaOrderInputSchema = z.object({
   encounterId: z.string(),
-  diagnosisCodes: z.array(z.string()),
+  // Optional at order time: an X-ray can be ordered without a diagnosis. The diagnosis is instead
+  // captured when the preliminary read is saved (see SaveRadiologyReportZambdaInputSchema).
+  diagnosisCodes: z.array(z.string()).optional(),
   cptCode: z.string(),
   lateralityModifier: RadiologyLateralityModifierSchema.optional(),
   stat: z.boolean(),
@@ -140,12 +152,19 @@ export interface RadiologyDTO {
   performingOrganization?: RadiologyPerformingOrganization;
   timeWindow?: string;
   safetyFlags?: RadiologySafetyFlag[];
+  performedBy?: RadiologyPerformedBy;
 }
 export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
   appointmentId: string;
   visitDateTime: string;
   orderAddedDateTime: string;
+  /**
+   * The visit's attending provider (the requester who placed the order only when the visit has no attender) —
+   * orders are frequently placed by a nurse on the provider's behalf, but the provider gets the credit.
+   */
   providerName: string;
+  /** Practitioner id of the ordering provider (`providerName`); used to populate the "Performed by" options. */
+  providerId: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
   history?: RadiologyOrderHistoryRow[];
@@ -167,8 +186,21 @@ export interface GetRadiologyOrderListZambdaOutput {
 export const SaveRadiologyReportZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
   report: z.string().min(1, 'report is required and must be a string'),
+  // ICD-10 diagnosis codes captured alongside the read. Required when saving a preliminary read
+  // (enforced in the save-preliminary-report zambda); ignored by the final-report flow.
+  diagnosisCodes: z.array(z.string()).optional(),
 });
 export type SaveRadiologyReportZambdaInput = z.infer<typeof SaveRadiologyReportZambdaInputSchema>;
+
+/**
+ * The preliminary read is where "Performed by" is captured, so it takes the base report payload plus that
+ * optional selection. The final-report endpoint keeps the base contract. Only the Practitioner id travels —
+ * the zambda resolves the display name, so the performer can't be an arbitrary client-supplied name.
+ */
+export const SavePreliminaryRadiologyReportZambdaInputSchema = SaveRadiologyReportZambdaInputSchema.extend({
+  performedById: z.string().min(1, 'performedById is required and must be a string').optional(),
+});
+export type SavePreliminaryRadiologyReportZambdaInput = z.infer<typeof SavePreliminaryRadiologyReportZambdaInputSchema>;
 
 export type SaveRadiologyReportZambdaOutput = Record<string, never>;
 
@@ -239,7 +271,10 @@ export type DeleteRadiologyResultZambdaOutput = Record<string, never>;
 export const UploadRadiologyResultZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
   /** Z3 URL of the already-uploaded file (browser PUTs the bytes first via a presigned URL). */
-  z3URL: z.string().min(1, 'z3URL is required and must be a string'),
+  z3URL: z
+    .string()
+    .min(1, 'z3URL is required and must be a string')
+    .refine((url) => url.toLowerCase().endsWith('.pdf'), 'Only PDF files are supported'),
   // nullish: an explicit null is treated as absent (preserves previous behavior).
   title: z.string().nullish(),
 });

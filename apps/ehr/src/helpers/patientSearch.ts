@@ -1,5 +1,5 @@
 import { SearchParam } from '@oystehr/sdk';
-import { OTTEHR_MODULE } from 'utils';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 
 export const MAX_RESULTS = 20;
 

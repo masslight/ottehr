@@ -1,5 +1,5 @@
-import { captureException } from '@sentry/aws-serverless';
-import { handleUnknownError } from 'utils';
+import { captureException, captureMessage } from '@sentry/aws-serverless';
+import { handleUnknownError } from 'utils/lib/fhir/helpers';
 
 export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
   if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
@@ -9,6 +9,25 @@ export const sendErrors = async (error: any, env: string, tags?: Record<string, 
 
   const errorToThrow = handleUnknownError(error);
   captureException(errorToThrow, tags ? { tags } : undefined);
+};
+
+/**
+ * Reports an expected-but-notable condition to Sentry at warning level: an operation that couldn't
+ * complete because of missing or incomplete data, rather than a code defect. Warnings stay out of the
+ * error stream developers triage for bugs, while remaining visible and alertable for whoever fixes
+ * the data. Keep `message` static so Sentry groups occurrences into one issue, and put the
+ * per-occurrence specifics in `extra`.
+ */
+export const sendWarning = (
+  message: string,
+  env: string,
+  extra?: Record<string, unknown>,
+  tags?: Record<string, string>
+): void => {
+  if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
+    return;
+  }
+  captureMessage(message, { level: 'warning', extra, tags });
 };
 
 export const sendSlackNotification = async (message: string, env: string): Promise<void> => {

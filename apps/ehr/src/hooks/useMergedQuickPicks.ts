@@ -19,7 +19,7 @@ import {
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
-} from 'utils';
+} from 'utils/lib/types/api/quick-picks.types';
 import { useApiClients } from './useAppClients';
 
 interface UseFhirQuickPicksResult<T> {

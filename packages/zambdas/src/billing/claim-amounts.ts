@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -8,17 +8,13 @@ import {
   PaymentReconciliation,
   Provenance,
 } from 'fhir/r4b';
-import {
-  ClaimPatientPayment,
-  ClaimRemitAdjustment,
-  getContainedReconciliation,
-  PAYMENT_METHOD_EXTENSION_URL,
-  roundNumberToDecimalPlaces,
-  X12_ADJUSTMENT_GROUP_CODE,
-  X12AdjustmentGroupCode,
-} from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { fetchAllPages } from '../shared';
+import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
+import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { fetchAllPages } from '../shared/fhir';
 import { isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -27,6 +23,7 @@ export const ADJUDICATION_CODES = {
   PAID: 'paid',
   ALLOWED: 'allowed',
   ALLOWED_X12: 'B6',
+  CHARGE: 'charge',
 } as const;
 export const ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY = X12_ADJUSTMENT_GROUP_CODE.patientResponsibility;
 
@@ -89,14 +86,56 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
 
 // CAS adjustments as written by both ERA converters: category = group code (system
 // X12_ADJUSTMENT_GROUP_SYSTEM), reason = CARC reason code, amount = the adjusted amount.
-export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemitAdjustment[] {
-  return allAdjudications(claimResponse)
+function extractAdjustments(adjudications: ClaimResponseItemAdjudication[]): ClaimRemitAdjustment[] {
+  return adjudications
     .filter((adj) => adj.category?.coding?.[0]?.system === X12_ADJUSTMENT_GROUP_SYSTEM && adjudicationCode(adj) != null)
     .map((adj) => ({
       groupCode: adjudicationCode(adj) as X12AdjustmentGroupCode,
       reasonCode: adj.reason?.coding?.[0]?.code ?? '',
       amount: adj.amount?.value ?? 0,
     }));
+}
+
+export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemitAdjustment[] {
+  return extractAdjustments(allAdjudications(claimResponse));
+}
+
+// CLP03 total claim charge as the payer reported it: the ClaimResponse.total 'charge' entry, else
+// the sum of the line-level 'charge' adjudications. Undefined when the remit reports no charge.
+export function extractReportedCharge(claimResponse: ClaimResponse): number | undefined {
+  const totalCharge = claimResponse.total?.find(
+    (total) => total.category?.coding?.[0]?.code === ADJUDICATION_CODES.CHARGE
+  )?.amount?.value;
+  if (totalCharge !== undefined) return totalCharge;
+  const chargeAdjudications = allAdjudications(claimResponse).filter(
+    (adj) => adjudicationCode(adj) === ADJUDICATION_CODES.CHARGE
+  );
+  return chargeAdjudications.length > 0 ? sumAmounts(chargeAdjudications) : undefined;
+}
+
+export interface RemitLineAmounts {
+  // undefined = not reported on this line (distinct from an explicit 0)
+  billed: number | undefined;
+  allowed: number | undefined;
+  paid: number;
+  adjustments: ClaimRemitAdjustment[];
+}
+
+// Per-line variant of extractClaimResponseAmounts: reads a single item/addItem adjudication array.
+export function extractLineAmounts(adjudications: ClaimResponseItemAdjudication[] | undefined): RemitLineAmounts {
+  const all = adjudications ?? [];
+  const amountOf = (code: string): number | undefined => {
+    const matches = all.filter((adj) => adjudicationCode(adj) === code);
+    return matches.length > 0 ? sumAmounts(matches) : undefined;
+  };
+  const allowedCodes: string[] = [ADJUDICATION_CODES.ALLOWED, ADJUDICATION_CODES.ALLOWED_X12];
+  const allowedMatches = all.filter((adj) => allowedCodes.includes(adjudicationCode(adj) ?? ''));
+  return {
+    billed: amountOf(ADJUDICATION_CODES.CHARGE),
+    allowed: allowedMatches.length > 0 ? sumAmounts(allowedMatches) : undefined,
+    paid: amountOf(ADJUDICATION_CODES.PAID) ?? 0,
+    adjustments: extractAdjustments(all),
+  };
 }
 
 export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): ClaimResponse[] {
@@ -221,7 +260,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
   oystehr: Oystehr;
   resourceType: T['resourceType'];
   ids: string[];
-  buildParam: (batch: string[]) => { name: string; value: string };
+  buildParam: (batch: string[]) => SearchParam[];
   groupKeyOf: (resource: T) => string | undefined;
   batchSize?: number;
 }): Promise<Map<string, T[]>> {
@@ -233,7 +272,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
       const bundle = await oystehr.fhir.search<T>({
         resourceType,
         params: [
-          buildParam(batch),
+          ...buildParam(batch),
           {
             name: '_count',
             value: String(count),
@@ -259,6 +298,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
 
 // Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
 // ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
+// Filters out non-ERA ClaimResponses created by claim submission.
 export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
@@ -267,10 +307,21 @@ export async function fetchClaimResponsesByClaimIds(
     oystehr,
     resourceType: 'ClaimResponse',
     ids: claimIds,
-    buildParam: (batch) => ({
-      name: 'request',
-      value: batch.map((id) => `Claim/${id}`).join(','),
-    }),
+    buildParam: (batch) => [
+      {
+        name: 'request',
+        value: batch.map((id) => `Claim/${id}`).join(','),
+      },
+      // Filter out queued and error CRs, which come from claim submission
+      {
+        name: 'outcome:not',
+        value: 'queued',
+      },
+      {
+        name: 'outcome:not',
+        value: 'error',
+      },
+    ],
     groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
   });
 }
@@ -284,10 +335,12 @@ export async function fetchPatientPaymentsByEncounterIds(
     oystehr,
     resourceType: 'PaymentNotice',
     ids: encounterIds,
-    buildParam: (batch) => ({
-      name: 'request:identifier',
-      value: batch.map((id) => `${system}|${id}`).join(','),
-    }),
+    buildParam: (batch) => [
+      {
+        name: 'request:identifier',
+        value: batch.map((id) => `${system}|${id}`).join(','),
+      },
+    ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,
     batchSize: PATIENT_PAYMENT_ENCOUNTER_BATCH,
   });
@@ -416,10 +469,12 @@ export async function fetchClaimResponsesFromEraProvenances(
     oystehr,
     resourceType: 'ClaimResponse',
     ids: [...new Set([...claimResponseIdsByPrId.values()].flat())],
-    buildParam: (batch) => ({
-      name: '_id',
-      value: batch.join(','),
-    }),
+    buildParam: (batch) => [
+      {
+        name: '_id',
+        value: batch.join(','),
+      },
+    ],
     groupKeyOf: (claimResponse) => claimResponse.id,
   });
 

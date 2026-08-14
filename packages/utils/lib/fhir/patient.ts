@@ -18,14 +18,9 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers/helpers';
+import { RelatedPersonMaps } from '../types/api/messaging.types';
 import {
-  buildDefaultTaskCategoryPrefs,
-  defaultNotificationRowPref,
-  normalizeNotificationPreferencesV2,
-  ORG_TYPE_CODE_SYSTEM,
-  PATIENT_INDIVIDUAL_PRONOUNS_URL,
-  PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
@@ -33,22 +28,25 @@ import {
   PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
   ProviderNotificationSettings,
-  RelatedPersonMaps,
-} from '../types';
+} from '../types/api/practitioner.types';
+import {
+  buildDefaultTaskCategoryPrefs,
+  defaultNotificationRowPref,
+  normalizeNotificationPreferencesV2,
+  ProviderNotificationPreferencesV2,
+} from '../types/api/provider-notifications';
+import { ORG_TYPE_CODE_SYSTEM, PATIENT_INDIVIDUAL_PRONOUNS_URL } from '../types/constants';
+import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
+import { getCommunicationsAndSenders, getUniquePhonesNumbers } from './chat';
 import {
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
-  filterResources,
   FRIENDLY_PATIENT_ID_SYSTEM_BASE,
-  getAllPractitionerCredentials,
-  getCoding,
-  getCommunicationsAndSenders,
-  getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
-} from '.';
+} from './constants';
+import { filterResources, getAllPractitionerCredentials, getCoding } from './helpers';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(

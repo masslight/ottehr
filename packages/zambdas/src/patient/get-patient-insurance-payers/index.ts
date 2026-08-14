@@ -1,19 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   APIError,
-  createOystehrClient,
-  getPayerId,
-  getSecret,
   isApiError,
   MISSING_REQUEST_SECRETS,
-  SecretsKeys,
-} from 'utils';
-import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+} from 'utils/lib/types/errors';
 import { getInsuranceOverrideList, ListName } from '../../rcm/get-insurance-override-list/handler';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getAllInsurancePayers } from '../get-all-insurance-payers';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

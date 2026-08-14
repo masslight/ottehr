@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { ChangeEvent } from 'react';
-import { VitalFieldNames } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { describe, expect, it } from 'vitest';
 import { INVALID_BLOOD_PRESSURE_MESSAGE, useBloodPressureLocalState } from './useBloodPressureLocalState';
 

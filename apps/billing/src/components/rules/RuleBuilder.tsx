@@ -20,39 +20,41 @@ import {
   addServiceLineFieldProblem,
   getRuleFieldDef,
   getServiceLinePropertyDef,
-  HOLD_TAG_NAME,
+  RULE_FIELD_CATALOG,
+  RULE_FIELD_GROUP_LABELS,
+  RULE_VALUE_FORMATS,
+  ruleConditionValueProblem,
+  RuleFieldDef,
+  RuleFieldOption,
+  RuleFieldValueType,
+  SERVICE_LINE_PROPERTY_CATALOG,
+  serviceLineMatchValueProblem,
+  ServiceLinePropertyDef,
+  serviceLineSetValueProblem,
+  ServiceLineValueType,
+  setFieldValueProblem,
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import {
   operatorIsMultiValue,
   operatorIsRegex,
   operatorNeedsValue,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
-  RULE_FIELD_CATALOG,
-  RULE_FIELD_GROUP_LABELS,
   RULE_LOGIC,
   RULE_OPERATOR_METADATA,
   RULE_OPERATORS,
   RULE_OUTCOME_TYPE,
-  RULE_VALUE_FORMATS,
   RuleAction,
   RuleCondition,
   RuleConditional,
-  ruleConditionValueProblem,
-  RuleFieldDef,
-  RuleFieldOption,
-  RuleFieldValueType,
   RuleLogic,
   RuleOperator,
   RuleOutcome,
   SERVICE_LINE_MATCH_TYPE,
-  SERVICE_LINE_PROPERTY_CATALOG,
   ServiceLineMatch,
-  serviceLineMatchValueProblem,
-  ServiceLinePropertyDef,
   ServiceLineSetOperation,
-  serviceLineSetValueProblem,
-  ServiceLineValueType,
-  setFieldValueProblem,
-} from 'utils';
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { otherColors } from '../../themes/ottehr/colors';
 import { FacilitySelect } from '../FacilitySelect';
 import { PayerSelect } from '../PayerSelect';
@@ -1005,8 +1007,8 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <ServiceLineMatchEditor name={`${name}.match`} />
           <FormHelperText>
             Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
-            default, most recent effective date on or before the date of service). A matched line the charge master
-            cannot price fails the rule and holds the claim.
+            default, most recent effective date on or before the date of service). Lines the charge master cannot price
+            keep their existing charges — this action never fails or holds the claim.
           </FormHelperText>
         </Box>
       )}

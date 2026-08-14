@@ -2,7 +2,7 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { EmCodeOption } from 'utils';
+import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
 import { useAdminCreateEmCodeMutation, useAdminUpdateEmCodeMutation } from './admin.queries';
 
 interface EMCodeDialogProps {

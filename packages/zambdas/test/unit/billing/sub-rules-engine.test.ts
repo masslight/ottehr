@@ -1,17 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition, Claim, Organization, ProvenanceAgent } from 'fhir/r4b';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
-  AR_STAGE,
-  BillingRule,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-  CLAIM_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/claim-history';
+import {
+  AR_STAGE,
   claimStatusValuesToTags,
-  CPT_CODE_SYSTEM,
-  getPayerUrl,
-  HOLD_TAG_NAME,
   withArStageInitialization,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';
 import { rulesToList } from '../../../src/billing/rules-engine/serialization';
@@ -226,15 +228,13 @@ describe('sub-rules-engine performEffect', () => {
       actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
     });
 
-    const result = await performEffect(
-      oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
-      AGENT
+    await expect(
+      async () =>
+        await performEffect(oystehr, { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model }, AGENT)
+    ).rejects.toMatchInlineSnapshot(
+      `[Error: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule bad" failed');
-    expect(result.statusReason).toContain('held for review');
     expect(submitClaimRcm).not.toHaveBeenCalled();
     const requests = transaction.mock.calls[0][0].requests;
     const claimPut = requests.find(
@@ -481,8 +481,8 @@ describe('sub-rules-engine charge master pricing', () => {
     expect(requests.some((r: { url: string }) => r.url.includes('ChargeItemDefinition'))).toBe(false);
   });
 
-  it('holds the claim instead of submitting when no charge master applies', async () => {
-    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+  it('submits with unchanged charges when no charge master applies (the action never holds)', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);
     model.claim.item = [
       {
@@ -493,6 +493,7 @@ describe('sub-rules-engine charge master pricing', () => {
       },
     ];
     model.chargeMasters = []; // nothing designated
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
 
     const result = await performEffect(
       oystehr,
@@ -500,16 +501,14 @@ describe('sub-rules-engine charge master pricing', () => {
       AGENT
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule price" failed');
-    expect(submitClaimRcm).not.toHaveBeenCalled();
-    const requests = transaction.mock.calls[0][0].requests;
-    const claimPut = requests.find(
-      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    // The pricing action changed nothing, so no claim write was persisted and the line kept its charges.
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    expect(requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1')).toBe(
+      false
     );
-    expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
-    // The failed pricing changed nothing else on the claim.
-    expect(claimPut.resource.item[0].net).toEqual({ value: 5, currency: 'USD' });
+    expect(model.claim.item[0].net).toEqual({ value: 5, currency: 'USD' });
   });
 });
 

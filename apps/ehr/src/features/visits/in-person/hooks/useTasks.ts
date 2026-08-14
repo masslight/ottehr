@@ -1,4 +1,4 @@
-import { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
@@ -6,29 +6,34 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  chooseJson,
-  CreateManualTaskRequest,
-  ERX_TASK,
-  getCoding,
-  getExtension,
-  IN_HOUSE_LAB_TASK,
-  isFollowupEncounter,
-  LAB_ORDER_TASK,
-  LabType,
-  MANUAL_TASK,
-  PROVIDER_NOTIFICATION_TAG_SYSTEM,
-  RADIOLOGY_TASK,
-  Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
+import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import {
+  CreateManualTaskRequest,
+  ERX_TASK,
+  FAX_TASK,
+  MANUAL_TASK,
+  RADIOLOGY_TASK,
+  Task,
   TaskAlertCode,
-} from 'utils';
+} from 'utils/lib/types/data/tasks/types';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
+// Read-only action label for fax tasks that have already been actioned (filed/deleted).
+export const VIEW_FAX = 'View';
 
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
@@ -72,6 +77,108 @@ export interface CompleteTaskRequest {
   taskId: string;
 }
 
+export interface TaskSearchStream {
+  tasks: FhirTask[];
+  total: number | undefined;
+}
+
+/**
+ * Merge the two searches that back the location filter — tasks tagged with the selected
+ * location, and location-agnostic tasks (no location tag at all, e.g. inbound faxes) — into a
+ * single page of results.
+ *
+ * Both streams arrive sorted by `-authored-on`, so merging, sorting by `authoredOn` desc and
+ * slicing the requested window reproduces the ordering a single server-side query would give.
+ *
+ * Exported for tests: this is the only place the "a location filter never hides a
+ * location-agnostic task" guarantee is enforced.
+ */
+export const mergeLocationFilteredTasks = ({
+  tagged,
+  untagged,
+  pageOffset,
+  pageSize,
+}: {
+  tagged: TaskSearchStream;
+  untagged: TaskSearchStream;
+  pageOffset: number;
+  pageSize: number;
+}): { tasks: FhirTask[]; total: number } => {
+  const hasLocationTag = (task: FhirTask): boolean =>
+    !!task.meta?.tag?.some((tag) => tag.system === TASK_LOCATION_SYSTEM);
+
+  // `_tag:not=<system>|` (system, empty code) is meant to exclude every task carrying a tag in
+  // the location system. Servers that read the empty code literally instead return
+  // location-tagged tasks too, so drop them here rather than showing another location's tasks.
+  const locationLessTasks = untagged.tasks.filter((task) => !hasLocationTag(task));
+  const untaggedStreamIsUnfiltered = locationLessTasks.length !== untagged.tasks.length;
+  if (untaggedStreamIsUnfiltered) {
+    // The window we fetched was partly consumed by tasks that should have been excluded
+    // server-side, so location-agnostic tasks beyond it may be missing from this page and
+    // `untagged.total` counts rows we just discarded. Surface it instead of silently showing a
+    // short page with a confident-looking count.
+    safelyCaptureMessage('Task location `_tag:not` filter was not honored by the server', {
+      level: 'error',
+      tags: {
+        invariant: 'task-search:tag-not-excludes-location-tagged',
+        site: 'useGetTasks',
+        returned: String(untagged.tasks.length),
+        locationLess: String(locationLessTasks.length),
+      },
+    });
+  }
+
+  const seenTaskIds = new Set<string>();
+  const tasks = [...tagged.tasks, ...locationLessTasks]
+    .filter((task) => {
+      if (!task.id || seenTaskIds.has(task.id)) return false;
+      seenTaskIds.add(task.id);
+      return true;
+    })
+    .sort((a, b) => (b.authoredOn ?? '').localeCompare(a.authoredOn ?? ''))
+    .slice(pageOffset, pageOffset + pageSize);
+
+  // -1 tells TablePagination the count is unknown, which is honest: either stream may have
+  // omitted its total, or the untagged total counts tasks we had to discard client-side.
+  const total =
+    tagged.total != null && untagged.total != null && !untaggedStreamIsUnfiltered ? tagged.total + untagged.total : -1;
+
+  return { tasks, total };
+};
+
+const getTaskEncounterId = (task: FhirTask): string | undefined =>
+  task.encounter?.reference?.split('/')?.[1] ?? getInputString(MANUAL_TASK.input.encounterId, task);
+
+/**
+ * The encounters behind a page of tasks, keyed by id. They only decide whether a task's link needs
+ * a follow-up `encounterId` query param, so a failed lookup degrades the links rather than the
+ * page — and, being a separate search, they can never be mistaken for tasks.
+ */
+const fetchTaskEncounters = async (oystehr: Oystehr, tasks: FhirTask[]): Promise<Map<string, Encounter>> => {
+  const encounterIds = [...new Set(tasks.map(getTaskEncounterId).filter((id): id is string => !!id))];
+  const encountersMap = new Map<string, Encounter>();
+  if (encounterIds.length === 0) return encountersMap;
+  try {
+    const encounters = (
+      await oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [
+          { name: '_id', value: encounterIds.join(',') },
+          { name: '_count', value: encounterIds.length },
+        ],
+      })
+    ).unbundle();
+    encounters.forEach((encounter) => {
+      if (encounter.id) {
+        encountersMap.set(encounter.id, encounter);
+      }
+    });
+  } catch (error) {
+    safelyCaptureException(error);
+  }
+  return encountersMap;
+};
+
 export const useGetTasks = (
   { assignedTo, category, location, status, page }: TasksSearchParams,
   options?: { refetchInterval?: number | false }
@@ -81,7 +188,7 @@ export const useGetTasks = (
     queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
     queryFn: async () => {
       if (!oystehr) throw new Error('oystehr not defined');
-      const params: SearchParam[] = [
+      const baseParams: SearchParam[] = [
         {
           name: '_tag',
           value: 'task',
@@ -94,65 +201,81 @@ export const useGetTasks = (
           name: '_total',
           value: 'accurate',
         },
-        {
-          name: '_count',
-          value: TASKS_PAGE_SIZE,
-        },
         ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
         ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
       ];
-      if (page) {
-        params.push({
-          name: '_offset',
-          value: page * TASKS_PAGE_SIZE,
-        });
-      }
       if (assignedTo) {
-        params.push({
+        baseParams.push({
           name: 'owner',
           value: 'Practitioner/' + assignedTo,
         });
       }
       if (category) {
-        params.push({
+        baseParams.push({
           name: 'group-identifier',
           value: TASK_CATEGORY_IDENTIFIER + '|' + category,
         });
       }
-      if (location) {
-        params.push({
-          name: '_tag',
-          value: TASK_LOCATION_SYSTEM + '|' + location,
-        });
-      }
       if (status) {
-        params.push({
+        baseParams.push({
           name: 'status',
           value: status,
         });
       }
-      params.push({
-        name: '_include',
-        value: 'Task:encounter',
-      });
-      const bundle = await oystehr.fhir.search<FhirTask | Encounter>({
-        resourceType: 'Task',
-        params,
-      });
-      const resources = bundle.unbundle();
-      const tasks = resources.filter((r) => r.resourceType === 'Task') as FhirTask[];
-      const encounters = resources.filter((r) => r.resourceType === 'Encounter') as Encounter[];
-      const encountersMap = new Map<string, Encounter>();
-      encounters.forEach((encounter) => {
-        if (encounter.id) {
-          encountersMap.set(encounter.id, encounter);
-        }
-      });
+      // The encounters behind the tasks are fetched separately rather than with `_include`.
+      // Observed Oystehr behavior, not FHIR spec (which excludes included resources from both):
+      // an included Encounter counts against the page's `_count` budget and against the bundle
+      // `total`, so including them here would shrink the page and inflate the count pagination
+      // is driven by.
+      const searchTasks = async (
+        extraParams: SearchParam[],
+        count: number,
+        offset: number
+      ): Promise<TaskSearchStream> => {
+        const bundle = await oystehr.fhir.search<FhirTask>({
+          resourceType: 'Task',
+          params: [...baseParams, ...extraParams, { name: '_count', value: count }, { name: '_offset', value: offset }],
+        });
+        return {
+          tasks: bundle.unbundle().filter((resource): resource is FhirTask => resource.resourceType === 'Task'),
+          total: bundle.total,
+        };
+      };
+
+      const pageOffset = (page ?? 0) * TASKS_PAGE_SIZE;
+
+      let fhirTasks: FhirTask[];
+      let total: number;
+
+      if (location) {
+        // Tasks with no location tag (e.g. inbound faxes) are location-agnostic and must NOT be
+        // hidden by the location filter. FHIR search can't express "location tag == X OR no
+        // location tag" in a single query, so we run two disjoint searches — tasks tagged with
+        // the selected location, and tasks with no location tag at all — and merge them.
+        // To paginate the merged set correctly, fetch each stream through the end of the
+        // requested page window, merge-sort, and slice out the page.
+        const windowEnd = pageOffset + TASKS_PAGE_SIZE;
+        const [tagged, untagged] = await Promise.all([
+          searchTasks([{ name: '_tag', value: TASK_LOCATION_SYSTEM + '|' + location }], windowEnd, 0),
+          searchTasks([{ name: '_tag:not', value: TASK_LOCATION_SYSTEM + '|' }], windowEnd, 0),
+        ]);
+        const merged = mergeLocationFilteredTasks({ tagged, untagged, pageOffset, pageSize: TASKS_PAGE_SIZE });
+        fhirTasks = merged.tasks;
+        total = merged.total;
+      } else {
+        const result = await searchTasks([], TASKS_PAGE_SIZE, pageOffset);
+        fhirTasks = result.tasks;
+        total = result.total ?? -1;
+      }
+
       // can probably remove filterTasks, leaving for now because we have a handful of tasks in prod that will get pulled on in a weird way if removed
-      const transformedTasks = tasks.filter(filterTasks).map((task) => fhirTaskToTask(task, encountersMap));
+      // Filter before fetching encounters so the lookup only covers tasks that reach the page.
+      const visibleTasks = fhirTasks.filter(filterTasks);
+      const encountersMap = await fetchTaskEncounters(oystehr, visibleTasks);
+      const transformedTasks = visibleTasks.map((task) => fhirTaskToTask(task, encountersMap));
       return {
         tasks: transformedTasks,
-        total: bundle.total ?? -1,
+        total,
       };
     },
     enabled: oystehr != null,
@@ -320,10 +443,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
   let details: string | undefined = undefined;
 
   // Extract encounterId and check if it's a follow-up encounter
-  let encounterId = task.encounter?.reference?.split('/')?.[1];
-  if (!encounterId) {
-    encounterId = getInputString(MANUAL_TASK.input.encounterId, task);
-  }
+  const encounterId = getTaskEncounterId(task);
   const encounter = encounterId ? encountersMap?.get(encounterId) : undefined;
   const isFollowUp = encounter ? isFollowupEncounter(encounter) : false;
 
@@ -547,6 +667,27 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     title = `Provider ${providerName} has notifications in DoseSpot`;
     completable = true;
     action = { name: OPEN_DOSESPOT, link: '' };
+  }
+  if (category === FAX_TASK.category) {
+    const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
+    const senderFaxNumber = getInputString(FAX_TASK.input.senderFaxNumber, task);
+    const pageCount = getInputString(FAX_TASK.input.pageCount, task);
+    const receivedDate = getInputString(FAX_TASK.input.receivedDate, task);
+    const communicationId = getInputString(FAX_TASK.input.communicationId, task);
+
+    if (code === FAX_TASK.code.matchInboundFax) {
+      title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      if (communicationId) {
+        // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
+        // renders read-only, so the action label flips from "Match" to "View".
+        const isActioned = task.status === 'completed' || task.status === 'cancelled';
+        action = {
+          name: isActioned ? VIEW_FAX : 'Match',
+          link: `/inbound-fax/${communicationId}/match`,
+        };
+      }
+    }
   }
 
   return {

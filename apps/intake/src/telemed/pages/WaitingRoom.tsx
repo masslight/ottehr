@@ -5,22 +5,31 @@ import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ottehrApi } from 'src/api';
+import ottehrApi from 'src/api/ottehrApi';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { AppointmentType, getSelectors } from 'utils';
+import { CallSettings } from 'src/telemed/components/CallSettings/CallSettings';
+import { CancelVisitDialog } from 'src/telemed/components/CancelVisitDialog';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { InvitedParticipantListItemButton } from 'src/telemed/features/invited-participants/InvitedParticipantsListItemButton';
+import { ManageParticipantsDialog } from 'src/telemed/features/invited-participants/ManageParticipantsDialog';
+import {
+  createIOSMessageCallStarted,
+  sendIOSAppMessage,
+} from 'src/telemed/features/ios-communication/iosCommunicationChannel';
+import { UploadPhotosDialog } from 'src/telemed/features/upload-photos/UploadPhotosDialog';
+import { UploadPhotosListItemButton } from 'src/telemed/features/upload-photos/UploadPhotosListItemButton';
+import { useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { useWaitingRoomStore } from 'src/telemed/features/waiting-room/waiting-room.store';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { getSelectors } from 'utils/lib/store';
+import { AppointmentType } from 'utils/lib/types/api/appointment.types';
 import { intakeFlowPageRoute } from '../../App';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
-import { IntakeThemeContext } from '../../contexts';
-import { CallSettings, CancelVisitDialog } from '../components';
-import { useAppointmentStore } from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
-import { createIOSMessageCallStarted, sendIOSAppMessage } from '../features/ios-communication';
 import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
-import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
-import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room';
 
 const WaitingRoom = (): JSX.Element => {
   const navigate = useNavigate();

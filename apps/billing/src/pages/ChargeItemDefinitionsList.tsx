@@ -3,7 +3,8 @@ import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextF
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BillingChargeItemDefinition, ChargeItemDefinitionType, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { BillingChargeItemDefinition, ChargeItemDefinitionType } from 'utils/lib/types/data/billing/billing.types';
 import { deleteChargeItemDefinition, getChargeItemDefinition, searchChargeItemDefinitions } from '../api/api';
 import { AddChargeItemDefinitionDialog } from '../components/AddChargeItemDefinitionDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';

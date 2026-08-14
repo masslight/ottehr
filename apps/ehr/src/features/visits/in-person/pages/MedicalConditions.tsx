@@ -1,8 +1,8 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { MedicalHistoryDoubleCard } from 'src/features/visits/shared/components/medical-history-tab/MedicalHistoryDoubleCard';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
-import { MedicalHistoryDoubleCard } from '../../shared/components/medical-history-tab';
 import { MedicalConditionsPatientColumn } from '../../shared/components/medical-history-tab/MedicalConditions/MedicalConditionsPatientColumn';
 import { MedicalConditionsProviderColumn } from '../../shared/components/medical-history-tab/MedicalConditions/MedicalConditionsProviderColumn';
 import { PageTitle } from '../../shared/components/PageTitle';

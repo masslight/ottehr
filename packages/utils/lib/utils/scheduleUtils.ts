@@ -15,22 +15,14 @@ import {
 import { DateTime } from 'luxon';
 import {
   BookableScheduleData,
-  codingContainedInList,
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
-  getFullName,
-  getPatchOperationForNewMetaTag,
-  isAnnotationFollowupEncounter,
-  isLocationVirtual,
-  locationSupportsServiceMode,
   makeBookingOriginExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
-  resolveServiceCategory,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
   ScheduleAndOwner,
   ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
   SLOT_AT_LOCATION_EXTENSION_URL,
   SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
@@ -40,21 +32,20 @@ import {
   SlotServiceCategory,
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
-} from '../fhir';
+} from '../fhir/constants';
 import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
-import { ServiceCategoryCode } from '../ottehr-config';
-import {
-  Closure,
-  ClosureType,
-  CreateSlotParams,
-  OVERRIDE_DATE_FORMAT,
-  ScheduleOwnerFhirResource,
-  ScheduleType,
-  ServiceMode,
-  Timezone,
-  TIMEZONES,
-  VisitType,
-} from '../types';
+import { isAnnotationFollowupEncounter } from '../fhir/encounter';
+import { codingContainedInList, scheduleStrategyForHealthcareService } from '../fhir/helpers';
+import { isLocationVirtual, locationSupportsServiceMode } from '../fhir/location';
+import { getFullName } from '../fhir/patient';
+import { getPatchOperationForNewMetaTag } from '../fhir/resourcePatch';
+import { resolveServiceCategory } from '../fhir/serviceCategoryResolution';
+import { ServiceCategoryCode } from '../ottehr-config/booking';
+import { CreateSlotParams } from '../types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode, Timezone } from '../types/common';
+import { TIMEZONES } from '../types/constants';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
 import { getDateTimeFromDateAndTime } from './date';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 

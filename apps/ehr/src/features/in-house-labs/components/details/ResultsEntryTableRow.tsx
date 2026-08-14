@@ -1,7 +1,9 @@
 import { SxProps, TableCell, TableRow, Theme, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Controller, ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import { DataEntryComponent, OBSERVATION_CODES, quantityRangeFormat } from 'utils';
+import { quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
+import { OBSERVATION_CODES } from 'utils/lib/types/data/in-house/in-house.constants';
+import { DataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { NullOptionCheckbox } from './NullOptionCheckbox';
 import { ResultEntryFreeText } from './ResultEntryFreeText';
 import { ResultEntrySelect } from './ResultEntrySelect';

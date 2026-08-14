@@ -21,7 +21,7 @@ import { DateTime } from 'luxon';
 import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area, Point } from 'react-easy-crop';
-import { MIME_TYPES } from 'utils';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { uploadPatientProfilePhoto } from '../../../../api/api';
 import { getCroppedImg, ImageCropResult } from '../../../../helpers/canvasUtils';
 import { useApiClients } from '../../../../hooks/useAppClients';

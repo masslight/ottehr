@@ -29,7 +29,9 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useCreateRadiologyOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
-import { LATERALITY_SELECTORS, LateralityValue, RadiologyQuickPickData, RoleType } from 'utils';
+import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
+import { RadiologyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import {
   createRadiologyOrder,
   createRadiologyQuickPick,
@@ -147,6 +149,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
+  // Ordering imaging is NPI-gated — block users without an NPI on file (e.g. the Clinician role).
+  const hasNPI = currentUser?.hasNPI ?? false;
 
   // Quick pick handlers
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
@@ -247,8 +251,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     e.preventDefault();
     setSubmitting(true);
 
-    const paramsSatisfied =
-      orderDx.length > 0 && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
+    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
+    const paramsSatisfied = orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
 
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
@@ -281,7 +285,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
       if (clinicalHistory && clinicalHistory.length > 255)
@@ -379,7 +382,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   appointmentId={appointmentIdFromUrl || ''}
                   submitting={submitting}
                   submitLabel="Order"
-                  errors={error}
+                  disabled={!hasNPI}
+                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
                   onCancel={() => {
                     if (encounter.id) clearDraft(encounter.id);
                   }}

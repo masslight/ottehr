@@ -4,7 +4,7 @@ import { Autocomplete, Box, IconButton, TextField, Tooltip, Typography } from '@
 import React, { FC, useCallback, useState } from 'react';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
-import { CPTCodeDTO } from 'utils';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetCPTHCPCSSearch } from '../../features/visits/shared/stores/appointment/appointment.queries';
 
 export interface CptCodeEntry {

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { InHouseLabSelect } from 'src/features/in-house-labs/components/create/InHouseLabSelect';
 import { InHouseSelectedTestTable } from 'src/features/in-house-labs/components/create/InHouseSelectedTestTable';
 import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { DataEntryTestItem, InHouseLabSetDTO } from 'utils';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import { InHouseLabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 
 interface AdminLabSetInHouseSelectionProps {
   onTestsChange: (tests: DataEntryTestItem[]) => void;

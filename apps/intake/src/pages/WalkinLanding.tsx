@@ -5,21 +5,17 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  APIError,
-  BOOKING_CONFIG,
-  BRANDING_CONFIG,
-  CreateSlotParams,
-  isApiError,
-  PROJECT_WEBSITE,
-  serviceCategorySupportsContext,
-  ServiceMode,
-} from 'utils';
-import { ottehrApi } from '../api';
+import ottehrApi from 'src/api/ottehrApi';
+import { PageContainer } from 'src/components/CustomContainer';
+import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 import { bookingBasePath } from '../App';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import { useServiceCategories } from '../hooks/useServiceCategories';

@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useMergedInsuranceQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { InsuranceQuickPickData } from 'utils';
+import { InsuranceQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { QuickPicksButton } from '../QuickPicksButton';
 
 interface InsuranceCarrierQuickPicksProps {

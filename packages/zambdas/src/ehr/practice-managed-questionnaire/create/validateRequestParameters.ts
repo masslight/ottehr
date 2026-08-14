@@ -1,14 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  PracticeManagedQuestionnaireCreateInput,
-  PracticeManagedQuestionnaireSchema,
-  practiceManagedQuestionnaireToFhir,
-  Secrets,
-} from 'utils';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { practiceManagedQuestionnaireToFhir } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { Secrets } from 'utils/lib/secrets';
+import { PracticeManagedQuestionnaireSchema } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.schema';
+import { PracticeManagedQuestionnaireCreateInput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 type BaseContext = {
   secrets: Secrets | null;

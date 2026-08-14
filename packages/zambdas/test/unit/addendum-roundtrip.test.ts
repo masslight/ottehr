@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Communication } from 'fhir/r4b';
-import { NOTE_TYPE, NoteDTO } from 'utils';
+import { NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it, vi } from 'vitest';
 import { makeNoteDTO, makeNoteResource, prepareAddendumNotes } from '../../src/shared/chart-data';
 import { composePlanData } from '../../src/shared/pdf/sections/visit-note/plan';

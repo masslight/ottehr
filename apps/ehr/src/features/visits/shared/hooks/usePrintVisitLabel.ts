@@ -1,7 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
-import { OnDemandLabelXmlRequestOutput } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { OnDemandLabelXmlRequestOutput } from 'utils/lib/types/data/printing';
 import { useGetLabelXmlAndPrintingConfig } from './useGetLabelXmlAndPrintingConfig';
 import { usePrintLabel } from './usePrintLabel';
 

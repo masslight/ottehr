@@ -53,28 +53,27 @@ import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMerge
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
+import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
+import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import {
-  AISuggestionNotes,
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
-  CPTCodeDTO,
-  FHIR_CODE_REGEX,
-  IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
-  ProcedurePageState,
-  ProcedureQuickPickData,
-  PROCEDURES_CONFIG,
-  ProcedureSuggestion,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  RoleType,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
-} from 'utils';
+} from 'utils/lib/types/api/procedures.constants';
+import { ProcedurePageState, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { AiSectionContainer } from '../../shared/components/AiSection';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
@@ -1068,8 +1067,8 @@ export default function ProceduresNew(): ReactElement {
             </Box>
 
             <QuickPicksButton
-              quickPicks={!procedureId ? sortedMergedQuickPicks : []}
-              loading={!procedureId && mergedQuickPicksLoading}
+              quickPicks={sortedMergedQuickPicks}
+              loading={mergedQuickPicksLoading}
               getLabel={(quickPick) => quickPick.name}
               onSelect={onQuickPickSelect}
               showAddOption
