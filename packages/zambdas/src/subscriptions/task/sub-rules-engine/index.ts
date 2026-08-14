@@ -23,6 +23,7 @@ import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants
 import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetResourceRefs,
+  ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
@@ -45,9 +46,11 @@ import {
 } from '../../../billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
+  clinicalPatientIdOfCopy,
   createBillingClient,
   fetchById,
   fetchClaimGraph,
+  fetchPatientCoverages,
   findRulesEngineList,
   hasTag,
   listToRulesReportingMalformed,
@@ -129,19 +132,22 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters] = await Promise.all([
+  const [referenceResources, chargeMasters, patientCoverageContext] = await Promise.all([
     loadReferenceResources(oystehr, rules),
     loadChargeMasters(oystehr, rules),
+    loadPatientCoverageContext(oystehr, rules, model.patient),
   ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
+  model.patientCoverageContext = patientCoverageContext;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
       `billingProvider=${model.billingProvider?.id ?? 'none'}, ` +
       `serviceFacility=${model.serviceFacility?.id ?? 'none'}, subscribers=${model.subscribers.length}` +
       (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '') +
-      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '')
+      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '') +
+      (model.patientCoverageContext ? `, patientCoverages=${model.patientCoverageContext.typeByCoverageRef.size}` : '')
   );
   return { engine, claimId, rules, model, skipRules: skipRules ?? false };
 }
@@ -193,6 +199,40 @@ async function loadChargeMasters(
     params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']),
   });
   return result.unbundle();
+}
+
+// The reference patient's coverages resolved to their insurance-type slots (primary / secondary /
+// workers comp), for the "Coverage (from patient)" field: the reader maps the claim's current
+// primary coverage back to its slot, and the writer copies the chosen slot's coverage onto the
+// claim. Fetched only when an enabled rule references the field. The reference patient is the
+// source the claim's working-copy Patient was copied from; when there is none (no working-copy
+// patient, or a copy made before the source extension existed) the context stays absent — a
+// setField then fails the rule and holds the claim, and a condition reads as empty.
+async function loadPatientCoverageContext(
+  oystehr: Oystehr,
+  rules: BillingRule[],
+  patient: Patient | undefined
+): Promise<RulesEngineClaimModel['patientCoverageContext']> {
+  if (!rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))) return undefined;
+  const sourcePatientId = patient ? clinicalPatientIdOfCopy(patient) : undefined;
+  if (!sourcePatientId) return undefined;
+
+  const records = await fetchPatientCoverages(oystehr, sourcePatientId);
+
+  const context: NonNullable<RulesEngineClaimModel['patientCoverageContext']> = {
+    byType: {},
+    typeByCoverageRef: new Map(),
+  };
+  for (const { coverage, insuranceType, subscriber } of records) {
+    // The engine must never attach a cancelled coverage (mirrors findCoverageOfType). The first
+    // active occupant of a slot wins, so a coverage that lost its slot to another reads as absent
+    // rather than as that slot.
+    if (!coverage.id || coverage.status === 'cancelled') continue;
+    if (!insuranceType || context.byType[insuranceType]) continue;
+    context.byType[insuranceType] = { coverage, subscriber };
+    context.typeByCoverageRef.set(`Coverage/${coverage.id}`, insuranceType);
+  }
+  return context;
 }
 
 export async function performEffect(

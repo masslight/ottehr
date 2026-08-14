@@ -7,8 +7,10 @@ import {
   getRuleFieldDef,
   getServiceLinePropertyDef,
   MAX_REGEX_PATTERN_LENGTH,
+  PATIENT_COVERAGE_FIELD_ID,
   ruleConditionValueProblem,
   RuleFieldDef,
+  ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
   serviceLineMatchValueProblem,
   serviceLineSetValueProblem,
@@ -410,6 +412,64 @@ describe('rule value validation', () => {
             {
               condition: { type: 'all' },
               outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] },
+            },
+          ],
+        },
+      })
+    ).toBe(false);
+  });
+
+  it('detects the "Coverage (from patient)" field in nested conditions and setField actions', () => {
+    // A condition inside a nested group references the field.
+    expect(
+      ruleReferencesPatientCoverage({
+        conditional: {
+          branches: [
+            {
+              condition: {
+                type: 'group',
+                logic: 'and',
+                conditions: [
+                  { type: 'field', field: 'payerId', operator: 'eq', value: '123456' },
+                  { type: 'field', field: PATIENT_COVERAGE_FIELD_ID, operator: 'notExists' },
+                ],
+              },
+              outcome: { type: 'noop' },
+            },
+          ],
+        },
+      })
+    ).toBe(true);
+    // A setField action inside a nested conditional's otherwise references the field.
+    expect(
+      ruleReferencesPatientCoverage({
+        conditional: {
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: {
+                type: 'conditional',
+                conditional: {
+                  branches: [{ condition: { type: 'all' }, outcome: { type: 'noop' } }],
+                  otherwise: {
+                    type: 'actions',
+                    actions: [{ type: 'setField', field: PATIENT_COVERAGE_FIELD_ID, value: 'workersComp' }],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      })
+    ).toBe(true);
+    // Other fields don't trigger the prefetch.
+    expect(
+      ruleReferencesPatientCoverage({
+        conditional: {
+          branches: [
+            {
+              condition: { type: 'field', field: 'insurance.memberId', operator: 'exists' },
+              outcome: { type: 'actions', actions: [{ type: 'setField', field: 'insurance.memberId', value: 'X' }] },
             },
           ],
         },

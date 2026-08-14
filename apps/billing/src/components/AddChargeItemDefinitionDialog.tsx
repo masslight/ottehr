@@ -27,6 +27,7 @@ import z from 'zod';
 import { createChargeItemDefinition } from '../api/api';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';
+import { DateInput } from './DateInput';
 
 interface AddChargeItemDefinitionForm {
   name: string | null;
@@ -146,14 +147,12 @@ export function AddChargeItemDefinitionDialog({
                 name="effectiveDate"
                 control={control}
                 render={({ field, fieldState: { error: fieldError } }) => (
-                  <TextField
+                  <DateInput
                     label="Effective Date"
                     size="small"
                     fullWidth
-                    type="date"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    value={field.value ?? ''}
+                    onChange={(value) => field.onChange(value)}
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
