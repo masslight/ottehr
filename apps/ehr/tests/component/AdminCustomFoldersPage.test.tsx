@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { FOLDERS_CONFIG } from 'utils';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Pick three protected display names guaranteed to land on the first paginated page

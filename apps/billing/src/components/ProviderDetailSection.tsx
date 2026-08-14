@@ -1,6 +1,8 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { BillingProviderOption, CreateBillingProviderInput, getApiError, UpdateBillingProviderInput } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { updateBillingProvider } from '../api/api';
 import {
   defaultProviderFormValues,
@@ -11,9 +13,8 @@ import {
 } from '../constants/provider';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatTaxId } from '../utils/format';
-import { AddressFields } from './AddressFields';
 import { EditableSection, TitleWithSourceLink } from './claim/EditableSection';
-import { ProviderFields } from './ProviderFields';
+import { ProviderAddressFields, ProviderFields } from './ProviderFields';
 import { Row } from './Row';
 
 export function ProviderDetailSection({
@@ -127,7 +128,7 @@ export function ProviderDetailForm({
           )}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
             <ProviderFields />
-            <AddressFields />
+            <ProviderAddressFields />
           </Box>
         </Box>
       }

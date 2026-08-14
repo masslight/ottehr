@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference, Encounter, Organization, Patient, Task } from 'fhir/r4b';
-import { LAB_ORDER_TASK, LAB_RESULT_DOC_REF_CODING_CODE, LabOrderTaskCode } from 'utils';
+import {
+  LAB_ORDER_TASK,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  LabOrderTaskCode,
+} from 'utils/lib/types/data/labs/labs.constants';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
 type AcceptedResultsStatus = (typeof ACCEPTED_RESULTS_STATUS)[number];

@@ -2,7 +2,7 @@ import { Organization } from 'fhir/r4b';
 import {
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
   RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
 import { describe, expect, test } from 'vitest';
 import { buildRadiologyOrderContent, RadiologyOrderContentInput } from '../../src/ehr/radiology/create-order';
 
@@ -60,5 +60,29 @@ describe('buildRadiologyOrderContent - performing organization satisfies FHIR or
 
     expect(content.contained).toBeUndefined();
     expect(content.performer).toBeUndefined();
+  });
+});
+
+// Oystehr rejects a whitespace-only valueString ("Invalid empty string") while accepting a genuinely
+// empty one, so a clinical history of " " must never reach the order-detail extension.
+describe('buildRadiologyOrderContent - clinical history never emits a blank valueString', () => {
+  const valueStrings = (input: RadiologyOrderContentInput): (string | undefined)[] =>
+    buildRadiologyOrderContent(input)
+      .contentExtensions.flatMap((ext) => ext.extension ?? [])
+      .flatMap((param) => param.extension ?? [])
+      .filter((leaf) => leaf.valueString !== undefined)
+      .map((leaf) => leaf.valueString);
+
+  test.each([' ', '   ', '\t', '\n'])('drops the clinical-history extension for %j', (history) => {
+    const emitted = valueStrings({ ...baseInput, clinicalHistory: history });
+
+    expect(emitted).not.toContain(history);
+    expect(emitted.every((v) => v!.trim().length > 0)).toBe(true);
+  });
+
+  test('keeps a real clinical history, trimmed of surrounding whitespace', () => {
+    const emitted = valueStrings({ ...baseInput, clinicalHistory: '  Took an arrow to the knee  ' });
+
+    expect(emitted).toContain('Took an arrow to the knee');
   });
 });

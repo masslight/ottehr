@@ -32,7 +32,7 @@ import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
-import type { VisitsOverviewReportZambdaOutput } from 'utils';
+import type { VisitsOverviewReportZambdaOutput } from 'utils/lib/types/api/visits-overview-report.types';
 import { getVisitsOverviewReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';

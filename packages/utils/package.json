@@ -2,7 +2,7 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "1.40.3",
+"version": "1.40.18",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "sideEffects": false,
@@ -21,8 +21,9 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "config-types": "*",
     "lodash-es": "^4.17.21",
-    "config-types": "*"
+    "sucrase": "^3.35.0"
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.12",

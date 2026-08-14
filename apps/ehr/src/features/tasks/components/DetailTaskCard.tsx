@@ -4,7 +4,7 @@ import { Box, Paper, Typography } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { useCompleteTask } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { Task } from 'utils';
+import { Task } from 'utils/lib/types/data/tasks/types';
 import { MoreTaskActions } from './MoreTaskActions';
 
 interface DetailTaskCardProps {

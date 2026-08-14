@@ -1,5 +1,5 @@
 import { Appointment } from 'fhir/r4b';
-import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from 'utils';
+import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it } from 'vitest';
 import { hasHarvestCompleteTag } from '../../src/subscriptions/questionnaire-response/sub-intake-harvest/index';
 

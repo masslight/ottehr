@@ -1,5 +1,11 @@
 import { Basic, Extension, List, Task } from 'fhir/r4b';
-import { BillingRule, BillingRuleSchema, RuleConditional, RuleConditionalSchema, RulesEngineType } from 'utils';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  BillingRule,
+  BillingRuleSchema,
+  RuleConditional,
+  RuleConditionalSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import {
   RULE_BASIC_CODE,
   RULE_DEFINITION_EXTENSION_URL,

@@ -4,7 +4,8 @@
 
 import { FormFieldsInputItem } from 'config-types';
 import { DateTime } from 'luxon';
-import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG } from 'utils';
+import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { describe, expect, it } from 'vitest';
 import {
   createDynamicValidationResolver,

@@ -20,7 +20,9 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
-import { formatDateForDisplay, getFullName, standardizePhoneNumber } from 'utils';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientById, useGetPatientsForMerge } from './queries';
 

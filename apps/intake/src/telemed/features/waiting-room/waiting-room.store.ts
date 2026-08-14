@@ -1,6 +1,7 @@
-import { InvitedParticipantInfo, VisitStatusLabel } from 'utils';
+import { zustandDevtools } from 'src/telemed/utils/zustandDevtools';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { InvitedParticipantInfo } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import { create } from 'zustand';
-import { zustandDevtools } from '../../utils';
 
 export interface WaitingRoomState {
   status: VisitStatusLabel;

@@ -1,6 +1,6 @@
 import { Location } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { ServiceMode } from '../types';
+import { ServiceMode } from '../types/common';
 import { isValidSlug, PUBLIC_EXTENSION_BASE_URL, slugFromName } from './constants';
 import {
   isLocationFacilityGroup,

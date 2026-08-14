@@ -1,6 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetOrUploadPatientProfilePhotoInputValidated, getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { GetOrUploadPatientProfilePhotoInputValidated } from 'utils/lib/types/api/get-patient-profile-photo-url.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

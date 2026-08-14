@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { useGetAppointmentAccessibility } from '../features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';

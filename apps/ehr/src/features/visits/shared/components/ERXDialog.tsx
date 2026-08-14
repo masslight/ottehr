@@ -3,7 +3,7 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import { Box, IconButton } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
 export const ERXDialog = ({ ssoLink }: { ssoLink: string }): ReactElement => {

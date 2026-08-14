@@ -23,6 +23,8 @@
             "Zambda:Function:get-standalone-paperwork",
             "Zambda:Function:update-paperwork-in-progress",
             "Zambda:Function:get-presigned-file-url",
+            "Zambda:Function:get-insurance-card-suggestions",
+            "Zambda:Function:get-photo-id-suggestions",
             "Zambda:Function:get-appointment-details",
             "Zambda:Function:patch-paperwork",
             "Zambda:Function:submit-paperwork",
@@ -287,6 +289,7 @@
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:get-billing-claim-history",
+            "Zambda:Function:add-billing-claim-note",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:get-billing-service-facility",
             "Zambda:Function:search-billing-tags",
@@ -1158,7 +1161,7 @@
     },
     "CLINICIAN": {
       "name": "Clinician",
-      "description": "Clinical staff without an NPI (e.g. nurses, medical assistants). Provider access except NPI-gated actions (e-prescribing and submitting claims are excluded here; sign, external labs & imaging, and in-house medication orders are enforced in the zambdas via requirePractitionerNPI).",
+      "description": "Clinical staff without an NPI (e.g. nurses, medical assistants). Provider access except NPI-gated actions (e-prescribing and submitting claims are excluded here; sign/co-sign and external labs & imaging orders are enforced in the zambdas via requirePractitionerNPI). In-house medication orders, in-house labs and nursing orders are deliberately NOT gated.",
       "accessPolicy": [
         {
           "resource": [

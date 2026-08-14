@@ -8,6 +8,8 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  SxProps,
+  Theme,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -28,6 +30,8 @@ export interface CustomDialogProps {
   disabled?: boolean;
   dataTestId?: string;
   actions?: React.ReactNode;
+  /** Overrides the Dialog's stacking context — e.g. to sit above a non-modal floating panel it's opened from. */
+  sx?: SxProps<Theme>;
 }
 
 export const CustomDialog: FC<CustomDialogProps> = ({
@@ -44,6 +48,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
   disabled,
   dataTestId,
   actions,
+  sx,
 }) => {
   const theme = useTheme();
 
@@ -52,11 +57,14 @@ export const CustomDialog: FC<CustomDialogProps> = ({
       open={open}
       onClose={handleClose}
       disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 2,
+      sx={[
+        {
+          '.MuiPaper-root': {
+            padding: 2,
+          },
         },
-      }}
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       data-testid={dataTestId}
     >
       <DialogTitle

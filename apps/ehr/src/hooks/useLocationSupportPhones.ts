@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { GetLocationSupportPhonesOutput } from 'utils';
+import { GetLocationSupportPhonesOutput } from 'utils/lib/types/data/support-dialog';
 import { getPublicLocationSupportPhones } from '../api/api';
 import { useApiClients } from './useAppClients';
 

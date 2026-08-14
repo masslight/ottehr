@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import imageCompression from 'browser-image-compression';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { PaperworkContext } from 'ui-components';
+import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import {
   COMPRESS_TARGET_MB,
   COMPRESS_THRESHOLD_MB,

@@ -1,5 +1,6 @@
 import { ErxGetPharmacyResponse } from '@oystehr/sdk';
-import { formatPhoneNumberDisplay, formatZipcodeForDisplay, PrescribedMedicationDTO } from 'utils';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { pharmacyInfo } from '../types';
 
 export const toPharmacyInfo = (pharmacy: ErxGetPharmacyResponse): pharmacyInfo => ({

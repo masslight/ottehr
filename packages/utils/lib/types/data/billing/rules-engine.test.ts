@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { HOLD_TAG_NAME } from './rules-engine.constants';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
@@ -23,6 +22,7 @@ import {
   RuleActionSchema,
   SaveBillingRulesInputSchema,
 } from './rules-engine.schemas';
+import { HOLD_TAG_NAME } from './system-tags';
 
 // Schema-layer tests only: the engine's evaluator/serialization are backend code and are tested in
 // packages/zambdas/test/unit/billing/rules-engine.test.ts.

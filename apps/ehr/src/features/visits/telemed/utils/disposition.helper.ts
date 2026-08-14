@@ -1,14 +1,13 @@
+import { dispositionCheckboxOptions, OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import {
-  BRANDING_CONFIG,
-  dispositionCheckboxOptions,
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OTHER_SPECIALTY_TRANSFER_OPTION,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {
   pcp: ['followUpIn', 'followUpType'],
@@ -59,7 +58,7 @@ export type DispositionFormValues = Pick<
 export const mapFormToDisposition = (values: DispositionFormValues): DispositionDTO => {
   const disposition: DispositionDTO = { type: values.type, note: values.note.trim() || 'N/A' };
 
-  const fields = dispositionFieldsPerType[disposition.type];
+  const fields = dispositionFieldsPerType[disposition.type] ?? [];
 
   if (fields.includes('labService')) {
     disposition.labService = values.labService || [];
@@ -120,7 +119,7 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
   values.type = disposition.type;
   values.note = disposition.note === 'N/A' ? '' : disposition.note;
 
-  const fields = dispositionFieldsPerType[disposition.type];
+  const fields = dispositionFieldsPerType[disposition.type] ?? [];
 
   if (fields.includes('labService')) {
     values.labService = disposition.labService || [];

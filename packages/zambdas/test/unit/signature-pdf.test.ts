@@ -1,5 +1,5 @@
 import { Practitioner, Provenance } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { describe, expect, test } from 'vitest';
 import { getEncounterSignatures } from '../../src/shared/pdf/get-encounter-signatures';
 import { composeSignature } from '../../src/shared/pdf/sections/visit-note/signature';
@@ -53,6 +53,27 @@ describe('composeSignature', () => {
     // Time is the current generation time, so just assert the signer/prefix.
     expect(signedBy).toMatch(/^Signed electronically by Attending, Doc \| MD on /);
     expect(approvedBy).toBeUndefined();
+  });
+
+  test('shows a pending placeholder (no signed line) when the note is not signed', () => {
+    const signatures: ProgressNoteSignatures = {
+      signedBy: { name: 'Resident, Ray | MD', dateTimeISO: '2026-06-07T15:30:00.000Z' },
+    };
+
+    const result = composeSignature({ appointmentPackage, visit: initialVisit, signatures, signed: false });
+
+    expect(result.pendingSignature).toBe('Pending provider signature');
+    expect(result.signedBy).toBeUndefined();
+    expect(result.approvedBy).toBeUndefined();
+  });
+
+  test('still signs when signed is true or omitted', () => {
+    const explicit = composeSignature({ appointmentPackage, visit: initialVisit, signatures: undefined, signed: true });
+    const legacy = composeSignature({ appointmentPackage, visit: initialVisit, signatures: undefined });
+
+    expect(explicit.signedBy).toMatch(/^Signed electronically by Attending, Doc \| MD on /);
+    expect(explicit.pendingSignature).toBeUndefined();
+    expect(legacy.signedBy).toMatch(/^Signed electronically by Attending, Doc \| MD on /);
   });
 
   test('uses the follow-up provider name for follow-up visits', () => {

@@ -1,7 +1,8 @@
 import { ReactElement } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { checkEnable, Question } from 'utils';
-import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../../types';
+import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from 'src/types/form/form-input-type';
+import { checkEnable } from 'utils/lib/helpers/paperwork/paperwork';
+import { Question } from 'utils/lib/types/data/paperwork.types';
 import { getFormInputField, getFormInputGroup } from './getFormInput';
 
 // Checkbox values are returned as 'true' and 'false' instead of true and false respectively.

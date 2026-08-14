@@ -21,7 +21,7 @@ import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
@@ -35,7 +35,9 @@ import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useImmunizationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
-import { ImmunizationQuickPickData, InputImmunizationOrderDetails, RoleType } from 'utils';
+import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,

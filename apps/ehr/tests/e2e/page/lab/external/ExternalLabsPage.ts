@@ -5,7 +5,7 @@ import {
   configBundleRowTestId,
   configBundleTableTestId,
 } from 'src/features/external-labs/utils/test-ids';
-import { ExternalLabsStatus } from 'utils';
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
 import { CreateExternalLabPage } from './CreateExternalLabPage';
 
 const tableTestIds = dataTestIds.externalLabs.labsTable;

@@ -1,6 +1,6 @@
 import { Skeleton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { primaryIcon } from '../branding/assets';
 import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../branding/primaryIconVisibility';
 import { otherColors } from '../IntakeThemeProvider';

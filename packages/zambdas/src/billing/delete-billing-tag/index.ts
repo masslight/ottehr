@@ -1,8 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { CLAIM_TAG_SYSTEM, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
 import { DeleteBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -18,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): Promise<{ deleted: true }> {
+export async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): Promise<{ deleted: true }> {
   const tagBundle = await oystehr.fhir.search<Basic>({
     resourceType: 'Basic',
     params: [

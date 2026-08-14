@@ -1,6 +1,6 @@
 import { toProviderDetails, useGetEmployeesWithDetails } from 'src/features/visits/shared/hooks/useGetEmployees';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { EmployeeDetails } from 'utils';
+import { EmployeeDetails } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {

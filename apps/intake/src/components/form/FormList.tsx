@@ -3,8 +3,8 @@ import { deleteIcon } from '@theme/icons';
 import { FC, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
-import { getFormInputField } from '../../helpers/form';
-import { FormInputTypeField } from '../../types';
+import { getFormInputField } from 'src/helpers/form/getFormInput';
+import { FormInputTypeField } from 'src/types/form/form-input-type';
 import PageForm from '../PageForm';
 
 const FormListInner: FC<{

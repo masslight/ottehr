@@ -15,15 +15,21 @@ import {
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
 import { FC, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { CallSideCard } from 'src/telemed/components/CallSideCard';
+import { LoadingSpinner } from 'src/telemed/components/LoadingSpinner';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { useCallSettingsStore } from 'src/telemed/features/video-call/call-settings.store';
+import { useJoinCall } from 'src/telemed/features/video-call/video-call.queries';
+import { useVideoCallStore } from 'src/telemed/features/video-call/video-call.store';
+import { VideoRoom } from 'src/telemed/features/video-call/VideoRoom';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { ThemeProvider } from 'styled-components';
-import { APIErrorCode, getSelectors } from 'utils';
+import { getSelectors } from 'utils/lib/store';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { intakeFlowPageRoute } from '../../App';
-import { CallSideCard, LoadingSpinner } from '../components';
-import { useAppointmentStore } from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { useCallSettingsStore, useJoinCall, useVideoCallStore, VideoRoom } from '../features/video-call';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useOystehrAPIClient } from '../utils';
 import { getVideoCallAppointmentId } from './video-chat-helpers';
 
 const VideoChatPage: FC = () => {

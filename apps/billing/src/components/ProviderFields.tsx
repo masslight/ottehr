@@ -14,19 +14,24 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { InputMask } from 'ui-components';
-import {
-  isNPIValidWithChecksum,
-  PractitionerQualificationCodesDisplay,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  stripeAccountIdRegex,
-  taxIdRegex,
-} from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import { PractitionerQualificationCodesDisplay } from 'utils/lib/types/api/practitioner.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { stripeAccountIdRegex, taxIdRegex } from 'utils/lib/validation/regex';
 import { ProviderForm } from '../constants/provider';
+import { AddressFields } from './AddressFields';
+
+// Tax ID and address are only required for providers that bill.
+export function ProviderAddressFields(): ReactElement {
+  const { watch } = useFormContext<ProviderForm>();
+  return <AddressFields required={watch('bills')} />;
+}
 
 export function ProviderFields(): ReactElement {
   const { control, watch } = useFormContext<ProviderForm>();
   const selectedKind = watch('kind');
+  const bills = watch('bills');
   return (
     <>
       <Controller
@@ -142,12 +147,12 @@ export function ProviderFields(): ReactElement {
           name="taxId"
           control={control}
           rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => (value && taxIdRegex.test(value)) || 'Tax ID / EIN must be exactly 9 digits',
+            required: bills ? REQUIRED_FIELD_ERROR_MESSAGE : false,
+            validate: (value) => !value || taxIdRegex.test(value) || 'Tax ID / EIN must be exactly 9 digits',
           }}
           render={({ field, fieldState: { error: fieldError } }) => (
             <TextField
-              label="Tax ID *"
+              label={bills ? 'Tax ID *' : 'Tax ID'}
               size="small"
               fullWidth
               value={field.value}

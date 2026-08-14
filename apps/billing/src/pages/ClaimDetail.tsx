@@ -4,6 +4,7 @@ import {
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
   OpenInNew as OpenInNewIcon,
+  StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -32,37 +33,40 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  AR_STAGE,
-  BillingCoverageOption,
-  BillingProviderOption,
-  BillingTag,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimDetailResponse,
-  ClaimRemitAdjustment,
-  ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+} from 'utils/lib/helpers/rcm/constants';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import {
   CreateBillingProviderInput,
-  ERA_CLAIM_STATUS_CODE,
-  EraClaimStatusCode,
-  formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  RULES_ENGINES,
-  RulesEngineDef,
   SaveServiceFacilityInput,
-  ServiceFacilityItem,
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
   UpdateBillingResourceInputSchema,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingCoverageOption,
+  BillingProviderOption,
+  BillingTag,
+  ClaimDetailResponse,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
+} from 'utils/lib/types/data/billing/claim-status';
+import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
+  exportClaimX12,
   getBillingClaimDetail,
   getPatientCoverages,
   runBillingRulesEngine,
@@ -75,6 +79,7 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
+import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
@@ -84,6 +89,7 @@ import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
+import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
@@ -94,6 +100,7 @@ import {
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
+import { ERA_STATUS_LABELS, formatAdjustment } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
@@ -117,8 +124,6 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
   return undefined;
 }
 
-const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
-
 // EHR app base URL for the "View in EHR" backlink
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
@@ -132,6 +137,8 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -430,6 +437,15 @@ export default function ClaimDetail(): ReactElement {
         >
           Export X12
         </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<StickyNote2Icon />}
+          onClick={() => setNotesOpen(true)}
+          sx={{ mt: 0.5 }}
+        >
+          Notes
+        </Button>
         {runEngine && (
           <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
             {runEngine.runButtonLabel}
@@ -437,11 +453,21 @@ export default function ClaimDetail(): ReactElement {
         )}
       </Box>
 
-      <ExportX12Dialog
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
+      {oystehrZambda && (
+        <ExportX12Dialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
+          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+        />
+      )}
+
+      <ClaimNotesDrawer
+        key={claim.id}
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
         claimId={claim.id}
-        claimType={claim.type}
+        onNoteAdded={() => setHistoryVersion((version) => version + 1)}
       />
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -542,7 +568,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
-            <ClaimHistory claimId={claim.id} />
+            <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
       </Box>
@@ -1262,23 +1288,6 @@ function OtherClaimsSection({
   );
 }
 
-// Human labels for CLP02 claim status codes the ERA can carry.
-const ERA_STATUS_LABELS: Record<EraClaimStatusCode, string> = {
-  [ERA_CLAIM_STATUS_CODE.primary]: 'Primary',
-  [ERA_CLAIM_STATUS_CODE.secondary]: 'Secondary',
-  [ERA_CLAIM_STATUS_CODE.tertiary]: 'Tertiary',
-  [ERA_CLAIM_STATUS_CODE.denied]: 'Denied',
-  [ERA_CLAIM_STATUS_CODE.primaryForwarded]: 'Primary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.secondaryForwarded]: 'Secondary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.tertiaryForwarded]: 'Tertiary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.reversal]: 'Reversal',
-  [ERA_CLAIM_STATUS_CODE.notOurClaimForwarded]: 'Not our claim (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.predetermination]: 'Predetermination',
-};
-
-const formatAdjustment = (adj: ClaimRemitAdjustment): string =>
-  `${adj.groupCode}${adj.reasonCode ? `-${adj.reasonCode}` : ''} ${formatCurrency(adj.amount)}`;
-
 function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): ReactElement {
   return (
     <ReadOnlySection title="Remits">
@@ -1414,25 +1423,6 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
   );
 }
 
-function ReadOnlySection({ title, children }: { title: string; children: React.ReactNode }): ReactElement {
-  return (
-    <Card variant="outlined" sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 1.5 }}>
-          {title}
-        </Typography>
-        {typeof children === 'string' ? (
-          <Typography variant="body2" color="text.secondary">
-            {children}
-          </Typography>
-        ) : (
-          children
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export function Meta({ label, value, copyable }: { label: string; value: string; copyable?: boolean }): ReactElement {
   const displayedValue = (
     <Typography variant="body2" fontWeight={500}>
@@ -1550,7 +1540,7 @@ function TagAdder({
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {available.map((t) => (
             <Chip
-              key={t.id}
+              key={t.id || t.name}
               label={t.name}
               size="small"
               color="primary"

@@ -1,6 +1,6 @@
 import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { describe, expect, test } from 'vitest';
 import { selectUpcomingFollowUps, UpcomingFollowUp } from '../../src/shared/pdf/get-upcoming-follow-ups';
 import { composeUpcomingVisits } from '../../src/shared/pdf/sections/upcomingVisits';

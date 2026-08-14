@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 
 export type UseDeleteVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;

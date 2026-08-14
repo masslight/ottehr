@@ -1,12 +1,9 @@
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  SaveBillingRulesInput,
-  SaveBillingRulesInputSchema,
-  validateRuleFieldReferences,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
+import { validateRuleFieldReferences } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { SaveBillingRulesInput, SaveBillingRulesInputSchema } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 export interface SaveBillingRulesParams extends SaveBillingRulesInput {
   secrets: ZambdaInput['secrets'];

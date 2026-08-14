@@ -13,21 +13,20 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  BillingRule,
-  CLAIM_TAG_SYSTEM,
-  collectSetResourceRefs,
   getResourcesFromBatchInlineRequests,
-  getSecret,
-  HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
   resourceHasTag,
-  RULE_ACTION_TYPE,
+} from 'utils/lib/fhir/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  collectSetResourceRefs,
   ruleReferencesPatientCoverage,
-  RULES_ENGINES,
-  RulesEngineType,
   ruleUsesChargeMasterPrices,
-  SecretsKeys,
-} from 'utils';
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
@@ -42,6 +41,7 @@ import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billi
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
   BILLING_WORKING_COPY_TAG,
+  clinicalPatientIdOfCopy,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   fetchById,
@@ -53,9 +53,8 @@ import {
   getPatientAccounts,
   hasTag,
   listToRulesReportingMalformed,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../billing/shared';
-import { checkOrCreateM2MClientToken } from '../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
 import { finalizeEngineRun } from './finalize';
 
@@ -206,9 +205,7 @@ async function loadPatientCoverageContext(
   patient: Patient | undefined
 ): Promise<RulesEngineClaimModel['patientCoverageContext']> {
   if (!rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))) return undefined;
-  const sourcePatientId = patient?.extension
-    ?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)
-    ?.valueReference?.reference?.replace('Patient/', '');
+  const sourcePatientId = patient ? clinicalPatientIdOfCopy(patient) : undefined;
   if (!sourcePatientId) return undefined;
 
   const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
@@ -305,10 +302,7 @@ export async function performEffect(
 
   if (failure) {
     console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
-    return {
-      taskStatus: 'failed',
-      statusReason: `Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`,
-    };
+    throw new Error(`Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`);
   }
 
   if (heldBy) {

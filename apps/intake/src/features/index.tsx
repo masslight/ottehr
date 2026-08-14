@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { getSelectors } from 'utils';
-import { useIntakeCommonStore } from './common';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { getSelectors } from 'utils/lib/store';
 
 export const useClearStores = (): ((redirectPath?: string) => void) => {
   const { clear: clearCommon } = getSelectors(useIntakeCommonStore, ['clear']);

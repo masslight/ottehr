@@ -1,9 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
+import { getExtensionValue } from 'utils/lib/fhir/helpers';
+import {
+  GetProgressNoteConfigOutput,
+  ProgressNoteConfig,
+  VITALS_UNIT_INPUT_ORDERS,
+  VitalsUnitInputOrder,
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import {
   DEFAULT_PROGRESS_NOTE_CONFIG,
-  getExtensionValue,
-  GetProgressNoteConfigOutput,
   PROGRESS_NOTE_CONFIG_ANOTHER_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_BASIC_TAG,
   PROGRESS_NOTE_CONFIG_ED_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
@@ -11,10 +16,7 @@ import {
   PROGRESS_NOTE_CONFIG_MEDICAL_DECISION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_PCP_NO_TYPE_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
-  ProgressNoteConfig,
-  VITALS_UNIT_INPUT_ORDERS,
-  VitalsUnitInputOrder,
-} from 'utils';
+} from 'utils/lib/utils/progress-note-config';
 
 async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | undefined> {
   const results = (

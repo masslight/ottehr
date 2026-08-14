@@ -1,8 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location, ProvenanceAgent } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, INVALID_INPUT_ERROR, makeOptimisticLockIfMatchHeader } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fetchById, isWorkingCopy } from '../shared';

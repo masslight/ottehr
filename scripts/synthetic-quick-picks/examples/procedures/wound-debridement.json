@@ -1,0 +1,41 @@
+{
+  "name": "Wound Debridement",
+  "procedureType": "wound-care",
+  "cptCodes": [
+    {
+      "code": "97597",
+      "display": "Debridement, open wound, ≤20 sq cm"
+    },
+    {
+      "code": "11042",
+      "display": "Debridement, subcutaneous tissue, first 20 sq cm"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "T81.4XXA",
+      "display": "Infection following a procedure, initial encounter"
+    }
+  ],
+  "bodySite": "leg",
+  "bodySide": "left",
+  "technique": [
+    "sterile"
+  ],
+  "medicationUsed": "local",
+  "suppliesUsed": [
+    "irrigation-syringe",
+    "forceps",
+    "other"
+  ],
+  "otherSuppliesUsed": "Normal saline, gauze, iris scissors",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "fu-with-pcp",
+    "other"
+  ],
+  "otherPostInstructions": "Daily dressing change; F/U for re-evaluation in 2–3 days",
+  "timeSpent": "10-20-min"
+}

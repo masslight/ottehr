@@ -3,17 +3,16 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createOystehrClient, DocumentType, getSecret, InsuranceCardExtraction, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { DocumentType, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
+import { VERTEX_AI_MODEL } from '../../shared/ai';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { downloadOcrSourceImage } from '../card-extraction-shared/extraction-helpers';
-import {
-  buildExtractionPatchOperation,
-  EXTRACTION_PROMPT,
-  getExistingExtraction,
-  insuranceCardResponseSchema,
-  parseModelResponse,
-} from './helpers';
+import { buildExtractionPatchOperation, extractInsuranceCardFieldsFromImage, getExistingExtraction } from './helpers';
 import { CARD_IMAGE_TITLES, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'extract-insurance-card';
@@ -106,7 +105,18 @@ export async function runInsuranceCardExtraction(
     `[${ZAMBDA_NAME}] DocumentReference/${docRefId} slot=${cardSlot} mimeType=${mimeType} bytes=${bytes.length}`
   );
 
-  if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
+  let modelResult;
+  try {
+    modelResult = await extractInsuranceCardFieldsFromImage(bytes, mimeType, secrets);
+  } catch (error) {
+    // Malformed JSON after the helper's own retries is a transient model-quality failure —
+    // re-throw so a caller that retries on error gets another attempt.
+    console.error(`[${ZAMBDA_NAME}] failed to parse model response for DocumentReference/${docRefId}`);
+    captureException(error);
+    throw error;
+  }
+
+  if (modelResult.unsupportedContentType) {
     // unprocessable content is a permanent condition — write the marker so retries stop
     console.log(`[${ZAMBDA_NAME}] unsupported content type '${mimeType}'; writing notACard marker`);
     await writeExtraction(oystehr, current, extensionIndex, {
@@ -123,31 +133,14 @@ export async function runInsuranceCardExtraction(
     return { documentReferenceId: docRefId, skipped: true, notACard: true };
   }
 
-  const rawModelResponse = await invokeChatbotVertexAI(
-    [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
-    secrets,
-    insuranceCardResponseSchema
-  );
-
-  let parsed;
-  try {
-    parsed = parseModelResponse(rawModelResponse);
-  } catch (error) {
-    // Malformed JSON after the helper's own retries is a transient model-quality failure —
-    // re-throw so a caller that retries on error gets another attempt.
-    console.error(`[${ZAMBDA_NAME}] failed to parse model response for DocumentReference/${docRefId}`);
-    captureException(error);
-    throw error;
-  }
-
-  const notACard = !parsed.isInsuranceCard || parsed.fields === null;
+  const notACard = !modelResult.isInsuranceCard || modelResult.fields === null;
   const extraction: InsuranceCardExtraction = {
     version: 1,
-    isInsuranceCard: parsed.isInsuranceCard,
-    fields: notACard ? null : parsed.fields,
-    // orientation signal from the same model call; parseModelResponse already nulls it on the
-    // notACard / all-null paths so nothing is fabricated
-    readable: notACard ? null : parsed.readable,
+    isInsuranceCard: modelResult.isInsuranceCard,
+    fields: notACard ? null : modelResult.fields,
+    // orientation signal from the same model call; extractInsuranceCardFieldsFromImage already
+    // nulls it on the notACard / all-null paths so nothing is fabricated
+    readable: notACard ? null : modelResult.readable,
     ...(notACard ? { notACard: true } : {}),
     sourceDocRefId: docRefId,
     sourceAttachmentUrl: attachmentUrl,

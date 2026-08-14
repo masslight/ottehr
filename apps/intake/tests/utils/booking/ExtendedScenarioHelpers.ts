@@ -19,11 +19,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
-  CreateAppointmentResponse,
   getPrivacyPolicyLinkDefForLocation,
   getTermsAndConditionsLinkDefForLocation,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/ottehr-config/legal';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);

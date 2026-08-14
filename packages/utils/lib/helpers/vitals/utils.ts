@@ -1,15 +1,15 @@
 // cSpell:ignore alertable
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AlertRule, AlertThreshold, VitalsDef } from '../../ottehr-config';
+import { AlertRule, AlertThreshold, VitalsDef } from '../../ottehr-config/vitals';
 import {
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
-  GetVitalsResponseData,
   VitalAlertCriticality,
   VitalFieldNames,
-  VitalsObservationDTO,
-} from '../../types';
+} from '../../types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from '../../types/api/chart-data/get-vitals.types';
 
 export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsResponseData => {
   const vitalsMap: Partial<GetVitalsResponseData> = {};

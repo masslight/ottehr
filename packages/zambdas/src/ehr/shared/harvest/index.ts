@@ -40,109 +40,120 @@ import {
 import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
+  EMPLOYER_ORG_IDENTIFIER_SYSTEM,
+  FHIR_BASE_URL,
+  FHIR_EXTENSION,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
+  PREFERRED_PHARMACY_EXTENSION_URL,
+  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
+  PREFERRED_PHARMACY_PLACES_ID_URL,
+  PRIVATE_EXTENSION_BASE_URL,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  WORKERS_COMP_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import {
   buildCoverageSubscriberRelatedPerson,
-  buildExtensionObject,
-  CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
-  ConsentSigner,
-  consolidateOperations,
-  ContactTelecomConfig,
-  COVERAGE_ADDITIONAL_INFORMATION_URL,
-  coverageFieldPaths,
   createConsentResource,
   createCoverageMemberIdentifier,
   createFhirHumanName,
   createFilesDocumentReferences,
-  createPatchOperationForTelecom,
-  DateComponents,
   deduplicateContactPoints,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
-  EMPLOYER_ORG_IDENTIFIER_SYSTEM,
   extractResourceTypeAndPath,
-  FHIR_BASE_URL,
-  FHIR_EXTENSION,
   FileDocDataForDocReference,
-  filterHiddenRemovableFields,
-  findOrgMatchingReference,
-  flattenIntakeQuestionnaireItems,
-  flattenItems,
-  formatPhoneNumber,
   getAllStripeCustomerAccountPairs,
   getArrayInfo,
-  getConsentAndRelatedDocRefsForAppointment,
-  getConsentFormsForLocation,
-  getCurrentValue,
+  getMemberIdFromCoverage,
+  getSubscriberRelationshipCodeableConcept,
+  getTaxID,
+  makeOptimisticLockIfMatchHeader,
+  mapBirthSexToGender,
+  takeContainedOrFind,
+} from 'utils/lib/fhir/helpers';
+import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
+import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import {
   getEmailForIndividual,
   getFullName,
-  getMemberIdFromCoverage,
+  getPhoneNumberForIndividual,
+  makeSSNIdentifier,
+} from 'utils/lib/fhir/patient';
+import {
+  buildExtensionObject,
+  coverageFieldPaths,
+  getCurrentValue,
   getPatchOperationToAddOrUpdatePreferredLanguage,
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemovePreferredLanguage,
+  patientFieldPaths,
+  PatientMasterRecordResource,
+  relatedPersonFieldPaths,
+} from 'utils/lib/fhir/patientMasterRecord';
+import {
+  consolidateOperations,
+  ContactTelecomConfig,
+  createPatchOperationForTelecom,
+  normalizePhoneNumber,
+} from 'utils/lib/fhir/resourcePatch';
+import {
+  findOrgMatchingReference,
+  formatPhoneNumber,
   getPayerId,
   getPayerUrl,
-  getPhoneNumberForIndividual,
-  getSecret,
-  getSubscriberRelationshipCodeableConcept,
-  getTaxID,
-  INSURANCE_CANDID_PLAN_TYPE_CODES,
+  isPayerUrl,
+} from 'utils/lib/helpers/helpers';
+import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ConsentSigner, DateComponents } from 'utils/lib/types/common';
+import { COVERAGE_ADDITIONAL_INFORMATION_URL, RESPONSIBLE_PARTY_NO_EMAIL_URL } from 'utils/lib/types/constants';
+import {
+  OrderedCoverages,
+  OrderedCoveragesWithSubscribers,
+  PatientAccountAndCoverageResources,
+} from 'utils/lib/types/data/account';
+import {
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  IntakeQuestionnaireItem,
-  isFieldExplicitlyCleared,
-  isoStringFromDateComponents,
-  isPayerUrl,
-  isTelemedAppointment,
-  isValidUUID,
-  makeOptimisticLockIfMatchHeader,
-  makeSSNIdentifier,
-  mapBirthSexToGender,
-  normalizePhoneNumber,
-  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-  OrderedCoverages,
-  OrderedCoveragesWithSubscribers,
-  OTTEHR_MODULE,
   PAPERWORK_CONSENT_CODE_UNIQUE,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
-  PatientAccountAndCoverageResources,
-  patientFieldPaths,
-  PatientMasterRecordResource,
-  PHARMACY_COLLECTION_LINK_IDS,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
-  PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
-  PREFERRED_PHARMACY_EXTENSION_URL,
-  PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
-  PREFERRED_PHARMACY_PLACES_ID_URL,
-  prepareQuestionnaireResponseForHarvest,
-  PRIVATE_EXTENSION_BASE_URL,
-  QuestionnaireResponseHarvestInput,
-  relatedPersonFieldPaths,
-  RESPONSIBLE_PARTY_NO_EMAIL_URL,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
-  Secrets,
-  SecretsKeys,
-  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-  takeContainedOrFind,
-  uploadPDF,
-  VALUE_SETS,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
-import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import {
+  flattenIntakeQuestionnaireItems,
+  IntakeQuestionnaireItem,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import {
+  prepareQuestionnaireResponseForHarvest,
+  QuestionnaireResponseHarvestInput,
+} from 'utils/lib/types/data/paperwork/prepareQuestionnaireItemsForHarvest';
+import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
+import { PATIENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { isoStringFromDateComponents } from 'utils/lib/utils/date';
+import { uploadPDF } from 'utils/lib/utils/pdf';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
-import { createPdfBytes } from '../../../shared';
+import { createPdfBytes } from '../../../shared/pdf';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
@@ -1223,7 +1234,7 @@ const resolveTelecomIntents = (
   return [{ op: 'replace', path: telecomPath, value: target }];
 };
 
-const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
+export const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
   const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
   const firstName = flattenedItems.find((field) => field.linkId === 'pcp-first')?.answer?.[0]?.valueString;
   const lastName = flattenedItems.find((field) => field.linkId === 'pcp-last')?.answer?.[0]?.valueString;
@@ -1347,6 +1358,54 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
   }
   return operations;
+};
+
+export interface PcpContactDetails {
+  firstName?: string;
+  lastName?: string;
+  practiceName?: string;
+  phone?: string;
+  fax?: string;
+  active: boolean;
+}
+
+export const getPcpPatchOpsFromDetails = (details: PcpContactDetails, patient: Patient): Operation[] => {
+  const currentPcpRef = patient.generalPractitioner?.[0]?.reference;
+
+  const existingPcp = currentPcpRef
+    ? patient.contained?.find(
+        (resource): resource is Practitioner =>
+          resource.resourceType === 'Practitioner' && `#${resource.id}` === currentPcpRef
+      )
+    : undefined;
+
+  const existingFirstName = existingPcp?.name?.[0]?.given?.[0];
+  const existingLastName = existingPcp?.name?.[0]?.family;
+
+  const existingPractice = existingPcp?.extension?.find(
+    (extension) => extension.url === `${PRIVATE_EXTENSION_BASE_URL}/practice-name`
+  )?.valueString;
+
+  const existingAddress = existingPcp?.address?.[0]?.text;
+  const existingPhone = existingPcp?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  const existingFax = existingPcp?.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+
+  const firstName = details.firstName ?? existingFirstName;
+  const lastName = details.lastName ?? existingLastName;
+  const practiceName = details.practiceName ?? existingPractice;
+  const phone = details.phone ?? existingPhone;
+  const fax = details.fax ?? existingFax;
+
+  const items: QuestionnaireResponseItem[] = [
+    { linkId: 'pcp-first', answer: firstName ? [{ valueString: firstName }] : undefined },
+    { linkId: 'pcp-last', answer: lastName ? [{ valueString: lastName }] : undefined },
+    { linkId: 'pcp-practice', answer: practiceName ? [{ valueString: practiceName }] : undefined },
+    { linkId: 'pcp-address', answer: existingAddress ? [{ valueString: existingAddress }] : undefined },
+    { linkId: 'pcp-number', answer: phone ? [{ valueString: phone }] : undefined },
+    { linkId: 'pcp-fax', answer: fax ? [{ valueString: fax }] : undefined },
+    { linkId: 'pcp-active', answer: [{ valueBoolean: details.active }] },
+  ];
+  return getPCPPatchOps(items, patient);
 };
 
 export const createUpdatePharmacyPatchOps = (

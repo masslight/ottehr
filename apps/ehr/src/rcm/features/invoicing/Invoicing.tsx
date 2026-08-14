@@ -35,13 +35,15 @@ import {
 } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import {
   buildInvoicePlaceholders,
-  DEFAULT_INVOICE_DUE_DAYS,
-  DEFAULT_INVOICE_MEMO_TEMPLATE,
-  DEFAULT_INVOICE_SMS_TEMPLATE,
   fillInvoiceTemplate,
   InvoicePlaceholderInput,
   parseInvoiceConfigFromQR,
-} from 'utils';
+} from 'utils/lib/helpers/rcm/invoice-config';
+import {
+  DEFAULT_INVOICE_DUE_DAYS,
+  DEFAULT_INVOICE_MEMO_TEMPLATE,
+  DEFAULT_INVOICE_SMS_TEMPLATE,
+} from 'utils/lib/types/constants';
 
 const SAMPLE_INPUT: InvoicePlaceholderInput = {
   patientFullName: 'Jane Smith',

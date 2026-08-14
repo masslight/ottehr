@@ -1,15 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPresignedURL, InPersonReceiptTemplateData, MIME_TYPES } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  EmailAttachment,
-  getEmailClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { InPersonReceiptTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { MIME_TYPES } from 'utils/lib/utils/file';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { EmailAttachment, getEmailClient } from '../../shared/communication';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-receipt-by-email';

@@ -4,11 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
-import { PaperworkContext } from 'ui-components';
+import { useUpdatePaperworkMutation } from 'src/telemed/features/paperwork/paperwork.queries';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
+import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import { ControlButtons, FileInput } from 'ui-components/lib/components/paperwork/form-components';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
-import { useOystehrAPIClient } from '../../utils';
-import { useUpdatePaperworkMutation } from '../paperwork';
 import { useUploadPhotosStore } from './UploadPhotosListItemButton';
 
 export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.Element => {

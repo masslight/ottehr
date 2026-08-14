@@ -17,22 +17,27 @@ import {
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
   BillingService,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  ALL_CLAIM_STATUS_OPTIONS_2,
+  ALL_CLAIM_STATUS_OPTIONS_BY_GROUP,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CLAIM_STATUS_GROUPS,
   formatClaimStatusValue,
-  formatCurrency,
-  getApiError,
-  MAX_RUN_RULES_ENGINE_CLAIMS,
-  SearchBillingClaimsInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import {
   runBillingRulesEngine,
   searchBillingClaims,
@@ -51,6 +56,7 @@ import { useApiClients } from '../hooks/useAppClients';
 interface Filters {
   searchText?: string;
   arStage?: string;
+  status?: string;
   tag?: string;
   createdFrom?: string;
   createdTo?: string;
@@ -150,6 +156,7 @@ export default function ClaimsList(): ReactElement {
 
   const [searchText, setSearchText] = useState('');
   const [arStageFilter, setArStageFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setCreatedFrom] = useState('');
@@ -165,6 +172,17 @@ export default function ClaimsList(): ReactElement {
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const statusOptions = useMemo(() => {
+    if (!arStageFilter) {
+      return ALL_CLAIM_STATUS_OPTIONS_2;
+    }
+    const groupKey = CLAIM_STATUS_GROUPS.find((g) => g.arStageCode === arStageFilter)?.key;
+    if (!groupKey) {
+      return ALL_CLAIM_STATUS_OPTIONS_2;
+    }
+    return ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[groupKey];
+  }, [arStageFilter]);
 
   useEffect(() => {
     return (): void => {
@@ -189,6 +207,7 @@ export default function ClaimsList(): ReactElement {
         };
         if (filters.searchText) params.searchText = filters.searchText;
         if (filters.arStage) params.arStage = filters.arStage;
+        if (filters.status) params.status = filters.status;
         if (filters.tag) params.tag = filters.tag;
         if (filters.createdFrom) params.createdFrom = filters.createdFrom;
         if (filters.createdTo) params.createdTo = filters.createdTo;
@@ -274,6 +293,7 @@ export default function ClaimsList(): ReactElement {
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
       arStage: overrides?.arStage ?? arStageFilter,
+      status: overrides?.status ?? statusFilter,
       tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
@@ -287,6 +307,7 @@ export default function ClaimsList(): ReactElement {
     [
       searchText,
       arStageFilter,
+      statusFilter,
       tagFilter,
       createdFrom,
       createdTo,
@@ -321,6 +342,7 @@ export default function ClaimsList(): ReactElement {
   const clearFilters = (): void => {
     setSearchText('');
     setArStageFilter('');
+    setStatusFilter('');
     setTagFilter('');
     setCreatedFrom('');
     setCreatedTo('');
@@ -338,6 +360,7 @@ export default function ClaimsList(): ReactElement {
   const hasFilters =
     searchText ||
     arStageFilter ||
+    statusFilter ||
     tagFilter ||
     createdFrom ||
     createdTo ||
@@ -448,6 +471,25 @@ export default function ClaimsList(): ReactElement {
           </Select>
         </FormControl>
 
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              applyFilters({ status: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {statusOptions.map((o) => (
+              <MenuItem key={o.code} value={o.code}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>Claim Type</InputLabel>
           <Select
@@ -500,7 +542,7 @@ export default function ClaimsList(): ReactElement {
           >
             <MenuItem value="">All</MenuItem>
             {tagOptions.map((t) => (
-              <MenuItem key={t.id} value={t.name}>
+              <MenuItem key={t.id || t.name} value={t.name}>
                 {t.name}
               </MenuItem>
             ))}

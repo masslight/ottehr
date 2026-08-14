@@ -5,24 +5,20 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
+import { PageContainer } from 'src/components/CustomContainer';
+import { PatientInformationKnownPatientFieldsDisplay } from 'src/features/patients/components/PatientInformationKnownPatientFieldsDisplay';
 import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { PaperworkContext } from 'ui-components';
-import { PagedQuestionnaire } from 'ui-components';
+import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import {
-  convertQRItemToLinkIdMap,
-  convertQuestionnaireItemToQRLinkIdMap,
-  mapBookingQRItemToPatientInfo,
-  mdyStringFromISOString,
-  normalizeFormDataToQRItems,
-  PatientInfo,
-  QuestionnaireFormFields,
-} from 'utils';
+import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import { mapBookingQRItemToPatientInfo, normalizeFormDataToQRItems } from 'utils/lib/config-helpers/booking';
+import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { QuestionnaireFormFields } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { mdyStringFromISOString } from 'utils/lib/utils/date';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { ErrorDialog } from '../components/ErrorDialog';
-import { PatientInformationKnownPatientFieldsDisplay } from '../features/patients';
 import { ACTIVE_SLOT_ID_KEY, PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ErrorDialogConfig {

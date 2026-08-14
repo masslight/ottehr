@@ -1,5 +1,9 @@
-import { CPTCodeDTO, isValidUUID, LateralityValue, Pagination, Task } from 'utils';
 import { z } from 'zod';
+import { LateralityValue } from '../../../fhir/radiology';
+import { isValidUUID } from '../../../validation/helper';
+import { Pagination } from '../../data/pagination.types';
+import { Task } from '../../data/tasks/types';
+import { CPTCodeDTO } from '../chart-data/chart-data.types';
 
 /** Patient-safety flags surfaced on an external radiology order. Form-only — never derived from chart data. */
 export const RADIOLOGY_SAFETY_FLAGS = ['implants', 'metal', 'pacemaker', 'pregnancy', 'contrast-allergy'] as const;
@@ -267,7 +271,10 @@ export type DeleteRadiologyResultZambdaOutput = Record<string, never>;
 export const UploadRadiologyResultZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
   /** Z3 URL of the already-uploaded file (browser PUTs the bytes first via a presigned URL). */
-  z3URL: z.string().min(1, 'z3URL is required and must be a string'),
+  z3URL: z
+    .string()
+    .min(1, 'z3URL is required and must be a string')
+    .refine((url) => url.toLowerCase().endsWith('.pdf'), 'Only PDF files are supported'),
   // nullish: an explicit null is treated as absent (preserves previous behavior).
   title: z.string().nullish(),
 });

@@ -1,12 +1,12 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
+import { formDataTestIds as dataTestIds } from 'utils/lib/helpers/paperwork/data-test-ids';
 import {
   clearPharmacyCollectionAnswerSet,
   makePharmacyCollectionAnswerSetForQR,
-  PHARMACY_COLLECTION_LINK_IDS,
   PharmacyCollectionAnswerSetInput,
-} from 'utils';
-import { formDataTestIds as dataTestIds } from 'utils';
+} from 'utils/lib/helpers/paperwork/pharmacy.helpers';
+import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
 import { PharmacyDisplay } from '../../PharmacyDisplay';
 import { PharmacySearch } from '../../PharmacySearch';
 import { usePaperworkContext } from '../context';

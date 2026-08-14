@@ -1,5 +1,5 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { getExtension } from 'utils';
+import { getExtension } from 'utils/lib/fhir/helpers';
 import { useQRState } from './useFormHelpers';
 
 const OPERATORS = ['=', '!='];

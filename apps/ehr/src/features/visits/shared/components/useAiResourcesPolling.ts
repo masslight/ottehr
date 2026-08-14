@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AI_QUESTIONNAIRE_ID, getInPersonVisitStatus } from 'utils';
+import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 
 interface UseAiResourcesPollingParams {
   appointment: Appointment | undefined;

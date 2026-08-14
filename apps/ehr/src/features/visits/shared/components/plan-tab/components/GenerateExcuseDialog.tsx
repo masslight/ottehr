@@ -3,8 +3,9 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useRef } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getPatientName } from 'src/shared/utils';
-import { getAllPractitionerCredentials, getQuestionnaireResponseByLinkId } from 'utils';
+import { getPatientName } from 'src/shared/utils/getPatientName';
+import { getAllPractitionerCredentials } from 'utils/lib/fhir/helpers';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import {
   buildHeaderNote,
   ExcuseFormValues,

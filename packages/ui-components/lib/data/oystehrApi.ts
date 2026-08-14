@@ -1,56 +1,60 @@
 // cSpell:ignore fhirify
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { BookableItemListResponse, GetBookableItemListParams } from 'utils/lib/types/common';
 import {
-  APIError,
-  BookableItemListResponse,
-  CancelAppointmentRequestParams,
-  CancelInviteParticipantRequestParameters,
-  CancelInviteParticipantResponse,
-  chooseJson,
-  CreateAppointmentUCTelemedParams,
-  CreateAppointmentUCTelemedResponse,
-  CreditCardInfo,
-  GetAllInsuranceOptionsRequest,
-  GetAnswerOptionsRequest,
   GetAppointmentsRequest,
-  GetBookableItemListParams,
-  GetEligibilityParameters,
-  GetEligibilityResponse,
-  GetPaperworkRequestParams,
   GetPastVisitsResponse,
+  GetTelemedAppointmentsResponseEhr,
+} from 'utils/lib/types/data/appointments/appointments.types';
+import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { WaitingRoomInput, WaitingRoomResponse } from 'utils/lib/types/data/get-wait-status.types';
+import { GetPaperworkRequestParams, PaperworkResponseWithoutResponses } from 'utils/lib/types/data/paperwork.types';
+import {
+  PatchPaperworkParameters,
+  SubmitPaperworkParameters,
+  UCGetPaperworkResponse,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import {
+  CreditCardInfo,
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
-  GetPatientInsuranceOptionsRequest,
-  GetScheduleRequestParams,
-  GetScheduleResponse,
-  GetTelemedAppointmentsRequest,
-  GetTelemedAppointmentsResponseEhr,
-  GetTelemedLocationsResponse,
-  GetVisitDetailsRequest,
-  GetVisitDetailsResponse,
-  InviteParticipantRequestParameters,
-  JoinCallRequestParameters,
-  JoinCallResponse,
-  ListInvitedParticipantsRequestParameters,
-  ListInvitedParticipantsResponse,
-  PaperworkResponseWithoutResponses,
-  PatchPaperworkParameters,
-  PatientInfo,
   PaymentMethodDeleteParameters,
   PaymentMethodListParameters,
   PaymentMethodSetDefaultParameters,
   PaymentMethodSetupParameters,
   PaymentMethodSetupZambdaOutput,
-  SubmitPaperworkParameters,
-  UCGetPaperworkResponse,
+} from 'utils/lib/types/data/payment/payment-method-types';
+import {
+  CancelAppointmentRequestParams,
+  GetAllInsuranceOptionsRequest,
+  GetAnswerOptionsRequest,
+  GetPatientInsuranceOptionsRequest,
+  GetTelemedAppointmentsRequest,
+  GetVisitDetailsRequest,
+  GetVisitDetailsResponse,
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import {
+  CreateAppointmentUCTelemedParams,
+  CreateAppointmentUCTelemedResponse,
+  PatientInfo,
+} from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { GetEligibilityParameters, GetEligibilityResponse } from 'utils/lib/types/data/telemed/eligibility.types';
+import { GetTelemedLocationsResponse } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
+import { JoinCallRequestParameters, JoinCallResponse } from 'utils/lib/types/data/telemed/join-call.types';
+import {
+  CancelInviteParticipantRequestParameters,
+  CancelInviteParticipantResponse,
+  InviteParticipantRequestParameters,
+  ListInvitedParticipantsRequestParameters,
+  ListInvitedParticipantsResponse,
   VideoChatCreateInviteResponse,
-  WaitingRoomInput,
-  WaitingRoomResponse,
-} from 'utils';
-import { GetOystehrAPIParams } from '../main';
+} from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { APIError } from 'utils/lib/types/errors';
+import { GetOystehrAPIParams } from '../types/data/types';
 
 type ZambdaName =
   | 'cancel appointment'

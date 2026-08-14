@@ -1,13 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getScheduleOwnerFromAppointmentOrEncounter,
-  getSecret,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { getSecret, Secrets, SecretsKeys } from '../secrets';
+import { SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL } from './constants';
+import { getScheduleOwnerFromAppointmentOrEncounter } from './helpers';
 
 // cSpell:ignore: ACSN, PLAC
 /** contained-resource id for the free-text performing organization on an external radiology order */

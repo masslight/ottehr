@@ -10,7 +10,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getInPersonVisitStatus } from 'utils';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
 

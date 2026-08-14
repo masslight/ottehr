@@ -1,0 +1,8 @@
+{
+  "name": "Cervical Spine X-Ray, 3 Views",
+  "cptCode": "72040",
+  "cptDisplay": "Radiologic examination, spine, cervical; 2 or 3 views",
+  "studyName": "X-Ray Cervical Spine 3 Views (AP, Lateral, Open-Mouth Odontoid)",
+  "clinicalHistory": "Neck pain after trauma — NEXUS/Canadian C-spine criteria, evaluate for fracture/dislocation",
+  "stat": false
+}

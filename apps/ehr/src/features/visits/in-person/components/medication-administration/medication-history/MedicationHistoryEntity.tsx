@@ -3,7 +3,8 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedicationWithTypeDTO } from 'src/features/visits/in-person/hooks/useMedicationHistory';
-import { getProviderNameWithProfession, MedicationDTO } from 'utils';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 interface MedicationHistoryEntityProps {
   item: MedicationDTO | MedicationWithTypeDTO;

@@ -1,5 +1,6 @@
 import { ActivityDefinition } from 'fhir/r4b';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 import { performEffectWithEnvFile } from './helpers';
 
 async function retireADs(config: any): Promise<void> {

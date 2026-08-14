@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
+import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils/lib/types/constants';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/get-appointments/validateRequestParameters';
 import { createMockZambdaInput } from './helpers';

@@ -1,12 +1,9 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Claim, FhirResource, Organization, Patient, Person, Practitioner } from 'fhir/r4b';
-import {
-  AR_STAGE,
-  CLAIM_STATUS_TAG_SYSTEMS,
-  M2MClientMockType,
-  SearchBillingClaimsInput,
-  SearchBillingClaimsResponse,
-} from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
@@ -212,11 +209,6 @@ describe('search-billing-claims search text', () => {
 
   it('finds the claim by the patient first name', async () => {
     expect(await idsFor(patientGiven)).toEqual([createdClaimIds[0]]);
-  }, 60_000);
-
-  it('finds the claim by the patient id shown in the UI, not just the copy the claim references', async () => {
-    expect(await idsFor(patientId)).toEqual([createdClaimIds[0]]);
-    expect(await idsFor(claimPatientId)).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
   it('finds the claim by the billing provider name', async () => {

@@ -3,26 +3,23 @@ import { randomUUID } from 'crypto';
 import { Encounter, List, Location, Patient, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
-import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  EXPORTED_QUESTIONNAIRE_CODE,
-  formatQuestionnaireItemValueToString,
-  getFullestAvailableName,
-  getQuestionnaireForQR,
-  getSecret,
-  MANAGED_QUESTIONNAIRE_ERROR,
-  MANUAL_TASK,
-  Secrets,
-  SecretsKeys,
-  slugify,
-} from 'utils';
-import { createPresignedUrl, sendErrors, uploadObjectToZ3 } from '../../../shared';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
+import { formatQuestionnaireItemValueToString } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { slugify } from 'utils/lib/helpers/slugify';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { EXPORTED_QUESTIONNAIRE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
+import { sendErrors } from '../../../shared/errors';
 import { PDF_CLIENT_STYLES } from '../../../shared/pdf/pdf-consts';
 import { createPdfClient } from '../../../shared/pdf/pdf-utils';
 import { TextStyle } from '../../../shared/pdf/types';
-import { makeZ3Url } from '../../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
 import { createTask } from '../../../shared/tasks';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
 
 type HandleReviewTaskAndPdfInput = {
   questionnaireResponse: QuestionnaireResponse;

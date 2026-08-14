@@ -16,15 +16,11 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  BillingPatientOption,
-  BillingPayerOption,
-  ClaimsQueueItemStatuses,
-  EraListItem,
-  formatCurrency,
-  getApiError,
-  SearchErasInput,
-} from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.types';
+import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ImportEraDialog } from '../components/ImportEraDialog';

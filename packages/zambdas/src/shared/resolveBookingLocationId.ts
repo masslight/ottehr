@@ -1,5 +1,6 @@
 import { PractitionerRole, Slot } from 'fhir/r4b';
-import { getSlotAtLocationId, ScheduleOwnerFhirResource } from 'utils';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { getSlotAtLocationId } from 'utils/lib/utils/scheduleUtils';
 
 /**
  * Resolves the Location id that an Appointment should be attributed to,

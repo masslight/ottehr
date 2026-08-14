@@ -9,23 +9,25 @@ import {
   Questionnaire,
   QuestionnaireResponse,
 } from 'fhir/r4b';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
-  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
-  flattenQuestionnaireAnswers,
   getEncounterPaymentVariantExtension,
   getPaymentVariantFromEncounter,
-  getPhoneNumberForIndividual,
-  getRelatedPersonsForPatient,
-  type HarvestStrategy,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import {
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
-  pageHarvestStrategy,
-  patchWithOptimisticLock,
-  PaymentVariant,
-  Secrets,
   SELF_PAY_OPTION,
-} from 'utils';
+} from 'utils/lib/ottehr-config/value-sets';
+import { Secrets } from 'utils/lib/secrets';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import type { HarvestStrategy } from '../../../../../config-types/config/intake-paperwork';
+import { pageHarvestStrategy } from '../../../../../config-types/config/intake-paperwork';
 import {
   createConsentResources,
   createDocumentResources,
@@ -36,7 +38,8 @@ import {
   makeEncounterAccountPatchOp,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
-import { getAuth0Token, reportMissingUserRelatedPerson } from '../../../shared';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
 
 type WithId<T> = T & { id: string };
 

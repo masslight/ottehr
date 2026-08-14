@@ -1,5 +1,7 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, SubmitLabOrderInput } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { SubmitLabOrderInput } from 'utils/lib/types/data/labs/labs.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

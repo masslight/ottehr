@@ -10,31 +10,31 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { extractCptCodeModifiersFromCoding } from 'utils/lib/fhir/billing';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
-  AdminGetTemplateDetailInput,
-  AdminGetTemplateDetailOutput,
   BODY_SITE_SYSTEM,
   chartDataTagSystem,
-  CODE_SYSTEM_ICD_10,
-  collectKnownExamFields,
-  collectKnownRosFields,
   CPT_CODE_SYSTEM,
-  examConfig,
-  extractCptCodeModifiersFromCoding,
   FHIR_EXTENSION,
-  getCptCodesFromMA,
-  getDosageUnitsAndRouteOfMedication,
-  getRosFindingStateFromKey,
-  getSecret,
-  getTag,
-  IN_HOUSE_TEST_CODE_SYSTEM,
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
-  resourceHasTagSystem,
+} from 'utils/lib/fhir/constants';
+import { getTag, resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import {
+  getCptCodesFromMA,
+  getDosageUnitsAndRouteOfMedication,
   searchRouteByCode,
-  SecretsKeys,
+} from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import {
+  AdminGetTemplateDetailInput,
+  AdminGetTemplateDetailOutput,
   TemplateAccidentInfo,
   TemplateCodeInfo,
   TemplateCptCodeInfo,
@@ -44,9 +44,13 @@ import {
   TemplateInHouseMedicationDetail,
   TemplateProcedurePlan,
   TemplateRosFinding,
-} from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/admin-template.types';
+import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   fetchPlanItemsByLabGuid,
   findExternalLabPlans,

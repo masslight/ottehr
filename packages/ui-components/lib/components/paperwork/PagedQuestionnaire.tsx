@@ -26,42 +26,40 @@ import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'rea
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
+import { formatZipcodeForDisplay, stripMarkdownLink } from 'utils/lib/helpers/helpers';
+import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
+import { makeValidationSchema, SIGNATURE_FIELDS } from 'utils/lib/helpers/paperwork/validation';
+import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
-  formatZipcodeForDisplay,
   IntakeQuestionnaireItem,
-  makeValidationSchema,
-  pickFirstValueFromAnswerItem,
-  qrSentManually,
   QuestionnaireFormFields,
   QuestionnaireItemGroupType,
-  SIGNATURE_FIELDS,
-  stripMarkdownLink,
-  zipRegex,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import { zipRegex } from 'utils/lib/validation/regex';
 import { AnyObjectSchema } from 'yup';
 import { InputMask } from '../InputMask';
 import { usePaperworkContext } from './context';
-import {
-  AIInterview,
-  AttachmentType,
-  BoldPurpleInputLabel,
-  CardErrorDialog,
-  ControlButtons,
-  CreditCardVerification,
-  DateInput,
-  DecimalInput,
-  DescriptionRenderer,
-  FieldHelperText,
-  FileInput,
-  FreeMultiSelectInput,
-  GroupContainer,
-  LightToolTip,
-  LinkRenderer,
-  MultiAnswerHeader,
-  PharmacyCollection,
-  RadioInput,
-  RadioListInput,
-} from './form-components';
+import AIInterview from './form-components/AIInterview';
+import { BoldPurpleInputLabel } from './form-components/BoldPurpleInputLabel';
+import { ControlButtons } from './form-components/ControlButtons';
+import { CardErrorDialog } from './form-components/credit-card/CardErrorDialog';
+import { CreditCardVerification } from './form-components/credit-card/CreditCardVerification';
+import { DateInput } from './form-components/DateInput';
+import { DecimalInput } from './form-components/DecimalInput';
+import { DescriptionRenderer } from './form-components/DescriptionRenderer';
+import { FieldHelperText } from './form-components/FieldHelperText';
+import FileInput from './form-components/FileInput';
+import { AttachmentType } from './form-components/FileInput';
+import { FreeMultiSelectInput } from './form-components/FreeMultiSelectInput';
+import GroupContainer from './form-components/group/GroupContainer';
+import MultiAnswerHeader from './form-components/group/MultiAnswerHeader';
+import { LightToolTip } from './form-components/LightToolTip';
+import { LinkRenderer } from './form-components/LinkRenderer';
+import { PaperworkAiSuggestionRow } from './form-components/PaperworkAiSuggestionRow';
+import { hasPaperworkAiSuggestion } from './form-components/PaperworkAiSuggestionRow';
+import { PharmacyCollection } from './form-components/PharmacyCollection';
+import { RadioInput } from './form-components/RadioInput';
+import { RadioListInput } from './form-components/RadioListInput';
 import { useAutoFillValues } from './hooks/useAutofill';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './hooks/useFilterAnswersOptions';
@@ -474,6 +472,8 @@ const NestedInput: FC<NestedInputProps> = (props) => {
   const otherColors = usePaperworkOtherColors();
   const { trigger } = useFormContext();
   const [isFocused, setIsFocused] = useState(false);
+  const { appointment } = usePaperworkContext();
+  const hasAiSuggestion = hasPaperworkAiSuggestion(item.linkId);
 
   // fieldId returns the path to the scalar value (the thing that the inputs manipulate directly)
   // call site 2: ignores result when no parent item
@@ -576,6 +576,9 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               showHelperTextIcon={showHelperTextIcon}
               errorMessage={errorMessage}
             />
+            {hasAiSuggestion && (
+              <PaperworkAiSuggestionRow linkId={item.linkId} fieldId={fieldId} appointmentId={appointment?.id} />
+            )}
           </FormControl>
         )}
       />

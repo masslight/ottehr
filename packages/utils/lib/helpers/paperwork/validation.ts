@@ -6,21 +6,15 @@ import {
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATE_ERROR_MESSAGE,
-  DOB_DATE_FORMAT,
-  emailRegex,
-  emojiRegex,
-  IntakeQuestionnaireItem,
-  isoDateRegex,
-  phoneRegex,
-  pickFirstValueFromAnswerItem,
-  QuestionnaireItemConditionDefinition,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  ssnRegex,
-  zipRegex,
-} from 'utils';
 import * as Yup from 'yup';
+import {
+  IntakeQuestionnaireItem,
+  QuestionnaireItemConditionDefinition,
+} from '../../types/data/paperwork/paperwork.types';
+import { DOB_DATE_FORMAT } from '../../utils/date';
+import { DATE_ERROR_MESSAGE, REQUIRED_FIELD_ERROR_MESSAGE } from '../../validation/constants';
+import { emailRegex, emojiRegex, isoDateRegex, phoneRegex, ssnRegex, zipRegex } from '../../validation/regex';
+import { pickFirstValueFromAnswerItem } from './paperwork';
 
 interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {
   regex?: RegExp;
@@ -35,6 +29,7 @@ export const PHONE_NUMBER_FIELDS = [
   'responsible-party-number',
   'pharmacy-phone',
   'pcp-number',
+  'pcp-fax',
 ];
 export const EMAIL_FIELDS = ['patient-email', 'guardian-email'];
 export const ZIP_CODE_FIELDS = ['patient-zip'];

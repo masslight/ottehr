@@ -1,4 +1,4 @@
-import { InsuranceCardExtractionFields, PhotoIdExtractionFields } from '../data';
+import { InsuranceCardExtractionFields, PhotoIdExtractionFields } from '../data/documents';
 
 export interface ExtractCardInput {
   documentReferenceId: string;

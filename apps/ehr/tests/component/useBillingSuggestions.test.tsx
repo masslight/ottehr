@@ -2,13 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { buildBillingSuggestionInput } from '../../src/features/visits/shared/hooks/useBillingSuggestions';
 
 describe('buildBillingSuggestionInput', () => {
-  it('includes patient id and current-visit prescribed medications with renewal status', () => {
+  it('includes the confirmed medication list and current-visit prescriptions with renewal status', () => {
     const input = buildBillingSuggestionInput({
       chartData: {
         observations: [],
         diagnosis: [],
         cptCodes: [],
         procedures: [],
+        medications: [
+          {
+            resourceId: 'medication-statement-1',
+            name: 'Metformin (500 mg)',
+            status: 'active',
+            type: 'scheduled',
+            intakeInfo: { dose: '500 mg' },
+          },
+        ],
       } as any,
       chartDataFields: {
         chiefComplaint: { text: 'Cough' },
@@ -39,10 +48,12 @@ describe('buildBillingSuggestionInput', () => {
       },
     });
 
-    expect(input?.patientId).toBe('patient-1');
     expect(input?.prescribedMedications).toEqual([
       expect.objectContaining({ name: 'Amoxicillin', isRenewal: false }),
       expect.objectContaining({ name: 'Lisinopril', isRenewal: true }),
     ]);
+    // the confirmed medication list travels with the request so the zambda never has to query
+    // DoseSpot medication history itself
+    expect(input?.currentMedications).toEqual([expect.objectContaining({ name: 'Metformin (500 mg)' })]);
   });
 });

@@ -1,4 +1,4 @@
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
   const AUTH0_ENDPOINT = getSecret(SecretsKeys.AUTH0_ENDPOINT, secrets);
   const AUTH0_CLIENT = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);

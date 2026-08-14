@@ -7,13 +7,15 @@ import {
 import { expectScreeningPage, ScreeningPage } from 'tests/e2e/page/in-person/ScreeningPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { ASQKeys, asqLabels, patientScreeningQuestionsConfig } from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
 
 test.describe('Screening Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
-    await resourceHandler.setResources();
+    // Screening questions live in the chart, not in intake paperwork.
+    await resourceHandler.setResources({ skipPaperwork: true });
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     await setupPractitioners(page);
   });

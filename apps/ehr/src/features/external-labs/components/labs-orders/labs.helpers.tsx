@@ -1,4 +1,4 @@
-import { ExternalLabsStatus } from 'utils';
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
 
 export const getStatusColor = (status: ExternalLabsStatus): string => {
   switch (status) {

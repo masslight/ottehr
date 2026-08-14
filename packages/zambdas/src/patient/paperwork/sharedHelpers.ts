@@ -1,24 +1,16 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { Appointment, Coding, Encounter, Flag, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
-import {
-  AppointmentSummary,
-  AvailableLocationInformation,
-  checkEncounterIsVirtual,
-  Closure,
-  formatPhoneNumberDisplay,
-  getPatchBinary,
-  getScheduleExtension,
-  HealthcareServiceWithLocationContext,
-  PaperworkSupportingInfo,
-  PersonSex,
-  ScheduleExtension,
-  ScheduleType,
-  ServiceMode,
-  serviceModeForHealthcareService,
-  SLUG_SYSTEM,
-  VisitType,
-} from 'utils';
-import { getOtherOfficesForLocation } from '../../shared';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { serviceModeForHealthcareService } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { AvailableLocationInformation, Closure, PersonSex, ScheduleType, ServiceMode } from 'utils/lib/types/common';
+import { HealthcareServiceWithLocationContext } from 'utils/lib/types/data/paperwork.types';
+import { AppointmentSummary, PaperworkSupportingInfo } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { getScheduleExtension, ScheduleExtension } from 'utils/lib/utils/scheduleUtils';
+import { getOtherOfficesForLocation } from '../../shared/helpers';
 
 export async function createOrUpdateFlags(
   flagName: string,

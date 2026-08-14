@@ -2,8 +2,12 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { isAnnotationFollowupEncounter } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, getUser, wrapHandler, ZambdaInput } from '../../../shared';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getUser } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 

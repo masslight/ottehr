@@ -4,16 +4,14 @@ import { APIResponse } from 'candidhealth/core';
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { GetPatientBalancesZambdaOutput } from 'utils';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { performEffect } from '../../src/ehr/get-patient-balances';
 import { validateInput, validateSecrets } from '../../src/ehr/get-patient-balances/validateRequestParameters';
-import {
-  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  createClinicalOystehrClient,
-  getAuth0Token,
-  ZambdaInput,
-} from '../../src/shared';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../src/shared/candid';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { ZambdaInput } from '../../src/shared/types/common';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { addProcessIdMetaTagToResource } from '../helpers/integration-test-seed-data-setup';

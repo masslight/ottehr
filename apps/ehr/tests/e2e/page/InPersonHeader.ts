@@ -24,6 +24,7 @@ export class InPersonHeader {
   async selectIntakePractitioner(id?: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inPersonHeader.intakePractitionerInput).click();
     if (id) {
+      await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
       await this.#page.locator(`[data-value="${id}"]`).click();
     } else {
       await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();

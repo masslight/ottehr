@@ -1,6 +1,7 @@
-import { DeleteChartDataRequest } from 'utils';
+import { DeleteChartDataRequest } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const DeleteChartDataBodySchema = z
   .object({

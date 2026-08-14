@@ -64,18 +64,24 @@ export abstract class BaseProgressNotePage {
     location: string;
   }): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.progressNotePage.vaccineItem).filter({
-        hasText:
-          vaccine.vaccine +
-          ' - ' +
-          vaccine.dose +
-          ' ' +
-          vaccine.units +
-          ' / ' +
-          vaccine.route +
-          ' - ' +
-          vaccine.location,
-      })
+      this.#page
+        .getByTestId(dataTestIds.progressNotePage.vaccineItem)
+        .filter({
+          hasText:
+            vaccine.vaccine +
+            ' - ' +
+            vaccine.dose +
+            ' ' +
+            vaccine.units +
+            ' / ' +
+            vaccine.route +
+            ' - ' +
+            vaccine.location,
+        })
+        // A shared appointment may carry several administered orders; when more than one has
+        // identical text (an instance configuring a single vaccine) we only need to confirm the
+        // vaccine is listed, so assert on the first match rather than tripping strict mode.
+        .first()
     ).toBeVisible();
   }
 

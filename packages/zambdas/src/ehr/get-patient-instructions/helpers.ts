@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Communication } from 'fhir/r4b';
-import { InstructionType, PATIENT_INSTRUCTIONS_TEMPLATE_CODE } from 'utils';
+import { PATIENT_INSTRUCTIONS_TEMPLATE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { InstructionType } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
 
 export async function getCommunicationResources(
   oystehr: Oystehr,

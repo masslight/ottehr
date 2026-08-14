@@ -1,21 +1,18 @@
 import { expect, Locator, Page } from '@playwright/test';
 import type { QuestionnaireConfigType, ValueSetsConfig } from 'config-types';
-import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  buildEnableWhenContext,
-  checkFieldHidden,
-  createQuestionnaireFromConfig,
-  evalEnableWhen,
-  evalRequired,
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  IntakeQuestionnaireItem,
-  mapQuestionnaireAndValueSetsToItemsList,
-  VALUE_SETS,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from 'utils';
+import { checkFieldHidden } from 'utils/lib/config-helpers/intake-paperwork';
+import { createQuestionnaireFromConfig } from 'utils/lib/config-helpers/shared-questionnaire';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { buildEnableWhenContext, evalEnableWhen, evalRequired } from 'utils/lib/helpers/paperwork/validation';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../locators';
+import { logVerbose } from '../logging';
 import {
   collectValidationErrorsDetailed,
   fillChoiceDropdown,
@@ -53,6 +50,8 @@ export class PagedQuestionnaireFlowHelper {
   private collectedResponses: QuestionnaireResponseItem[] = [];
   /** Optional fully-resolved paperwork config for concrete config tests */
   private paperworkConfig?: QuestionnaireConfigType;
+  /** Optional pre-assembled FHIR Questionnaire (e.g. a paperwork flow's effective questionnaire) */
+  private effectiveQuestionnaire?: Questionnaire;
 
   /**
    * @param page - Playwright page instance
@@ -61,15 +60,22 @@ export class PagedQuestionnaireFlowHelper {
    *                          This should be the result of getIntakePaperworkConfig(overrides) or
    *                          getIntakePaperworkVirtualConfig(overrides). When provided, the
    *                          questionnaire is generated from this config to match what's deployed to FHIR.
+   * @param effectiveQuestionnaire - Optional pre-assembled FHIR Questionnaire. When provided it takes
+   *                          precedence over `paperworkConfig`/service-mode defaults and its `item[]` is
+   *                          used to build the page model. This is how a paperwork *flow* is driven: pass
+   *                          the result of `resolveEffectiveQuestionnaire(flowQuestionnaire, oystehr)` so the
+   *                          helper fills/verifies the exact pages the app renders when a flow is configured.
    */
   constructor(
     page: Page,
     serviceMode: 'in-person' | 'virtual' = 'in-person',
-    paperworkConfig?: QuestionnaireConfigType
+    paperworkConfig?: QuestionnaireConfigType,
+    effectiveQuestionnaire?: Questionnaire
   ) {
     this.page = page;
     this.serviceMode = serviceMode;
     this.paperworkConfig = paperworkConfig;
+    this.effectiveQuestionnaire = effectiveQuestionnaire;
     this.locators = new Locators(page);
     this.uploadDocs = new UploadDocs(page);
     this.loadQuestionnaireItems();
@@ -81,7 +87,11 @@ export class PagedQuestionnaireFlowHelper {
   private loadQuestionnaireItems(): void {
     let questionnaire;
 
-    if (this.paperworkConfig) {
+    if (this.effectiveQuestionnaire) {
+      // A pre-assembled questionnaire (e.g. a paperwork flow's effective questionnaire) was provided.
+      // Use it verbatim so the page model matches exactly what the app renders for the flow.
+      questionnaire = this.effectiveQuestionnaire;
+    } else if (this.paperworkConfig) {
       // Generate questionnaire from provided config (matches what's deployed to FHIR)
       questionnaire = createQuestionnaireFromConfig(this.paperworkConfig);
     } else {
@@ -284,7 +294,7 @@ export class PagedQuestionnaireFlowHelper {
     const type = item.type;
 
     if (item.linkId.startsWith('insurance-carrier')) {
-      console.log('filling item by type', item.linkId, type, value, JSON.stringify(item));
+      logVerbose('filling item by type', item.linkId, type, value, JSON.stringify(item));
     }
 
     switch (type) {
@@ -333,7 +343,7 @@ export class PagedQuestionnaireFlowHelper {
         await fillStringField(locator, String(value));
     }
 
-    console.log(`Filled field ${item.linkId} with value:`, value);
+    logVerbose(`Filled field ${item.linkId} with value:`, value);
   }
 
   /**
@@ -352,7 +362,7 @@ export class PagedQuestionnaireFlowHelper {
       await firstOption.click();
     } else {
       // Standard MUI Autocomplete dropdown
-      console.log(`[DEBUG] fillChoiceFieldLocal: ${item.linkId} with value "${value}"`);
+      logVerbose(`[DEBUG] fillChoiceFieldLocal: ${item.linkId} with value "${value}"`);
       await fillChoiceDropdown(this.page, locator, value);
     }
   }
@@ -422,7 +432,7 @@ export class PagedQuestionnaireFlowHelper {
       // Only check if visible
       if (await checkbox.isVisible()) {
         await checkbox.check();
-        console.log(`Checked consent checkbox ${i + 1}/${count}`);
+        logVerbose(`Checked consent checkbox ${i + 1}/${count}`);
       }
     }
   }
@@ -876,11 +886,12 @@ export class PagedQuestionnaireFlowHelper {
     const triggerFields = fieldsToFill.filter(([linkId]) => triggerFieldIds.has(linkId));
     const dependentFields = fieldsToFill.filter(([linkId]) => !triggerFieldIds.has(linkId));
 
+    // Joined rather than passed as arrays: console.log spreads an array of ids over one line each,
+    // which turned this page-level summary into dozens of lines. This is the line that makes the
+    // per-field logging above redundant, so it stays on unconditionally — but as one line.
     console.log(
-      'Filling page - triggers:',
-      triggerFields.map(([id]) => id),
-      'dependent:',
-      dependentFields.map(([id]) => id)
+      `Filling page - triggers: [${triggerFields.map(([id]) => id).join(', ')}] ` +
+        `dependent: [${dependentFields.map(([id]) => id).join(', ')}]`
     );
 
     // Track current form values for enableWhen evaluation

@@ -5,38 +5,34 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
 import { TermsAndConditions } from 'src/components/TermsAndConditions';
+import { FormValidationErrorObject, getFormValidationErrors } from 'src/features/paperwork/helpers';
+import { UNEXPECTED_ERROR_CONFIG } from 'src/helpers/constants';
+import { getValueBoolean } from 'src/helpers/form/boolean.helper';
+import { useCreateInviteMutation } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { ReviewItem } from 'src/types/form/review-item-type';
 import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import {
-  convertQRItemToLinkIdMap,
-  evalEnableWhen,
-  makeValidationSchema,
-  pickFirstValueFromAnswerItem,
-  ServiceMode,
-  uuidRegex,
-  VisitType,
-} from 'utils';
 import { i18n } from 'utils/lib/frontend';
+import { convertQRItemToLinkIdMap, pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
+import { evalEnableWhen, makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
+import { ServiceMode } from 'utils/lib/types/common';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { uuidRegex } from 'utils/lib/validation/regex';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
 import { intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
-import { FormValidationErrorObject, getFormValidationErrors } from '../features/paperwork';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
-import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { getValueBoolean } from '../helpers/form';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
-import { useCreateInviteMutation } from '../telemed/features/waiting-room';
-import { ReviewItem } from '../types';
 import { slugFromLinkId } from './PaperworkPage';
 
 const PAGE_ID = 'PAPERWORK_REVIEW_PAGE';
@@ -177,13 +173,13 @@ const ReviewPaperwork = (): JSX.Element => {
       console.log('pagesWithError', pagesWithError);
     }
 
-    // Only check photo-id-page if it's enabled
-    if (validationState['photo-id-page'] !== undefined) {
+    // Only check contact-information-page if it's enabled
+    if (validationState['contact-information-page'] !== undefined) {
       const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
       console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
       // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
       if (photoIdFront === undefined) {
-        validationState['photo-id-page'] = false;
+        validationState['contact-information-page'] = false;
       }
     }
 

@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { formatPhoneNumberForQuestionnaire, PATIENT_RECORD_CONFIG } from 'utils';
+import { formatPhoneNumberForQuestionnaire } from 'utils/lib/helpers/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
 
@@ -197,6 +198,32 @@ export class PatientInformationPage {
 
   async verifyAddInsuranceButtonIsHidden(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton)).toBeHidden();
+  }
+
+  /**
+   * Dismiss the inline new-insurance form without saving it. Waiting for the button to go away
+   * matters: the form's presence changes how many insurance containers are rendered, so acting on a
+   * card before it unmounts addresses the wrong one.
+   */
+  async clickCancelAddInsuranceButton(): Promise<void> {
+    const cancelButton = this.#page.getByRole('button', { name: 'Cancel' });
+    await cancelButton.click();
+    await expect(cancelButton).toBeHidden();
+  }
+
+  /**
+   * Wait until exactly this many insurances are saved on the account.
+   *
+   * Each persisted coverage renders a Remove button while the inline new-insurance form renders
+   * Cancel instead, so counting Remove buttons counts only what is actually saved. This exists
+   * because the "Coverage removed from patient account" toast is not a sound signal for a second
+   * removal in a row: the first toast can still be on screen, so the assertion passes without the
+   * second removal having happened, and the failure only surfaces later as a confusing mismatch
+   * somewhere else. Removal is also asynchronous, so this doubles as the settle point before
+   * touching another card.
+   */
+  async verifySavedInsuranceCount(expected: number): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.removeButton)).toHaveCount(expected);
   }
 
   async verifyCoverageAddedSuccessfullyMessageShown(): Promise<void> {

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
 import { intakeFlowPageRoute } from '../../App';
-import { useAppointmentStore } from '../features/appointments';
 import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
 
 export function IOSMessagesHandler(): JSX.Element {

@@ -15,18 +15,17 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { commaFormattedName } from 'utils/lib/fhir/billing';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { BillingInsuranceType, UpdateBillingPatientInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BILLING_INSURANCE_TYPE_OPTIONS,
   BILLING_INSURANCE_TYPE_TITLES,
   BillingCoverageOption,
-  BillingInsuranceType,
-  commaFormattedName,
-  formatCurrency,
-  getApiError,
   PatientDetailResponse,
-  UpdateBillingPatientInput,
-  VALUE_SETS,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency } from 'utils/lib/utils/convert';
 import { deleteBillingCoverage, getPatientCoverages, updateBillingCoverage, updateBillingPatient } from '../api/api';
 import { AddCoverageDialog } from '../components/AddCoverageDialog';
 import { AddressFields } from '../components/AddressFields';

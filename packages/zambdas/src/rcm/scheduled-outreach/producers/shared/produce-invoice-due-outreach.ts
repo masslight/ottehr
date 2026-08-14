@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { Secrets } from 'utils';
-import { getStripeClient } from '../../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { getStripeClient, STRIPE_METADATA_KEYS } from '../../../../shared/stripeIntegration';
 import {
   getOrCreateOutreachConfig,
   OutreachAction,
@@ -66,16 +66,16 @@ export async function produceInvoiceDueOutreach(
   let errors = 0;
 
   for (const invoice of pastDueInvoices) {
-    const patientId = invoice.metadata?.oystehr_patient_id;
-    const encounterId = invoice.metadata?.oystehr_encounter_id;
+    const patientId = invoice.metadata?.[STRIPE_METADATA_KEYS.patientId];
+    const encounterId = invoice.metadata?.[STRIPE_METADATA_KEYS.encounterId];
 
     if (!patientId) {
-      console.warn(`Stripe invoice ${invoice.id} has no oystehr_patient_id in metadata, skipping`);
+      console.warn(`Stripe invoice ${invoice.id} has no ${STRIPE_METADATA_KEYS.patientId} in metadata, skipping`);
       continue;
     }
 
     if (!encounterId) {
-      console.warn(`Stripe invoice ${invoice.id} has no oystehr_encounter_id in metadata, skipping`);
+      console.warn(`Stripe invoice ${invoice.id} has no ${STRIPE_METADATA_KEYS.encounterId} in metadata, skipping`);
       continue;
     }
 

@@ -36,7 +36,7 @@ export const ERXInteractionsReadiness: FC<{
 
   // Step 3: sync the patient's demographics/allergies/medications to the eRx provider so the
   // precheck has data to compare against. No practitioner enrollment/connect is involved.
-  const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
+  const { isSuccess: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
     patient: patient!,
     encounter,
     enabled: Boolean(isErxConfigured && hasVitals && patient?.id && encounter?.id),

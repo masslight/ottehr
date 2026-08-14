@@ -7,7 +7,6 @@ import { DischargeButton } from '../../shared/components/review-tab/DischargeBut
 import { DischargeSummaryButton } from '../../shared/components/review-tab/DischargeSummaryButton';
 import { MissingCard } from '../../shared/components/review-tab/MissingCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
-import { SendFaxButton } from '../../shared/components/review-tab/SendFaxButton';
 import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
@@ -18,8 +17,6 @@ interface PatientInfoProps {
 
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const {
-    appointment: appointmentResource,
-    encounter,
     resources: { appointment, patient },
     isAppointmentLoading,
     appointmentError,
@@ -45,7 +42,6 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} />
           <DischargeSummaryButton appointmentId={appointment?.id} patientId={patient?.id} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>

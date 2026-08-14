@@ -1,5 +1,5 @@
 import { HealthcareService, Location, Practitioner, PractitionerRole, Slot } from 'fhir/r4b';
-import { makeSlotAtLocationExtensionEntry } from 'utils';
+import { makeSlotAtLocationExtensionEntry } from 'utils/lib/fhir/constants';
 import { describe, expect, it } from 'vitest';
 import { resolveBookingLocationId } from '../../src/shared/resolveBookingLocationId';
 

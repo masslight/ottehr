@@ -1,12 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, NOT_AUTHORIZED } from 'utils';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { describe, expect, it } from 'vitest';
 import { assertPractitionerHasNPI, requirePractitionerNPI } from '../../src/shared/auth';
 
 // Backend enforcement for NPI-gated actions (sign/co-sign notes, e-prescribe, external labs &
-// imaging orders, claim submission, in-house medication orders). A user without an NPI on their
-// Practitioner (e.g. the Clinician role) must be rejected with NOT_AUTHORIZED.
+// imaging orders, claim submission). A user without an NPI on their Practitioner (e.g. the Clinician
+// role) must be rejected with NOT_AUTHORIZED.
+//
+// In-house medication orders, in-house labs and nursing orders are deliberately NOT in that list —
+// per OTR-2462 the Clinician role may place them without an NPI.
 
 const practitionerWithNPI: Practitioner = {
   resourceType: 'Practitioner',

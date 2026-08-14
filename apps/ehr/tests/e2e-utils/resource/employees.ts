@@ -2,22 +2,17 @@
 import { randomUUID } from 'node:crypto';
 import Oystehr, { UserInviteParams } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
+import { PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
+import { getFirstName, getLastName, getMiddleName, getNPIIdentifier } from 'utils/lib/fhir/patient';
 import {
-  allLicensesForPractitioner,
-  createFetchClientWithOystehrAuth,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  getNPIIdentifier,
   getSuffixFromProviderTypeExtension,
-  isProviderTypeCode,
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
-  PractitionerLicense,
-  PROVIDER_TYPE_EXTENSION_URL,
-  ProviderTypeCode,
-  RoleType,
-} from 'utils';
+} from 'utils/lib/fhir/practitioners';
+import { createFetchClientWithOystehrAuth, isProviderTypeCode } from 'utils/lib/helpers/helpers';
+import { PractitionerLicense, ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 
 export interface TestEmployeeInviteParams {
   userName?: string;

@@ -4,19 +4,16 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
-import {
-  BRANDING_CONFIG,
-  formatDateForDisplay,
-  getAppointmentMetaTagOpForStatusUpdate,
-  getEncounterStatusHistoryUpdateOp,
-  getNPIIdentifier,
-  getPatchBinary,
-  InPersonAppointmentInformation,
-  isPhysician,
-  isPhysicianProviderType,
-  OrdersForTrackingBoardRow,
-  ProviderTypeCode,
-} from 'utils';
+import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
+import { getAppointmentMetaTagOpForStatusUpdate } from 'utils/lib/fhir/helpers';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { isPhysician, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
 

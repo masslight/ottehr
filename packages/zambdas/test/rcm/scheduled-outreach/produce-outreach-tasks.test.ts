@@ -35,24 +35,15 @@ const mockPatientWithValidContacts = {
   ],
 };
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as Record<string, unknown>),
       automatedPatientOutreachEnabled: true,
       mailingPaperStatementsEnabled: true,
     },
-  };
-});
-
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
 

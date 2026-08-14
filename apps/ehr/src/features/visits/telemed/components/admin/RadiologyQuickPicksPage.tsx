@@ -23,7 +23,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RadiologyQuickPickData } from 'utils';
+import { RadiologyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   useRadiologyQuickPicksQuery,
   useRemoveRadiologyQuickPickMutation,
