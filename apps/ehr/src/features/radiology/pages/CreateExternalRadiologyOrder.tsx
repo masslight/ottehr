@@ -82,16 +82,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
         }
       : undefined
   );
-  const {
-    orderDx,
-    orderCpt,
-    studyName,
-    clinicalHistory,
-    lateralityModifier,
-    addAdditionalDxToEncounter,
-    chartCptCodes,
-    setPartialChartData,
-  } = form;
+  const { orderDx, orderCpt, studyName, clinicalHistory, lateralityModifier, addAdditionalDxToEncounter } = form;
 
   // Priority/STAT is an in-house-only concept; external orders are routine. Preserve any prior value on edit.
   const stat = initialOrder?.isStat ?? false;
@@ -176,9 +167,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
           navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
-          if (res.cptCodesSaved && res.cptCodesSaved.length > 0) {
-            setPartialChartData({ cptCodes: [...chartCptCodes, ...res.cptCodesSaved] });
-          }
           await printOrderForm(res.serviceRequestId);
           navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
         }

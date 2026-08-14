@@ -1,6 +1,6 @@
 import ScannerIcon from '@mui/icons-material/Scanner';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { Box, Button, CircularProgress, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import imageCompression from 'browser-image-compression';
 import { Attachment } from 'fhir/r4b';
@@ -9,7 +9,6 @@ import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 import { createZ3Object } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { otherColors } from 'src/themes/ottehr/colors';
 import { convertHeicToJpegIfNeeded } from 'ui-components/lib/utils/heic';
 import { downscaleImageForUpload } from 'utils/lib/frontend';
 import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
@@ -18,13 +17,14 @@ import { MIME_TYPES } from 'utils/lib/utils/file';
 interface UploadComponentProps {
   fileName: string;
   appointmentId: string;
-  aspectRatio: number;
   disabled?: boolean;
   isUploading?: boolean;
   submitAttachment: (attachment: Attachment) => Promise<void>;
   onScanClick?: () => void;
   /** Overrides the accepted file types (the `accept` string). Defaults to images only. */
   acceptedFileTypes?: string;
+  /** What this uploader is for (e.g. "ID Card") — appended to the Upload/Scan button labels. */
+  itemLabel?: string;
 }
 
 const FILE_TYPES_ACCEPTED = [
@@ -46,14 +46,13 @@ enum UploadState {
 const UploadComponent: FC<UploadComponentProps> = ({
   fileName,
   appointmentId,
-  aspectRatio,
   disabled,
   isUploading,
   submitAttachment,
   onScanClick,
   acceptedFileTypes = FILE_TYPES_ACCEPTED,
+  itemLabel,
 }): JSX.Element => {
-  const theme = useTheme();
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
   const [z3UploadState, setZ3UploadState] = useState(UploadState.initial);
   const [compressingImage, setCompressingImage] = useState(false);
@@ -139,16 +138,10 @@ const UploadComponent: FC<UploadComponentProps> = ({
   return (
     <Box
       sx={{
-        border: `1px dashed ${disabled ? otherColors.disabled : theme.palette.primary.main}`,
-        borderRadius: 2,
-        background: disabled ? otherColors.disabledBackground : otherColors.cardBackground,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 1,
-        padding: 2,
-        aspectRatio,
       }}
     >
       {compressingImage || isLoading ? (
@@ -166,7 +159,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
               textTransform: 'none',
             }}
           >
-            Upload
+            {itemLabel ? `Upload ${itemLabel}` : 'Upload'}
           </Button>
           <Button
             variant="outlined"
@@ -179,7 +172,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
               textTransform: 'none',
             }}
           >
-            Scan
+            {itemLabel ? `Scan ${itemLabel}` : 'Scan'}
           </Button>
         </Box>
       )}

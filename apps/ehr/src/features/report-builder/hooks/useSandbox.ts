@@ -122,8 +122,6 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
     win.postMessage({ type: 'render', code, data, schema, muiLicenseKey: MUI_X_LICENSE_KEY }, '*');
   }, [code, data, schema]);
 
-  // Whitelisted integration events. The only v1 event is openLink: validate against the shared
-  // schema, build the URL on THIS side, open in a new tab (the frame itself has no allow-popups).
   const handleFrameEvent = useCallback((raw: unknown): void => {
     const parsed = AdHocFrameEventSchema.safeParse(raw);
     if (!parsed.success) {
@@ -135,6 +133,16 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       const href = hrefForOpenLink(event.options);
       if (href) window.open(`${window.location.origin}${href}`, '_blank', 'noopener');
       else showAdHocDebugLog('sandbox', 'openLink rejected by the SPA whitelist', event.options);
+    } else if (event.event === 'exportData') {
+      const url = URL.createObjectURL(new Blob([event.csv], { type: 'text/csv;charset=utf-8;' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = event.filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     }
   }, []);
 

@@ -1,0 +1,35 @@
+{
+  "name": "Laceration Repair — Face, Sutures (Simple)",
+  "procedureType": "laceration-repair",
+  "cptCodes": [
+    {
+      "code": "12011",
+      "display": "Simple repair, face/scalp/neck/axillae/genitalia/trunk/extremities, ≤2.5 cm"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S01.81XA",
+      "display": "Laceration without foreign body of other part of head, initial encounter"
+    }
+  ],
+  "bodySite": "face",
+  "bodySide": "not-applicable",
+  "technique": [
+    "sterile"
+  ],
+  "medicationUsed": "local",
+  "suppliesUsed": [
+    "suture-kit",
+    "other"
+  ],
+  "otherSuppliesUsed": "5-0 or 6-0 nylon, lidocaine 1% w/o epi, sterile gloves",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "other"
+  ],
+  "otherPostInstructions": "Keep clean and dry 24h; suture removal in 5 days; return for redness, drainage, or fever",
+  "timeSpent": "10-20-min"
+}

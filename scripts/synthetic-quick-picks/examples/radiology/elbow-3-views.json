@@ -1,0 +1,8 @@
+{
+  "name": "Elbow X-Ray, 3 Views",
+  "cptCode": "73080",
+  "cptDisplay": "Radiologic examination, elbow; complete, minimum of 3 views",
+  "studyName": "X-Ray Elbow 3 Views (AP, Oblique, Lateral)",
+  "clinicalHistory": "Elbow pain or deformity after trauma — evaluate for fracture, joint effusion",
+  "stat": false
+}

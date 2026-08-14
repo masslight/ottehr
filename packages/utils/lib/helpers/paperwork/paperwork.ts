@@ -23,7 +23,11 @@ import { DateTime } from 'luxon';
 import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
 import { AnswerOptionSource } from '../../../../config-types/config/fhir';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
-import { getCanonicalQuestionnaire } from '../../fhir/questionnaires';
+import {
+  getCanonicalQuestionnaire,
+  isIntakePaperworkQuestionnaireResponse,
+  resolveEffectiveQuestionnaire,
+} from '../../fhir/questionnaires';
 import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
 import {
   ConditionKeyObject,
@@ -481,13 +485,17 @@ export const getQuestionnaireItemsAndProgress = async (
   }
 
   const [questionnaireURL, questionnaireVersion] = qr.questionnaire.split('|');
-  const questionnaire = await getCanonicalQuestionnaire(
+  const rawQuestionnaire = await getCanonicalQuestionnaire(
     {
       url: questionnaireURL,
       version: questionnaireVersion,
     },
     oystehr
   );
+  // If the QR points at a paperwork flow, assemble its constituent forms so items[] reflects the
+  // flattened pages (a non-flow questionnaire is returned unchanged). Without this, a flow QR yields
+  // empty items[], so page-index lookups in the paperwork validators resolve to -1 and PATCH fails.
+  const questionnaire = await resolveEffectiveQuestionnaire(rawQuestionnaire, oystehr);
 
   const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
 
@@ -817,11 +825,10 @@ export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResp
 };
 
 export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
-  return (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
-  );
+  // A QuestionnaireResponse is "paperwork" when it is the intake paperwork response — recognized by the
+  // INTAKE_PAPERWORK_QR_TAG meta.tag and is set at creation when the QR is created in tandem with the appointment
+  // Everything else that is a QuestionnaireResponse is non-paperwork.
+  return resource.resourceType === 'QuestionnaireResponse' && !isIntakePaperworkQuestionnaireResponse(resource);
 }
 
 export const getPaperworkResources = async (

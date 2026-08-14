@@ -954,13 +954,19 @@ export function makeDispositionDTO(
       ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
       : undefined;
 
-  const followUpArr = subFollowUp?.map((element) => {
+  // Resolve each sub-follow-up's type via the shared reverse lookup (coding code OR text,
+  // so the coding-less 'other'/'lurie-ct' performer types disambiguate correctly), and skip
+  // entries whose type can't be resolved rather than emitting a bogus type that downstream
+  // consumers (visit-note PDF, review tab) can't render.
+  const followUpArr = subFollowUp?.flatMap((element) => {
     const followUpType = followUpTypeFromPerformerType(element.performerType);
-
-    return {
-      type: followUpType as DispositionFollowUpType,
-      note: element.note?.[0].text,
-    };
+    if (!followUpType) return [];
+    return [
+      {
+        type: followUpType as DispositionFollowUpType,
+        note: element.note?.[0].text,
+      },
+    ];
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;

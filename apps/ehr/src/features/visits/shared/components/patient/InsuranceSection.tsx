@@ -112,6 +112,7 @@ export const InsuranceSection: FC<{
           isNew
           onCancelAdd={onCancelAddInsurance}
           renderWithoutSection
+          renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
         />
       )}
       {coverages.length < 2 && !isAddingInsurance && (

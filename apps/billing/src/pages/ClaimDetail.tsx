@@ -16,10 +16,12 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Tab,
   Table,
   TableBody,
@@ -39,7 +41,6 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
-import { ERA_CLAIM_STATUS_CODE, EraClaimStatusCode } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -53,7 +54,6 @@ import {
   BillingProviderOption,
   BillingTag,
   ClaimDetailResponse,
-  ClaimRemitAdjustment,
   ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
@@ -68,6 +68,7 @@ import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
+  exportClaimX12,
   getBillingClaimDetail,
   getPatientCoverages,
   runBillingRulesEngine,
@@ -88,8 +89,10 @@ import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceL
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
+import { DateInput } from '../components/DateInput';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
+import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
@@ -100,6 +103,7 @@ import {
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
+import { ERA_STATUS_LABELS, formatAdjustment } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
@@ -123,8 +127,6 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
   return undefined;
 }
 
-const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
-
 // EHR app base URL for the "View in EHR" backlink
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
@@ -146,6 +148,7 @@ export default function ClaimDetail(): ReactElement {
   const [serviceDate, setServiceDate] = useState('');
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
+  const [skipRules, setSkipRules] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -237,7 +240,7 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id], skipRules });
       enqueueSnackbar(
         `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
         { variant: 'info' }
@@ -255,7 +258,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, fetchDetail]);
+  }, [oystehrZambda, id, claim, skipRules, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -343,13 +346,7 @@ export default function ClaimDetail(): ReactElement {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Date of Service
                   </Typography>
-                  <TextField
-                    type="date"
-                    size="small"
-                    value={serviceDate}
-                    onChange={(e) => setServiceDate(e.target.value)}
-                    sx={{ width: 165 }}
-                  />
+                  <DateInput size="small" value={serviceDate} onChange={(value) => setServiceDate(value)} />
                 </Box>
                 <Meta label="Claim ID" value={claim.id} />
                 <Box>
@@ -454,12 +451,14 @@ export default function ClaimDetail(): ReactElement {
         )}
       </Box>
 
-      <ExportX12Dialog
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        claimId={claim.id}
-        claimType={claim.type}
-      />
+      {oystehrZambda && (
+        <ExportX12Dialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
+          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+        />
+      )}
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -576,13 +575,24 @@ export default function ClaimDetail(): ReactElement {
         <ConfirmDialog
           open={confirmingSubmit}
           title={runEngine.runButtonLabel}
-          confirmLabel="Run rules"
+          confirmLabel={skipRules ? 'Submit claim (without running rules)' : 'Run rules'}
           loading={submitting}
           onConfirm={() => void handleRunRulesEngine()}
           onCancel={() => setConfirmingSubmit(false)}
         >
-          Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
-          {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+          <Typography variant="body2">
+            Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
+            {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+          </Typography>
+          <FormControlLabel
+            control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+            label="Skip rules"
+            slotProps={{
+              typography: {
+                variant: 'body2',
+              },
+            }}
+          />
         </ConfirmDialog>
       )}
     </Box>
@@ -1287,23 +1297,6 @@ function OtherClaimsSection({
   );
 }
 
-// Human labels for CLP02 claim status codes the ERA can carry.
-const ERA_STATUS_LABELS: Record<EraClaimStatusCode, string> = {
-  [ERA_CLAIM_STATUS_CODE.primary]: 'Primary',
-  [ERA_CLAIM_STATUS_CODE.secondary]: 'Secondary',
-  [ERA_CLAIM_STATUS_CODE.tertiary]: 'Tertiary',
-  [ERA_CLAIM_STATUS_CODE.denied]: 'Denied',
-  [ERA_CLAIM_STATUS_CODE.primaryForwarded]: 'Primary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.secondaryForwarded]: 'Secondary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.tertiaryForwarded]: 'Tertiary (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.reversal]: 'Reversal',
-  [ERA_CLAIM_STATUS_CODE.notOurClaimForwarded]: 'Not our claim (forwarded)',
-  [ERA_CLAIM_STATUS_CODE.predetermination]: 'Predetermination',
-};
-
-const formatAdjustment = (adj: ClaimRemitAdjustment): string =>
-  `${adj.groupCode}${adj.reasonCode ? `-${adj.reasonCode}` : ''} ${formatCurrency(adj.amount)}`;
-
 function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): ReactElement {
   return (
     <ReadOnlySection title="Remits">
@@ -1436,25 +1429,6 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
         </TableContainer>
       )}
     </ReadOnlySection>
-  );
-}
-
-function ReadOnlySection({ title, children }: { title: string; children: React.ReactNode }): ReactElement {
-  return (
-    <Card variant="outlined" sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 1.5 }}>
-          {title}
-        </Typography>
-        {typeof children === 'string' ? (
-          <Typography variant="body2" color="text.secondary">
-            {children}
-          </Typography>
-        ) : (
-          children
-        )}
-      </CardContent>
-    </Card>
   );
 }
 

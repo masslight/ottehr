@@ -3,6 +3,7 @@
 // of allowed events (this schema) and ignores everything else; later versions add new events (and
 // SPA → iframe replies) by extending the union, the shape does not change.
 import { z } from 'zod';
+import { MAX_EXPORT_CSV_LENGTH } from './limits';
 
 /** Routes a report link may target. The SPA owns the URL template per route; the generated code
  *  only ever names a route + an id, so a report cannot emit an arbitrary URL. */
@@ -24,5 +25,10 @@ export type OpenLinkOptions = z.infer<typeof OpenLinkOptionsSchema>;
 
 export const AdHocFrameEventSchema = z.discriminatedUnion('event', [
   z.object({ event: z.literal('openLink'), options: OpenLinkOptionsSchema }),
+  z.object({
+    event: z.literal('exportData'),
+    filename: z.string().min(1).max(200),
+    csv: z.string().max(MAX_EXPORT_CSV_LENGTH),
+  }),
 ]);
 export type AdHocFrameEvent = z.infer<typeof AdHocFrameEventSchema>;

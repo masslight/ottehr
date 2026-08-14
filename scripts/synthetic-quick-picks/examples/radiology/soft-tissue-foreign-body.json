@@ -1,0 +1,8 @@
+{
+  "name": "Soft Tissue X-Ray (Foreign Body)",
+  "cptCode": "76010",
+  "cptDisplay": "Radiologic examination from nose to rectum for foreign body, single view, child",
+  "studyName": "X-Ray Soft Tissue (Foreign Body Survey)",
+  "clinicalHistory": "Suspected radiopaque foreign body — wound or ingestion",
+  "stat": false
+}

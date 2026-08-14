@@ -299,12 +299,13 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
         </Box>
       </Box>
 
-      {/* Floating action bar */}
+      {/* Floating action bar. `left` reads the --admin-sidebar-width custom property set by
+          AdminSidebar so the bar spans the content column instead of the full viewport. */}
       <Box
         sx={{
           position: 'fixed',
           bottom: 0,
-          left: 0,
+          left: 'var(--admin-sidebar-width, 0px)',
           right: 0,
           bgcolor: 'background.paper',
           borderTop: '1px solid',

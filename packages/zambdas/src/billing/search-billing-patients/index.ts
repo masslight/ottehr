@@ -1,24 +1,24 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { BillingPatientOption } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
+  clinicalFriendlyIdOfCopy,
+  clinicalPatientIdOfCopy,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
   formatAddress,
-  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
-const SCAN_PAGE_SIZE = 200;
 const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_OFFSET = 0;
 
@@ -44,39 +44,20 @@ async function performEffect(
   ];
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });
+  if (params.uuid) searchParams.push({ name: 'identifier', value: `${SOURCE_IDENTIFIER_SYSTEM}|${params.uuid}` });
+  if (params.identifier)
+    searchParams.push({ name: 'identifier', value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${params.identifier}` });
 
-  let results: Patient[] = [];
-  let total: number = 0;
-  // These two parameters are searches on extension, not currently supported by Oystehr FHIR server
-  if (params.uuid || params.identifier) {
-    const searchAll = await searchOnClinicalIDs(
-      oystehr,
-      searchParams,
-      params.offset ?? DEFAULT_OFFSET,
-      params.pageSize ?? DEFAULT_PAGE_SIZE,
-      params.uuid,
-      params.identifier
-    );
-    total = searchAll.total;
-    results = searchAll.results;
-  } else {
-    const response = await oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        ...searchParams,
-        { name: '_count', value: String(pageSize) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    total = response.total ?? 0;
-    results = response.unbundle();
-  }
+  const response = await oystehr.fhir.search<Patient>({
+    resourceType: 'Patient',
+    params: [...searchParams, { name: '_count', value: String(pageSize) }, { name: '_offset', value: String(offset) }],
+  });
+  const total = response.total ?? 0;
+  const results = response.unbundle();
 
   const patients = results.map((p) => {
-    const clinicalFriendlyId = p.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
-    const clinicalId = p.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Patient/', '');
+    const clinicalFriendlyId = clinicalFriendlyIdOfCopy(p);
+    const clinicalId = clinicalPatientIdOfCopy(p);
 
     return {
       id: p.id,
@@ -92,49 +73,4 @@ async function performEffect(
   });
 
   return { patients, total: total ?? 0, offset, pageSize };
-}
-
-export async function searchOnClinicalIDs(
-  oystehr: Oystehr,
-  baseSearchParams: SearchParam[],
-  baseOffset: number,
-  basePageSize: number,
-  uuid?: string,
-  friendlyId?: string
-): Promise<{ total: number; results: Patient[] }> {
-  let results: Patient[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const response = oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        ...baseSearchParams,
-        {
-          name: '_count',
-          value: String(count),
-        },
-        {
-          name: '_offset',
-          value: String(offset),
-        },
-      ],
-    });
-    results.push(...(await response).unbundle());
-    return response;
-  }, SCAN_PAGE_SIZE);
-  // Filter by clinical patient MRN
-  if (uuid)
-    results = results.filter(
-      (p) =>
-        p.extension
-          ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-          ?.valueReference?.reference?.replace('Patient/', '') === uuid
-    );
-  // Filter by clinical patient friendly ID
-  if (friendlyId)
-    results = results.filter(
-      (p) => p.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString === friendlyId
-    );
-  const total = results.length;
-  results = results.slice(baseOffset, baseOffset + basePageSize);
-  return { total, results };
 }

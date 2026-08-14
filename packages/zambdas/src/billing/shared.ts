@@ -1,4 +1,5 @@
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
+import { deepStrictEqual } from 'node:assert';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig, SearchParam } from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -6,6 +7,8 @@ import {
   ChargeItemDefinition,
   ChargeItemDefinitionPropertyGroup,
   Claim,
+  ClaimResponse,
+  ClaimResponseItem,
   Coding,
   Coverage,
   FhirResource,
@@ -45,6 +48,7 @@ import {
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
+  patchWithOptimisticLock,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -90,6 +94,7 @@ import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
+import { fetchAllPages } from '../shared/fhir';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -231,12 +236,31 @@ export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
+const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
+export const SOURCE_FRIENDLY_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
+// CLP01 patient control number and CLP07 payer claim control number (ICN), as echoed by the payer.
+// Both arrive as ClaimResponse extensions, not identifiers.
+export const ERA_PCN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-pcn';
+export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
+// SVC01 procedure code and SVC05 units, stamped on each ClaimResponse.item. The converter never
+// writes the submitted lines onto the contained Claim, so these are the only line identity the
+// remit itself carries.
+export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
+export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+
+export function getEraExtensionString(
+  resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
+  url: string
+): string | undefined {
+  return resource.extension?.find((ext) => ext.url === url)?.valueString;
+}
 // Oystehr emits one Provenance per ERA (activity era-processing) whose targets are all resources
 // created from that ERA — the PaymentReconciliation and its ClaimResponses. This is how a single
 // ERA's resources are linked to each other.
@@ -245,6 +269,180 @@ export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
 
 export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
+}
+
+export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+}
+
+export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+}
+
+export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier {
+  return {
+    system: SOURCE_IDENTIFIER_SYSTEM,
+    value: clinicalPatientId,
+  };
+}
+
+export function clinicalFriendlyIdIdentifier(friendlyId: string): Identifier {
+  return {
+    system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+    value: friendlyId,
+  };
+}
+
+export function identifierSearchToken(identifier: Identifier): string {
+  return `${identifier.system}|${identifier.value}`;
+}
+
+export async function searchPatientsByClinicalIds({
+  oystehr,
+  baseSearchParams,
+  offset,
+  pageSize,
+  uuid,
+  friendlyId,
+}: {
+  oystehr: Oystehr;
+  baseSearchParams: SearchParam[];
+  offset: number;
+  pageSize: number;
+  uuid?: string;
+  friendlyId?: string;
+}): Promise<{ total: number; results: Patient[] }> {
+  // creates an OR search
+  const identifierTokens = [
+    ...(uuid ? [identifierSearchToken(clinicalPatientIdentifier(uuid))] : []),
+    ...(friendlyId ? [identifierSearchToken(clinicalFriendlyIdIdentifier(friendlyId))] : []),
+  ];
+
+  if (identifierTokens.length > 0) {
+    const indexed = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: 'identifier',
+          value: identifierTokens.join(','),
+        },
+        {
+          name: '_count',
+          value: String(pageSize),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    const results = indexed.unbundle();
+    if (results.length > 0) {
+      return {
+        total: indexed.total ?? results.length,
+        results,
+      };
+    }
+  }
+
+  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+}
+
+export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
+  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+}
+
+export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
+  const friendlyId = clinicalFriendlyIdOfCopy(patient);
+  const wanted = [
+    clinicalPatientIdentifier(clinicalPatientId),
+    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
+  ];
+  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
+}
+
+export async function addClinicalPatientIdentifiers({
+  oystehr,
+  patient,
+  clinicalPatientId,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  clinicalPatientId: string;
+}): Promise<void> {
+  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
+    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
+    if (missing.length === 0) return [];
+    return current.identifier?.length
+      ? missing.map((identifier) => ({
+          op: 'add' as const,
+          path: '/identifier/-',
+          value: identifier,
+        }))
+      : [
+          {
+            op: 'add' as const,
+            path: '/identifier',
+            value: missing,
+          },
+        ];
+  });
+}
+
+export async function searchOnClinicalIDs(
+  oystehr: Oystehr,
+  baseSearchParams: SearchParam[],
+  baseOffset: number,
+  basePageSize: number,
+  uuid?: string,
+  friendlyId?: string
+): Promise<{ total: number; results: Patient[] }> {
+  let results: Patient[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const response = oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    results.push(...(await response).unbundle());
+    return response;
+  }, CLINICAL_ID_SCAN_PAGE_SIZE);
+  if (uuid || friendlyId) {
+    results = results.filter(
+      (p) =>
+        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+    );
+  }
+  const total = results.length;
+  results = results.slice(baseOffset, baseOffset + basePageSize);
+  return { total, results };
+}
+
+export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {
+  try {
+    deepStrictEqual(withoutMeta(stored), withoutMeta(copy));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function withoutMeta<T extends Resource>(resource: T): Omit<T, 'meta'> {
+  const fields = { ...resource };
+  delete fields.meta;
+  return fields;
 }
 
 // Claim.MD stamps the check number as a searchable identifier; process-era only sets
@@ -462,7 +660,7 @@ export async function kickOffRulesEngine(
   // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   try {
-    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId));
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId, false));
   } catch (error) {
     console.error(`Failed to enqueue ${engine} rules-engine Task for Claim/${claimId}:`, error);
     await sendErrors(error, env, { claimId, engine });
@@ -903,6 +1101,47 @@ export function buildBillingCoverage(params: {
   return coverage;
 }
 
+// The per-claim working copies of one of the patient's coverages and its standalone policy holder,
+// re-pointed at the claim's patient. Linking and persisting them is the caller's job, because the
+// reference form differs: the claim editor creates them and stores real ids, while the rules engine
+// mints urn:uuid placeholders resolved inside its own transaction. When the claim has no patient
+// reference the copies keep the original's references (nothing to re-point at) and no policy-holder
+// copy is made — matching what the claim editor does.
+export function buildClaimCoverageCopies(params: {
+  coverage: Coverage;
+  subscriber?: RelatedPerson;
+  patientReference?: string;
+}): { coverage: Coverage; subscriber?: RelatedPerson } {
+  const coverage = prepareWorkingCopy<Coverage>(params.coverage, params.coverage.id);
+  if (!params.patientReference) return { coverage };
+
+  coverage.beneficiary = { reference: params.patientReference };
+  // Self by default; a standalone policy holder is linked by the caller once its reference exists.
+  coverage.subscriber = { reference: params.patientReference };
+  if (!params.subscriber?.id) return { coverage };
+
+  const subscriber = prepareWorkingCopy<RelatedPerson>(params.subscriber, params.subscriber.id);
+  subscriber.patient = { reference: params.patientReference };
+  return { coverage, subscriber };
+}
+
+// Point the claim's primary (focal) coverage slot at `coverageReference` and its insurer at the
+// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
+// ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
+export function attachPrimaryCoverageToClaim(params: {
+  claim: Claim;
+  coverageReference: string;
+  display?: string;
+  payerReference?: string;
+}): void {
+  const { claim, coverageReference, display, payerReference } = params;
+  claim.insurance = ensureClaimInsurance([
+    { sequence: 1, focal: true, coverage: { reference: coverageReference, display } },
+    ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
+  ]);
+  if (payerReference) claim.insurer = { reference: payerReference, display };
+}
+
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
 // account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
 const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
@@ -945,6 +1184,62 @@ export function getCoverageInsuranceType(
   if (pbillEntry?.priority === 1) return 'primary';
   if (pbillEntry?.priority === 2) return 'secondary';
   return undefined;
+}
+
+// One of the patient's coverages as the billing app sees it: the coverage, the slot its billing
+// accounts place it in, and its standalone policy holder (when the subscriber is a RelatedPerson
+// rather than the patient).
+export interface PatientCoverageRecord {
+  coverage: Coverage;
+  // Undefined when an account references the coverage without one of the canonical placements
+  // (PBILLACCT priority 1/2, WCOMPACCT).
+  insuranceType?: BillingInsuranceType;
+  subscriber?: RelatedPerson;
+}
+
+// Every coverage the patient's billing accounts reference, resolved to its slot and policy holder.
+// Shared by the claim detail coverage picker (get-patient-coverages) and the rules engine's
+// "Coverage (from patient)" prefetch so both read the patient's coverages one way. Working copies
+// are excluded — these are the patient's reference coverages, which claims copy from.
+export async function fetchPatientCoverages(oystehr: Oystehr, patientId: string): Promise<PatientCoverageRecord[]> {
+  const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientAccounts(oystehr, patientId),
+  ]);
+
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+  const subscribersById = new Map(subscriberBundle.unbundle().map((rp) => [rp.id ?? '', rp]));
+
+  // Only coverages an account references are the patient's billing coverages; anything else on the
+  // patient is not part of their insurance setup.
+  const referencedByAccount = (coverage: Coverage): boolean => {
+    const ref = `Coverage/${coverage.id}`;
+    return [pbillAccount, wcompAccount].some(
+      (account) => account?.coverage?.some((c) => c.coverage?.reference === ref)
+    );
+  };
+
+  return coverageBundle
+    .unbundle()
+    .filter(referencedByAccount)
+    .map((coverage) => {
+      const subscriberRef = coverage.subscriber?.reference;
+      return {
+        coverage,
+        insuranceType: getCoverageInsuranceType(coverage, pbillAccount, wcompAccount),
+        subscriber: subscriberRef?.startsWith('RelatedPerson/')
+          ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
+          : undefined,
+      };
+    });
 }
 
 type AccountWriteRequest = BatchInputPostRequest<Account> | BatchInputPutRequest<Account>;

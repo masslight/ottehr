@@ -34,6 +34,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { getDefaultCadenceMinutes } from 'utils/lib/utils/dateUtils';
@@ -495,11 +496,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
                         <Chip label="System" size="small" />
                       </Tooltip>
                     ) : (
-                      <Chip
-                        label={sc.active ? 'Active' : 'Inactive'}
-                        size="small"
-                        color={sc.active ? 'success' : 'error'}
-                      />
+                      <BooleanStateChip state={sc.active} label={sc.active ? 'Active' : 'Inactive'} />
                     )}
                   </TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
