@@ -5,10 +5,8 @@ import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import {
-  FAX_DOCUMENT_ORDER,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
-  FaxDocumentKind,
   FaxPacketSource,
   FaxRecipient,
 } from 'utils/lib/types/api/fax.types';
@@ -19,10 +17,9 @@ import { makeFaxPacketDocumentReference } from '../pdf/make-fax-packet-document-
 import { downloadFileBytes, mergePdfDocuments, normalizeFileToPdf } from '../pdf/merge-pdfs';
 import { PdfInfo } from '../pdf/pdf-utils';
 import { FaxCoverSheetData, FaxCoverSheetSubject } from '../pdf/types';
-import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { collectFaxParts, FaxPacketPart } from './collect-visit-documents';
+import { FaxPacketPart } from './collect-visit-documents';
 
 /**
  * One cover sheet's worth of documents, merged into a single PDF. A packet has one section per
@@ -158,27 +155,6 @@ export const faxPacketLimitGuidance = (sourceType: FaxPacketSource['type']): str
       return 'Reduce the document below the fax limit before trying again.';
   }
 };
-
-export async function buildFaxPacketBody(args: {
-  oystehr: Oystehr;
-  token: string;
-  secrets: Secrets | null;
-  kinds?: FaxDocumentKind[];
-  visitResources: FullAppointmentResourcePackage;
-  subject: FaxCoverSheetSubject;
-}): Promise<FaxPacketBody> {
-  const { oystehr, token, secrets, visitResources, subject } = args;
-  const kinds = args.kinds ?? FAX_DOCUMENT_ORDER;
-
-  const parts = await collectFaxParts({ oystehr, token, secrets, kinds, visitResources });
-  if (parts.length === 0) {
-    throw new Error('No documents could be collected for the fax packet. Nothing was sent.');
-  }
-
-  const section = await buildFaxPacketSection({ token, subject, parts });
-  console.log(`Built fax packet body: ${parts.length} document(s), ${section.pageCount} page(s)`);
-  return toFaxPacketBody([section]);
-}
 
 /**
  * Renders the recipient's cover sheet, merges it in front of the already-built body, enforces the

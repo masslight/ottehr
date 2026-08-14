@@ -159,6 +159,33 @@ describe('resolveFaxPacketPlan', () => {
     expect(peakSectionBuilds).toBe(1);
   });
 
+  it('files a multi-visit packet with the patient folders that already exist', async () => {
+    const faxFolder = { resourceType: 'List', id: 'list-1', status: 'current', mode: 'working' };
+    searchResults = [faxFolder];
+
+    const plan = await resolve({
+      type: 'visits',
+      patientId: PATIENT_ID,
+      appointmentIds: ['appointment-1', 'appointment-2'],
+    });
+
+    // Handing on an empty array would read as "no folder yet" and mint a duplicate of this one.
+    expect(plan.listResources).toEqual([faxFolder]);
+  });
+
+  it('keeps using the folders the visit lookup already carries', async () => {
+    const visitFolder = { resourceType: 'List', id: 'visit-list', status: 'current', mode: 'working' };
+    mockGetAppointmentAndRelatedResources.mockResolvedValue(
+      visitResources('appointment-1', { listResources: [visitFolder] })
+    );
+
+    const plan = await resolve({ type: 'visit', appointmentId: 'appointment-1' });
+
+    expect(plan.listResources).toEqual([visitFolder]);
+    // The visit lookup already carries them, so no extra folder search is made.
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
+  });
+
   it('spends one size budget across every visit of a packet', async () => {
     await resolve({
       type: 'visits',

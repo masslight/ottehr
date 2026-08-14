@@ -38,7 +38,6 @@ vi.mock('../../src/shared/pdf/merge-pdfs', async (importOriginal) => {
 
 import {
   buildAndUploadPacketForRecipient,
-  buildFaxPacketBody,
   buildFaxPacketSection,
   createFaxPacketByteBudget,
   faxPacketLimitGuidance,
@@ -342,21 +341,6 @@ describe('collectFaxParts', () => {
     const parts = await collect(['lab-results']);
 
     expect(parts.map((part) => part.documentReferenceId)).toEqual(['lab-newer', 'lab-older']);
-  });
-});
-
-describe('buildFaxPacketBody', () => {
-  it('throws when nothing at all could be collected', async () => {
-    await expect(
-      buildFaxPacketBody({
-        oystehr,
-        token: 'token',
-        secrets: null,
-        kinds: ['lab-results'],
-        visitResources,
-        subject,
-      })
-    ).rejects.toThrow(/No documents could be collected/);
   });
 });
 

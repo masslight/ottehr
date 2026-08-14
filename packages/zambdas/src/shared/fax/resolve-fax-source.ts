@@ -130,7 +130,10 @@ const resolveVisits = async (args: {
     encounterId: singleVisit?.encounter?.id,
     location: singleVisit?.location,
     timezone: singleVisit?.timezone,
-    listResources: singleVisit?.listResources ?? [],
+    // A packet spanning visits is filed against the patient, so it needs the patient's own folders.
+    // An empty array would not skip filing — `createFilesDocumentReferences` treats it as "no folder
+    // exists yet" and creates a duplicate of the folder the patient already has.
+    listResources: singleVisit?.listResources ?? (await getPatientFolders(oystehr, first.patient!.id!)),
   };
 };
 

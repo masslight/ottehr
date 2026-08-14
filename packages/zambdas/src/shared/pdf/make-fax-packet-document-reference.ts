@@ -7,7 +7,10 @@ import { FAX_PACKET_CODE } from 'utils/lib/types/data/paperwork/paperwork.consta
 import { PdfInfo } from './pdf-utils';
 
 /**
- * Persists a sent fax packet as a DocumentReference on the visit.
+ * Persists a sent fax packet as a DocumentReference: on the visit when the packet is about one visit,
+ * otherwise on the patient alone (a whole medical record, several visits, or a single document). The
+ * uniqueness search is scoped to match, so a patient-level packet is only ever compared with the
+ * patient's other packets rather than with one visit's.
  *
  * Unlike the other generated visit documents, packets are an append-only audit trail: every send —
  * including a retry and every additional recipient — is its own immutable artifact, because a retry
