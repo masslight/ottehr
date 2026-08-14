@@ -1,15 +1,11 @@
-import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Coverage, Organization, Patient } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Organization, Patient } from 'fhir/r4b';
 import {
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { describe, expect, it } from 'vitest';
-import {
-  ADJUDICATION_CODES,
-  OYSTEHR_ADJUDICATION_SYSTEM,
-  X12_ADJUSTMENT_GROUP_SYSTEM,
-} from '../../../src/billing/claim-amounts';
+import { ADJUDICATION_CODES } from '../../../src/billing/claim-amounts';
 import {
   buildEraClaimRemit,
   buildEraRemitServiceLines,
@@ -21,56 +17,10 @@ import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
-  ERA_ITEM_UNITS_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
 } from '../../../src/billing/shared';
-
-const adjudication = (
-  code: string,
-  amount: number,
-  system = OYSTEHR_ADJUDICATION_SYSTEM
-): ClaimResponseItemAdjudication => ({
-  category: { coding: [{ system, code }] },
-  amount: { value: amount, currency: 'USD' },
-});
-
-const casAdjustment = (group: string, amount: number, reasonCode?: string): ClaimResponseItemAdjudication => ({
-  ...adjudication(group, amount, X12_ADJUSTMENT_GROUP_SYSTEM),
-  ...(reasonCode
-    ? { reason: { coding: [{ system: 'https://x12.org/codes/claim-adjustment-reason-codes', code: reasonCode }] } }
-    : {}),
-});
-
-// A ClaimResponse.item as Oystehr's converters actually write it: the procedure code and units
-// ride on extensions, since ClaimResponse.item has nowhere else to carry them.
-const eraItem = (parts: {
-  sequence: number;
-  procedureCode?: string;
-  units?: number;
-  adjudication: ClaimResponseItemAdjudication[];
-}): NonNullable<ClaimResponse['item']>[number] => ({
-  itemSequence: parts.sequence,
-  adjudication: parts.adjudication,
-  extension: [
-    ...(parts.procedureCode ? [{ url: ERA_ITEM_PROCEDURE_CODE_EXTENSION, valueString: parts.procedureCode }] : []),
-    ...(parts.units !== undefined ? [{ url: ERA_ITEM_UNITS_EXTENSION, valueQuantity: { value: parts.units } }] : []),
-  ],
-});
-
-const claimResponse = (overrides: Partial<ClaimResponse> = {}): ClaimResponse => ({
-  resourceType: 'ClaimResponse',
-  id: 'cr-1',
-  status: 'active',
-  type: { coding: [{ code: 'professional' }] },
-  use: 'claim',
-  patient: { reference: 'Patient/p1' },
-  created: '2026-07-15',
-  insurer: { display: 'Test Payer' },
-  outcome: 'complete',
-  request: { reference: 'Claim/c1' },
-  ...overrides,
-});
+import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 const eraExtensions = (parts: { statusCode?: string; pcn?: string; icn?: string }): ClaimResponse['extension'] => [
   ...(parts.statusCode ? [{ url: ERA_STATUS_CODE_EXTENSION, valueString: parts.statusCode }] : []),

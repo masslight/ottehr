@@ -23,7 +23,9 @@ import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harve
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter } from '../candid';
 import { resolveTimezone } from '../helpers';
+import { StatementLineDetails } from './get-billing-statement-lines';
 import { getLogoBase64 } from './get-logo-base64';
+import { getProcedureCodeTitle } from './get-procedure-code-title';
 
 export type StatementType = 'standard' | 'past-due' | 'final-notice';
 
@@ -50,11 +52,6 @@ interface StatementBillerDetails {
   countryCode: string | 'US';
   website: string;
   email: string;
-}
-
-interface StatementLineDetails {
-  serviceLines: StatementDetails['service'];
-  totals: StatementDetails['totals'];
 }
 
 interface GetStatementDetailsInput {
@@ -272,17 +269,6 @@ async function getServiceLines(
       balanceDue: formatCurrencyFromCents(totalsCents.balanceDue),
     },
   };
-}
-
-async function getProcedureCodeTitle(code: string, oystehr: Oystehr): Promise<string> {
-  const [cptResponse, hcpcsResponse] = await Promise.all([
-    oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: code }),
-    oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: code }),
-  ]);
-  const name =
-    cptResponse.codes.find((c) => c.code === code)?.display ??
-    hcpcsResponse.codes.find((c) => c.code === code)?.display;
-  return name ? `${code} - ${name}` : code;
 }
 
 function createStatementDetails(
