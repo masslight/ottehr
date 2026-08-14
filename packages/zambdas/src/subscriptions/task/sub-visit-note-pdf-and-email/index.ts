@@ -38,6 +38,7 @@ let oystehr: Oystehr;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-visit-note-pdf-and-email';
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -97,8 +98,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Follow-up visits get a differently-titled visit note and no completion email.
     const isFollowupTask = isFollowupEncounter(encounter);
 
-    // Assembled the same way as the outbound-fax copy, so the two can never diverge.
-    const progressNoteInput = await assembleProgressNoteInput(oystehr, oystehrToken, visitResources);
+    const progressNoteInput = await assembleProgressNoteInput(oystehr, oystehrToken, visitResources, {
+      signed: true,
+    });
+
     console.log('Chart data received');
 
     try {

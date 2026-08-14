@@ -34,7 +34,13 @@ import {
   evaluateOperator,
   executeRule,
 } from '../../../src/billing/rules-engine/evaluator';
-import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
+import {
+  buildRulesEngineKickoffTask,
+  listToRules,
+  RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SYSTEM,
+  rulesToList,
+} from '../../../src/billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
@@ -168,6 +174,39 @@ describe('rules-engine evaluator', () => {
     expect(evaluateOperator('startsWith', undefined, 'XKD')).toBe(false);
     expect(evaluateOperator('startsWith', 'XKD-4451', undefined)).toBe(false);
     expect(evaluateOperator('notStartsWith', undefined, 'XKD')).toBe(true);
+  });
+
+  it('matches regex patterns with matches / notMatches', () => {
+    // Standard (unanchored) semantics: the pattern may match anywhere unless the author anchors it.
+    expect(evaluateOperator('matches', '99381', '9938')).toBe(true);
+    expect(evaluateOperator('matches', '199381', '^9938[1-7]$')).toBe(false);
+    expect(evaluateOperator('matches', '99381', '^9938[1-7]$')).toBe(true);
+    expect(evaluateOperator('matches', '99388', '^9938[1-7]$')).toBe(false);
+    expect(evaluateOperator('notMatches', '99388', '^9938[1-7]$')).toBe(true);
+    // A list matches when any entry does; notMatches means no entry does.
+    expect(evaluateOperator('matches', ['99213', '99385'], '^9938[1-7]$')).toBe(true);
+    expect(evaluateOperator('notMatches', ['99213', '99385'], '^9938[1-7]$')).toBe(false);
+    expect(evaluateOperator('notMatches', ['99213', '87880'], '^9938[1-7]$')).toBe(true);
+    // Missing values never match; notMatches is true for them (like neq/notContains).
+    expect(evaluateOperator('matches', undefined, '^9938')).toBe(false);
+    expect(evaluateOperator('notMatches', undefined, '^9938')).toBe(true);
+    expect(evaluateOperator('matches', '99381', undefined)).toBe(false);
+    // An uncompilable pattern (kept out by save-time validation) evaluates as no-match, not a throw.
+    expect(evaluateOperator('matches', '99381', '9938[1-7')).toBe(false);
+    expect(evaluateOperator('notMatches', '99381', '9938[1-7')).toBe(true);
+  });
+
+  it('evaluates the canonical "a CPT code in the 9938x range" condition', () => {
+    const m = makeModel();
+    expect(
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^992[01][0-9]$' }, m)
+    ).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' }, m)).toBe(
+      false
+    );
+    expect(
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'notMatches', value: '^9938[1-7]$' }, m)
+    ).toBe(true);
   });
 
   it('evaluates the canonical "member id starts with XKD" condition', () => {
@@ -540,6 +579,22 @@ describe('service line actions', () => {
     expect(m.claim.total?.value).toBe(425.5);
   });
 
+  it('removes the lines whose CPT matches a regex range', () => {
+    const m = makeModel();
+    addLine(m, '99381', 200);
+    addLine(m, '99385', 300);
+    const error = applyAction(
+      {
+        type: 'removeServiceLines',
+        match: { type: 'field', property: 'cptCode', operator: 'matches', value: '^9938[1-7]$' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readField(m, 'cptCodes')).toEqual(['99213']);
+    expect(m.claim.total?.value).toBe(125.5);
+  });
+
   it('removes all lines when the match is "all"', () => {
     const m = makeModel();
     addLine(m, '99214', 200);
@@ -794,38 +849,65 @@ describe('apply charge master prices action', () => {
     expect(JSON.stringify(m.claim)).toBe(before);
   });
 
-  it('fails the rule when no applicable charge master exists, leaving the claim untouched', () => {
+  it('is a no-op when no applicable charge master exists, leaving the claim untouched', () => {
     const m = makeModel();
     const before = JSON.stringify(m.claim);
-    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
-      'no active charge master'
-    );
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toBeUndefined();
+    // A charge master effective only after the date of service is not applicable either.
     m.chargeMasters = [makeChargeMaster('insurance', '2026-02-01', [{ code: '99213', amount: 100 }])];
-    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
-      'no active charge master'
-    );
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toBeUndefined();
     expect(JSON.stringify(m.claim)).toBe(before);
   });
 
-  it('fails the rule when the claim has no date of service to select a charge master by', () => {
+  it('is a no-op when the claim has no date of service to select a charge master by', () => {
     const m = makeModel();
     delete m.claim.item![0].servicedPeriod;
     m.chargeMasters = [makeChargeMaster('insurance', '2025-01-01', [{ code: '99213', amount: 100 }])];
-    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain('date of service');
+    const before = JSON.stringify(m.claim);
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
   });
 
-  it('fails without changing any line when a matched line has no price entry (all-or-nothing)', () => {
+  it('prices the lines the charge master has entries for and leaves the rest unchanged', () => {
     const m = makeModel();
-    addLine(m, '99999', 200);
+    addLine(m, '99999', 200); // no charge master entry for this code
+    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> no match for this line
     m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
-    expect(error).toContain('99999');
-    // The claim must never persist half-priced: the priceable 99213 line stays untouched too.
-    expect(lineCharges(m)).toEqual(['125.5', '200']);
-    expect(m.claim.total?.value).toBe(125.5);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '200', '90']);
+    expect(m.claim.total?.value).toBe(440);
   });
 
-  it('holds the claim via executeRule when pricing fails', () => {
+  it('skips a matched line with no CPT code instead of failing', () => {
+    const m = makeModel();
+    m.claim.item = [
+      ...(m.claim.item ?? []),
+      {
+        sequence: 2,
+        productOrService: { coding: [] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: 40, currency: 'USD' },
+      },
+    ];
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '40']);
+    expect(m.claim.total?.value).toBe(190);
+  });
+
+  it('leaves the claim untouched (including the total) when no matched line has an entry', () => {
+    const m = makeModel();
+    addLine(m, '99999', 200); // addLine does not recompute the fixture total, so a recompute would change it
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '90000', amount: 10 }])];
+    const before = JSON.stringify(m.claim);
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('never fails or holds via executeRule, even with no charge masters loaded', () => {
     const m = makeModel();
     const rule: BillingRule = {
       id: 'r-cm',
@@ -842,8 +924,9 @@ describe('apply charge master prices action', () => {
       },
     };
     const result = executeRule(rule, m);
-    expect(result.error).toContain('charge master');
-    expect(result.appliedActions).toHaveLength(0);
+    expect(result.error).toBeUndefined();
+    expect(result.held).toBe(false);
+    expect(result.appliedActions).toHaveLength(1);
   });
 });
 
@@ -1216,12 +1299,30 @@ describe('rules-engine serialization', () => {
 describe('rules-engine kickoff task', () => {
   it("builds a requested Task focused on the claim, carrying the engine's own code", () => {
     for (const engine of RULES_ENGINE_TYPES) {
-      const task = buildRulesEngineKickoffTask(engine, 'claim-123');
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', false);
       expect(task.status).toBe('requested');
       expect(task.focus?.reference).toBe('Claim/claim-123');
       expect(task.code?.coding?.[0]).toEqual({
         system: RULES_ENGINE_TASK_SYSTEM,
         code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it("builds a requested Task focused on the claim, carrying the engine's own code, skipping rules", () => {
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true);
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.[0].type.coding?.[0]).toEqual({
+        system: RULES_ENGINE_INPUT_SYSTEM,
+        code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
       });
     }
     const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);

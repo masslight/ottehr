@@ -117,7 +117,26 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      AGENT
+    );
+
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('submitted');
+    // Status change (insuranceArStatus -> submitted) commits with its Provenance.
+    expect(transaction).toHaveBeenCalled();
+  });
+
+  it('submits the claim when skipping rules and it is in Insurance Payer AR', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // submitClaim re-fetches the claim to lock the status patch against the latest version.
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: true },
       AGENT
     );
 
@@ -142,7 +161,7 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules, model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
       AGENT
     );
 
@@ -168,7 +187,7 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -187,7 +206,7 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -203,7 +222,7 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
       AGENT
     );
 
@@ -228,15 +247,17 @@ describe('sub-rules-engine performEffect', () => {
       actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
     });
 
-    const result = await performEffect(
-      oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
-      AGENT
+    await expect(
+      async () =>
+        await performEffect(
+          oystehr,
+          { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+          AGENT
+        )
+    ).rejects.toMatchInlineSnapshot(
+      `[Error: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule bad" failed');
-    expect(result.statusReason).toContain('held for review');
     expect(submitClaimRcm).not.toHaveBeenCalled();
     const requests = transaction.mock.calls[0][0].requests;
     const claimPut = requests.find(
@@ -257,7 +278,7 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -277,7 +298,7 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -295,7 +316,7 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -312,7 +333,7 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model },
+      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -331,7 +352,7 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model },
+      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
       AGENT
     );
 
@@ -348,7 +369,7 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model },
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model, skipRules: false },
       AGENT
     );
 
@@ -416,7 +437,7 @@ describe('sub-rules-engine charge master pricing', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim, chargeMasters: [selfPayChargeMaster] });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
     const calls = chargeMasterSearchCalls(search);
@@ -444,7 +465,7 @@ describe('sub-rules-engine charge master pricing', () => {
       chargeMasters: [selfPayChargeMaster],
     });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.chargeMasters).toBeUndefined();
     expect(chargeMasterSearchCalls(search)).toHaveLength(0);
@@ -467,7 +488,7 @@ describe('sub-rules-engine charge master pricing', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
       AGENT
     );
 
@@ -483,8 +504,8 @@ describe('sub-rules-engine charge master pricing', () => {
     expect(requests.some((r: { url: string }) => r.url.includes('ChargeItemDefinition'))).toBe(false);
   });
 
-  it('holds the claim instead of submitting when no charge master applies', async () => {
-    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+  it('submits with unchanged charges when no charge master applies (the action never holds)', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);
     model.claim.item = [
       {
@@ -495,23 +516,22 @@ describe('sub-rules-engine charge master pricing', () => {
       },
     ];
     model.chargeMasters = []; // nothing designated
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
       AGENT
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule price" failed');
-    expect(submitClaimRcm).not.toHaveBeenCalled();
-    const requests = transaction.mock.calls[0][0].requests;
-    const claimPut = requests.find(
-      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    // The pricing action changed nothing, so no claim write was persisted and the line kept its charges.
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    expect(requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1')).toBe(
+      false
     );
-    expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
-    // The failed pricing changed nothing else on the claim.
-    expect(claimPut.resource.item[0].net).toEqual({ value: 5, currency: 'USD' });
+    expect(model.claim.item[0].net).toEqual({ value: 5, currency: 'USD' });
   });
 });
 

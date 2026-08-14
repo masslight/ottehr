@@ -1,8 +1,10 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { InferAdHocLayersOutput, InferAdHocLayersOutputSchema } from 'utils/lib/types/adhoc/generation/infer.types';
+import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { getUserToken, requireUserWithRole } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
@@ -46,6 +48,8 @@ Return JSON: { "layerIds": ["<id>", ...] }  — an empty array if no optional la
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { layers, request, secrets } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
   const validIds = new Set(layers.map((l) => l.id));
   let layerIds: string[] = [];

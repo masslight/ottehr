@@ -29,10 +29,11 @@ import {
   AdHocPatientsInput,
   AdHocPatientsOutputSchema,
 } from 'utils/lib/types/adhoc/datasets/patients';
+import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -62,6 +63,8 @@ interface PatientAgg {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

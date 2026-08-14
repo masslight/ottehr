@@ -117,7 +117,7 @@ async function updateOrderContent(
   const diagnoses = await validateICD10Codes(edit.diagnosisCodes, oystehr);
   const cpt = await validateCPTCode(edit.cptCode, oystehr);
 
-  const clinicalHistory = edit.clinicalHistory ?? '';
+  const clinicalHistory = edit.clinicalHistory?.trim() ?? '';
 
   const content = buildRadiologyOrderContent({
     diagnoses,

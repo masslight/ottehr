@@ -11,6 +11,7 @@ import {
   ProvenanceAgent,
   RelatedPerson,
   Task,
+  TaskInput,
 } from 'fhir/r4b';
 import {
   getResourcesFromBatchInlineRequests,
@@ -38,6 +39,10 @@ import {
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billing/rules-engine/constants';
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
+import {
+  RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SYSTEM,
+} from '../../../billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
@@ -69,6 +74,12 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const { task, secrets } = input;
   const claimId = extractClaimId(task);
   const engine = extractEngine(task);
+  const skipRules = extractInput<boolean>(
+    task,
+    RULES_ENGINE_INPUT_SYSTEM,
+    RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+    'valueBoolean'
+  );
 
   // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
   // billing workspace where the claim, its working copies, and the rules Lists live.
@@ -80,7 +91,7 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {
-    const validated = await complexValidation(oystehr, engine, claimId, env);
+    const validated = await complexValidation(oystehr, engine, claimId, env, skipRules);
     return await performEffect(oystehr, validated, agent);
   } catch (error) {
     try {
@@ -106,13 +117,15 @@ export interface ValidatedRulesRun {
   claimId: string;
   rules: BillingRule[];
   model: RulesEngineClaimModel;
+  skipRules: boolean;
 }
 
 export async function complexValidation(
   oystehr: Oystehr,
   engine: RulesEngineType,
   claimId: string,
-  env: string
+  env: string,
+  skipRules: boolean | null
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
@@ -130,7 +143,7 @@ export async function complexValidation(
       (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '') +
       (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '')
   );
-  return { engine, claimId, rules, model };
+  return { engine, claimId, rules, model, skipRules: skipRules ?? false };
 }
 
 // The reference resources (provider/facility page originals) named by the rule set's "set
@@ -184,29 +197,31 @@ async function loadChargeMasters(
 
 export async function performEffect(
   oystehr: Oystehr,
-  { engine, claimId, rules, model }: ValidatedRulesRun,
+  { engine, claimId, rules, model, skipRules }: ValidatedRulesRun,
   agent: ProvenanceAgent
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
 
   let heldBy: BillingRule | undefined;
   let failure: { rule: BillingRule; error: string } | undefined;
-  for (const rule of rules) {
-    const { held, appliedActions, error } = executeRule(rule, model);
-    console.log(
-      `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
-        `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
-    );
-    if (error) {
-      // A rule whose action can't be applied must not fail quietly — the claim would proceed with
-      // the wrong data. Hold it and stop the run.
-      failure = { rule, error };
-      applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
-      break;
-    }
-    if (held) {
-      heldBy = rule;
-      break;
+  if (!skipRules) {
+    for (const rule of rules) {
+      const { held, appliedActions, error } = executeRule(rule, model);
+      console.log(
+        `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
+          `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
+      );
+      if (error) {
+        // A rule whose action can't be applied must not fail quietly — the claim would proceed with
+        // the wrong data. Hold it and stop the run.
+        failure = { rule, error };
+        applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+        break;
+      }
+      if (held) {
+        heldBy = rule;
+        break;
+      }
     }
   }
 
@@ -234,10 +249,7 @@ export async function performEffect(
 
   if (failure) {
     console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
-    return {
-      taskStatus: 'failed',
-      statusReason: `Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`,
-    };
+    throw new Error(`Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`);
   }
 
   if (heldBy) {
@@ -283,6 +295,15 @@ export function extractEngine(task: Task): RulesEngineType {
     throw new Error(`Task ${task.id} does not carry a known rules-engine code: ${code ?? 'none'}`);
   }
   return engine;
+}
+
+// The engine a kickoff Task belongs to, from its code (each engine's Subscription matches one code).
+export function extractInput<T>(task: Task, system: string, code: string, attr: keyof TaskInput): T | null {
+  const param = task.input?.find((i) => i.type.coding?.[0].system === system && i.type.coding?.[0].code === code);
+  if (!param) {
+    return null;
+  }
+  return param[attr] as T;
 }
 
 async function loadRules(oystehr: Oystehr, engine: RulesEngineType, env: string): Promise<BillingRule[]> {

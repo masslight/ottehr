@@ -1,0 +1,296 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Infectious mononucleosis",
+  "patient": {
+    "firstName": "Pat",
+    "lastName": "Sample",
+    "dateOfBirth": "1985-01-01",
+    "sex": "female",
+    "email": "pat.sample@example.com",
+    "phoneNumber": "+12015550100",
+    "address": {
+      "line1": "100 Main Street",
+      "city": "New Brunswick",
+      "state": "NJ",
+      "postalCode": "08901"
+    },
+    "race": "Other Race",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET100200300",
+        "groupNumber": "GRP-AET-100",
+        "planName": "Aetna Choice PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Throat pain - 5 days severe sore throat, fatigue, swollen glands",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+  "emCode": {
+    "code": "99214",
+    "display": "Office visit, established, moderate complexity"
+  },
+  "vitals": {
+    "temperature": {
+      "value": 37,
+      "unit": "C"
+    },
+    "heartRate": {
+      "value": 78
+    },
+    "bloodPressure": {
+      "systolic": 122,
+      "diastolic": 78
+    },
+    "respirationRate": {
+      "value": 16
+    },
+    "oxygenSaturation": {
+      "value": 99
+    },
+    "weight": {
+      "value": 75,
+      "unit": "kg"
+    },
+    "height": {
+      "value": 170,
+      "unit": "cm"
+    }
+  },
+  "diagnoses": [
+    {
+      "code": "B27.90",
+      "display": "Infectious mononucleosis, without complication",
+      "isPrimary": true
+    }
+  ],
+  "exam": [
+    {
+      "field": "alert",
+      "value": true
+    },
+    {
+      "field": "active",
+      "value": true
+    },
+    {
+      "field": "in-no-acute-distress",
+      "value": true
+    },
+    {
+      "field": "well-hydrated",
+      "value": true
+    },
+    {
+      "field": "normocephalic",
+      "value": true
+    },
+    {
+      "field": "atraumatic",
+      "value": true
+    },
+    {
+      "field": "right-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "left-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "lids-and-lashes-normal",
+      "value": true
+    },
+    {
+      "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "no-effusion",
+      "value": true
+    },
+    {
+      "field": "normal-canals",
+      "value": true
+    },
+    {
+      "field": "normal-external-ear",
+      "value": true
+    },
+    {
+      "field": "moist-mucous-membranes",
+      "value": true
+    },
+    {
+      "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+      "value": true
+    },
+    {
+      "field": "uvula-midline",
+      "value": true
+    },
+    {
+      "field": "normal-appearance-of-neck",
+      "value": true
+    },
+    {
+      "field": "no-rash",
+      "value": true
+    },
+    {
+      "field": "warm-and-dry",
+      "value": true
+    },
+    {
+      "field": "regular-rate-and-rhythm-with-no-murmur",
+      "value": true
+    },
+    {
+      "field": "extremities-are-warm-and-well-perfused",
+      "value": true
+    },
+    {
+      "field": "good-air-movement-throughout-lung-fields",
+      "value": true
+    },
+    {
+      "field": "no-signs-of-respiratory-distress",
+      "value": true
+    },
+    {
+      "field": "chest-is-clear-to-auscultation-bilaterally",
+      "value": true
+    },
+    {
+      "field": "soft",
+      "value": true
+    },
+    {
+      "field": "nondistended",
+      "value": true
+    },
+    {
+      "field": "nontender",
+      "value": true
+    },
+    {
+      "field": "moves-all-extremities-symmetrically",
+      "value": true
+    },
+    {
+      "field": "no-obvious-injury-or-swelling",
+      "value": true
+    },
+    {
+      "field": "normal-mental-status",
+      "value": true
+    },
+    {
+      "field": "normal-tone",
+      "value": true
+    },
+    {
+      "field": "oral-comment",
+      "value": true,
+      "note": "Posterior pharynx erythematous with tonsillar exudate; tender, enlarged posterior cervical lymph nodes."
+    },
+    {
+      "field": "abdomen-comment",
+      "value": true,
+      "note": "Mild LUQ fullness, no rebound or guarding; spleen not clearly enlarged."
+    }
+  ],
+  "reviewOfSystems": [
+    {
+      "field": "ros-constitutional-fever-reports"
+    },
+    {
+      "field": "ros-constitutional-fatigue-reports"
+    },
+    {
+      "field": "ros-ent-sore-throat-reports"
+    },
+    {
+      "field": "ros-ent-throat-swelling-reports"
+    },
+    {
+      "field": "ros-heme-swollen-nodes-reports"
+    },
+    {
+      "field": "ros-respiratory-cough-denies"
+    },
+    {
+      "field": "ros-respiratory-shortness-of-breath-denies"
+    }
+  ],
+  "medicalDecision": "Adolescent with exudative pharyngitis, posterior cervical lymphadenopathy and marked fatigue; rapid strep negative, monospot positive consistent with infectious mononucleosis. Counseled on supportive care, avoidance of contact sports for 3-4 weeks given splenomegaly risk, and return precautions for abdominal pain or difficulty breathing.",
+  "prescriptions": [
+    {
+      "name": "ibuprofen 600 mg tablet",
+      "sig": "Take 1 tablet by mouth every 6 hours as needed for pain (with food)"
+    }
+  ],
+  "modules": {
+    "inHouseLabs": [
+      {
+        "testName": "Mono Spot",
+        "diagnoses": [
+          {
+            "code": "B27.90",
+            "display": "Infectious mononucleosis",
+            "isPrimary": true
+          }
+        ],
+        "results": [
+          {
+            "analyte": "Heterophile antibody",
+            "value": "positive",
+            "flag": "abnormal"
+          }
+        ]
+      }
+    ]
+  },
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Supportive care for infectious mononucleosis. Avoid contact sports 3-4 weeks. Return for severe abdominal pain, difficulty swallowing, or trouble breathing.",
+    "followUpIn": 7
+  },
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

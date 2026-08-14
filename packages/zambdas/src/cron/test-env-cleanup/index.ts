@@ -7,6 +7,7 @@ import {
   cleanupIntegrationTestHealthcareServices,
   cleanupIntegrationTestLocations,
   cleanupIntegrationTestPatients,
+  cleanupIntegrationTestQuestionnaires,
 } from 'utils/lib/utils/e2eCleanup';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -32,6 +33,7 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   await cleanupIntegrationTestPatients(oystehr);
   await cleanupIntegrationTestLocations(oystehr);
   await cleanupIntegrationTestHealthcareServices(oystehr);
+  await cleanupIntegrationTestQuestionnaires(oystehr);
 
   return {
     statusCode: 200,

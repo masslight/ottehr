@@ -65,6 +65,8 @@ export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
 export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
 
+export const RAW_X12_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-raw-x12';
+
 export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {
@@ -491,10 +493,48 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/** meta.tag identifying a paperwork flow Questionnaire. */
+export const PAPERWORK_FLOW_TAG = {
+  system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,
+  code: 'paperwork-flow',
+};
+
+/**
+ * meta.tag system stamped on a paperwork flow Questionnaire for each service it's applied to that
+ * doesn't (yet) exist as a HealthcareService resource — code is the service id. Lets a flow target a
+ * service before its catalog entry is created, without a HealthcareService to stamp.
+ */
+export const SYSTEM_MANAGED_SERVICE_TAG_SYSTEM = ottehrCodeSystemUrl('system-managed-service');
+
+/**
+ * Extension on a paperwork flow Questionnaire recording a visit mode it targets (valueCode
+ * 'in-person' | 'virtual'), repeated once per targeted mode.
+ */
+export const PAPERWORK_FLOW_MODE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-mode`;
+
+/**
+ * Extensions stamped on a service-category HealthcareService pointing at the paperwork flow
+ * Questionnaire to present for a given visit mode (valueCanonical `url|version`). At most one of each
+ * per HealthcareService; a booking resolves the extension matching its visit mode.
+ */
+export const PAPERWORK_FLOW_INPERSON_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-questionnaire-inperson`;
+export const PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-questionnaire-virtual`;
+
 /** meta.tag identifying how a one off QR was triggered */
 export const QR_DISTRIBUTION_TAG = {
   system: ottehrCodeSystemUrl('qr-distribution'),
   code: 'practitioner', // right now only triggered by users sending from visit details but this could be expanded in the future
+};
+
+/**
+ * meta.tag identifying a QuestionnaireResponse as the patient's intake paperwork response — the one
+ * created at booking, whether it points at the default intake Questionnaire or a paperwork flow.
+ * Readers use this (in addition to the legacy intake-paperwork canonical-URL match) to recognize
+ * flow-backed paperwork QRs, whose canonical is the flow's url and does not contain the intake URLs.
+ */
+export const INTAKE_PAPERWORK_QR_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-response-type'),
+  code: 'intake-paperwork',
 };
 
 /** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */

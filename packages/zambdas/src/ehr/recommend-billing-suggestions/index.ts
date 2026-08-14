@@ -1,8 +1,11 @@
-import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
 import { getEmCodes } from 'utils/lib/helpers/em-codes';
-import { BillingSuggestionOutput, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  BillingSuggestionOutput,
+  MedicationDTO,
+  PrescribedMedicationDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -14,26 +17,11 @@ import { validateRequestParameters } from './validateRequestParameters';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-type ErxMedicationHistoryItem = ErxGetMedicationHistoryResponse[number];
-
 const EXCLUDED_PRESCRIPTION_STATUSES = new Set(['cancelled', 'entered-in-error', 'stopped']);
-const ERX_HISTORY_PROMPT_LIMIT = 10;
-
-// The eRx service populates a patient's medication history asynchronously on the DoseSpot side, so
-// getMedicationHistory can take tens of seconds on a patient whose history hasn't been pulled yet.
-// sub-erx-patient-sync pre-warms it in the background under a 300s timeout, and the chart's
-// useExternalMedicationHistory hook polls every 10s waiting for it to populate. This endpoint is
-// synchronous and user-facing, and the history is only supporting context for medication burden, so
-// give it a short budget and build the prompt without it rather than letting the request time out.
-// Responding while that call is still in flight only shortens the response because wrapHandler (via
-// @sentry/aws-serverless) leaves callbackWaitsForEmptyEventLoop false; if that ever changes, the
-// runtime waits for the abandoned request to settle and this budget stops buying anything. Grep the
-// timeout warning below for how often the budget is actually missed before retuning it.
-export const ERX_HISTORY_TIMEOUT_MS = 2000;
-const ERX_HISTORY_TIMED_OUT = Symbol('erx-history-timed-out');
+const CURRENT_MEDICATION_PROMPT_LIMIT = 20;
 
 // Logs how long an async step takes. Used to pinpoint which part of the endpoint dominates latency
-// in production (eRx medication history vs. the LLM call vs. the terminology lookups).
+// in production (the E&M code lookup vs. the LLM call vs. the terminology lookups).
 const timed = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
   const start = Date.now();
   try {
@@ -72,90 +60,71 @@ export function formatPrescribedMedicationsForBillingPrompt(
     .join('\n');
 }
 
-function isUnexpiredErxHistoryMedication(medication: ErxMedicationHistoryItem): boolean {
-  if (!medication.expirationDate) return true;
+function formatIntakeDate(date: string | undefined): string | undefined {
+  if (!date) return undefined;
 
-  const expirationDate = DateTime.fromISO(medication.expirationDate);
-  if (!expirationDate.isValid) return true;
-
-  return expirationDate.toMillis() >= DateTime.now().startOf('day').toMillis();
+  // setZone keeps the offset the chart recorded, so an evening dose doesn't shift a day in the
+  // lambda's UTC clock.
+  const parsedDate = DateTime.fromISO(date, { setZone: true });
+  return parsedDate.isValid ? parsedDate.toFormat('yyyy-MM-dd') : date;
 }
 
-export function formatErxMedicationHistoryForBillingPrompt(history: ErxGetMedicationHistoryResponse): string {
-  const unexpiredHistory = history.filter(isUnexpiredErxHistoryMedication);
+// Sort key for prompt ordering. Undated entries sort last: with a limited number of slots, a
+// medication nobody dated is the weakest candidate to spend one on. MIN_SAFE_INTEGER rather than
+// -Infinity so two undated entries compare equal instead of producing NaN.
+function intakeSortKey(medication: MedicationDTO): number {
+  if (!medication.intakeInfo?.date) return Number.MIN_SAFE_INTEGER;
 
-  if (unexpiredHistory.length === 0) return '';
+  const parsedDate = DateTime.fromISO(medication.intakeInfo.date);
+  return parsedDate.isValid ? parsedDate.toMillis() : Number.MIN_SAFE_INTEGER;
+}
 
-  const medications = unexpiredHistory.slice(0, ERX_HISTORY_PROMPT_LIMIT).map((medication) => {
-    const displayName = [medication.name, medication.strength, medication.doseForm].filter(Boolean).join(' ');
-    const parts = [
-      `Medication: ${displayName}`,
-      medication.directions ? `Directions: ${medication.directions}` : undefined,
-      medication.classification ? `Class: ${medication.classification}` : undefined,
-      `Refills allowed: ${medication.refills}`,
-      medication.lastFillDate ? `Last fill: ${medication.lastFillDate}` : undefined,
-      medication.expirationDate ? `Expires: ${medication.expirationDate}` : undefined,
-    ].filter(Boolean);
-    return parts.join(' | ');
-  });
+// The patient's medication history as the provider confirmed it in the chart. DoseSpot medication
+// history is deliberately not queried here: the chart surfaces it as suggestions (see
+// useExternalMedicationHistory / ExternalRxSuggestions) and only what the provider accepts becomes
+// part of this list, so this is the reconciled record the coding prompt should reason over.
+export function formatCurrentMedicationsForBillingPrompt(currentMedications: MedicationDTO[] | undefined): string {
+  const confirmedMedications = (currentMedications ?? []).filter(
+    (medication) =>
+      medication.name &&
+      medication.status === 'active' &&
+      // Defensive, not load-bearing: the chart-data request behind this list searches
+      // _tag=current-medication, so eRx-derived statements (tagged prescribed-medication) don't
+      // reach us today. Keep them out if that ever changes — this section is meant to be the
+      // reconciled list, and current-visit orders are already stated in the prescription context.
+      // The scheduled/as-needed label below also assumes those two are the only types left here.
+      medication.type !== 'prescribed-medication'
+  );
 
-  const omittedCount = unexpiredHistory.length - medications.length;
+  if (confirmedMedications.length === 0) return '';
+
+  // The chart-data request behind this list applies no _sort (unlike the Current Medications card,
+  // which asks for -_lastUpdated), and MedicationStatements never expire — a med recorded years ago
+  // still reads as active. Order newest-taken first so the limit below drops the stalest entries
+  // instead of an arbitrary 20.
+  const medications = confirmedMedications
+    .sort((a, b) => intakeSortKey(b) - intakeSortKey(a))
+    .slice(0, CURRENT_MEDICATION_PROMPT_LIMIT)
+    .map((medication) => {
+      const lastTaken = formatIntakeDate(medication.intakeInfo?.date);
+      const parts = [
+        `Medication: ${medication.name}`,
+        `Type: ${medication.type === 'as-needed' ? 'as needed' : 'scheduled'}`,
+        medication.intakeInfo?.dose ? `Dose: ${medication.intakeInfo.dose}` : undefined,
+        lastTaken ? `Last taken: ${lastTaken}` : undefined,
+        medication.intakeInfo?.patientCouldNotConfirmDosage ? 'Patient could not confirm dosage' : undefined,
+      ].filter(Boolean);
+      return parts.join(' | ');
+    });
+
+  const omittedCount = confirmedMedications.length - medications.length;
   return [
-    `Available eRx medication history count: ${unexpiredHistory.length}`,
+    `Confirmed current medication count: ${confirmedMedications.length}`,
     ...medications,
-    omittedCount > 0 ? `Additional eRx history items omitted: ${omittedCount}` : undefined,
+    omittedCount > 0 ? `Additional confirmed medications omitted: ${omittedCount}` : undefined,
   ]
     .filter(Boolean)
     .join('\n');
-}
-
-export async function getErxMedicationHistoryContext(oystehr: Oystehr, patientId?: string): Promise<string> {
-  if (!patientId) return '';
-
-  // Attach the catch up front: when the race below times out this promise outlives it, and a late
-  // rejection with no handler would take down the whole invocation. The timed() log still fires
-  // whenever the call eventually settles, so the logs show how long it would have taken — after a
-  // timeout that lands in a *later* invocation's logs, which is why the label carries the patient.
-  const historyPromise = timed(`erx.getMedicationHistory (patient ${patientId})`, () =>
-    oystehr.erx.getMedicationHistory({ patientId })
-  ).catch((error) => {
-    console.warn(
-      `[recommend-billing-suggestions] unable to fetch eRx medication history for patient ${patientId}:`,
-      error
-    );
-    return undefined;
-  });
-
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<typeof ERX_HISTORY_TIMED_OUT>((resolve) => {
-    timer = setTimeout(() => resolve(ERX_HISTORY_TIMED_OUT), ERX_HISTORY_TIMEOUT_MS);
-  });
-
-  try {
-    const history = await Promise.race([historyPromise, timeout]);
-
-    if (history === ERX_HISTORY_TIMED_OUT) {
-      console.warn(
-        `[recommend-billing-suggestions] eRx medication history exceeded its ${ERX_HISTORY_TIMEOUT_MS}ms budget for patient ${patientId}; building billing suggestions without it`
-      );
-      return '';
-    }
-    if (!history) return ''; // fetch failed — already logged above
-
-    try {
-      return formatErxMedicationHistoryForBillingPrompt(history);
-    } catch (error) {
-      // Supporting context only: a malformed payload must degrade the prompt, not fail the request.
-      console.warn(
-        `[recommend-billing-suggestions] unable to format eRx medication history for patient ${patientId}:`,
-        error
-      );
-      return '';
-    }
-  } finally {
-    // Don't let the pending timer hold the event loop open after we've responded.
-    clearTimeout(timer);
-  }
 }
 
 export const index = wrapHandler(
@@ -164,7 +133,6 @@ export const index = wrapHandler(
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const {
-      patientId,
       newPatient,
       patientAge,
       patientSex,
@@ -179,6 +147,7 @@ export const index = wrapHandler(
       diagnoses,
       billing,
       prescribedMedications,
+      currentMedications,
       secrets,
     } = validatedParameters;
     console.groupEnd();
@@ -189,11 +158,9 @@ export const index = wrapHandler(
     m2mToken = await timed('checkOrCreateM2MClientToken', () => checkOrCreateM2MClientToken(m2mToken, secrets));
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-    const [emCodeOptions, erxMedicationHistoryContext] = await Promise.all([
-      timed('getEmCodes', () => getEmCodes(oystehr)),
-      getErxMedicationHistoryContext(oystehr, patientId),
-    ]);
+    const emCodeOptions = await timed('getEmCodes', () => getEmCodes(oystehr));
     const prescribedMedicationContext = formatPrescribedMedicationsForBillingPrompt(prescribedMedications);
+    const currentMedicationContext = formatCurrentMedicationsForBillingPrompt(currentMedications);
 
     let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
@@ -235,7 +202,7 @@ export const index = wrapHandler(
       Do not default to Low complexity when the visit involves non-refill prescription drug management or a new problem requiring workup — those are Moderate. But do not upcode to Moderate when the visit is genuinely straightforward, renewal-only, or has no prescription and a self-limited problem.
 
       PRESCRIPTION CONTEXT RULE:
-      Review the "Current Visit Prescription Orders" section when present. If it includes a current-visit eRx order marked "new prescription" and the appropriate E&M code is not already charted, suggest the Moderate E&M code (99204 for new patients or 99214 for established patients) unless a higher level is otherwise supported. If all current-visit eRx orders are marked "refill/renewal", do not suggest Moderate E&M solely from prescription drug management. Use the "Available eRx Medication History" section only to understand chronic medication burden and complexity; medication history alone is not proof of prescription drug management during this visit.
+      Review the "Current Visit Prescription Orders" section when present. If it includes a current-visit eRx order marked "new prescription" and the appropriate E&M code is not already charted, suggest the Moderate E&M code (99204 for new patients or 99214 for established patients) unless a higher level is otherwise supported. If all current-visit eRx orders are marked "refill/renewal", do not suggest Moderate E&M solely from prescription drug management. Use the "Confirmed Current Medications" section — the medication list the provider reconciled with the patient — only to understand chronic medication burden and complexity; the medications a patient is already taking are not proof of prescription drug management during this visit.
 
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
@@ -318,8 +285,8 @@ export const index = wrapHandler(
     if (prescribedMedicationContext) {
       prompt += `\n Current Visit Prescription Orders:\n${prescribedMedicationContext}`;
     }
-    if (erxMedicationHistoryContext) {
-      prompt += `\n Available eRx Medication History:\n${erxMedicationHistoryContext}`;
+    if (currentMedicationContext) {
+      prompt += `\n Confirmed Current Medications:\n${currentMedicationContext}`;
     }
     if (rosFindings) {
       prompt += `\n Review of Systems (positive findings): ${rosFindings}`;

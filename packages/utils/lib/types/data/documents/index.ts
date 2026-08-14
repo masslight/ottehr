@@ -40,7 +40,9 @@ export const INSURANCE_CARD_EXTRACTION_EXTENSION_URL = 'https://extensions.fhir.
  */
 export interface InsuranceCardExtractionFields {
   payer: string | null;
-  memberName: string | null;
+  memberFirstName: string | null;
+  memberMiddleName: string | null;
+  memberLastName: string | null;
   memberId: string | null;
   groupNumber: string | null;
   payerId: string | null;
@@ -101,6 +103,7 @@ export interface PhotoIdExtractionFields {
   /** Normalized to 'Male' / 'Female' when the printed value is clear (M/F). */
   sex: string | null;
   addressLine1: string | null;
+  addressLine2: string | null;
   addressCity: string | null;
   addressState: string | null;
   addressZip: string | null;

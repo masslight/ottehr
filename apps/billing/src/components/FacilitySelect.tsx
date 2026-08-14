@@ -88,7 +88,6 @@ function useFacilitySearch(value: string | string[] | null | undefined): {
         })
         .catch(() => undefined);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, known, oystehrZambda]);
 
   return { options, known, search };

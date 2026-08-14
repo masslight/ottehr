@@ -19,7 +19,6 @@ import {
   claimIdFromPcn,
   ClaimSearchParam,
   createBillingClient,
-  CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   fhirName,
   findRef,
@@ -31,6 +30,8 @@ import {
   resolvePayersByRef,
   resourceDisplayName,
   sortClaimInsurance,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -91,7 +92,12 @@ async function performEffect(
   ];
 
   if (params.type) filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
-  if (params.status) filterParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
+  if (params.status) {
+    filterParams.push({
+      name: '_tag',
+      value: `${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus}|${params.status}`,
+    });
+  }
   if (params.arStage)
     filterParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
   if (params.createdFrom) filterParams.push({ name: 'created', value: `ge${params.createdFrom}` });
@@ -210,13 +216,7 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
-export function buildClaimSearchTextQueries({
-  searchText,
-  patientIds = [],
-}: {
-  searchText: string;
-  patientIds?: string[];
-}): ClaimSearchParam[][] {
+export function buildClaimSearchTextQueries({ searchText }: { searchText: string }): ClaimSearchParam[][] {
   const text = searchText.trim();
   if (!text) return [];
 
@@ -257,6 +257,18 @@ export function buildClaimSearchTextQueries({
         value: `${CLAIM_PCN_IDENTIFIER_SYSTEM}|${text}`,
       },
     ],
+    [
+      {
+        name: 'patient.identifier',
+        value: `${SOURCE_IDENTIFIER_SYSTEM}|${text}`,
+      },
+    ],
+    [
+      {
+        name: 'patient.identifier',
+        value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${text}`,
+      },
+    ],
   ];
 
   if (isValidUUID(text)) {
@@ -267,8 +279,6 @@ export function buildClaimSearchTextQueries({
       },
     ]);
   }
-
-  if (patientIds.length > 0) queries.push([patientSearchParam(patientIds)]);
 
   const pcnClaimId = claimIdFromPcn(text);
   if (pcnClaimId) {
@@ -327,14 +337,7 @@ export async function searchClaimsBySearchText({
     },
   ];
 
-  const patientIds = isValidUUID(searchText.trim())
-    ? await resolveLinkedPatientIds({
-        oystehr,
-        patientId: searchText.trim(),
-      })
-    : [];
-
-  const clauses = buildClaimSearchTextQueries({ searchText, patientIds });
+  const clauses = buildClaimSearchTextQueries({ searchText });
 
   const claims: Claim[] = [];
   const truncatedClauses: string[] = [];
