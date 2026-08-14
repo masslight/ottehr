@@ -21,7 +21,7 @@ import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.ty
 import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
+import { searchBillingEras, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateRangeInput';
 import { ImportEraDialog } from '../components/ImportEraDialog';
@@ -100,7 +100,6 @@ export default function ERAList(): ReactElement {
   const [dosFrom, setDosFrom] = useState('');
   const [dosTo, setDosTo] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
-  const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const { debounce } = useDebounce();
 
@@ -147,21 +146,6 @@ export default function ERAList(): ReactElement {
           setPayerOptions([]);
         }
       }, 'payer');
-    },
-    [oystehrZambda, debounce]
-  );
-
-  const searchPatients = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      debounce(async () => {
-        try {
-          const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
-          setPatientOptions(res.patients ?? []);
-        } catch {
-          setPatientOptions([]);
-        }
-      }, 'patient');
     },
     [oystehrZambda, debounce]
   );
