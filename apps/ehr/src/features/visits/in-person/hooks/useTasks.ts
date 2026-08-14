@@ -75,6 +75,12 @@ export interface UnassignTaskRequest {
 
 export interface CompleteTaskRequest {
   taskId: string;
+  /**
+   * Records who completed the task, for callers whose history shows the completer (radiology dates its
+   * "reviewed" row from `Task.owner`). Replaces any existing owner, so pass it only when completing *is*
+   * the act being attributed; omit it to leave an assignment untouched.
+   */
+  owner?: FhirTask['owner'];
 }
 
 export interface TaskSearchStream {
@@ -422,6 +428,7 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
             path: '/status',
             value: 'completed',
           },
+          ...(input.owner ? [{ op: 'add' as const, path: '/owner', value: input.owner }] : []),
         ],
       });
     },

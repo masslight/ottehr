@@ -142,7 +142,16 @@ describe('radiology-pacs-webhook integration — happy paths', () => {
         params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
       })
     ).unbundle();
-    expect(reports.some((r) => r.status === 'final')).toBe(true);
+    const final = reports.find((r) => r.status === 'final');
+    expect(final).toBeDefined();
+
+    // The report is teleradiology's now, so it must not still name the provider who wrote the preliminary
+    // read as its author — that would credit their read to them in the history and, worse, let them edit it.
+    expect(final?.performer ?? []).toHaveLength(0);
+
+    // The preliminary read lives on as its own report, keeping the author the finalized one just lost.
+    const preliminary = reports.find((r) => r.status === 'preliminary');
+    expect(preliminary?.performer?.[0]?.reference).toMatch(/^Practitioner\//);
   });
 
   it('ImagingStudy webhook is accepted and marks the study complete', async () => {

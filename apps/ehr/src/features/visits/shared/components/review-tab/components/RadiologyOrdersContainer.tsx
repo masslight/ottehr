@@ -2,6 +2,7 @@ import { Box, Divider, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
+import { decodeRadiologyReport } from 'utils/lib/fhir/radiology';
 import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
@@ -31,25 +32,17 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
     let reportType = 'Preliminary Read';
     let report: string | undefined;
 
-    const decode = (value: string): string => {
-      try {
-        return atob(value);
-      } catch {
-        return value;
-      }
-    };
-
     if (finalReport) {
       reportType = 'Final Read';
-      report = decode(finalReport);
+      report = decodeRadiologyReport(finalReport);
     } else if (preliminaryReport) {
-      report = decode(preliminaryReport);
+      report = decodeRadiologyReport(preliminaryReport);
     }
 
     return (
       <Box>
         <span style={{ fontWeight: 'bold' }}>{reportType}: </span>
-        <div style={{ display: 'inline', margin: 0 }} dangerouslySetInnerHTML={{ __html: `${report}` }} />
+        <span style={{ whiteSpace: 'pre-wrap' }}>{report}</span>
       </Box>
     );
   };

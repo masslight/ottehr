@@ -26,6 +26,7 @@ import {
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
@@ -330,6 +331,24 @@ const handleUpdateDiagnosticReport = async (
     };
     console.log('task config to be made', JSON.stringify(reviewTaskPostRequest.resource));
     requests.push(reviewTaskPostRequest);
+
+    // Teleradiology's read replaces the text in `presentedForm`, so keep a copy of the preliminary read the
+    // provider treated on. Guarded by the same preliminary -> final transition check, so a re-delivered
+    // callback (AdvaPACS retries) finds the report already `final` and takes no second snapshot.
+    if (ourDiagnosticReport.status === 'preliminary' && ourDiagnosticReport.presentedForm?.length) {
+      requests.push({
+        method: 'POST',
+        url: 'DiagnosticReport/',
+        resource: buildPreliminaryReportSnapshot(ourDiagnosticReport),
+      } as BatchInputPostRequest<DiagnosticReport>);
+    }
+
+    // The report is no longer the one our provider wrote, so it must stop naming them as its author — the
+    // snapshot above took the preliminary read's `performer` with it. Left behind, it would credit
+    // teleradiology's read to them and let them edit it.
+    if (ourDiagnosticReport.performer?.length) {
+      diagnosticReportPathOps.push({ op: 'remove', path: '/performer' });
+    }
   }
 
   console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(diagnosticReportPathOps, null, 2));
