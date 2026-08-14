@@ -521,8 +521,8 @@ export class ResourceHandler {
       }s — harvest did not create the expected Coverage resources. Before suspecting the harvest ` +
         `subscriptions: check the log above for "Error processing paperwork" (paperwork patch/submit ` +
         `failures are logged but swallowed, and an unsubmitted QuestionnaireResponse never triggers ` +
-        `harvest), and verify the env has payer Organizations ` +
-        `(Organization?active=true&type=...|pay) — an empty payer list invalidates the ` +
+        `harvest), and verify the insurance-carrier answers resolved — carriers are sourced from the ` +
+        `Oystehr payer list (oystehr.rcm.listPayers), and an unresolved carrier invalidates the ` +
         `payment-option-page patch.`
     );
   }
