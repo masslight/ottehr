@@ -1,6 +1,7 @@
 import { Coding } from 'fhir/r4b';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from '../../../fhir/systemUrls';
 import { PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../labs/labs.constants';
+import { RulesEngineType } from './rules-engine.constants';
 
 // Types and codings for billing-claim change history. The design overview (how Provenances are
 // written and queried) lives in packages/zambdas/src/billing/provenance.ts.
@@ -85,10 +86,23 @@ export interface ClaimFieldChange {
   newValue: string | null;
   previousRef?: string;
   newRef?: string;
+  // The rules-engine rule that made this change, when one did. Unlike the refs above this is
+  // stored inside the diff JSON at write time (the name is the rule's name as of the change);
+  // absent on human-made changes and on records written before rule attribution existed.
+  rule?: ClaimHistoryRuleRef;
   // Deep-links to the screens managing referenced resources — populated by the read API only,
   // never stored.
   previousLink?: ClaimHistoryLink | null;
   newLink?: ClaimHistoryLink | null;
+}
+
+// The rule that caused a change, captured at write time so the history view can attribute the
+// change and link to the rule's editor (/rules/{engine}/{id}). Rule ids are server-assigned and
+// stable across saves; a link to a since-deleted rule lands on the editor's not-found state.
+export interface ClaimHistoryRuleRef {
+  id: string;
+  name: string;
+  engine: RulesEngineType;
 }
 
 // A link from a history value to the billing-app screen that manages that resource. The UI builds

@@ -80,6 +80,33 @@ describe('ClaimHistory', () => {
     expect(within(row).getByText('A')).toBeInTheDocument();
     expect(within(row).getByText('B')).toBeInTheDocument();
     expect(within(row).getByText('System')).toBeInTheDocument();
+    // No rule attribution on the change → no rule suffix.
+    expect(within(row).queryByText(/via/)).not.toBeInTheDocument();
+  });
+
+  it('links a rule-attributed change to the rule that made it', async () => {
+    getBillingClaimHistoryMock.mockResolvedValue({
+      entries: [
+        {
+          ...changeEntry,
+          changes: [
+            {
+              field: 'tags',
+              label: 'Tags',
+              previousValue: 'Ready to submit',
+              newValue: 'Ready to submit, Hold',
+              rule: { id: 'rule-1', name: 'Normalize tags', engine: 'claim-submission' },
+            },
+          ],
+        },
+      ],
+    });
+    renderHistory();
+
+    const row = (await screen.findByText('Update Coverage')).closest('tr')!;
+    const ruleLink = within(row).getByRole('link', { name: 'Normalize tags' });
+    expect(ruleLink).toHaveAttribute('href', '/rules/claim-submission/rule-1');
+    expect(within(row).getByText(/via/)).toBeInTheDocument();
   });
 
   it('shows a dash for an entry with neither a message nor changes', async () => {

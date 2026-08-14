@@ -16,6 +16,8 @@ import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schem
 import {
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  ClaimFieldChange,
+  ClaimHistoryRuleRef,
 } from 'utils/lib/types/data/billing/claim-history';
 import {
   AR_STAGE,
@@ -39,6 +41,7 @@ import {
   ensureClaimHeld,
   performEffect,
   persistModel,
+  RuleFailureError,
   snapshotModel,
 } from '../../../src/subscriptions/task/sub-rules-engine';
 
@@ -103,6 +106,20 @@ const alwaysRule = (id: string, actions: BillingRule['conditional']['branches'][
 });
 
 const HOLD_TAG = { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME };
+
+// The stored diff JSON of the Provenance targeting `targetRef` (across all transactions).
+const provenanceChanges = (transaction: ReturnType<typeof vi.fn>, targetRef: string): ClaimFieldChange[] => {
+  for (const call of transaction.mock.calls) {
+    for (const request of call[0].requests) {
+      if (request.url !== '/Provenance' || request.resource?.target?.[0]?.reference !== targetRef) continue;
+      const diff = (request.resource.extension ?? []).find(
+        (e: { url: string }) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL
+      );
+      if (diff) return JSON.parse(diff.valueString);
+    }
+  }
+  return [];
+};
 
 // A finalizer's status change travels as a base64 json-patch Binary; decode it to see the tags written.
 const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
@@ -248,6 +265,44 @@ describe('sub-rules-engine performEffect', () => {
     expect(claimPut.ifMatch).toBe('W/"1"');
     expect(claimPut.resource.meta.tag).toContainEqual({ system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME });
     expect(requests.some((r: { url: string }) => r.url === '/Provenance')).toBe(true);
+    // The history record attributes the Hold to the rule that applied it.
+    expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual({
+      id: 'hold',
+      name: 'Rule hold',
+      engine: 'claim-submission',
+    });
+  });
+
+  it('attributes each change to the rule that made it, per resource, last writer winning', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
+    const rules = [
+      alwaysRule('r1', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
+      alwaysRule('r2', {
+        type: 'actions',
+        actions: [{ type: 'setField', field: 'patient.lastName', value: 'Smith' }],
+      }),
+      alwaysRule('r3', { type: 'actions', actions: [{ type: 'applyTag', tag: 'Reviewed' }] }),
+    ];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalled();
+    const ruleRef = (id: string): ClaimHistoryRuleRef => ({ id, name: `Rule ${id}`, engine: 'claim-submission' });
+    // The claim's combined tags change (VIP + Reviewed) spans r1 and r3; the last writer is recorded.
+    const claimChanges = provenanceChanges(transaction, 'Claim/claim-1');
+    expect(claimChanges.find((c) => c.field === 'tags')?.rule).toEqual(ruleRef('r3'));
+    // The patient's name change belongs to r2 alone.
+    const patientChanges = provenanceChanges(transaction, 'Patient/patient-1');
+    expect(patientChanges).toEqual([
+      { field: 'name', label: 'Name', previousValue: 'Doe, Jane', newValue: 'Smith, Jane', rule: ruleRef('r2') },
+    ]);
   });
 
   it('holds the claim and fails the task when a rule action cannot be applied', async () => {
@@ -275,6 +330,59 @@ describe('sub-rules-engine performEffect', () => {
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
     );
     expect(claimPut.resource.meta.tag).toContainEqual({ system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME });
+  });
+
+  it('attributes the failure Hold to the failing rule and throws a RuleFailureError carrying it', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer); // no rendering provider → the setField fails
+    const rule = alwaysRule('bad', {
+      type: 'actions',
+      actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
+    });
+
+    let thrown: unknown;
+    try {
+      await performEffect(
+        oystehr,
+        { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+        AGENT
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    const expectedRule: ClaimHistoryRuleRef = { id: 'bad', name: 'Rule bad', engine: 'claim-submission' };
+    expect(thrown).toBeInstanceOf(RuleFailureError);
+    expect((thrown as RuleFailureError).rule).toEqual(expectedRule);
+    // The persisted Hold's history record names the failing rule.
+    expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual(expectedRule);
+  });
+
+  it("does not blame a rule for the engine's own unwritable-changes Hold", async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    model.patient!.meta = { versionId: '1' }; // shared patient → its change is unwritable
+    const rules = [
+      alwaysRule('tagger', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
+      alwaysRule('shared', {
+        type: 'actions',
+        actions: [{ type: 'setField', field: 'patient.lastName', value: 'Corrected' }],
+      }),
+    ];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('failed');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    // The combined tags change (VIP + the engine's Hold) carries no rule — the Hold is the
+    // engine's, and attributing it to "Rule tagger" would send the biller to the wrong rule.
+    const tagsChange = provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags');
+    expect(tagsChange?.newValue).toContain(HOLD_TAG_NAME);
+    expect(tagsChange?.rule).toBeUndefined();
   });
 });
 
@@ -810,6 +918,15 @@ describe('sub-rules-engine patient coverage context', () => {
         (r: { url?: string }) => (r.url ?? '').includes('cov-src-primary') || (r.url ?? '').includes('rp-src')
       )
     ).toBe(false);
+
+    // Every change the rule made — the minted copies and the claim's re-point — is attributed to it.
+    const covRuleRef: ClaimHistoryRuleRef = { id: 'cov', name: 'Rule cov', engine: 'claim-submission' };
+    const covCreateChanges = provenanceChanges(transaction, covUrn);
+    expect(covCreateChanges.length).toBeGreaterThan(0);
+    covCreateChanges.forEach((change) => expect(change.rule).toEqual(covRuleRef));
+    expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'coverage')?.rule).toEqual(
+      covRuleRef
+    );
   });
 
   it('holds the claim instead of submitting when the patient has no coverage of the chosen type', async () => {
