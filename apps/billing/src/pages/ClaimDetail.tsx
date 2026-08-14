@@ -16,10 +16,12 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Tab,
   Table,
   TableBody,
@@ -145,6 +147,7 @@ export default function ClaimDetail(): ReactElement {
   const [serviceDate, setServiceDate] = useState('');
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
+  const [skipRules, setSkipRules] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -236,7 +239,7 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id], skipRules });
       enqueueSnackbar(
         `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
         { variant: 'info' }
@@ -254,7 +257,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, fetchDetail]);
+  }, [oystehrZambda, id, claim, skipRules, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -577,13 +580,24 @@ export default function ClaimDetail(): ReactElement {
         <ConfirmDialog
           open={confirmingSubmit}
           title={runEngine.runButtonLabel}
-          confirmLabel="Run rules"
+          confirmLabel={skipRules ? 'Submit claim (without running rules)' : 'Run rules'}
           loading={submitting}
           onConfirm={() => void handleRunRulesEngine()}
           onCancel={() => setConfirmingSubmit(false)}
         >
-          Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
-          {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+          <Typography variant="body2">
+            Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
+            {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+          </Typography>
+          <FormControlLabel
+            control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+            label="Skip rules"
+            slotProps={{
+              typography: {
+                variant: 'body2',
+              },
+            }}
+          />
         </ConfirmDialog>
       )}
     </Box>

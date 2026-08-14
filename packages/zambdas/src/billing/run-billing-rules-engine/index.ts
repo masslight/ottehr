@@ -33,6 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export interface RulesEngineKickoff {
   claimId: string;
   engine: RulesEngineType;
+  skipRules: boolean;
 }
 
 // Confirm every claim exists (one search ORing the ids) and that an engine applies to each, so the
@@ -59,7 +60,7 @@ export async function complexValidation(
   const noEngine: string[] = [];
   for (const claimId of params.claimIds) {
     const engine = determineRulesEngineForClaim(claimsById.get(claimId)!);
-    if (engine) kickoffs.push({ claimId, engine });
+    if (engine) kickoffs.push({ claimId, engine, skipRules: params.skipRules });
     else noEngine.push(claimId);
   }
   if (noEngine.length > 0) {
@@ -77,10 +78,10 @@ export async function performEffect(
   oystehr: Oystehr,
   kickoffs: RulesEngineKickoff[]
 ): Promise<RunBillingRulesEngineResponse> {
-  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId }) => ({
+  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId, skipRules }) => ({
     method: 'POST',
     url: '/Task',
-    resource: buildRulesEngineKickoffTask(engine, claimId),
+    resource: buildRulesEngineKickoffTask(engine, claimId, skipRules),
   }));
   const result = await oystehr.fhir.transaction<Task>({ requests });
   const taskIds = (result.entry ?? [])
