@@ -168,6 +168,7 @@ export interface EraListItem {
 export interface EraRemitServiceLine {
   // null for addItem rows, which carry no itemSequence
   itemSequence: number | null;
+  claimItemSequence: number | null;
   // the addItem bucket the process-era converter uses for claim-level CAS adjustments
   isClaimLevel: boolean;
   // '' when the line couldn't be joined to a claim line (e.g. unmatched claim without contained
