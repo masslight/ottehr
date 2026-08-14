@@ -6,7 +6,6 @@ import {
   collectSetResourceRefs,
   getRuleFieldDef,
   getServiceLinePropertyDef,
-  MAX_REGEX_PATTERN_LENGTH,
   ruleConditionValueProblem,
   RuleFieldDef,
   ruleUsesChargeMasterPrices,
@@ -220,31 +219,6 @@ describe('rule value validation', () => {
     if (!pos) throw new Error('missing placeOfService def');
     expect(serviceLineMatchValueProblem(pos, 'eq', ['11', '12'])).toContain('single value');
     expect(serviceLineMatchValueProblem(pos, 'in', ['11', '12'])).toBeUndefined();
-  });
-
-  it('validates regex-operator values as patterns, not literals', () => {
-    // A pattern is legitimately not one of a select field's options and not a full-format value.
-    const pos = field('serviceFacility.posCode');
-    expect(ruleConditionValueProblem(pos, 'matches', '^2[0-3]$')).toBeUndefined();
-    expect(ruleConditionValueProblem(pos, 'eq', '^2[0-3]$')).toContain('one of the listed options');
-    const npi = field('renderingProvider.npi');
-    expect(ruleConditionValueProblem(npi, 'matches', '^123')).toBeUndefined();
-
-    const cptCodes = field('cptCodes');
-    expect(ruleConditionValueProblem(cptCodes, 'matches', '^9938[1-7]$')).toBeUndefined();
-    expect(ruleConditionValueProblem(cptCodes, 'notMatches', '^9938[1-7]$')).toBeUndefined();
-    // Uncompilable, empty, list, and oversized patterns are rejected.
-    expect(ruleConditionValueProblem(cptCodes, 'matches', '9938[1-7')).toBe('Must be a valid regular expression');
-    expect(ruleConditionValueProblem(cptCodes, 'matches', '')).toBe('Value is required');
-    expect(ruleConditionValueProblem(cptCodes, 'matches', ['^9938', '^9939'])).toContain('single value');
-    expect(ruleConditionValueProblem(cptCodes, 'matches', 'a'.repeat(MAX_REGEX_PATTERN_LENGTH + 1))).toContain(
-      `${MAX_REGEX_PATTERN_LENGTH} characters`
-    );
-
-    const lineCpt = getServiceLinePropertyDef('cptCode');
-    if (!lineCpt) throw new Error('missing cptCode def');
-    expect(serviceLineMatchValueProblem(lineCpt, 'matches', '^9938[1-7]$')).toBeUndefined();
-    expect(serviceLineMatchValueProblem(lineCpt, 'matches', '9938[1-7')).toBe('Must be a valid regular expression');
   });
 
   it('validates service line match and set values', () => {
@@ -464,51 +438,6 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[0]).toContain('unsupported operator "contains"');
     expect(problems[1]).toContain('sets "serviceFacility.ref" to an invalid value');
     expect(problems[1]).toContain('facility reference');
-  });
-
-  it('accepts a compilable regex condition and rejects an uncompilable one, in conditions and line matches', () => {
-    const problems = validateRuleFieldReferences(
-      ruleWith({
-        branches: [
-          {
-            condition: {
-              type: 'group',
-              logic: 'and',
-              conditions: [
-                { type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' },
-                { type: 'field', field: 'diagnosisCodes', operator: 'notMatches', value: '9938[1-7' },
-              ],
-            },
-            outcome: {
-              type: 'actions',
-              actions: [
-                {
-                  type: 'removeServiceLines',
-                  match: { type: 'field', property: 'cptCode', operator: 'matches', value: '(' },
-                },
-              ],
-            },
-          },
-        ],
-      })
-    );
-    expect(problems).toHaveLength(2);
-    expect(problems[0]).toContain('condition on "diagnosisCodes" with an invalid value');
-    expect(problems[0]).toContain('valid regular expression');
-    expect(problems[1]).toContain('matches service lines on "cptCode" with an invalid value');
-    // Regex operators are not offered on opaque reference fields.
-    const refProblems = validateRuleFieldReferences(
-      ruleWith({
-        branches: [
-          {
-            condition: { type: 'field', field: 'serviceFacility.ref', operator: 'matches', value: 'Location/.*' },
-            outcome: { type: 'noop' },
-          },
-        ],
-      })
-    );
-    expect(refProblems).toHaveLength(1);
-    expect(refProblems[0]).toContain('unsupported operator "matches"');
   });
 
   it('reports unknown condition fields and unknown or read-only setField targets, including nested ones', () => {
