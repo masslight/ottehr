@@ -660,7 +660,7 @@ describe('sub-rules-engine patient coverage context', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchContextSearch(search, { rules: [coverageRule], claim: makeModel().claim, patient: workingPatient(true) });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     const context = validated.model.patientCoverageContext!;
     expect(context.byType.primary?.coverage.id).toBe('cov-src-primary');
@@ -702,7 +702,7 @@ describe('sub-rules-engine patient coverage context', () => {
     };
     dispatchContextSearch(search, { rules: [conditionRule], claim: makeModel().claim, patient: workingPatient(true) });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.patientCoverageContext).toBeDefined();
     expect(searchedTypes(search)).toContain('Coverage');
@@ -718,7 +718,7 @@ describe('sub-rules-engine patient coverage context', () => {
       patient: workingPatient(true),
     });
 
-    let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
     expect(validated.model.patientCoverageContext).toBeUndefined();
     expect(searchedTypes(search)).not.toContain('Coverage');
     expect(searchedTypes(search)).not.toContain('Account');
@@ -731,7 +731,7 @@ describe('sub-rules-engine patient coverage context', () => {
       claim: makeModel().claim,
       patient: workingPatient(false),
     });
-    validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test');
+    validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test', null);
     expect(validated.model.patientCoverageContext).toBeUndefined();
     expect(searchedTypes(second.search)).not.toContain('Coverage');
   });
@@ -747,7 +747,7 @@ describe('sub-rules-engine patient coverage context', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model },
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
       AGENT
     );
 
@@ -822,7 +822,7 @@ describe('sub-rules-engine patient coverage context', () => {
       async () =>
         await performEffect(
           oystehr,
-          { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model },
+          { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
           AGENT
         )
     ).rejects.toThrow('Rule "Rule cov" failed');
