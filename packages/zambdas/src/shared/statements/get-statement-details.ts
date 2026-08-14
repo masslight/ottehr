@@ -14,16 +14,18 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { findOrgMatchingReference, getPayerId } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { StatementDetails } from 'utils/lib/statements/generate-statement';
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { createBillingClient, createEraReadClient } from '../../billing/shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
-import { getCandidEncounterIdFromEncounter } from '../candid';
+import { getCandidEncounterIdFromEncounter, shouldUseOttehrBillingForPatientBalances } from '../candid';
 import { resolveTimezone } from '../helpers';
-import { StatementLineDetails } from './get-billing-statement-lines';
+import { getBillingStatementLines, StatementLineDetails } from './get-billing-statement-lines';
 import { getLogoBase64 } from './get-logo-base64';
 import { getProcedureCodeTitle } from './get-procedure-code-title';
 
@@ -54,12 +56,44 @@ interface StatementBillerDetails {
   email: string;
 }
 
+export type StatementAmountsSource =
+  | {
+      source: 'candid';
+      candidApiClient: CandidApiClient;
+    }
+  | {
+      source: 'ottehr-billing';
+      billingOystehr: Oystehr;
+      eraReadOystehr: Oystehr;
+    };
+
 interface GetStatementDetailsInput {
   encounterId: string;
   statementType: StatementType;
   secrets: Secrets;
   oystehr: Oystehr;
-  candidApiClient: CandidApiClient;
+  amountsSource: StatementAmountsSource;
+}
+
+export async function resolveStatementAmountsSource(input: {
+  secrets: Secrets;
+  oystehr: Oystehr;
+  m2mToken: string;
+}): Promise<StatementAmountsSource> {
+  const { secrets, oystehr, m2mToken } = input;
+
+  if (shouldUseOttehrBillingForPatientBalances(secrets)) {
+    return {
+      source: 'ottehr-billing',
+      billingOystehr: createBillingClient(m2mToken, secrets),
+      eraReadOystehr: createEraReadClient(m2mToken, secrets),
+    };
+  }
+
+  return {
+    source: 'candid',
+    candidApiClient: await getOrCreateCandidApiClient(oystehr, secrets),
+  };
 }
 
 const UNKNOWN_BILLER_VALUE = 'unknown';
@@ -187,7 +221,7 @@ function getBillerName(billingResource: Organization): string {
   return billingResource.name ?? UNKNOWN_BILLER_VALUE;
 }
 
-async function getServiceLines(
+async function getCandidStatementLines(
   encounter: Encounter,
   candid: CandidApiClient,
   oystehr: Oystehr
@@ -355,7 +389,7 @@ function createStatementDetails(
 }
 
 export async function getStatementDetails(input: GetStatementDetailsInput): Promise<StatementDetails> {
-  const { encounterId, secrets, oystehr, candidApiClient } = input;
+  const { encounterId, secrets, oystehr, amountsSource } = input;
   const resources = await getResources(encounterId, oystehr);
   const { guarantorResource, coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(
     resources.patient.id ?? '',
@@ -367,7 +401,15 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
   }
 
   const insuranceDetails = getInsuranceDetails(coverages, insuranceOrgs);
-  const { serviceLines, totals } = await getServiceLines(resources.encounter, candidApiClient, oystehr);
+  const { serviceLines, totals } =
+    amountsSource.source === 'candid'
+      ? await getCandidStatementLines(resources.encounter, amountsSource.candidApiClient, oystehr)
+      : await getBillingStatementLines({
+          encounterId,
+          billingOystehr: amountsSource.billingOystehr,
+          eraReadOystehr: amountsSource.eraReadOystehr,
+          clinicalOystehr: oystehr,
+        });
   const paymentUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
 
   let billerDetails: StatementBillerDetails = {
