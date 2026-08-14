@@ -168,6 +168,9 @@ export interface EraListItem {
 export interface EraRemitServiceLine {
   // null for addItem rows, which carry no itemSequence
   itemSequence: number | null;
+  // Claim.item.sequence of the submitted line this row was assigned to, null when we couldn't
+  // identify one. Payers that don't echo our line control numbers number their own lines
+  // positionally, so this and itemSequence disagree on those remits.
   claimItemSequence: number | null;
   // the addItem bucket the process-era converter uses for claim-level CAS adjustments
   isClaimLevel: boolean;
