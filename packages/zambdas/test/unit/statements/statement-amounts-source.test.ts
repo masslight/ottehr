@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveStatementAmountsSource } from '../../../src/shared/statements/get-statement-details';
@@ -46,7 +47,8 @@ describe('resolveStatementAmountsSource', () => {
     });
 
     if (amountsSource.source !== 'ottehr-billing') throw new Error('expected the ottehr billing source');
-    expect(amountsSource.billingOystehr).not.toBe(amountsSource.eraReadOystehr);
+    expect(amountsSource.billingOystehr.config.workspaceTag).toEqual(BILLING_RESOURCE_TAG);
+    expect(amountsSource.eraReadOystehr.config.workspaceTag).toBeUndefined();
   });
 
   it.each([['candid'], [undefined], ['#{var/PATIENT_BALANCE_SOURCE}']])(
