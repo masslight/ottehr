@@ -53,8 +53,7 @@ function HistoryValue({
   );
 }
 
-// The rule that made a change, as a suffix linking to the rule's editor. A deleted rule's link
-// lands on the editor's "Rule not found" state; the name shown is the rule's name as of the change.
+// The rule that made a change, as a suffix linking to the rule's editor.
 function RuleSuffix({ rule }: { rule?: ClaimHistoryRuleRef }): ReactElement | null {
   if (!rule?.id || !rule.name) return null;
   return (

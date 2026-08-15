@@ -418,9 +418,6 @@ export interface ClaimProvenanceArgs {
   // Additional change entries the projection diff can't see (e.g. policy-holder edits folded into
   // the owning Coverage's record).
   extraChanges?: ClaimFieldChange[];
-  // Rule attribution for this resource's diff-derived changes, keyed by change field: each computed
-  // change whose field appears here is annotated with the causing rule before storage. extraChanges
-  // are not annotated — they carry their own `rule` when the caller has one.
   ruleAttribution?: ReadonlyMap<string, ClaimHistoryRuleRef>;
   note?: string;
 }
@@ -556,7 +553,6 @@ export interface ClaimResourceChange {
   activity?: ClaimProvenanceActivityKey;
   // Change entries the projection diff can't see (e.g. policy-holder edits folded into the Coverage).
   extraChanges?: ClaimFieldChange[];
-  // Rule attribution for this resource's diff-derived changes (field → causing rule).
   ruleAttribution?: ReadonlyMap<string, ClaimHistoryRuleRef>;
   // Optimistic-locking header for the PUT; a concurrent edit then fails the transaction instead of
   // being clobbered.

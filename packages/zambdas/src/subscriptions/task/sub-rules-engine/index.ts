@@ -238,19 +238,15 @@ async function loadPatientCoverageContext(
   return context;
 }
 
-// Rule attribution for a run's history records: resource url (`ResourceType/id`, the model's
-// placeholder id for copies minted this run — the same key persistModel diffs by) → change field →
-// the last rule that changed it.
+// Resource url (as persistModel keys them) → change field → the last rule that changed it.
 export type RuleAttributionMap = Map<string, Map<string, ClaimHistoryRuleRef>>;
 
 function toRuleRef(engine: RulesEngineType, rule: BillingRule): ClaimHistoryRuleRef {
   return { id: rule.id, name: rule.name, engine };
 }
 
-// Record which fields the just-executed rule changed, diffing each model resource against the
-// pre-rule snapshot (a resource the rule minted diffs against undefined, attributing every projected
-// field). Later rules overwrite earlier entries: the stored change spans the whole run, and the last
-// writer is the rule that produced its final value.
+// Record which fields the just-executed rule changed, diffing the model against the pre-rule
+// snapshot. Later rules overwrite earlier entries, so each field names its last writer.
 function recordRuleAttribution(
   attribution: RuleAttributionMap,
   before: Map<string, ModelResource>,
@@ -269,9 +265,6 @@ function recordRuleAttribution(
   }
 }
 
-// Thrown when a rule's action could not be applied: carries the rule so the failure Provenance can
-// attribute the error to it. Keeps the default Error name — the message (and the Task statusReason
-// built from it) is unchanged.
 export class RuleFailureError extends Error {
   constructor(
     message: string,
@@ -305,8 +298,7 @@ export async function performEffect(
         failure = { rule, error };
         applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
       }
-      // A failed action may have partially mutated the model even with zero applied actions, and
-      // the failure Hold above belongs to the failing rule — so attribute on error too.
+      // A failed action can partially mutate the model with zero applied actions, so attribute on error too.
       if (error || appliedActions.length > 0) {
         recordRuleAttribution(attribution, preRule, model, toRuleRef(engine, rule));
       }
@@ -325,8 +317,7 @@ export async function performEffect(
   const unwritable = failure || heldBy ? [] : findUnwritableChanges(model, unchanged);
   if (unwritable.length > 0) {
     applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
-    // This Hold is the engine's own, not a rule's — drop any stale tags attribution so the combined
-    // tags change isn't blamed on an earlier tag-applying rule.
+    // This Hold is the engine's own, so no rule should be blamed for the combined tags change.
     attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
   }
 
