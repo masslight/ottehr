@@ -149,12 +149,6 @@ Canonical FHIR resources (referenced by URL + version) must be versioned using `
 
 Feature flags are defined in `packages/utils/lib/ottehr-config/feature-flags/index.ts` and validated against the Zod schema in `packages/config-types/config/feature-flags.ts`. The EHR re-exports them at `apps/ehr/src/constants/feature-flags.ts`.
 
-## Code Style
-
-- Only comment above complex functions, explaining what they are for or do
-- No comments explaining variables, interface/type fields, or enums
-- Keep comments short
-
 ## Testing Conventions
 
 - **Component tests** (`*.test.tsx`) run in jsdom via vitest; located in `apps/ehr/tests/component/`
