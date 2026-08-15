@@ -35,6 +35,7 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 import { BulkImportProcedureCodes } from './BulkImportProcedureCodes';
 import { EditableSection } from './claim/EditableSection';
+import { DateInput } from './DateInput';
 import { Field } from './Field';
 import { Row } from './Row';
 
@@ -159,12 +160,12 @@ export function ChargeItemDefinitionDetailSection({
               <TextField size="small" fullWidth value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>
             <Field label="Effective Date">
-              <TextField
+              <DateInput
+                label="Effective Date"
                 size="small"
                 fullWidth
-                type="date"
                 value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
+                onChange={(value) => setEffectiveDate(value)}
               />
             </Field>
             <Field label="Is Default For">
