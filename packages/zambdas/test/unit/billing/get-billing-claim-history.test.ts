@@ -84,7 +84,7 @@ describe('get-billing-claim-history performEffect', () => {
       actor: { type: 'user' },
       changes: [{ field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' }],
     });
-    expect(entries[0].actor.display).toContain('Doe');
+    expect(entries[0].actors[0].display).toContain('Doe');
   });
 
   it('maps a note provenance into an entry carrying the message and no changes', async () => {
@@ -114,7 +114,7 @@ describe('get-billing-claim-history performEffect', () => {
         type: 'user',
       },
     });
-    expect(entries[0].actor.display).toContain('Doe');
+    expect(entries[0].actors[0].display).toContain('Doe');
     // An empty change set on a note is expected, not a data anomaly.
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });
@@ -160,7 +160,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     expect(entries.map((e) => e.id)).toEqual(['new', 'old']);
     expect(entries[0].activity).toBe('Status change');
-    expect(entries[0].actor).toMatchObject({ type: 'system', display: CLAIM_RULES_ENGINE_DEVICE_NAME });
+    expect(entries[0].actors[0]).toMatchObject({ type: 'system', display: CLAIM_RULES_ENGINE_DEVICE_NAME });
     expect(entries[1].activity).toBe('Create Claim');
   });
 

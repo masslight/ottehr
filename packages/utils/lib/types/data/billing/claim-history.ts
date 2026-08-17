@@ -109,7 +109,7 @@ export interface ClaimHistoryEntry {
   recorded: string;
   // Human-readable activity label, e.g. 'Update Coverage'.
   activity: string;
-  actor: ClaimHistoryActor;
+  actors: ClaimHistoryActor[];
   changes: ClaimFieldChange[];
   message?: string;
 }

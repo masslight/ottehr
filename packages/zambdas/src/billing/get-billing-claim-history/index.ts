@@ -161,7 +161,6 @@ function toHistoryEntry(
   // target[0] is the changed resource (the claim itself is appended as a second target).
   const targetRef = provenance.target?.[0]?.reference;
   const agentRef = provenance.agent?.[0]?.who?.reference;
-  const agentTypeCode = provenance.agent?.[0]?.type?.coding?.[0]?.code;
 
   // Our writer always sets these; a claim-history Provenance missing them is a real defect, not a
   // routine optional-field case — surface it rather than silently rendering blanks.
@@ -181,10 +180,12 @@ function toHistoryEntry(
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
     activity: activityDisplay(activityCode ?? '', resourceType),
-    actor: {
-      display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
-      type: agentTypeCode === 'system' ? 'system' : 'user',
-    },
+    actors: provenance.agent.map((agent) => {
+      return {
+        display: actorDisplay(agentsByRef.get(agent.who.reference ?? ''), agent.who.reference ?? ''),
+        type: agent.type?.coding?.[0]?.code === 'system' ? 'system' : 'user',
+      };
+    }),
     changes: parseChanges(provenance, environment),
     ...(message ? { message } : {}),
   };
