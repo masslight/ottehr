@@ -15,22 +15,14 @@ import {
 import { DateTime } from 'luxon';
 import {
   BookableScheduleData,
-  codingContainedInList,
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
-  getFullName,
-  getPatchOperationForNewMetaTag,
-  isAnnotationFollowupEncounter,
-  isLocationVirtual,
-  locationSupportsServiceMode,
   makeBookingOriginExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
-  resolveServiceCategory,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
   ScheduleAndOwner,
   ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
   SLOT_AT_LOCATION_EXTENSION_URL,
   SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
@@ -40,21 +32,20 @@ import {
   SlotServiceCategory,
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
-} from '../fhir';
+} from '../fhir/constants';
 import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
-import { ServiceCategoryCode } from '../ottehr-config';
-import {
-  Closure,
-  ClosureType,
-  CreateSlotParams,
-  OVERRIDE_DATE_FORMAT,
-  ScheduleOwnerFhirResource,
-  ScheduleType,
-  ServiceMode,
-  Timezone,
-  TIMEZONES,
-  VisitType,
-} from '../types';
+import { isAnnotationFollowupEncounter } from '../fhir/encounter';
+import { codingContainedInList, scheduleStrategyForHealthcareService } from '../fhir/helpers';
+import { isLocationVirtual, locationSupportsServiceMode } from '../fhir/location';
+import { getFullName } from '../fhir/patient';
+import { getPatchOperationForNewMetaTag } from '../fhir/resourcePatch';
+import { resolveServiceCategory } from '../fhir/serviceCategoryResolution';
+import { ServiceCategoryCode } from '../ottehr-config/booking';
+import { CreateSlotParams } from '../types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode, Timezone } from '../types/common';
+import { TIMEZONES } from '../types/constants';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
 import { getDateTimeFromDateAndTime } from './date';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
@@ -153,6 +144,11 @@ export interface ScheduleDTOOwner {
   slug: string;
   active: boolean;
   detailText?: string; // to take place of Location.address.line[0]
+  // NOTE: not the source of truth for displayed hours. Operating hours live in the
+  // Schedule extension (edited on the Schedule tab); every UI that shows "hours"
+  // reads that via getHoursOfOperationForToday. This mirrors Location.hoursOfOperation,
+  // which currently has no reader — do NOT add a Location.hoursOfOperation editor, as
+  // it would create a second, competing source of truth.
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;
@@ -298,10 +294,6 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
 export function getScheduleExtension(
   scheduleResource: Location | Practitioner | PractitionerRole | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
-  console.log(
-    `extracting schedule and possible overrides from extension on ${scheduleResource.resourceType}`,
-    scheduleResource.id
-  );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
     return extensionTemp.url === SCHEDULE_EXTENSION_URL;
   })?.valueString;
@@ -321,7 +313,6 @@ export function getTimezone(
   const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
     ?.valueString;
   if (!timezone) {
-    console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
   }
   return timezone;

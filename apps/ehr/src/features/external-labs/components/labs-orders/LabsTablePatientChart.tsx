@@ -1,6 +1,6 @@
 import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { GetLabOrdersParameters, LabsTableColumn } from 'utils';
+import { GetLabOrdersParameters, LabsTableColumn } from 'utils/lib/types/data/labs/labs.types';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableContainer } from './LabsTableContainer';
 import { usePatientLabOrders } from './usePatientLabOrders';

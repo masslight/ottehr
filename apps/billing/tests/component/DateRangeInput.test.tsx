@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { dateRangeDayTestId, DateRangeInput } from '../../src/components/DateRangeInput';
+import { dateDayTestId, DateRangeInput } from '../../src/components/DateInput';
 
 const FIELD_TEST_ID = 'date-filter';
 
@@ -38,7 +38,7 @@ const openPicker = async (): Promise<void> => {
 };
 
 const clickDay = async (isoDate: string): Promise<void> => {
-  await userEvent.click(screen.getByTestId(dateRangeDayTestId(isoDate)));
+  await userEvent.click(screen.getByTestId(dateDayTestId(isoDate)));
 };
 
 describe('DateRangeInput', () => {

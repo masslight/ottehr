@@ -1,14 +1,16 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
+import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
-  getAllFhirSearchPages,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   PracticeManagedQuestionnaireDTO,
   PracticeManagedQuestionnaireListOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken } from '../../../shared';
-import { createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { FhirQuestionnaireSubset, isLatestVersion, questionnaireElements } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -26,8 +28,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  console.log('searching for questionnaires');
-  const response = await getQuestionnaire(oystehr);
+  console.log('starting search and format');
+  const response = await makeListResponse(oystehr);
 
   return {
     statusCode: 200,
@@ -35,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function getQuestionnaire(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput> {
+async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput> {
   const searchParams: SearchParam[] = [
     { name: '_sort', value: 'title' },
     { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code },
@@ -50,15 +52,18 @@ async function getQuestionnaire(oystehr: Oystehr): Promise<PracticeManagedQuesti
     oystehr
   );
 
-  console.log(`found questionnaires: ${practiceManagedFhirQuestionnaires.length} total`);
+  console.log(`Total practice managed questionnaires found: ${practiceManagedFhirQuestionnaires.length}`);
 
   const currentVersions = latestVersionPerUrl(practiceManagedFhirQuestionnaires);
+
+  console.log(`Total current versions: ${currentVersions.length}`);
 
   const practiceManagedQuestionnaires = currentVersions.map((questionnaire) => {
     const dto: PracticeManagedQuestionnaireDTO = {
       id: questionnaire.id ?? '',
       title: questionnaire.title ?? '',
       status: questionnaire.status,
+      url: questionnaire.url ?? '',
     };
 
     return dto;

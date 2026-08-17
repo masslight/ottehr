@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getNursingOrders, updateNursingOrder as updateNursingOrderApi } from 'src/api/api';
-import { GetNursingOrdersInput } from 'utils';
+import { GetNursingOrdersInput } from 'utils/lib/types/data/orders/types';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
 export const useGetNursingOrders = ({

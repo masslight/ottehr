@@ -1,5 +1,6 @@
 import { Coverage } from 'fhir/r4b';
-import { createClinicalOystehrClient, fetchAllPages } from '../packages/zambdas/src/shared';
+import { fetchAllPages } from '../packages/zambdas/src/shared/fhir';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared/helpers';
 
 /**
  * How to use: npm run find-deleted-referenced-payors -- --project-id=some_project_id  --token=some_token

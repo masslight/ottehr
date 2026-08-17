@@ -2,33 +2,35 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Location, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
 import {
-  BOOKING_CONFIG,
-  CanonicalUrl,
-  CreateSlotParams,
-  FHIR_RESOURCE_NOT_FOUND,
-  getGroupAllLocations,
-  getServiceCategoryCodeSchema,
-  getTimezone,
-  INVALID_INPUT_ERROR,
-  isBookingConfigServiceCategoryCode,
-  isPractitionerRoleMemberOfGroup,
-  isValidUUID,
   makeBookingOriginExtensionEntry,
   makeQuestionnaireCanonicalExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  Secrets,
   SERVICE_CATEGORY_SYSTEM,
-  ServiceCategoryCode,
-  ServiceMode,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { getGroupAllLocations, isPractitionerRoleMemberOfGroup } from 'utils/lib/fhir/healthcareService';
+import { BOOKING_CONFIG, getServiceCategoryCodeSchema, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { Secrets } from 'utils/lib/secrets';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'create-slot';
 
@@ -227,6 +229,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     questionnaireCanonical,
     atLocationId,
     bookedViaGroupId,
+    secrets,
   } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -461,9 +464,45 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   if (originalBookingUrl) {
     extension.push(makeBookingOriginExtensionEntry(originalBookingUrl));
   }
-  if (questionnaireCanonical) {
-    extension.push(makeQuestionnaireCanonicalExtensionEntry(questionnaireCanonical));
+
+  // handle assigning correct questionnaireCanonical
+  // we will check if any flows have been created for this service category x visit modality
+  // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
+  // UNLESS this is running in for e2e tests; in that case the questionnaireCanonical param value always wins
+  // this extension is the source of truth for what the booking questionnaire response should point to
+  let flowCanonical: CanonicalUrl | undefined;
+
+  // this should be an interim solution while booking questionnaires are still ottehr-managed,
+  // allowing us to continue to definitively test ottehr managed services x ottehr managed questionnaires
+  const runningIne2e = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
+  const serviceLivesInBookingConfig = isBookingConfigServiceCategoryCode(effectiveServiceCategoryCode);
+  const byPassPracticeManagedPaperworkFlow = runningIne2e && serviceLivesInBookingConfig;
+
+  if (byPassPracticeManagedPaperworkFlow) {
+    console.log(
+      'byPassPracticeManagedPaperworkFlow is true, we will not check for a flow questionnaire and are treating questionnaireCanonical as authority'
+    );
+  } else {
+    flowCanonical = await resolveFlowCanonicalForServiceMode({
+      serviceCategoryCode: effectiveServiceCategoryCode,
+      serviceMode: serviceModality,
+      oystehr,
+      secrets,
+    });
+
+    console.log(
+      `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
+        flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
+      }`
+    );
   }
+
+  const winningQuestionnaireCanonical = flowCanonical ?? questionnaireCanonical;
+
+  if (winningQuestionnaireCanonical) {
+    extension.push(makeQuestionnaireCanonicalExtensionEntry(winningQuestionnaireCanonical));
+  }
+
   if (shouldStampAtLocation && atLocationId) {
     extension.push(makeSlotAtLocationExtensionEntry(atLocationId));
   }

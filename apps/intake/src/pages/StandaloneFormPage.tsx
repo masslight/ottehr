@@ -3,22 +3,20 @@ import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { PageContainer } from 'src/components/CustomContainer';
 import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
-import { PagedQuestionnaire, PaperworkContext, PaperworkProvider } from 'ui-components';
+import { PaperworkContext, PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
+import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { getSelectors } from 'utils/lib/store';
 import {
-  APIError,
-  convertQRItemToLinkIdMap,
-  convertQuestionnaireItemToQRLinkIdMap,
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
-  getSelectors,
   IntakeQuestionnaireItem,
-  isApiError,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
   QuestionnaireFormFields,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import { APIError, isApiError, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
 import api from '../api/ottehrApi';
-import { PageContainer } from '../components';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { usePaperworkStore } from './PaperworkPage';
 

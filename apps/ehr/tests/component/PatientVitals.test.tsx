@@ -111,12 +111,12 @@ vi.mock('src/features/visits/shared/components/vitals/last-menstrual-period/Vita
 // IMPORTS (after mocks)
 // ============================================================================
 
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
-  VitalFieldNames,
   VitalsHeartbeatObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
   VitalsTemperatureObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PatientVitals } from '../../src/features/visits/in-person/pages/PatientVitals';
 import { useVitalsManagement } from '../../src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
 import { useVitalsDraftStore } from '../../src/state/draft-data.store';

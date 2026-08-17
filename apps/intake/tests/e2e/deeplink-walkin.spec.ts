@@ -6,7 +6,8 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { BOOKING_CONFIG, serviceCategorySupportsContext } from 'utils';
+import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { TestLocationManager } from '../utils/booking/TestLocationManager';
 
 // How many BOOKING_CONFIG entries qualify as walk-in capable under the

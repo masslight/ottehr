@@ -1,0 +1,97 @@
+# Ejection coverage — safety gate for the self-service-scheduling TF ejection.
+#
+# Fails the PR if any oystehr_fhir_resource would leave Terraform management without a
+# `removed { destroy = false }` block backed by a config/runtime-seed entry — i.e. would be
+# DESTROYED on apply rather than ejected. Computed against the PR's target branch.
+# Context: docs/self-service-scheduling.md (Part I → Safeguards) · Logic: deploy/check-ejection-coverage.ts
+#
+# For this to actually guard merges, make it a REQUIRED status check and enable
+# "Require branches to be up to date before merging" on the protected branches — otherwise
+# a stale PR can merge against a target that drifted after this ran (see the spec's
+# Drift/TOCTOU section).
+
+name: Ejection coverage
+
+on:
+  pull_request:
+    # Only runs when the generated resource set could change.
+    paths:
+      - 'config/**'
+      - 'deploy/**'
+
+env:
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # ottehr-secrets: holds the gitignored config/.env/*.json
+
+jobs:
+  ejection-coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Install SSH client
+        uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+
+      - name: Checkout (PR head)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the base ref available for the second generate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc' # falls back to repo convention; pin here if no .nvmrc
+          cache: npm
+
+      # config/.env/<env>.json are gitignored secrets that live in the ottehr-secrets
+      # repo, so a plain checkout doesn't have them. Fetch and populate them the same
+      # way every other secrets-dependent workflow does (resolve branch → checkout → populate).
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
+          path: 'secrets'
+
+      - name: Install deps (head)
+        run: npm ci
+
+      # Copies secrets/ottehr/config/.env/local.json → config/.env/local.json.
+      - name: Populate secrets
+        uses: ./.github/actions/populate-secrets
+        with:
+          environment: local
+
+      # Resource KEYS are env-invariant (values come from #{var/…}), so the env only
+      # affects substituted values, not the resource set the ejection check diffs —
+      # `local` is sufficient and needs no AWS. Use the same env on both refs.
+      - name: Generate resources — PR head
+        working-directory: deploy
+        run: ENV=local npm run generate
+
+      # The target branch's managed set: generate in a worktree of the PR base commit.
+      - name: Generate resources — target branch
+        run: |
+          git worktree add ../base-ref "${{ github.event.pull_request.base.sha }}"
+          npm --prefix ../base-ref ci
+          # Reuse the populated var file on the base ref (keys are env-invariant).
+          cp config/.env/local.json ../base-ref/config/.env/local.json
+          ( cd ../base-ref/deploy && ENV=local npm run generate )
+
+      - name: Check ejection coverage
+        working-directory: deploy
+        run: >-
+          npx tsx check-ejection-coverage.ts
+          --base-dir ../base-ref/deploy/oystehr
+          --head-dir ./oystehr
+          --seed-dir ../config/runtime-seed

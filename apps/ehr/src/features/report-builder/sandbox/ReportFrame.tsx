@@ -1,6 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 import React from 'react';
-import { AdHocRow, LlmDatasetSchema } from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { useSandbox } from '../hooks/useSandbox';
 
 interface ReportFrameProps {

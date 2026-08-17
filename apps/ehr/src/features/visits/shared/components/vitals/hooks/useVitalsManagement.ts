@@ -5,15 +5,13 @@ import { useParams } from 'react-router-dom';
 import { uploadDotVisionDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useVitalsDraftStore } from 'src/state/draft-data.store';
+import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
+import { areVitalsSameDay, calculateBMI } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
-  areVitalsSameDay,
-  calculateBMI,
-  fahrenheitToCelsius,
-  getAbnormalVitals,
-  GetVitalsResponseData,
-  HeightMeasurement,
-  LBS_IN_KG,
-  VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
@@ -26,7 +24,8 @@ import {
   VitalsVisionObservationDTO,
   VitalsVisionOption,
   VitalsWeightObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { useBloodPressureLocalState } from '../blood-pressure/useBloodPressureLocalState';
 import { useHeartbeatLocalState } from '../heartbeat/useHeartbeatLocalState';
 import { useHeightLocalState } from '../heights/useHeightLocalState';

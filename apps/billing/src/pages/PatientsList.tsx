@@ -3,10 +3,12 @@ import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getApiError, SearchBillingPatientsInput } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { SearchBillingPatientsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { searchBillingPatients } from '../api/api';
 import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DateInput } from '../components/DateInput';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -159,17 +161,15 @@ export default function PatientsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          size="small"
-          type="date"
+        <DateInput
           label="Date of Birth"
           value={searchDob}
-          onChange={(e) => {
-            setSearchDob(e.target.value);
-            applyFilters({ dob: e.target.value });
+          onChange={(value) => {
+            setSearchDob(value);
+            applyFilters({
+              dob: value,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
         <TextField

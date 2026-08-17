@@ -1,8 +1,9 @@
 import { Box, Divider, Typography } from '@mui/material';
 import { HumanName, Patient } from 'fhir/r4b';
 import { FC, useState } from 'react';
-import { Row, Section } from 'src/components/layout';
-import { PATIENT_RECORD_CONFIG } from 'utils';
+import { Row } from 'src/components/layout/Row';
+import { Section } from 'src/components/layout/Section';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import PatientRecordFormField from './PatientRecordFormField';
 import { usePatientRecordFormSection } from './PatientRecordFormSection';
 import { SectionSaveButton } from './SectionSaveButton';

@@ -9,7 +9,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { SuggestionKeyDownProps, SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
 import React, { forwardRef, ReactElement, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import { convertMarkdownLinksToHtml, replaceTemplateVariablesHandlebars } from 'utils';
+import { convertMarkdownLinksToHtml, replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 
 // ---------------------------------------------------------------------------
 // Token IDs (bare, without braces) — used as Mention node attrs.id

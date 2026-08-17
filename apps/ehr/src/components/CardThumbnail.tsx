@@ -4,9 +4,9 @@ import { Box, ButtonBase, IconButton, Tooltip } from '@mui/material';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import React, { ReactNode, useState } from 'react';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { SavedCardItem } from 'src/hooks/useVisitCards';
-import { UpdateVisitFilesInput } from 'utils';
-import { CustomDialog } from './dialogs';
+import { UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import FloatingCardPreview, { CardPreviewFace } from './FloatingCardPreview';
 import ImageUploader from './ImageUploader';
 
@@ -15,7 +15,7 @@ const ASPECT_RATIO = 1.57;
 /** Width of the clean inline thumbnail image. */
 const THUMBNAIL_WIDTH = 100;
 /** Width of the compact Upload/Scan affordance (needs room for the two buttons). */
-const UPLOADER_WIDTH = 140;
+const UPLOADER_WIDTH = 180;
 
 export interface CardThumbnailProps {
   /** The saved card images (front/back) for one card (a coverage's insurance card or the photo ID). */
@@ -97,8 +97,8 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
     return (
       <ImageUploader
         fileName={fileType}
+        itemLabel={title}
         appointmentId={appointmentID}
-        aspectRatio={ASPECT_RATIO}
         disabled={imagesLoading}
         isUploading={uploadingFileType === fileType}
         onScanClick={() => handleOpenScanner(fileType)}
@@ -221,6 +221,10 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
           description="Are you sure you want to remove this image?"
           closeButtonText="Cancel"
           confirmText="Remove"
+          // The floating card preview sits above the normal modal layer (see FloatingCardPreview's
+          // zIndex comment) so it doesn't get closed by other dialogs; this confirmation is opened
+          // FROM that preview, so it needs to sit one layer above it in turn, or it renders hidden behind it.
+          sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
           confirmLoading={confirmDeleteFace !== null && deletingFileId === faceDocRefId(confirmDeleteFace)}
           handleConfirm={async () => {
             if (confirmDeleteFace === null) return;

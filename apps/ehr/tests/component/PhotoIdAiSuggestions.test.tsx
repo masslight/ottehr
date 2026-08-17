@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FC, type InputHTMLAttributes, ReactNode } from 'react';
 import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
-import type { PhotoIdExtractionFields } from 'utils';
+import type { PhotoIdExtractionFields } from 'utils/lib/types/data/documents';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
@@ -62,6 +62,7 @@ const makePhotoIdFields = (overrides: Partial<PhotoIdExtractionFields> = {}): Ph
   dateOfBirth: null,
   sex: null,
   addressLine1: null,
+  addressLine2: null,
   addressCity: null,
   addressState: null,
   addressZip: null,

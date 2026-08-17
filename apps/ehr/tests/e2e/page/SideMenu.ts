@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { InHouseLabsPage } from 'tests/e2e/page/lab/in-house/InHouseLabsPage';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
 import { expectHpiAndTemplatesPage, HpiAndTemplatesPage } from './HpiAndTemplatesPage';
@@ -10,7 +11,6 @@ import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-p
 import { expectMedicationsPage, MedicationsPage } from './in-person/MedicationsPage';
 import { expectReviewOfSystemsPage, ReviewOfSystemsPage } from './in-person/ReviewOfSystemsPage';
 import { expectScreeningPage, ScreeningPage } from './in-person/ScreeningPage';
-import { InHouseLabsPage } from './lab';
 import { ExternalLabsPage } from './lab/external/ExternalLabsPage';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
 import { expectNursingOrdersPage, NursingOrdersPage } from './NursingOrdersPage';

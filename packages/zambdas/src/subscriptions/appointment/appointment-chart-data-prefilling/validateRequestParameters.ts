@@ -1,5 +1,6 @@
 import { Appointment } from 'fhir/r4b';
-import { safeJsonParse, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 import { AppointmentSubscriptionInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): AppointmentSubscriptionInput {

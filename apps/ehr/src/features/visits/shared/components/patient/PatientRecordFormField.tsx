@@ -3,21 +3,24 @@ import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField } from 'src/components/form';
-import { Row } from 'src/components/layout';
+import { BasicDatePicker } from 'src/components/form/DatePicker';
+import { FormGroupPharmacyCollection } from 'src/components/form/FormGroupPharmacyCollection';
+import { FormSelect } from 'src/components/form/FormSelect';
+import { FormTextField } from 'src/components/form/FormTextField';
+import { Row } from 'src/components/layout/Row';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { InputMask } from 'ui-components';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { isRemovableField } from 'utils/lib/helpers/paperwork/paperwork';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { QuestionnaireItemGroupType } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { dedupeObjectsByKey } from 'utils/lib/utils/objects';
+import { AnswerOptionSource } from '../../../../../../../../packages/config-types/config/fhir';
 import {
-  AnswerOptionSource,
-  dedupeObjectsByKey,
-  evaluateFieldTriggers,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
-  isRemovableField,
-  PATIENT_RECORD_CONFIG,
-  QuestionnaireItemGroupType,
-} from 'utils';
+} from '../../../../../../../../packages/config-types/config/form-fields';
 
 // Flat map of linkId → field config, built once at module load for source-field lookup.
 const allFieldConfigs = new Map<string, FormFieldsInputItem>();

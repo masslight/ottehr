@@ -1,12 +1,12 @@
 import { Box, TextField } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
   FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG,
   FOLDER_DISPLAY_NAME_MAX_LENGTH,
   FOLDER_DISPLAY_NAME_REGEX,
-} from 'utils';
+} from 'utils/lib/types/data/custom-folder.types';
 
 type FolderNameDialogProps = {
   open: boolean;

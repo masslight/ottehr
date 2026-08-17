@@ -1,78 +1,43 @@
 import Oystehr from '@oystehr/sdk';
+import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   AddClaimNoteInputSchema,
-  apiErrorToThrow,
-  BillingChargeItemDefinition,
-  BillingCodeOption,
-  BillingProviderOption,
-  BillingRulesResponse,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
-  chooseJson,
-  ClaimDetailResponse,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
-  CreatedClaimResponse,
-  CreatedResourceResponse,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
-  DeletedResponse,
   DeleteServiceFacilityInputSchema,
-  EraDetailResponse,
   ExportClaimX12InputSchema,
-  ExportClaimX12Response,
   GetBillingPatientBalanceInputSchema,
-  GetBillingPatientBalanceResponse,
   GetBillingProviderInputSchema,
-  GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
-  GetClaimHistoryResponse,
   GetEraDetailInputSchema,
   GetPatientCoveragesInputSchema,
-  GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
-  OkResponse,
-  PatientDetailResponse,
   RecordBillingManualPaymentInputSchema,
-  RecordBillingManualPaymentResponse,
-  RunBillingRulesEngineInputSchema,
-  RunBillingRulesEngineResponse,
-  SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
-  SavedResourceResponse,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
-  SearchBillingClaimsResponse,
-  SearchBillingErasResponse,
   SearchBillingLocationsInputSchema,
-  SearchBillingLocationsResponse,
   SearchBillingPatientARClaimsInputSchema,
-  SearchBillingPatientARClaimsResponse,
   SearchBillingPatientsInputSchema,
-  SearchBillingPatientsResponse,
   SearchBillingPayersInputSchema,
-  SearchBillingPayersResponse,
   SearchBillingProvidersInputSchema,
-  SearchBillingProvidersResponse,
   SearchBillingServicesInputSchema,
-  SearchBillingServicesResponse,
-  SearchBillingTagsResponse,
   SearchChargeItemDefinitionsInputSchema,
-  SearchChargeItemDefinitionsResponse,
-  SearchCodeResponse,
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
-  SearchServiceFacilitiesResponse,
-  ServiceFacilityItem,
   TagBillingClaimInputSchema,
   UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
@@ -80,7 +45,45 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingChargeItemDefinition,
+  BillingCodeOption,
+  BillingProviderOption,
+  ClaimDetailResponse,
+  CreatedClaimResponse,
+  CreatedResourceResponse,
+  DeletedResponse,
+  EraDetailResponse,
+  ExportClaimX12Response,
+  GetBillingPatientBalanceResponse,
+  GetPatientCoveragesResponse,
+  OkResponse,
+  PatientDetailResponse,
+  RecordBillingManualPaymentResponse,
+  SavedResourceResponse,
+  SearchBillingClaimsResponse,
+  SearchBillingErasResponse,
+  SearchBillingLocationsResponse,
+  SearchBillingPatientARClaimsResponse,
+  SearchBillingPatientsResponse,
+  SearchBillingPayersResponse,
+  SearchBillingProvidersResponse,
+  SearchBillingServicesResponse,
+  SearchBillingTagsResponse,
+  SearchChargeItemDefinitionsResponse,
+  SearchCodeResponse,
+  SearchServiceFacilitiesResponse,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
+import {
+  BillingRulesResponse,
+  GetBillingRulesInputSchema,
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+  SaveBillingRulesInputSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import z from 'zod';
 
 async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?: Record<string, unknown>): Promise<T> {
@@ -311,6 +314,28 @@ export const searchBillingDiagnosisCodes = async (
   }
   codes.sort((a, b) => a.code.localeCompare(b.code));
   return { codes };
+};
+
+// Display text for exact procedure codes (the ERA drill-in shows "I&D of Abscess (10060)").
+// Submitted claims store bare codes, so the terminology service is the only description source;
+// codes it doesn't know are omitted and the caller falls back to the bare code.
+export const lookupProcedureDescriptions = async (
+  oystehr: Oystehr,
+  codes: string[]
+): Promise<Record<string, string>> => {
+  const descriptions: Record<string, string> = {};
+  await Promise.all(
+    [...new Set(codes.filter(Boolean))].map(async (code) => {
+      try {
+        const { codes: found } = await searchBillingProcedureCodes(oystehr, { query: code });
+        const display = found.find((option) => option.code === code)?.display;
+        if (display) descriptions[code] = display;
+      } catch {
+        // unknown code — bare code is shown instead
+      }
+    })
+  );
+  return descriptions;
 };
 
 // --- Tags ---

@@ -59,3 +59,29 @@ moved {
   from = terraform_data.seed_em_codes
   to   = module.seed.terraform_data.seed_em_codes
 }
+
+# One-shot seed of the default scheduling resources (Locations + their Schedules,
+# and the default group-scheduling graph). These were moved out of Terraform to be
+# self-service (see removed-locations.tf.json, generated from config/runtime-seed/),
+# which removed the ability to create them on a fresh environment. This bootstraps
+# them once from config/runtime-seed/. Terraform tracks only this bootstrap node,
+# never the individual resources — so admins can create/edit/deactivate them via the
+# self-service UI without Terraform reverting the change.
+#
+# `triggers_replace` is a constant, so on a given env the provisioner runs once on
+# create and never again. The seeder is idempotent (it skips any file whose resources
+# already exist), so a provisioner re-run — and migrating an environment that already
+# had these resources via Terraform — is a harmless no-op. The depends_on only orders
+# this after the FHIR API/provider is known-ready (via the seed module, whose global-
+# template bootstrap is the readiness gate); it is not a data dependency. The seed
+# resources live in module.seed, so we depend on the whole module — the root can't
+# reference a resource nested inside a child module.
+resource "terraform_data" "seed_runtime_resources" {
+  depends_on       = [module.seed]
+  triggers_replace = "runtime-resources-v1"
+
+  provisioner "local-exec" {
+    working_dir = "${path.root}/../packages/zambdas"
+    command     = "npm run seed-runtime-resources -- ${var.environment}"
+  }
+}

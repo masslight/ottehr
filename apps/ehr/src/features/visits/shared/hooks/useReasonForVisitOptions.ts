@@ -1,14 +1,11 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { HealthcareService } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  BOOKING_CONFIG,
-  getAllFhirSearchPages,
-  getReasonForVisitOptionsForServiceCategory,
-  parseReasonsForVisit,
-  SERVICE_CATEGORY_SYSTEM,
-  SERVICE_CATEGORY_TAG,
-} from 'utils';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { SERVICE_CATEGORY_SYSTEM, SERVICE_CATEGORY_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { parseReasonsForVisit } from 'utils/lib/fhir/healthcareService';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 
 const QUERY_STALE_TIME = 5 * 60 * 1000;
 

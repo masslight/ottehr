@@ -1,14 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Identifier, Patient, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
-import {
-  getEmailForIndividual,
-  getFullName,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 
 export interface StripeEnvironmentConfig {
@@ -56,6 +51,27 @@ export const makeBusinessIdentifierForStripePayment = (stripePaymentId: string):
   };
 };
 
+export const STRIPE_METADATA_KEYS = {
+  patientId: 'oystehr_patient_id',
+  encounterId: 'oystehr_encounter_id',
+  legacyEncounterId: 'encounterId',
+} as const;
+
+export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
+  metadata?.[STRIPE_METADATA_KEYS.encounterId] || metadata?.[STRIPE_METADATA_KEYS.legacyEncounterId] || undefined;
+
+export const patientIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
+  metadata?.[STRIPE_METADATA_KEYS.patientId] || undefined;
+
+export const stripeEncounterMetadata = (params: { encounterId: string; patientId: string }): Stripe.MetadataParam => ({
+  [STRIPE_METADATA_KEYS.patientId]: params.patientId,
+  [STRIPE_METADATA_KEYS.encounterId]: params.encounterId,
+});
+
+export const stripeEncounterMetadataQuery = (encounterId: string): string =>
+  `metadata['${STRIPE_METADATA_KEYS.legacyEncounterId}']:"${encounterId}" OR ` +
+  `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`;
+
 interface EnsureStripeCustomerIdParams {
   guarantorResource: Patient | RelatedPerson | undefined;
   account: Account;
@@ -88,14 +104,25 @@ export const ensureStripeCustomerId = async (
     let customer: Stripe.Customer;
     try {
       customer = await stripeClient.customers.create(
-        { email, name, metadata: { oystehr_patient_id: patientId } },
+        {
+          email,
+          name,
+          metadata: {
+            [STRIPE_METADATA_KEYS.patientId]: patientId,
+          },
+        },
         { stripeAccount }
       );
     } catch (stripeError: any) {
       if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
         console.warn(`Stripe rejected email for patient ${patientId}, creating customer without email`);
         customer = await stripeClient.customers.create(
-          { name, metadata: { oystehr_patient_id: patientId } },
+          {
+            name,
+            metadata: {
+              [STRIPE_METADATA_KEYS.patientId]: patientId,
+            },
+          },
           { stripeAccount }
         );
         createdWithoutEmail = true;

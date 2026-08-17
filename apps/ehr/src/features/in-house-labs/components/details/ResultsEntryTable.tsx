@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import { DataEntryComponent } from 'utils';
+import { DataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { ResultEntryTableRow } from './ResultsEntryTableRow';
 
 interface ResultEntryTableProps {

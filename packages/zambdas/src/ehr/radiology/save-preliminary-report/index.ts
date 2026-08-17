@@ -9,21 +9,22 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DiagnosticReport, Reference } from 'fhir/r5';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { getExtension } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
-  FHIR_EXTENSION,
-  getExtension,
-  getFullestAvailableName,
-  getSecret,
-  RADIOLOGY_ERROR,
-  SaveRadiologyReportZambdaOutput,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { SaveRadiologyReportZambdaOutput } from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateICD10Codes } from '../create-order/validation';
 import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';

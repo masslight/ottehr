@@ -4,19 +4,14 @@ import { Operation } from 'fast-json-patch';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
-import {
-  BRANDING_CONFIG,
-  getFullestAvailableName,
-  getNPIIdentifier,
-  getPatchOperationForNewMetaTag,
-  getPatchOperationToUpdateExtension,
-  initialsFromName,
-  RoleType,
-  SyncUserResponse,
-  User,
-  USER_TIMEZONE_EXTENSION_URL,
-} from 'utils';
+import { initialsFromName } from 'utils/lib/fhir/chat';
+import { getFullestAvailableName, getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getPatchOperationForNewMetaTag, getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { SyncUserResponse } from 'utils/lib/types/api/sync-user/sync-user.types';
+import { RoleType, User } from 'utils/lib/types/api/user.types';
+import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
 import { useApiClients } from './useAppClients';

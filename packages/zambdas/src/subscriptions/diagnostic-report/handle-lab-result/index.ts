@@ -1,26 +1,26 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
-import {
-  getCoding,
-  getFullestAvailableName,
-  getTestNameOrCodeFromDr,
-  LAB_DR_TYPE_TAG,
-  LAB_ORDER_TASK,
-  LabType,
-  NonNormalResult,
-  Secrets,
-  TaskAlertCode,
-} from 'utils';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getTestNameOrCodeFromDr } from 'utils/lib/helpers/labs/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { NonNormalResult } from 'utils/lib/types/api/lab';
+import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { TaskAlertCode } from 'utils/lib/types/data/tasks/types';
 import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
+import { wrapHandler } from '../../../shared/sentry';
 import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
+import { ZambdaInput } from '../../../shared/types/common';
 import { fetchRelatedResources, getCodeForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

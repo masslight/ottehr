@@ -54,14 +54,17 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
-    DIAGNOSIS_MAKE_PRIMARY_BUTTON: 'Make primary',
-  };
-});
+// These come from their declaring modules now rather than the 'utils' barrel, so each one needs
+// its own mock — a barrel mock no longer intercepts anything.
+vi.mock('utils/lib/types/errors', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
+}));
+
+vi.mock('utils/lib/types/data/appointments/appointments.constants', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  DIAGNOSIS_MAKE_PRIMARY_BUTTON: 'Make primary',
+}));
 
 vi.mock('src/constants/data-test-ids', () => ({
   dataTestIds: {

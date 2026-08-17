@@ -1,0 +1,8 @@
+{
+  "name": "Knee X-Ray, 3 Views",
+  "cptCode": "73562",
+  "cptDisplay": "Radiologic examination, knee; 3 views",
+  "studyName": "X-Ray Knee 3 Views (AP, Lateral, Sunrise)",
+  "clinicalHistory": "Knee pain or effusion after trauma — evaluate for fracture, patellar injury",
+  "stat": false
+}

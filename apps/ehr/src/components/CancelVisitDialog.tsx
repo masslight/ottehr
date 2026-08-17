@@ -17,7 +17,7 @@ import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cancelTelemedAppointment } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { VALUE_SETS } from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 
 interface CancelVisitDialogProps {
   onClose: () => void;

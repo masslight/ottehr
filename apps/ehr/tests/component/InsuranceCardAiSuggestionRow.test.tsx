@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { Reference } from 'fhir/r4b';
 import { FC, type InputHTMLAttributes, ReactNode } from 'react';
 import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
-import type { InsuranceCardExtractionFields } from 'utils';
+import type { InsuranceCardExtractionFields } from 'utils/lib/types/data/documents';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
@@ -83,7 +83,9 @@ const makeExtractionFields = (
   overrides: Partial<InsuranceCardExtractionFields> = {}
 ): InsuranceCardExtractionFields => ({
   payer: null,
-  memberName: null,
+  memberFirstName: null,
+  memberMiddleName: null,
+  memberLastName: null,
   memberId: null,
   groupNumber: null,
   payerId: null,

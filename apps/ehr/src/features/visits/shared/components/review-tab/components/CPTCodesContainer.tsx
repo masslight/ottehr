@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { makeCptCodeDisplay } from 'utils';
+import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const CPTCodesContainer: FC = () => {

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { ChangeInPersonVisitStatusInput } from 'utils';
+import { ChangeInPersonVisitStatusInput } from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
 import { changeInPersonVisitStatus } from '../api/api';
 
 export const handleChangeInPersonVisitStatus = async (

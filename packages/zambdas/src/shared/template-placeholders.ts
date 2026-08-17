@@ -2,19 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  BRANDING_CONFIG,
-  buildInvoicePlaceholders,
-  checkForStripeCustomerDeletedError,
-  getFullName,
-  getSecret,
-  InvoicePlaceholderInput,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  replaceTemplateVariablesHandlebars,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { getStripeClient } from './stripeIntegration';
+import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
+import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils/lib/helpers/rcm/invoice-config';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { getStripeClient, STRIPE_METADATA_KEYS } from './stripeIntegration';
 
 // ---------------------------------------------------------------------------
 // Shared template placeholder resolution
@@ -158,9 +153,9 @@ export async function findStripeInvoiceByEncounterId(
 ): Promise<Stripe.Invoice | undefined> {
   try {
     const invoices = await stripe.invoices.search({
-      query: `metadata['oystehr_encounter_id']:"${encounterId}"`,
+      query: `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`,
     });
-    return invoices.data.find((invoice) => invoice.metadata?.oystehr_encounter_id === encounterId);
+    return invoices.data.find((invoice) => invoice.metadata?.[STRIPE_METADATA_KEYS.encounterId] === encounterId);
   } catch (error) {
     console.error('Error fetching payment intents or payment methods for encounter:', error);
     throw checkForStripeCustomerDeletedError(error);

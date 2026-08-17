@@ -8,7 +8,7 @@ import {
   getLastName,
   getPhoneNumberForIndividual,
   getSMSNumberForIndividual,
-} from 'utils';
+} from 'utils/lib/fhir/patient';
 
 const INDENT = '   ';
 

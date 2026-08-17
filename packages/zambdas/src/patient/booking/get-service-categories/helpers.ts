@@ -1,5 +1,7 @@
 import { HealthcareService } from 'fhir/r4b';
-import { SERVICE_CATEGORIES_AVAILABLE, SERVICE_CATEGORY_SYSTEM, ServiceMode, ServiceVisitType } from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { ServiceCategory, toRecord } from '../../../ehr/admin-service-categories/helpers';
 
 /**

@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CustomDialog } from 'src/components/dialogs';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import {
@@ -17,7 +17,8 @@ import {
   getImmunizationOrderEditUrl,
   getImmunizationVaccineDetailsUrl,
 } from 'src/features/visits/in-person/routing/helpers';
-import { ImmunizationOrder, searchRouteByCode } from 'utils';
+import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 
 interface Props {
   order: ImmunizationOrder;

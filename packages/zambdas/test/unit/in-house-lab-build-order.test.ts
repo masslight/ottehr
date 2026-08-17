@@ -1,5 +1,5 @@
 import { ActivityDefinition, Coverage, Encounter, Location, Patient, Provenance, ServiceRequest, Task } from 'fhir/r4b';
-import { DiagnosisDTO } from 'utils';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, test } from 'vitest';
 import { CreateInHouseLabResources, makeRequestsForCreateInHouseLabs } from '../../src/shared/in-house-lab/build-order';
 import activityDefinitions from '../data/in-house-lab-activity-definitions.json';

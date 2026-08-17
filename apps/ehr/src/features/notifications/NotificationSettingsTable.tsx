@@ -12,14 +12,14 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useMemo } from 'react';
+import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.types';
 import {
   NotificationRowPref,
-  ProviderNotificationMethod,
   ProviderNotificationPreferencesV2,
   UI_TASK_CATEGORY_IDS,
   UI_TASK_CATEGORY_LABELS,
   UiTaskCategoryId,
-} from 'utils';
+} from 'utils/lib/types/api/provider-notifications';
 
 const ALL_LOCATIONS_OPTION = '__all__';
 

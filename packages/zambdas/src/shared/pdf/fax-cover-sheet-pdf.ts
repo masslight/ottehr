@@ -1,4 +1,4 @@
-import { HIPAA_FAX_CONFIDENTIALITY_STATEMENT } from 'utils';
+import { HIPAA_FAX_CONFIDENTIALITY_STATEMENT } from 'utils/lib/types/api/fax.types';
 import { loadPdfAssets, StyleFactory } from './pdf-common';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, rgbNormalized } from './pdf-utils';

@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { GetRadiologyOrderListZambdaOrder } from 'utils';
+import { GetRadiologyOrderListZambdaOrder } from 'utils/lib/types/api/radiology';
 import {
   FollowUpAppointmentLookup,
   getRadiologyExternalOrderDetailsUrl,

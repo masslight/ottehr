@@ -1,19 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
+import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { docRefIsOttehrGeneratedResultAndCurrent } from 'utils/lib/helpers/labs/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  DISCHARGE_SUMMARY_CODE,
   FAX_DOCUMENT_LABELS,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
   FaxDocumentAvailability,
   FaxDocumentKind,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  ORDER_TYPE_CODE_SYSTEM,
+} from 'utils/lib/types/api/fax.types';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
-  Secrets,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { searchRadiologyResultDocRefs } from '../../ehr/radiology/shared/result-doc-refs';
 import { assembleProgressNoteInput } from '../pdf/assemble-progress-note-input';
 import { createProgressNotePdfBytes } from '../pdf/progress-note-pdf';
@@ -124,8 +127,7 @@ const findVisitDocuments = async (
   return {
     'progress-note': progressNote.sort(byDateDescending),
     'discharge-summary': dischargeSummary.sort(byDateDescending),
-    // docStatus goes preliminary -> final on review; only reviewed results may leave the building.
-    'lab-results': labResults.filter((docRef) => docRef.docStatus === 'final').sort(byDateDescending),
+    'lab-results': labResults.filter(docRefIsOttehrGeneratedResultAndCurrent).sort(byDateDescending),
     'radiology-results': radiologyResults.sort(byDateDescending),
     'patient-education': patientEducation.sort(byDateDescending),
   };
@@ -183,9 +185,10 @@ export async function buildProgressNoteBytes(args: {
   token: string;
   secrets: Secrets | null;
   visitResources: FullAppointmentResourcePackage;
+  signed: boolean;
 }): Promise<Uint8Array> {
-  const { oystehr, token, secrets, visitResources } = args;
-  const input = await assembleProgressNoteInput(oystehr, token, visitResources);
+  const { oystehr, token, secrets, visitResources, signed } = args;
+  const input = await assembleProgressNoteInput(oystehr, token, visitResources, { signed });
   return createProgressNotePdfBytes(input, secrets, token);
 }
 
@@ -234,16 +237,19 @@ export async function collectFaxParts(args: {
 
     if (kind === 'progress-note') {
       const existing = partsFromDocRefs(kind, documents['progress-note']);
-      if (existing.length > 0) {
+      const noteIsSigned = existing.length > 0;
+
+      if (noteIsSigned) {
         parts.push(existing[0]);
       } else {
         console.log(`No visit note DocumentReference for appointment ${appointmentId}; regenerating for the packet`);
         parts.push({
           kind,
           title: FAX_DOCUMENT_LABELS[kind],
-          bytes: await buildProgressNoteBytes({ oystehr, token, secrets, visitResources }),
+          bytes: await buildProgressNoteBytes({ oystehr, token, secrets, visitResources, signed: noteIsSigned }),
         });
       }
+
       continue;
     }
 

@@ -1,10 +1,11 @@
 import { User } from '@oystehr/sdk';
-import { Secrets, SecretsKeys, userMe } from 'utils';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMyPractitionerId } from '../src/shared';
+import { getMyPractitionerId } from '../src/shared/practitioners';
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/auth/user-me.helper')>();
   return {
     ...actual,
     userMe: vi.fn(),

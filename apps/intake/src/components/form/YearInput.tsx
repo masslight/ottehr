@@ -1,4 +1,4 @@
-import { SelectInput } from './index';
+import SelectInput from 'src/components/form/SelectInput';
 
 interface DateInputFieldProps {
   name: string;

@@ -1,9 +1,12 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { practiceManagedQuestionnaireToFhir } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { patchQuestionnaireVersion } from '../helpers';
+import { practiceManagedQuestionnaireToFhir } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { handleFormInFlows, patchQuestionnaireVersion, validateFormIsExcludedFromFlows } from '../helpers';
 import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -28,6 +31,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (updateType === 'update-status') {
     const { questionnaireId, newStatus } = data;
     questionnaireIdToReturn = questionnaireId;
+
+    if (newStatus === 'retired') await validateFormIsExcludedFromFlows(questionnaireId, oystehr);
 
     console.log(`patching questionnaire status to ${newStatus} for Questionnaire/${questionnaireId}`);
     await updateQuestionnaireStatus(questionnaireId, newStatus, oystehr);
@@ -56,14 +61,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       operations: [{ op: 'replace', path: '/status', value: 'retired' }],
     };
 
+    console.log('checking if form is contained in any flows');
+    const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
+      previousVersion,
+      nextVersion,
+      url: rest.url,
+      oystehr,
+    });
+    console.log(
+      `Flows containing the target form that will be updated: ${
+        flowRequests.length > 0 ? `${flowRequests.map((request) => request.url)}` : 'none'
+      }`
+    );
+
     console.log(`Creating version ${nextVersion} of "${rest.url}", "superseding" Questionnaire/${previousId}`);
     const res = (
       await oystehr.fhir.transaction<Questionnaire>({
-        requests: [supersedeQPatchRequest, updatedQPostRequest],
+        requests: [supersedeQPatchRequest, updatedQPostRequest, ...flowRequests],
       })
     ).unbundle();
 
-    questionnaireIdToReturn = res.find((resource) => resource.version === nextVersion)?.id;
+    questionnaireIdToReturn = res.find(
+      (resource): resource is Questionnaire =>
+        resource.resourceType === 'Questionnaire' && resource.version === nextVersion
+    )?.id;
   }
 
   return {

@@ -11,27 +11,25 @@ import {
   Patient,
   Practitioner,
 } from 'fhir/r4b';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
-  createCodeableConcept,
   ExamObservationDTO,
-  getPatchBinary,
-  getProviderNameWithProfession,
   PATIENT_VITALS_META_SYSTEM,
-  SCHOOL_WORK_NOTE,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
-  checkOrCreateM2MClientToken,
   createAccidentCondition,
-  createClinicalOystehrClient,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
-  getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -48,19 +46,21 @@ import {
   makeSchoolWorkDR,
   makeServiceRequestResource,
   prepareAddendumNotes,
-  saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
   updateEncounterReasonForVisit,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createExamObservationComments,
   getAllExamFieldsMetadata,
@@ -346,11 +346,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
         'Computed tomography (procedure)'
       );
-      const existedSubFollowUpId = filterServiceRequestsFromFhir(
-        allResources,
-        subFollowUpMetaTag,
-        followUpPerformer?.coding?.[0]
-      )[0]?.id;
+      // Match the existing ServiceRequest by resolved follow-up type (coding code OR text) —
+      // filtering by coding alone matches nothing for the coding-less 'other'/'lurie-ct'
+      // performer types and would grab the first sub-follow-up of any type.
+      const existedSubFollowUpId = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag).find(
+        (subFollowUp) => followUpTypeFromPerformerType(subFollowUp.performerType) === followUp.type
+      )?.id;
 
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(

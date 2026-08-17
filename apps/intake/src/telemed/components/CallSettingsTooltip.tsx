@@ -4,11 +4,11 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, ClickAwayListener, IconButton, List } from '@mui/material';
 import { FC } from 'react';
+import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
 import { ContactSupportDialog } from '../../components/ContactSupportDialog';
 import { CustomTooltip } from '../../components/CustomTooltip';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
 import { otherColors } from '../../IntakeThemeProvider';
-import { useIntakeCommonStore } from '../features/common';
 import { IconButtonContained } from './IconButtonContained';
 
 type CallSettingsTooltipProps = {

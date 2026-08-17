@@ -2,23 +2,15 @@ import { BaseMessageLike } from '@langchain/core/messages';
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  getSecret,
-  HandleAnswerInput,
-  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  assertDefined,
-  getAuth0Token,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { HandleAnswerInput } from 'utils/lib/types/api/ai-interview.types';
+import { QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR } from 'utils/lib/types/errors';
 import { invokeChatbot } from '../../../shared/ai';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { assertDefined, validateJsonBody, validateString } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { INTERVIEW_COMPLETED } from '../start';
 
 const ZAMBDA_NAME = 'handle-answer';

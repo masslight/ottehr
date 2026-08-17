@@ -1,13 +1,10 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import {
-  BRANDING_CONFIG,
-  ConversationMessage,
-  QuickTextQuickPickData,
-  replaceTemplateVariablesHandlebars,
-  SMSRecipient,
-} from 'utils';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { ConversationMessage, SMSRecipient } from 'utils/lib/types/api/messaging.types';
+import { QuickTextQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';

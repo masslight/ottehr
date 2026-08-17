@@ -2,16 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import {
-  DISCHARGE_SUMMARY_CODE,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
-  LAB_RESULT_DOC_REF_CODING_CODE,
+} from 'utils/lib/types/api/fax.types';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreatePresignedUrl = vi.fn();
@@ -47,6 +49,9 @@ const docRef = (overrides: Partial<DocumentReference> & { id: string }): Documen
   content: [{ attachment: { url: `https://z3.example/${overrides.id}.pdf`, title: overrides.id } }],
   ...overrides,
 });
+
+const labResultDocRef = (overrides: Partial<DocumentReference> & { id: string }): DocumentReference =>
+  docRef({ ...overrides, type: { coding: [LAB_RESULT_DOC_REF_CODING_CODE] } });
 
 interface Store {
   progressNote: DocumentReference[];
@@ -165,7 +170,10 @@ describe('resolveFaxDocumentAvailability', () => {
 
   it('reports each kind as available with the number of source documents', async () => {
     store.dischargeSummary = [docRef({ id: 'ds-1' })];
-    store.labs = [docRef({ id: 'lab-1', docStatus: 'final' }), docRef({ id: 'lab-2', docStatus: 'final' })];
+    store.labs = [
+      labResultDocRef({ id: 'lab-1', docStatus: 'final' }),
+      labResultDocRef({ id: 'lab-2', docStatus: 'final' }),
+    ];
     store.serviceRequests = [{ resourceType: 'ServiceRequest', id: 'sr-1' } as ServiceRequest];
     store.radiologyBySr = { 'sr-1': [docRef({ id: 'rad-1' })] };
 
@@ -176,15 +184,15 @@ describe('resolveFaxDocumentAvailability', () => {
     expect(rows.find((row) => row.kind === 'radiology-results')).toMatchObject({ available: true, count: 1 });
   });
 
-  it('counts only reviewed (final) lab results', async () => {
+  it('counts current lab results regardless of docStatus (in-house results are stored preliminary)', async () => {
     store.labs = [
-      docRef({ id: 'lab-final', docStatus: 'final' }),
-      docRef({ id: 'lab-preliminary', docStatus: 'preliminary' }),
+      labResultDocRef({ id: 'lab-final', docStatus: 'final' }),
+      labResultDocRef({ id: 'lab-inhouse', docStatus: 'preliminary' }),
     ];
 
     const rows = await availability();
 
-    expect(rows.find((row) => row.kind === 'lab-results')).toMatchObject({ available: true, count: 1 });
+    expect(rows.find((row) => row.kind === 'lab-results')).toMatchObject({ available: true, count: 2 });
   });
 
   it('de-duplicates a radiology result shared by two service requests', async () => {
@@ -278,20 +286,31 @@ describe('collectFaxParts', () => {
     expect(parts.map((part) => part.kind)).not.toContain('patient-education');
   });
 
-  it('drops lab results that have not been reviewed', async () => {
+  it('includes lab results regardless of docStatus, so in-house (preliminary) results are faxed', async () => {
     store.labs = [
-      docRef({ id: 'lab-final', docStatus: 'final' }),
-      docRef({ id: 'lab-preliminary', docStatus: 'preliminary' }),
+      labResultDocRef({ id: 'lab-final', docStatus: 'final' }),
+      labResultDocRef({ id: 'lab-inhouse', docStatus: 'preliminary' }),
     ];
 
     const parts = await collect(['lab-results']);
 
-    expect(parts.map((part) => part.documentReferenceId)).toEqual(['lab-final']);
+    expect(parts.map((part) => part.documentReferenceId).sort()).toEqual(['lab-final', 'lab-inhouse']);
+  });
+
+  it('excludes a non-current (superseded) lab result DocumentReference', async () => {
+    store.labs = [
+      labResultDocRef({ id: 'lab-current' }),
+      labResultDocRef({ id: 'lab-superseded', status: 'superseded' }),
+    ];
+
+    const parts = await collect(['lab-results']);
+
+    expect(parts.map((part) => part.documentReferenceId)).toEqual(['lab-current']);
   });
 
   it('orders parts by FAX_DOCUMENT_ORDER regardless of the requested order', async () => {
     store.progressNote = [docRef({ id: 'note-1' })];
-    store.labs = [docRef({ id: 'lab-1', docStatus: 'final' })];
+    store.labs = [labResultDocRef({ id: 'lab-1', docStatus: 'final' })];
     store.education = [docRef({ id: 'edu-1' })];
     store.serviceRequests = [{ resourceType: 'ServiceRequest', id: 'sr-1' } as ServiceRequest];
     store.radiologyBySr = { 'sr-1': [docRef({ id: 'rad-1' })] };
@@ -309,8 +328,8 @@ describe('collectFaxParts', () => {
 
   it('orders documents of the same kind newest first', async () => {
     store.labs = [
-      docRef({ id: 'lab-older', docStatus: 'final', date: '2026-01-01T00:00:00.000Z' }),
-      docRef({ id: 'lab-newer', docStatus: 'final', date: '2026-06-01T00:00:00.000Z' }),
+      labResultDocRef({ id: 'lab-older', docStatus: 'final', date: '2026-01-01T00:00:00.000Z' }),
+      labResultDocRef({ id: 'lab-newer', docStatus: 'final', date: '2026-06-01T00:00:00.000Z' }),
     ];
 
     const parts = await collect(['lab-results']);

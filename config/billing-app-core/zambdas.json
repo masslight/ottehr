@@ -390,6 +390,13 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/payment-reconciliation/sub-tag-era-resources/index",
       "zip": ".dist/zips/sub-tag-era-resources.zip"
+    },
+    "SUB-CLAIM-RESPONSE-ADJUST-STATUS": {
+      "name": "sub-claim-response-adjust-status",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/claim-response/sub-claim-response-adjust-status/index",
+      "zip": ".dist/zips/sub-claim-response-adjust-status.zip"
     }
   },
   "fhirResources": {
@@ -461,6 +468,28 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_CLAIM_RESPONSE_ADJUST_STATUS": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Adjust Claim status on ERA match",
+        "criteria": "ClaimResponse?_tag=https://fhir.ottehr.com/billing/resource-type|billing-resource&outcome=complete&request.status=active",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-RESPONSE-ADJUST-STATUS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }

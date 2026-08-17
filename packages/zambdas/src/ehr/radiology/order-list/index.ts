@@ -9,34 +9,37 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { FHIR_EXTENSION, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getExtension } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  FHIR_EXTENSION,
-  formatDate,
-  getAttendingPractitionerId,
-  getExtension,
-  getFullestAvailableName,
-  GetRadiologyOrderListZambdaInput,
-  GetRadiologyOrderListZambdaOrder,
-  GetRadiologyOrderListZambdaOutput,
-  isPositiveNumberOrZero,
   ORDER_TYPE_CODE_SYSTEM,
-  Pagination,
-  RADIOLOGY_TASK,
-  RadiologyOrderHistoryRow,
-  RadiologyOrderStatus,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-  Task as OttehrTask,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import {
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOrder,
+  GetRadiologyOrderListZambdaOutput,
+  RadiologyOrderHistoryRow,
+  RadiologyOrderStatus,
+} from 'utils/lib/types/api/radiology';
+import { Pagination } from 'utils/lib/types/data/pagination.types';
+import { RADIOLOGY_TASK, Task as OttehrTask } from 'utils/lib/types/data/tasks/types';
+import { formatDate } from 'utils/lib/utils/date';
+import { isPositiveNumberOrZero } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import {
   makeRadiologyDTO,
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 

@@ -41,37 +41,39 @@ import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CreditCardBrandIcon } from 'ui-components';
+import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import {
-  APIError,
-  APIErrorCode,
   CASE_RATE_CODE,
-  CashOrCardPayment,
-  CoverageCheckWithDetails,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
-  extractPayerIdFromUrl,
-  findOrgMatchingReference,
-  findQuestionnaireItemByLinkId,
-  getCoding,
-  getLocationIdFromAppointment,
-  getPaymentVariantFromEncounter,
-  isApiError,
-  ListPatientPaymentResponse,
-  mapEligibilityCheckResultToSimpleStatus,
-  OrderedCoveragesWithSubscribers,
-  PATIENT_HAS_MEDICAID_URL,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  PatientPaymentBenefit,
-  PatientPaymentDTO,
-  PaymentVariant,
-  PostPatientPaymentInput,
   RCM_TAG_SYSTEM,
-  SendReceiptByEmailZambdaInput,
   SERVICE_CATEGORY_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import {
+  getPaymentVariantFromEncounter,
+  PaymentVariant,
   updateEncounterPaymentVariantExtension,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { getCoding, getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { extractPayerIdFromUrl, findOrgMatchingReference } from 'utils/lib/helpers/helpers';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
+import {
+  CashOrCardPayment,
+  ListPatientPaymentResponse,
+  PatientPaymentDTO,
+  PostPatientPaymentInput,
+} from 'utils/lib/types/api/patient-payment-types';
+import { SendReceiptByEmailZambdaInput } from 'utils/lib/types/api/send-receipt-by-email.types';
+import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { findQuestionnaireItemByLinkId } from 'utils/lib/types/data/paperwork/findQuestionnaireItemByLinkId';
+import {
+  mapEligibilityCheckResultToSimpleStatus,
+  PatientPaymentBenefit,
+} from 'utils/lib/types/data/telemed/eligibility.types';
+import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';

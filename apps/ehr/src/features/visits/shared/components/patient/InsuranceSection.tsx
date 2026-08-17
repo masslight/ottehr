@@ -2,14 +2,12 @@ import { Button } from '@mui/material';
 import { FormFieldItemRecord } from 'config-types';
 import { Coverage, Patient } from 'fhir/r4b';
 import { FC, ReactNode, useMemo } from 'react';
-import { Section } from 'src/components/layout';
+import { Section } from 'src/components/layout/Section';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  checkCoverageMatchesDetails,
-  CoverageCheckWithDetails,
-  CoverageWithPriority,
-  PATIENT_RECORD_CONFIG,
-} from 'utils';
+import { checkCoverageMatchesDetails } from 'utils/lib/fhir/billing';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
+import { CoverageWithPriority } from 'utils/lib/types/data/account';
 import { InsuranceContainer } from './InsuranceContainer';
 import { SectionSaveButton } from './SectionSaveButton';
 
@@ -114,6 +112,7 @@ export const InsuranceSection: FC<{
           isNew
           onCancelAdd={onCancelAddInsurance}
           renderWithoutSection
+          renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
         />
       )}
       {coverages.length < 2 && !isAddingInsurance && (

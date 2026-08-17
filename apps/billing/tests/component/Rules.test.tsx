@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { BillingRule, RuleConditional, RulesEngineType } from 'utils';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRule, RuleConditional } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
@@ -216,7 +217,7 @@ describe('ConditionalEditor', () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 
-  it('offers only existing tags (plus the built-in Hold) in the apply-tag picker', async () => {
+  it('offers only existing tags (plus the built-in system-managed tags) in the apply-tag picker', async () => {
     searchBillingTagsMock.mockReset();
     searchBillingTagsMock.mockResolvedValue({ tags: [{ name: 'VIP', description: 'White-glove payers' }] });
     const conditional: RuleConditional = {
@@ -231,6 +232,7 @@ describe('ConditionalEditor', () => {
 
     expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Auto Accident/ })).toBeInTheDocument();
     expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
   });
 
@@ -419,6 +421,47 @@ describe('ConditionalEditor', () => {
     fireEvent.mouseDown(operatorDisplay!);
     fireEvent.click(await screen.findByRole('option', { name: 'does not equal' }));
     expect(screen.getByLabelText('Value *')).toHaveValue('A1');
+  });
+
+  it('renders a free-text pattern input (not the option dropdown) for a regex operator on an enumerated field', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'serviceFacility.posCode', operator: 'matches', value: '^2[0-3]$' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    // The POS field normally renders a select of CMS codes; in regex mode it's a plain pattern box.
+    const pattern = screen.getByLabelText('Pattern *');
+    expect(pattern).toHaveValue('^2[0-3]$');
+    expect(screen.queryByText('20 - Urgent Care Facility')).not.toBeInTheDocument();
+    expect(screen.getByText(/anchor with \^ and \$/)).toBeInTheDocument();
+  });
+
+  it('blocks submit on an uncompilable pattern and resets the value when regex-ness changes', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'insurance.memberId', operator: 'matches', value: 'XKD[0-9' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(await screen.findByText('Must be a valid regular expression')).toBeInTheDocument();
+    expect(onValid).not.toHaveBeenCalled();
+
+    // Switching from a regex operator to a literal one drops the pattern — it is not a value.
+    fireEvent.mouseDown(screen.getByText('matches pattern'));
+    fireEvent.click(await screen.findByRole('option', { name: 'equals' }));
+    expect(screen.getByLabelText('Value *')).toHaveValue('');
   });
 
   it('clears a stale value error when the condition property changes', async () => {

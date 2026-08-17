@@ -17,30 +17,23 @@ import {
   Procedure,
   Resource,
 } from 'fhir/r4b';
-import {
-  AdHocBillingInput,
-  AdHocBillingOutputSchema,
-  AdHocBillingRow,
-  getPatientFirstName,
-  getPatientLastName,
-  mapGenderToLabel,
-  PAYMENT_METHOD_EXTENSION_URL,
-} from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { AdHocBillingInput, AdHocBillingOutputSchema, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
+import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fetchAllPages,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../../shared/adhoc-report';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
+import { fetchAllPages } from '../../shared/fhir';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -56,6 +49,8 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

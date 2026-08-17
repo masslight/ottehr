@@ -15,9 +15,10 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ObservationDTO, RadiologyDTO } from 'utils';
 import z from 'zod';
+import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
+import { RadiologyDTO } from '../radiology';
 import {
   AiObservationField,
   ASQ_FIELD,
@@ -538,7 +539,6 @@ export const followUpInOptions = [
 ];
 
 export interface BillingSuggestionInput {
-  patientId?: string;
   newPatient: boolean | undefined;
   patientAge?: string;
   patientSex?: string;
@@ -553,6 +553,8 @@ export interface BillingSuggestionInput {
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
   prescribedMedications?: PrescribedMedicationDTO[];
+  // the patient's confirmed medication list from the chart, not raw eRx history
+  currentMedications?: MedicationDTO[];
 }
 
 export interface BillingSuggestionOutput {

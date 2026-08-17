@@ -1,4 +1,5 @@
-import { getSecret, INVALID_INPUT_ERROR, Secrets, SecretsKeys } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 
 /**
  * A tokenless caller supplies the fileURL of a file it already uploaded (via

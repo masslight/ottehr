@@ -29,10 +29,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { captureException } from '@sentry/react';
-import { useSnackbar } from 'notistack';
+import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoleType, SavedAdHocReport } from 'utils';
+import { SavedAdHocReport } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { deleteAdHocReport, listAdHocReports, saveAdHocReport } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -113,11 +115,13 @@ function ReportTile({ title, description, icon, onClick }: ReportTileProps): Rea
 
 function SavedReportTile({
   report,
+  canManage,
   onOpen,
   onRename,
   onDelete,
 }: {
   report: SavedAdHocReport;
+  canManage: boolean;
   onOpen: () => void;
   onRename: () => void;
   onDelete: () => void;
@@ -135,30 +139,32 @@ function SavedReportTile({
         cursor: 'pointer',
       }}
     >
-      <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 2, display: 'flex' }}>
-        <Tooltip title="Edit">
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRename();
-            }}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Delete">
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-          >
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      {canManage && (
+        <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 2, display: 'flex' }}>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRename();
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
       <CardActionArea
         onClick={onOpen}
         sx={{
@@ -186,7 +192,19 @@ function SavedReportTile({
             {report.name}
           </Typography>
           {report.description ? (
-            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              title={report.description}
+              sx={{
+                lineHeight: 1.5,
+                display: '-webkit-box',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 4,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {report.description}
             </Typography>
           ) : (
@@ -206,6 +224,7 @@ interface ReportTileConfig {
   icon: React.ReactElement;
   path: string;
   adminOnly?: boolean;
+  requiredRoles?: RoleType[];
 }
 
 const REPORT_TILES: ReportTileConfig[] = [
@@ -233,7 +252,7 @@ const REPORT_TILES: ReportTileConfig[] = [
     description: 'Describe a report in plain language and the AI generates it over the encounters dataset',
     icon: <AutoAwesomeIcon />,
     path: '/reports/ad-hoc',
-    adminOnly: true,
+    requiredRoles: AD_HOC_REPORT_EDIT_ROLES,
   },
   {
     title: 'Daily Payments',
@@ -273,10 +292,10 @@ export default function Reports(): React.ReactElement {
   const navigate = useNavigate();
   const user = useEvolveUser();
   const isAdmin = user?.hasRole([RoleType.Administrator]) ?? false;
+  const canViewAdHoc = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
+  const canEditAdHoc = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
   const { oystehrZambda } = useApiClients();
-  const { enqueueSnackbar } = useSnackbar();
 
-  // Saved ad-hoc reports — same access gate as the Ad-Hoc Report tile (admin only).
   const [savedReports, setSavedReports] = useState<SavedAdHocReport[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [savedError, setSavedError] = useState(false);
@@ -287,7 +306,7 @@ export default function Reports(): React.ReactElement {
   const [busy, setBusy] = useState(false);
 
   const refreshSaved = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda || !isAdmin) return;
+    if (!oystehrZambda || !canViewAdHoc) return;
     setLoadingSaved(true);
     setSavedError(false);
     try {
@@ -300,7 +319,7 @@ export default function Reports(): React.ReactElement {
     } finally {
       setLoadingSaved(false);
     }
-  }, [oystehrZambda, isAdmin]);
+  }, [oystehrZambda, canViewAdHoc]);
 
   useEffect(() => {
     void refreshSaved();
@@ -323,7 +342,7 @@ export default function Reports(): React.ReactElement {
     } finally {
       setBusy(false);
     }
-  }, [oystehrZambda, deleteTarget, enqueueSnackbar]);
+  }, [oystehrZambda, deleteTarget]);
 
   const handleSaveEdit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !renameTarget || !renameValue.trim()) return;
@@ -343,7 +362,7 @@ export default function Reports(): React.ReactElement {
     } finally {
       setBusy(false);
     }
-  }, [oystehrZambda, renameTarget, renameValue, descriptionValue, enqueueSnackbar, refreshSaved]);
+  }, [oystehrZambda, renameTarget, renameValue, descriptionValue, refreshSaved]);
 
   return (
     <PageContainer>
@@ -359,7 +378,9 @@ export default function Reports(): React.ReactElement {
           </Box>
 
           <Grid container spacing={3}>
-            {REPORT_TILES.filter((tile) => isAdmin || !tile.adminOnly).map((tile) => (
+            {REPORT_TILES.filter((tile) =>
+              tile.requiredRoles ? user?.hasRole(tile.requiredRoles) ?? false : isAdmin || !tile.adminOnly
+            ).map((tile) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
                 <ReportTile
                   title={tile.title}
@@ -372,8 +393,7 @@ export default function Reports(): React.ReactElement {
             ))}
           </Grid>
 
-          {/* Saved ad-hoc reports — practice-wide, admin-gated like the Ad-Hoc Report tile. */}
-          {isAdmin && (loadingSaved || savedReports.length > 0 || savedError) && (
+          {canViewAdHoc && (loadingSaved || savedReports.length > 0 || savedError) && (
             <Box sx={{ mt: 5 }}>
               <Typography variant="h5" component="h2" gutterBottom color="primary.dark" fontWeight={600}>
                 Saved reports
@@ -394,6 +414,7 @@ export default function Reports(): React.ReactElement {
                     <Grid item xs={12} sm={6} md={4} lg={3} key={report.id}>
                       <SavedReportTile
                         report={report}
+                        canManage={canEditAdHoc}
                         onOpen={() => navigate(`/reports/ad-hoc?saved=${encodeURIComponent(report.id)}`)}
                         onRename={() => {
                           setRenameValue(report.name);

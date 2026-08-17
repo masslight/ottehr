@@ -17,7 +17,9 @@ import {
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
-import { CancelAppointmentZambdaInput, isTelemedAppointment, VALUE_SETS } from 'utils';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { CancelAppointmentZambdaInput } from 'utils/lib/types/api/cancel-appointment.types';
 import { cancelAppointment } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';

@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail from '../../src/pages/ClaimDetail';
@@ -314,7 +315,9 @@ describe('ClaimDetail — run rules engine button', () => {
     const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
+    await waitFor(() =>
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+    );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
@@ -331,7 +334,9 @@ describe('ClaimDetail — run rules engine button', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
+    await waitFor(() =>
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+    );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }

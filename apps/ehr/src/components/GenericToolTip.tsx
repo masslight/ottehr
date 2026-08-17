@@ -5,7 +5,7 @@ import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
 import { Box, styled, Tooltip, tooltipClasses, TooltipProps, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { InPersonAppointmentInformation } from 'utils';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 
 export const GenericToolTip = styled(
   ({ className, customWidth, ...props }: TooltipProps & { customWidth?: number | string }) => (

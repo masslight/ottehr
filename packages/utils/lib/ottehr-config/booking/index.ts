@@ -17,8 +17,8 @@ import {
   buildReasonForVisitFromConfig,
   createQuestionnaireFromConfig,
 } from '../../config-helpers/shared-questionnaire';
-import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
-import { CanonicalUrl } from '../../types';
+import { SERVICE_CATEGORY_SYSTEM } from '../../fhir/constants';
+import { CanonicalUrl } from '../../types/common';
 import { BRANDING_CONFIG } from '../branding';
 import { VALUE_SETS } from '../value-sets';
 

@@ -3,31 +3,25 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, ContactPoint, Encounter, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
+import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { createOystehrClient, formatPhoneNumber, replaceTemplateVariablesArrows } from 'utils/lib/helpers/helpers';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { TEXTING_CONFIG } from 'utils/lib/ottehr-config/texting';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
 import {
-  createOystehrClient,
-  FHIR_RESOURCE_NOT_FOUND,
-  formatPhoneNumber,
-  getSecret,
-  getVirtualServiceResourceExtension,
-  PARTICIPATION_CODE_SYSTEM,
-  PROJECT_WEBSITE,
-  replaceTemplateVariablesArrows,
-  SecretsKeys,
-  TELEMED_VIDEO_ROOM_CODE,
-  TEXTING_CONFIG,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
-} from 'utils';
+} from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import {
-  getAuth0Token,
-  getEmailClient,
-  getUser,
-  lambdaResponse,
-  sendSms,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getUser } from '../../../shared/auth';
+import { getEmailClient, sendSms } from '../../../shared/communication';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

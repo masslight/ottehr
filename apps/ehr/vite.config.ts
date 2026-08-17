@@ -75,10 +75,16 @@ export default ({ mode }: { mode: string }): UserConfig => {
     },
     resolve: {
       preserveSymlinks: true,
-      alias: {
-        '@ehrTheme': path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr'),
-        '@ehrDefaultTheme': path.resolve(__dirname, 'src/themes/ottehr'),
-      },
+      alias: [
+        // Resolve the workspace packages to their real source directories. `preserveSymlinks`
+        // otherwise resolves them inside node_modules, where vite treats them as prebundlable
+        // deps: it serves their source raw and, with it, their transitive deps — which is fatal
+        // for CJS ones like `prop-types` (reached via react-imask) that have no named exports.
+        { find: /^utils(\/|$)/, replacement: path.resolve(coreRoot, 'packages/utils') + '/' },
+        { find: /^ui-components(\/|$)/, replacement: path.resolve(coreRoot, 'packages/ui-components') + '/' },
+        { find: '@ehrTheme', replacement: path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr') },
+        { find: '@ehrDefaultTheme', replacement: path.resolve(__dirname, 'src/themes/ottehr') },
+      ],
     },
   });
 };

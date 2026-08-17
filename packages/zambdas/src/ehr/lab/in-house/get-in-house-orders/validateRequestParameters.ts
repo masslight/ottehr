@@ -1,5 +1,7 @@
-import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, GetInHouseOrdersParameters } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE } from 'utils/lib/types/data/in-house/in-house.constants';
+import { GetInHouseOrdersParameters } from 'utils/lib/types/data/in-house/in-house.types';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export type GetZambdaInHouseOrdersParams = GetInHouseOrdersParameters & {
   secrets: any;

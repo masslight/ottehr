@@ -1,8 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner, Schedule } from 'fhir/r4b';
-import { GetUserResponse, PractitionerLicense } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { GetUserResponse } from 'utils/lib/types/api/get-user.types';
+import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

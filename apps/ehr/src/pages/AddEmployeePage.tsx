@@ -3,7 +3,7 @@ import { Box, Paper, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { APIErrorCode } from 'utils';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { createUser } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';

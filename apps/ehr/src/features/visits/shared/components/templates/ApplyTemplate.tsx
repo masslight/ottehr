@@ -24,7 +24,12 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import {
+  TEMPLATE_SECTIONS_IN_ORDER,
+  TemplatePreviewApplyOptions,
+  TemplateSectionActions,
+} from 'utils/lib/types/data/apply-template.types';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';

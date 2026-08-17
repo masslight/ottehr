@@ -1,5 +1,5 @@
 import { capitalize } from 'lodash';
-import { formatDateForDisplay } from 'utils';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { DataComposer } from '../pdf-common';
 import { PatientPaymentsDataInput, PatientPaymentsInfo, PdfSection } from '../types';
 

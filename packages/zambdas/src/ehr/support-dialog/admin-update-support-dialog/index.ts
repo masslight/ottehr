@@ -1,21 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import {
-  AdminUpdateSupportDialogInput,
-  getSecret,
-  SecretsKeys,
-  SUPPORT_DIALOG_BASIC_TAG,
-  SUPPORT_DIALOG_BODY_HTML_EXTENSION_URL,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sanitizeSupportDialogHtml,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { AdminUpdateSupportDialogInput } from 'utils/lib/types/data/support-dialog';
+import { SUPPORT_DIALOG_BASIC_TAG, SUPPORT_DIALOG_BODY_HTML_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { topLevelCatch } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { sanitizeSupportDialogHtml } from '../../../shared/support-dialog';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

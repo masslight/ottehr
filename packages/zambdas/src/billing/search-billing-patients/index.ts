@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { BillingPatientOption } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { BillingPatientOption } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   clinicalFriendlyIdOfCopy,
   clinicalPatientIdOfCopy,
@@ -10,7 +12,8 @@ import {
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
   formatAddress,
-  searchPatientsByClinicalIds,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -41,32 +44,16 @@ async function performEffect(
   ];
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });
+  if (params.uuid) searchParams.push({ name: 'identifier', value: `${SOURCE_IDENTIFIER_SYSTEM}|${params.uuid}` });
+  if (params.identifier)
+    searchParams.push({ name: 'identifier', value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${params.identifier}` });
 
-  let results: Patient[] = [];
-  let total: number = 0;
-  if (params.uuid || params.identifier) {
-    const searchAll = await searchPatientsByClinicalIds({
-      oystehr,
-      baseSearchParams: searchParams,
-      offset,
-      pageSize,
-      uuid: params.uuid,
-      friendlyId: params.identifier,
-    });
-    total = searchAll.total;
-    results = searchAll.results;
-  } else {
-    const response = await oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        ...searchParams,
-        { name: '_count', value: String(pageSize) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    total = response.total ?? 0;
-    results = response.unbundle();
-  }
+  const response = await oystehr.fhir.search<Patient>({
+    resourceType: 'Patient',
+    params: [...searchParams, { name: '_count', value: String(pageSize) }, { name: '_offset', value: String(offset) }],
+  });
+  const total = response.total ?? 0;
+  const results = response.unbundle();
 
   const patients = results.map((p) => {
     const clinicalFriendlyId = clinicalFriendlyIdOfCopy(p);

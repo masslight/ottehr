@@ -2,23 +2,23 @@ import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { createContext, useContext } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { HandleAnswerInput, StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
+import { GetInsuranceCardSuggestionsResponse } from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import { GetPhotoIdSuggestionsResponse } from 'utils/lib/types/api/get-photo-id-suggestions.types';
 import {
   AppointmentSummary,
-  CreditCardInfo,
-  GetAnswerOptionsRequest,
-  GetInsuranceCardSuggestionsResponse,
-  GetPhotoIdSuggestionsResponse,
-  HandleAnswerInput,
   IntakeQuestionnaireItem,
   PaperworkPatient,
+  QuestionnaireFormFields,
+  UCGetPaperworkResponse,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import {
+  CreditCardInfo,
   PaymentMethodSetDefaultParameters,
   PaymentMethodSetupZambdaOutput,
-  QuestionnaireFormFields,
-  SearchPlacesInput,
-  SearchPlacesOutput,
-  StartInterviewInput,
-  UCGetPaperworkResponse,
-} from 'utils';
+} from 'utils/lib/types/data/payment/payment-method-types';
+import { SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
+import { GetAnswerOptionsRequest } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 
 /** Identifies which just-uploaded file a card-suggestions call is for, so the caller can cache the result keyed appropriately (e.g. primary vs secondary insurance). */
 export interface CardSuggestionsInput {

@@ -1,6 +1,6 @@
 import { Encounter, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FhirEncounterStatus } from 'utils';
+import { FhirEncounterStatus } from 'utils/lib/types/api/appointment.types';
 import { expect, test } from 'vitest';
 import { getWaitingTimeForAppointment } from '../src/shared/waitTimeUtils';
 

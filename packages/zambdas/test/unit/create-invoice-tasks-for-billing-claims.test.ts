@@ -1,12 +1,12 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Encounter, Task } from 'fhir/r4b';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   BillingInvoiceTaskClaim,
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
   INVOICE_TASK_SOURCE_SYSTEM,
-  parseInvoiceTaskInput,
-  RcmTaskCodings,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -26,15 +26,20 @@ const mockClinicalClient = {
 };
 const mockCaptureException = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: () => mockClinicalClient,
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  createClinicalOystehrClient: () => mockClinicalClient,
+}));
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 vi.mock('../../src/rcm/invoice-config/helpers', () => ({
   getOrCreateInvoicingConfig: vi.fn().mockResolvedValue({ questionnaireResponse: {} }),

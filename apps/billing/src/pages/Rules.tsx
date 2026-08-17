@@ -9,14 +9,14 @@ import {
 import { Alert, Box, Button, Chip, CircularProgress, IconButton, Switch, Typography } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  BillingRuleInput,
   DEFAULT_RULES_ENGINE,
-  getApiError,
   isRulesEngineType,
   RULES_ENGINES,
   RulesEngineType,
-} from 'utils';
+} from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';

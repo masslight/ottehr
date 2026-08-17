@@ -1,6 +1,7 @@
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
-import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { createABNDocRef } from './lab-script-helpers';
 
 // Creates an ABN Document Reference linked to the service request passed as a param

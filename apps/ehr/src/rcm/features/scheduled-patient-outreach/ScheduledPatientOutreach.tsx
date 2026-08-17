@@ -59,7 +59,7 @@ import {
   useGetOutreachConfigQuery,
   useSaveOutreachConfigMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
-import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils';
+import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils/lib/helpers/rcm/invoice-config';
 import OutreachTasksReport from './OutreachTasksReport';
 
 // ── Types ──────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { AppointmentType, VisitStatusHistoryLabel } from 'utils';
+import { AppointmentType, VisitStatusHistoryLabel } from '../api/appointment.types';
 
 export interface WaitingRoomInput {
   appointmentID: string;

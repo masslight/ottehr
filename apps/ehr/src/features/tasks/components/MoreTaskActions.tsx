@@ -6,7 +6,7 @@ import { IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
 import React, { useState } from 'react';
 import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
-import { Task } from 'utils';
+import { Task } from 'utils/lib/types/data/tasks/types';
 import { AssignTaskDialog } from './AssignTaskDialog';
 
 interface MoreTaskActionsProps {

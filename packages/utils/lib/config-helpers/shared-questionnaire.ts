@@ -16,7 +16,7 @@ import {
 } from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../fhir';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../fhir/constants';
 
 // Re-export value set constants for backwards compatibility — canonical source is ottehr-config/value-sets
 export {

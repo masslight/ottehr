@@ -1,4 +1,4 @@
-import { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
@@ -6,27 +6,28 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  chooseJson,
-  CreateManualTaskRequest,
-  ERX_TASK,
-  FAX_TASK,
-  getCoding,
-  getExtension,
-  IN_HOUSE_LAB_TASK,
-  isFollowupEncounter,
-  LAB_ORDER_TASK,
-  LabType,
-  MANUAL_TASK,
-  PROVIDER_NOTIFICATION_TAG_SYSTEM,
-  RADIOLOGY_TASK,
-  Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
+import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import {
+  CreateManualTaskRequest,
+  ERX_TASK,
+  FAX_TASK,
+  MANUAL_TASK,
+  RADIOLOGY_TASK,
+  Task,
   TaskAlertCode,
-} from 'utils';
-import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+} from 'utils/lib/types/data/tasks/types';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
@@ -78,7 +79,6 @@ export interface CompleteTaskRequest {
 
 export interface TaskSearchStream {
   tasks: FhirTask[];
-  encounters: Encounter[];
   total: number | undefined;
 }
 
@@ -146,6 +146,39 @@ export const mergeLocationFilteredTasks = ({
   return { tasks, total };
 };
 
+const getTaskEncounterId = (task: FhirTask): string | undefined =>
+  task.encounter?.reference?.split('/')?.[1] ?? getInputString(MANUAL_TASK.input.encounterId, task);
+
+/**
+ * The encounters behind a page of tasks, keyed by id. They only decide whether a task's link needs
+ * a follow-up `encounterId` query param, so a failed lookup degrades the links rather than the
+ * page — and, being a separate search, they can never be mistaken for tasks.
+ */
+const fetchTaskEncounters = async (oystehr: Oystehr, tasks: FhirTask[]): Promise<Map<string, Encounter>> => {
+  const encounterIds = [...new Set(tasks.map(getTaskEncounterId).filter((id): id is string => !!id))];
+  const encountersMap = new Map<string, Encounter>();
+  if (encounterIds.length === 0) return encountersMap;
+  try {
+    const encounters = (
+      await oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [
+          { name: '_id', value: encounterIds.join(',') },
+          { name: '_count', value: encounterIds.length },
+        ],
+      })
+    ).unbundle();
+    encounters.forEach((encounter) => {
+      if (encounter.id) {
+        encountersMap.set(encounter.id, encounter);
+      }
+    });
+  } catch (error) {
+    safelyCaptureException(error);
+  }
+  return encountersMap;
+};
+
 export const useGetTasks = (
   { assignedTo, category, location, status, page }: TasksSearchParams,
   options?: { refetchInterval?: number | false }
@@ -189,24 +222,22 @@ export const useGetTasks = (
           value: status,
         });
       }
-      baseParams.push({
-        name: '_include',
-        value: 'Task:encounter',
-      });
-
+      // The encounters behind the tasks are fetched separately rather than with `_include`.
+      // Observed Oystehr behavior, not FHIR spec (which excludes included resources from both):
+      // an included Encounter counts against the page's `_count` budget and against the bundle
+      // `total`, so including them here would shrink the page and inflate the count pagination
+      // is driven by.
       const searchTasks = async (
         extraParams: SearchParam[],
         count: number,
         offset: number
-      ): Promise<{ tasks: FhirTask[]; encounters: Encounter[]; total: number | undefined }> => {
-        const bundle = await oystehr.fhir.search<FhirTask | Encounter>({
+      ): Promise<TaskSearchStream> => {
+        const bundle = await oystehr.fhir.search<FhirTask>({
           resourceType: 'Task',
           params: [...baseParams, ...extraParams, { name: '_count', value: count }, { name: '_offset', value: offset }],
         });
-        const resources = bundle.unbundle();
         return {
-          tasks: resources.filter((r) => r.resourceType === 'Task') as FhirTask[],
-          encounters: resources.filter((r) => r.resourceType === 'Encounter') as Encounter[],
+          tasks: bundle.unbundle().filter((resource): resource is FhirTask => resource.resourceType === 'Task'),
           total: bundle.total,
         };
       };
@@ -214,7 +245,6 @@ export const useGetTasks = (
       const pageOffset = (page ?? 0) * TASKS_PAGE_SIZE;
 
       let fhirTasks: FhirTask[];
-      let encounters: Encounter[];
       let total: number;
 
       if (location) {
@@ -231,23 +261,18 @@ export const useGetTasks = (
         ]);
         const merged = mergeLocationFilteredTasks({ tagged, untagged, pageOffset, pageSize: TASKS_PAGE_SIZE });
         fhirTasks = merged.tasks;
-        encounters = [...tagged.encounters, ...untagged.encounters];
         total = merged.total;
       } else {
         const result = await searchTasks([], TASKS_PAGE_SIZE, pageOffset);
         fhirTasks = result.tasks;
-        encounters = result.encounters;
         total = result.total ?? -1;
       }
 
-      const encountersMap = new Map<string, Encounter>();
-      encounters.forEach((encounter) => {
-        if (encounter.id) {
-          encountersMap.set(encounter.id, encounter);
-        }
-      });
       // can probably remove filterTasks, leaving for now because we have a handful of tasks in prod that will get pulled on in a weird way if removed
-      const transformedTasks = fhirTasks.filter(filterTasks).map((task) => fhirTaskToTask(task, encountersMap));
+      // Filter before fetching encounters so the lookup only covers tasks that reach the page.
+      const visibleTasks = fhirTasks.filter(filterTasks);
+      const encountersMap = await fetchTaskEncounters(oystehr, visibleTasks);
+      const transformedTasks = visibleTasks.map((task) => fhirTaskToTask(task, encountersMap));
       return {
         tasks: transformedTasks,
         total,
@@ -418,10 +443,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
   let details: string | undefined = undefined;
 
   // Extract encounterId and check if it's a follow-up encounter
-  let encounterId = task.encounter?.reference?.split('/')?.[1];
-  if (!encounterId) {
-    encounterId = getInputString(MANUAL_TASK.input.encounterId, task);
-  }
+  const encounterId = getTaskEncounterId(task);
   const encounter = encounterId ? encountersMap?.get(encounterId) : undefined;
   const isFollowUp = encounter ? isFollowupEncounter(encounter) : false;
 

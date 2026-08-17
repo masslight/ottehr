@@ -4,28 +4,25 @@ import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import ottehrApi from 'src/api/ottehrApi';
+import { PageContainer } from 'src/components/CustomContainer';
 import { TermsAndConditions } from 'src/components/TermsAndConditions';
+import { useIntakeCommonStore } from 'src/features/common/intake-common.store';
+import { NO_PATIENT_ERROR, NO_SLOT_ERROR, PAST_APPT_ERROR } from 'src/helpers/constants';
 import {
-  APIError,
-  APPOINTMENT_CANT_BE_IN_PAST_ERROR,
   getReasonForVisitOptionsForServiceCategory,
   mapBookingQRItemToPatientInfo,
   normalizeFormDataToQRItems,
-  PatientInfo,
-  ServiceMode,
-  SLOT_UNAVAILABLE_ERROR,
-  VisitType,
-} from 'utils';
+} from 'utils/lib/config-helpers/booking';
 import { i18n } from 'utils/lib/frontend';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { ServiceMode } from 'utils/lib/types/common';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, SLOT_UNAVAILABLE_ERROR } from 'utils/lib/types/errors';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
-import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
-import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
-import { useIntakeCommonStore } from '../features/common';
-import { NO_PATIENT_ERROR, NO_SLOT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';

@@ -1,15 +1,13 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  getPresignedURL,
-  INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
-  InsuranceCardExtraction,
-} from 'utils';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAuth0Token, ZambdaInput } from '../../../shared';
 import { invokeChatbotVertexAI } from '../../../shared/ai';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { ZambdaInput } from '../../../shared/types/common';
 import { EXTRACTION_PROMPT, parseModelResponse } from '../helpers';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -20,19 +18,26 @@ vi.mock('../../../shared/ai', () => ({
   VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
+vi.mock('../../../shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/getAuth0Token')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(),
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/helpers/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/helpers')>();
   return {
     ...actual,
     createOystehrClient: vi.fn(),
+  };
+});
+
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>();
+  return {
+    ...actual,
     getPresignedURL: vi.fn(),
   };
 });
@@ -50,7 +55,9 @@ const SECRETS = {
 const HAPPY_MODEL_RESPONSE = {
   isInsuranceCard: true,
   payer: 'Aetna',
-  memberName: 'JOHN Q SAMPLE',
+  memberFirstName: 'JOHN',
+  memberMiddleName: 'Q',
+  memberLastName: 'SAMPLE',
   memberId: 'W123456789',
   groupNumber: 'GRP-0001',
   payerId: '60054',
@@ -87,7 +94,9 @@ function makeStoredExtraction(overrides: Partial<InsuranceCardExtraction> = {}):
     isInsuranceCard: true,
     fields: {
       payer: 'Aetna',
-      memberName: 'JOHN Q SAMPLE',
+      memberFirstName: 'JOHN',
+      memberMiddleName: 'Q',
+      memberLastName: 'SAMPLE',
       memberId: 'W123456789',
       groupNumber: 'GRP-0001',
       payerId: '60054',
@@ -210,7 +219,9 @@ describe('extract-insurance-card handler', () => {
       isInsuranceCard: true,
       fields: {
         payer: 'Aetna',
-        memberName: 'JOHN Q SAMPLE',
+        memberFirstName: 'JOHN',
+        memberMiddleName: 'Q',
+        memberLastName: 'SAMPLE',
         memberId: 'W123456789',
         groupNumber: 'GRP-0001',
         payerId: '60054',
@@ -268,7 +279,9 @@ describe('extract-insurance-card handler', () => {
       JSON.stringify({
         isInsuranceCard: false,
         payer: null,
-        memberName: null,
+        memberFirstName: null,
+        memberMiddleName: null,
+        memberLastName: null,
         memberId: null,
         groupNumber: null,
         payerId: null,
@@ -482,7 +495,9 @@ describe('extract-insurance-card helpers', () => {
       JSON.stringify({
         isInsuranceCard: true,
         payer: '',
-        memberName: '  ',
+        memberFirstName: '  ',
+        memberMiddleName: null,
+        memberLastName: null,
         memberId: null,
         groupNumber: null,
         payerId: null,

@@ -1,6 +1,6 @@
 import { CodeableConcept, HealthcareService, PractitionerRole } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { ServiceMode, ServiceVisitType } from '../types';
+import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   GROUP_ALL_LOCATIONS_SYSTEM,
   GROUP_ASSIGNMENT_MODE_SYSTEM,

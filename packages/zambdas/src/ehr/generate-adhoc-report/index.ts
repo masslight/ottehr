@@ -1,19 +1,23 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Secrets } from 'utils/lib/secrets';
+import { LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import {
-  buildComponentsPromptSection,
-  buildExecutionContractPromptSection,
-  fixAndParseJsonObjectFromString,
   GenerateAdHocReportInput,
   GenerateAdHocReportOutput,
   GenerateAdHocReportOutputSchema,
-  INVALID_INPUT_ERROR,
-  LlmDatasetSchema,
-  REPORT_FACTORY_NAME,
-  REPORT_ROOT_NAME,
-  Secrets,
-} from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/adhoc/generation/generate.types';
+import {
+  buildComponentsPromptSection,
+  buildExecutionContractPromptSection,
+} from 'utils/lib/types/adhoc/generation/runtime-scope';
+import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
+import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { getUserToken, requireUserWithRole } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -240,6 +244,9 @@ const performEffect = async (
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
+
+  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
+
   const output = await performEffect(params, secrets);
 
   return { statusCode: 200, body: JSON.stringify(output) };

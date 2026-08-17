@@ -1,30 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Observation, ObservationComponent, Patient, Practitioner } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getFullName } from 'utils/lib/fhir/patient';
 import {
-  convertVitalsListToMap,
   extractBloodPressureObservationMethod,
   extractDotVisionScreening,
   extractHeartbeatObservationMethod,
   extractOxySaturationObservationMethod,
   extractTemperatureObservationMethod,
   extractVisionValues,
-  FHIR_RESOURCE_NOT_FOUND,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getFullName,
-  getVitalDTOCriticalityFromObservation,
-  GetVitalsResponseData,
-  INVALID_INPUT_ERROR,
-  isValidUUID,
   LOINC_SYSTEM,
-  MISSING_REQUIRED_PARAMETERS,
   parseLastMenstrualPeriodObservation,
-  PATIENT_VITALS_META_SYSTEM,
-  PRIVATE_EXTENSION_BASE_URL,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
-  VitalFieldNames,
+} from 'utils/lib/fhir/vitals';
+import { convertVitalsListToMap, getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  PATIENT_VITALS_META_SYSTEM,
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsObservationDTO,
@@ -33,9 +28,20 @@ import {
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
   VitalsWeightOption,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import * as z from 'zod';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals';

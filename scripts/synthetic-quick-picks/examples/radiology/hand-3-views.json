@@ -1,0 +1,8 @@
+{
+  "name": "Hand X-Ray, 3 Views",
+  "cptCode": "73130",
+  "cptDisplay": "Radiologic examination, hand; minimum of 3 views",
+  "studyName": "X-Ray Hand 3 Views (AP, Oblique, Lateral)",
+  "clinicalHistory": "Hand pain, trauma — evaluate for fracture",
+  "stat": false
+}

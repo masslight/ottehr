@@ -1,18 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
 import api from 'src/api/ottehrApi';
-import { useOystehrAPIClient } from 'src/telemed/utils';
+import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { CardSuggestionsInput, PaperworkComponentHelpers } from 'ui-components/lib/components/paperwork/context';
-import {
-  GetAnswerOptionsRequest,
-  GetInsuranceCardSuggestionsResponse,
-  GetPhotoIdSuggestionsResponse,
-  HandleAnswerInput,
-  PaymentMethodSetDefaultParameters,
-  SearchPlacesInput,
-  SearchPlacesOutput,
-  StartInterviewInput,
-} from 'utils';
+import { HandleAnswerInput, StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
+import { GetInsuranceCardSuggestionsResponse } from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import { GetPhotoIdSuggestionsResponse } from 'utils/lib/types/api/get-photo-id-suggestions.types';
+import { PaymentMethodSetDefaultParameters } from 'utils/lib/types/data/payment/payment-method-types';
+import { SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
+import { GetAnswerOptionsRequest } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { useUCZambdaClient } from './useUCZambdaClient';
 
 // cardSlot identifies which upload (e.g. 'insurance-card-front-2') a suggestions call is for; a

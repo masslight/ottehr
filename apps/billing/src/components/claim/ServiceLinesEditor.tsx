@@ -1,6 +1,7 @@
 import { Autocomplete, Box, Button, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
-import { CMS_PLACE_OF_SERVICE_CODES } from 'utils';
+import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { DateInput } from '../DateInput';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 
 export interface ServiceLineRow {
@@ -93,14 +94,11 @@ export function ServiceLinesEditor({
             onChange={(e) => setRow(i, 'charges', e.target.value)}
             sx={{ width: 150 }}
           />
-          <TextField
-            size="small"
+          <DateInput
             label="Date"
-            type="date"
+            size="small"
             value={row.serviceDate}
-            onChange={(e) => setRow(i, 'serviceDate', e.target.value)}
-            sx={{ width: 160 }}
-            InputLabelProps={{ shrink: true }}
+            onChange={(value) => setRow(i, 'serviceDate', value)}
           />
           <Autocomplete
             size="small"

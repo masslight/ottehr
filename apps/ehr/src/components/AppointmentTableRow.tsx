@@ -37,27 +37,21 @@ import {
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { otherColors } from 'src/themes/ottehr/colors';
+import { LOCATION_REVIEW_LINK_EXTENSION_URL, ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
+import { VisitStatusHistoryEntry, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import {
-  formatMinutes,
-  getAbnormalVitals,
-  getAdmitterPractitionerId,
-  getAttendingPractitionerId,
-  getDurationOfStatus,
-  getPatchBinary,
-  getSupportPhoneFor,
-  getVisitTotalTime,
-  GetVitalsResponseData,
   InPersonAppointmentInformation,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  mdyStringFromISOString,
-  NON_LOS_STATUSES,
-  OrdersForTrackingBoardRow,
   PRACTITIONER_CODINGS,
-  ProviderDetails,
-  ROOM_EXTENSION_URL,
-  VisitStatusHistoryEntry,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/types/data/appointments/appointments.types';
+import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
+import { mdyStringFromISOString } from 'utils/lib/utils/date';
+import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
+import { formatMinutes, getDurationOfStatus, getVisitTotalTime, NON_LOS_STATUSES } from 'utils/lib/utils/visitUtils';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
@@ -744,7 +738,10 @@ export default function AppointmentTableRow({
       appointment.status === 'provider' ||
       appointment.status === 'awaiting supervisor approval' ||
       appointment.status === 'completed' ||
-      appointment.status === 'discharged'
+      appointment.status === 'discharged' ||
+      appointment.status === 'pending' ||
+      appointment.status === 'arrived' ||
+      appointment.status === 'ready'
     ) {
       return (
         <GoToButton

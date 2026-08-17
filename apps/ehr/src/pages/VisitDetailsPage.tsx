@@ -34,6 +34,11 @@ import {
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
+import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
+import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
+import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
@@ -46,48 +51,41 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
-  BOOKING_CONFIG,
-  EHRVisitDetails,
-  FHIR_EXTENSION,
-  FhirAppointmentType,
-  formatDateForDisplay,
   getCancellationReasonDisplay,
-  getCoding,
-  getFormattedPatientFullName,
-  getInPersonVisitStatus,
-  getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitOptionsForServiceCategory,
-  GetVisitFaxHistoryOutput,
+} from 'utils/lib/fhir/appointments';
+import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
   getVisitOccupationalMedicineEmployerFromEncounter,
-  isApiError,
-  isInPersonAppointment,
   isScheduledFollowupEncounter,
-  isTelemedAppointment,
-  OrderedCoveragesWithSubscribers,
-  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
-  PATIENT_INFO_META_DATA_SYSTEM,
-  PatientAccountResponse,
-  resolveServiceCategoryAbbreviation,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceCategoryCode,
-  ServiceMode,
-  UpdateVisitDetailsInput,
-  VisitStatusLabel,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
+import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { FhirAppointmentType, ServiceMode } from 'utils/lib/types/common';
+import {
+  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
+  PATIENT_INFO_META_DATA_SYSTEM,
+} from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import { isApiError } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
-import {
-  ActivityLogDialog,
-  CancellationReasonDialog,
-  CustomDialog,
-  EditPatientInfoDialog,
-  ReportIssueDialog,
-} from '../components/dialogs';
 import { InPersonAppointmentStatusChip } from '../components/InPersonAppointmentStatusChip';
 import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
 import PatientInformation, { IconProps } from '../components/PatientInformation';
@@ -262,6 +260,9 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
+  const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms.
+  const allCustomForms = [...(standAloneForms ?? []), ...(intakePaperworkFlowForms ?? [])];
 
   const {
     imagesLoading,
@@ -1180,8 +1181,8 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
-                    {standAloneForms && standAloneForms.length > 0 ? (
-                      standAloneForms.map((form, idx) => (
+                    {allCustomForms.length > 0 ? (
+                      allCustomForms.map((form, idx) => (
                         <Grid item key={`${form.questionnaireId}-${idx}`}>
                           <Paper sx={{ mt: 2, p: 3 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>

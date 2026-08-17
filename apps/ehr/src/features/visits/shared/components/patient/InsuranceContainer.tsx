@@ -16,21 +16,21 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Row } from 'src/components/layout';
+import { Row } from 'src/components/layout/Row';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { mapInsuranceTypeCodeToCandidCode } from 'utils/lib/fhir/billing';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
-  chooseJson,
-  CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   FinancialDetails,
-  InsuranceEligibilityCheckStatus,
   mapEligibilityCheckResultToSimpleStatus,
-  mapInsuranceTypeCodeToCandidCode,
-  PATIENT_RECORD_CONFIG,
   PatientPaymentBenefit,
-} from 'utils';
+} from 'utils/lib/types/data/telemed/eligibility.types';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
@@ -690,18 +690,39 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {cardFields?.memberFirstName && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.firstName.key}
+            suggestedDisplay={cardFields.memberFirstName}
+            suggestedFormValue={cardFields.memberFirstName}
+          />
+        )}
         <PatientRecordFormField
           item={FormFields.middleName}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {cardFields?.memberMiddleName && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.middleName.key}
+            suggestedDisplay={cardFields.memberMiddleName}
+            suggestedFormValue={cardFields.memberMiddleName}
+          />
+        )}
         <PatientRecordFormField
           item={FormFields.lastName}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {cardFields?.memberLastName && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.lastName.key}
+            suggestedDisplay={cardFields.memberLastName}
+            suggestedFormValue={cardFields.memberLastName}
+          />
+        )}
         <PatientRecordFormField
           item={FormFields.birthDate}
           isLoading={false}

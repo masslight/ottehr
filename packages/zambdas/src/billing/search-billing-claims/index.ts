@@ -2,21 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BillingClaimItem,
-  CLAIM_STATUS_TAG_SYSTEMS,
-  CLAIM_TAG_SYSTEM,
-  CODE_SYSTEM_CLAIM_TYPE,
-  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  deduplicateUnbundledResources,
-  getAllFhirSearchPages,
-  getClaimStatusValues,
-  getPayerId,
-  getPayerUrl,
-  isValidUUID,
-  SearchBillingClaimsResponse,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingClaimItem, SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
+import { CLAIM_STATUS_TAG_SYSTEMS, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from '../claim-amounts';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
@@ -34,6 +30,8 @@ import {
   resolvePayersByRef,
   resourceDisplayName,
   sortClaimInsurance,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -163,7 +161,6 @@ async function performEffect(
     total = matching.length;
     pageClaims = matching.slice(offset, offset + pageSize);
   } else {
-    console.log('colin', filterParams);
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
@@ -219,13 +216,7 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
-export function buildClaimSearchTextQueries({
-  searchText,
-  patientIds = [],
-}: {
-  searchText: string;
-  patientIds?: string[];
-}): ClaimSearchParam[][] {
+export function buildClaimSearchTextQueries({ searchText }: { searchText: string }): ClaimSearchParam[][] {
   const text = searchText.trim();
   if (!text) return [];
 
@@ -266,6 +257,18 @@ export function buildClaimSearchTextQueries({
         value: `${CLAIM_PCN_IDENTIFIER_SYSTEM}|${text}`,
       },
     ],
+    [
+      {
+        name: 'patient.identifier',
+        value: `${SOURCE_IDENTIFIER_SYSTEM}|${text}`,
+      },
+    ],
+    [
+      {
+        name: 'patient.identifier',
+        value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${text}`,
+      },
+    ],
   ];
 
   if (isValidUUID(text)) {
@@ -276,8 +279,6 @@ export function buildClaimSearchTextQueries({
       },
     ]);
   }
-
-  if (patientIds.length > 0) queries.push([patientSearchParam(patientIds)]);
 
   const pcnClaimId = claimIdFromPcn(text);
   if (pcnClaimId) {
@@ -336,14 +337,7 @@ export async function searchClaimsBySearchText({
     },
   ];
 
-  const patientIds = isValidUUID(searchText.trim())
-    ? await resolveLinkedPatientIds({
-        oystehr,
-        patientId: searchText.trim(),
-      })
-    : [];
-
-  const clauses = buildClaimSearchTextQueries({ searchText, patientIds });
+  const clauses = buildClaimSearchTextQueries({ searchText });
 
   const claims: Claim[] = [];
   const truncatedClauses: string[] = [];

@@ -1,7 +1,8 @@
 import { TextField, useTheme } from '@mui/material';
 import { ControllerRenderProps, FieldValues } from 'react-hook-form';
-import { InputMask } from 'ui-components';
-import { DataEntryComponent, IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG } from 'utils';
+import { InputMask } from 'ui-components/lib/components/InputMask';
+import { IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG } from 'utils/lib/types/data/in-house/in-house.constants';
+import { DataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { configNumericResultEntryTestId } from '../../utils/test-ids';
 
 interface ResultEntryNumericInputProps {

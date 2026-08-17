@@ -1,9 +1,9 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { generatePracticeManagedQuestionnaireItemKey as generateKey } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
-  generatePracticeManagedQuestionnaireItemKey as generateKey,
   PracticeManagedQuestionnaireItem,
   QuestionnaireItemType,
-} from 'utils';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 export type ItemAction =
   | { type: 'ADD_PAGE' }

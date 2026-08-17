@@ -5,7 +5,7 @@ import { Box, IconButton, Skeleton, Tooltip, Typography } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { FC, ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getPatientFriendlyId } from 'utils';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
 
 type Props = {
   patient?: Patient;

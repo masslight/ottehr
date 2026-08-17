@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {
@@ -9,6 +9,7 @@ import {
   countEraClaims,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
+  extractReportedCharge,
   fetchPatientPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
   isMatchedToClaim,
@@ -312,6 +313,28 @@ describe('extractRemitAdjustments', () => {
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60)]],
     });
     expect(extractRemitAdjustments(cr)).toEqual([]);
+  });
+});
+
+describe('extractReportedCharge', () => {
+  it('reads the CLP03 charge from the total on both converter shapes', () => {
+    expect(extractReportedCharge(claimMdClaimResponse())).toBe(100);
+    expect(extractReportedCharge(processEraClaimResponse())).toBe(100);
+  });
+
+  it('sums line-level charges when there is no charge total', () => {
+    const cr = claimResponse('2026-01-01', {
+      itemAdjudications: [[adjudication('charge', 383)], [adjudication('charge', 187)]],
+    });
+    expect(extractReportedCharge(cr)).toBe(570);
+  });
+
+  it('is undefined when the remit reports no charge at all', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60)]],
+    });
+    expect(extractReportedCharge(cr)).toBeUndefined();
   });
 });
 

@@ -1,7 +1,7 @@
 import { Box, InputProps } from '@mui/material';
 import { FC, useContext } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { IntakeThemeContext } from '../../contexts';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 import DateInputFields from './DateInputFields';
 import { InputHelperText } from './InputHelperText';
 

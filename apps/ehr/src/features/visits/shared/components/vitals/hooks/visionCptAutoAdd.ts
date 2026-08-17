@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { QueryClient } from '@tanstack/react-query';
 import { Coding } from 'fhir/r4b';
-import { PROVIDER_CONFIG, VitalFieldNames, VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils';
+import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { OystehrTelemedAPIClient } from '../../../api/oystehrApi';
 
 export const hasNumericVisionValue = (vitals: VitalsObservationDTO[]): boolean => {

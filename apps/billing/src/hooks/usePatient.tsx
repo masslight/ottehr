@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getApiError, PatientDetailResponse } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { getBillingPatientDetail } from '../api/api';
 import { useApiClients } from './useAppClients';
 

@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import type { Coverage, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import React, { type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
-import { CoverageWithPriority, OrderedCoveragesWithSubscribers, PATIENT_RECORD_CONFIG } from 'utils';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { CoverageWithPriority, OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================

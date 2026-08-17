@@ -1,4 +1,4 @@
-import { Box, Paper } from '@mui/material';
+import { Box, Button, Paper, Typography } from '@mui/material';
 import {
   DataGridPro,
   GridColDef,
@@ -7,9 +7,12 @@ import {
   GridToolbarContainer,
   GridToolbarDensitySelector,
   GridToolbarFilterButton,
+  useGridApiRef,
 } from '@mui/x-data-grid-pro';
-import React, { useMemo } from 'react';
-import type { AdHocLinkRoute } from 'utils';
+import React, { useCallback, useMemo, useState } from 'react';
+import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
+import { MAX_EXPORT_CSV_LENGTH } from 'utils/lib/types/adhoc/sandbox/limits';
+import { sendFrameEvent } from '../messaging';
 import { formatValue, ValueFormat } from './format';
 import { Link } from './Link';
 
@@ -58,6 +61,8 @@ interface GridRow extends Record<string, unknown> {
 // values (rows are already typed; no string re-parsing). A `links` entry turns a column's cells
 // into whitelisted navigation events via <Link>.
 export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }: TableProps): React.ReactElement {
+  const apiRef = useGridApiRef();
+  const [exportTooLarge, setExportTooLarge] = useState(false);
   const linkByField = useMemo(() => {
     const m = new Map<string, TableLink>();
     (links ?? []).forEach((l) => m.set(l.field, l));
@@ -113,9 +118,23 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     return { gridColumns, gridRows };
   }, [columns, rows, linkByField]);
 
-  // No CSV export button: downloads need the `allow-downloads` sandbox flag, but the frame's sandbox
-  // is strictly `allow-scripts` (security contract). Export could return later as a whitelisted
-  // SPA-side event.
+  const handleExport = useCallback((): void => {
+    const csv = apiRef.current.getDataAsCsv();
+    if (!csv) return;
+    // Refuse oversized exports here (before the postMessage) — that's what the shared limit is for.
+    if (csv.length > MAX_EXPORT_CSV_LENGTH) {
+      setExportTooLarge(true);
+      return;
+    }
+    setExportTooLarge(false);
+    const base =
+      (title ?? 'report')
+        .replace(/[^\w.-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 100) || 'report';
+    sendFrameEvent({ event: 'exportData', filename: `${base}.csv`, csv });
+  }, [apiRef, title]);
+
   const Toolbar = useMemo(
     () =>
       function ToolbarInner(): React.ReactElement {
@@ -124,18 +143,27 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
             <GridToolbarColumnsButton />
             <GridToolbarFilterButton />
             <GridToolbarDensitySelector />
+            <Button size="small" onClick={handleExport}>
+              Export CSV
+            </Button>
           </GridToolbarContainer>
         );
       },
-    []
+    [handleExport]
   );
 
   return (
     <Box sx={{ mb: 1 }}>
+      {exportTooLarge && (
+        <Typography variant="body2" color="error" sx={{ mb: 0.5 }}>
+          This report is too large to export.
+        </Typography>
+      )}
       <Paper variant="outlined" sx={{ width: '100%' }}>
         {/* Known limitation: the filter/columns panels render in a portal inside the frame and can
             be clipped by the frame's height near the bottom of a short report. */}
         <DataGridPro
+          apiRef={apiRef}
           aria-label={title}
           autoHeight
           density="compact"
