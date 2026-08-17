@@ -1,9 +1,10 @@
-import { QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { IN_PERSON_INTAKE_PAPERWORK_URL } from '../ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_URL } from '../ottehr-config/intake-paperwork-virtual';
-import { INTAKE_PAPERWORK_QR_TAG } from './constants';
+import { HARVESTABLE_FLOW_QR_TAG, INTAKE_PAPERWORK_QR_TAG } from './constants';
 import {
+  getIntakeQuestionnaireResponseTags,
   handleFlowQuestionnaireItem,
   isIntakePaperworkQuestionnaireResponse,
   isOttehrManagedIntakeQuestionnaire,
@@ -15,6 +16,12 @@ const makeQR = (overrides: Partial<QuestionnaireResponse> = {}): QuestionnaireRe
   resourceType: 'QuestionnaireResponse',
   status: 'completed',
   ...overrides,
+});
+
+const makeQuestionnaire = (derivedFrom?: string[]): Questionnaire => ({
+  resourceType: 'Questionnaire',
+  status: 'active',
+  ...(derivedFrom ? { derivedFrom } : {}),
 });
 
 describe('handleFlowQuestionnaireItem', () => {
@@ -155,5 +162,51 @@ describe('isIntakePaperworkQuestionnaireResponse', () => {
     const qr = makeQR({ questionnaire: 'https://ottehr.com/FHIR/Questionnaire/some-flow-canonical|1.0.0' });
 
     expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(false);
+  });
+});
+
+describe('getIntakeQuestionnaireResponseTags', () => {
+  it('returns only the intake tag for a legacy questionnaire with no derivedFrom', () => {
+    expect(getIntakeQuestionnaireResponseTags(makeQuestionnaire())).toEqual([INTAKE_PAPERWORK_QR_TAG]);
+  });
+
+  it('returns only the intake tag when derivedFrom is an empty array', () => {
+    expect(getIntakeQuestionnaireResponseTags(makeQuestionnaire([]))).toEqual([INTAKE_PAPERWORK_QR_TAG]);
+  });
+
+  it('adds the harvestable-flow tag for a flow deriving from the in-person intake questionnaire', () => {
+    const flow = makeQuestionnaire([`${IN_PERSON_INTAKE_PAPERWORK_URL}|1.0.0`]);
+
+    expect(getIntakeQuestionnaireResponseTags(flow)).toEqual([INTAKE_PAPERWORK_QR_TAG, HARVESTABLE_FLOW_QR_TAG]);
+  });
+
+  it('adds the harvestable-flow tag for a flow deriving from the virtual intake questionnaire', () => {
+    const flow = makeQuestionnaire([`${VIRTUAL_INTAKE_PAPERWORK_URL}|2.3.0`]);
+
+    expect(getIntakeQuestionnaireResponseTags(flow)).toEqual([INTAKE_PAPERWORK_QR_TAG, HARVESTABLE_FLOW_QR_TAG]);
+  });
+
+  it('adds the harvestable-flow tag for an unversioned in-person intake canonical', () => {
+    const flow = makeQuestionnaire([IN_PERSON_INTAKE_PAPERWORK_URL]);
+
+    expect(getIntakeQuestionnaireResponseTags(flow)).toEqual([INTAKE_PAPERWORK_QR_TAG, HARVESTABLE_FLOW_QR_TAG]);
+  });
+
+  it('adds the harvestable-flow tag when derivedFrom mixes intake and non-intake canonicals', () => {
+    const flow = makeQuestionnaire([
+      'https://ottehr.com/FHIR/Questionnaire/some-other-form|1.0.0',
+      `${IN_PERSON_INTAKE_PAPERWORK_URL}|1.0.0`,
+    ]);
+
+    expect(getIntakeQuestionnaireResponseTags(flow)).toEqual([INTAKE_PAPERWORK_QR_TAG, HARVESTABLE_FLOW_QR_TAG]);
+  });
+
+  it('does not add the harvestable-flow tag for a flow deriving only from non-intake questionnaires', () => {
+    const flow = makeQuestionnaire([
+      'https://ottehr.com/FHIR/Questionnaire/patient-record|1.0.0',
+      'https://ottehr.com/FHIR/Questionnaire/some-other-form|2.0.0',
+    ]);
+
+    expect(getIntakeQuestionnaireResponseTags(flow)).toEqual([INTAKE_PAPERWORK_QR_TAG]);
   });
 });

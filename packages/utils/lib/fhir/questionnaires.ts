@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { FhirResource, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { Coding, FhirResource, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
 import {
@@ -12,7 +12,7 @@ import {
 } from '../ottehr-config/intake-paperwork-virtual';
 import { PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config/patient-record';
 import { CanonicalUrl } from '../types/common';
-import { INTAKE_PAPERWORK_QR_TAG } from './constants';
+import { HARVESTABLE_FLOW_QR_TAG, INTAKE_PAPERWORK_QR_TAG } from './constants';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
@@ -100,6 +100,21 @@ export const isOttehrManagedIntakeQuestionnaire = (questionnaireUrl: string): bo
     questionnaireUrl.startsWith(IN_PERSON_INTAKE_PAPERWORK_URL) ||
     questionnaireUrl.startsWith(VIRTUAL_INTAKE_PAPERWORK_URL)
   );
+};
+
+/**
+ * Builds the meta.tag set for an intake paperwork QuestionnaireResponse created at booking time.
+ * Every intake QR carries INTAKE_PAPERWORK_QR_TAG so readers recognize it even when it points at a
+ * paperwork flow (whose canonical is the flow url, not an intake-paperwork url). When the QR points at
+ * a flow whose derivedFrom includes an in-person / virtual intake questionnaire, it additionally
+ * carries HARVESTABLE_FLOW_QR_TAG so the flow-specific sub-intake-harvest subscription fires for it.
+ */
+export const getIntakeQuestionnaireResponseTags = (questionnaire: Questionnaire): Coding[] => {
+  const tags: Coding[] = [INTAKE_PAPERWORK_QR_TAG];
+  if (questionnaire.derivedFrom?.some((canonical) => isOttehrManagedIntakeQuestionnaire(canonical))) {
+    tags.push(HARVESTABLE_FLOW_QR_TAG);
+  }
+  return tags;
 };
 
 export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): QuestionnaireResponse | undefined => {
