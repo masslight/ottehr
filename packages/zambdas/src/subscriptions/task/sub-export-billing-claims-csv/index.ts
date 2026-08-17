@@ -4,7 +4,10 @@ import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { toCsv } from 'utils/lib/helpers/csv';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
-import { EXPORT_CLAIMS_INCOMPLETE_CODE } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  EXPORT_CLAIMS_INCOMPLETE_CODE,
+  EXPORT_CLAIMS_MATCH_LIMIT,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { ExportBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_EXPORT_HEADERS, claimExportRow } from '../../../billing/claim-export-csv';
 import {
@@ -21,7 +24,6 @@ import { wrapTaskHandler } from '../helpers';
 import { ExportBillingClaimsCsvParams, validateRequestParameters } from './validateRequestParameters';
 
 export const EXPORT_PAGE_SIZE = 100;
-export const EXPORT_MATCH_LIMIT = 10_000;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'sub-export-billing-claims-csv';
@@ -120,9 +122,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
   };
 
   const truncated = (): ClaimExportRows => {
-    console.warn(`Export hit the ${EXPORT_MATCH_LIMIT} row limit, so the CSV is partial`);
+    console.warn(`Export hit the ${EXPORT_CLAIMS_MATCH_LIMIT} row limit, so the CSV is partial`);
     return {
-      rows: rows.slice(0, EXPORT_MATCH_LIMIT),
+      rows: rows.slice(0, EXPORT_CLAIMS_MATCH_LIMIT),
       incomplete: true,
     };
   };
@@ -140,7 +142,7 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
         )
       : matched.claims;
     const claimIds = matching.map((claim) => claim.id).filter(Boolean) as string[];
-    const withinLimit = claimIds.slice(0, EXPORT_MATCH_LIMIT);
+    const withinLimit = claimIds.slice(0, EXPORT_CLAIMS_MATCH_LIMIT);
 
     for (let start = 0; start < withinLimit.length; start += EXPORT_PAGE_SIZE) {
       const page = await fetchClaimsPageByIds({
@@ -198,7 +200,7 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     );
     offset += claims.length;
 
-    if (rows.length >= EXPORT_MATCH_LIMIT) return truncated();
+    if (rows.length >= EXPORT_CLAIMS_MATCH_LIMIT) return truncated();
   } while (offset < total);
 
   return {

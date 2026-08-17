@@ -4,6 +4,7 @@ import {
   CLAIM_TAG_SYSTEM,
   EXPORT_CLAIMS_FILTERS_CODE,
   EXPORT_CLAIMS_INCOMPLETE_CODE,
+  EXPORT_CLAIMS_MATCH_LIMIT,
 } from 'utils/lib/types/data/billing/billing.constants';
 import { ExportBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -186,13 +187,12 @@ const outputValue = (code: string): string | undefined =>
 
 describe('sub-export-billing-claims-csv', () => {
   let exportPageSize: number;
-  let exportMatchLimit: number;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     mockOystehrClient.z3.uploadFile.mockResolvedValue(undefined);
     mockOystehrClient.fhir.patch.mockResolvedValue({});
-    ({ EXPORT_PAGE_SIZE: exportPageSize, EXPORT_MATCH_LIMIT: exportMatchLimit } = await import(
+    ({ EXPORT_PAGE_SIZE: exportPageSize } = await import(
       '../../../src/subscriptions/task/sub-export-billing-claims-csv/index'
     ));
   });
@@ -294,23 +294,25 @@ describe('sub-export-billing-claims-csv', () => {
 
   // Paging on past the limit would run the lambda out of time and leave the Task stuck in-progress.
   it('stops at the row limit and flags the CSV as partial', async () => {
-    const overLimit = Array.from({ length: exportMatchLimit + 1 }, (_, index) => makeClaim(`claim-${index}`));
+    const overLimit = Array.from({ length: EXPORT_CLAIMS_MATCH_LIMIT + 1 }, (_, index) => makeClaim(`claim-${index}`));
     stubSearches({ claimPages: [[...overLimit, patient]] });
 
     await runExport(makeTask({}));
 
-    expect(await csvRows()).toHaveLength(exportMatchLimit + 1);
+    expect(await csvRows()).toHaveLength(EXPORT_CLAIMS_MATCH_LIMIT + 1);
     expect(outputValue(EXPORT_CLAIMS_INCOMPLETE_CODE)).toBe('true');
   });
 
   it('stops a search-text export at the row limit too', async () => {
     stubSearches({
-      searchTextMatches: Array.from({ length: exportMatchLimit + 1 }, (_, index) => makeClaim(`claim-${index}`)),
+      searchTextMatches: Array.from({ length: EXPORT_CLAIMS_MATCH_LIMIT + 1 }, (_, index) =>
+        makeClaim(`claim-${index}`)
+      ),
     });
 
     await runExport(makeTask({ searchText: 'Smith' }));
 
-    expect(await csvRows()).toHaveLength(exportMatchLimit + 1);
+    expect(await csvRows()).toHaveLength(EXPORT_CLAIMS_MATCH_LIMIT + 1);
     expect(outputValue(EXPORT_CLAIMS_INCOMPLETE_CODE)).toBe('true');
   });
 

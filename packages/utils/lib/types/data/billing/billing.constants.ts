@@ -10,6 +10,9 @@ export const EXPORT_CLAIMS_CSV_TASK_CODE = 'export-billing-claims-csv';
 export const EXPORT_CLAIMS_FILTERS_CODE = 'export-claims-filters';
 export const EXPORT_CLAIMS_INCOMPLETE_CODE = 'export-claims-incomplete';
 
+// Max claims a single CSV export includes; matches beyond this are truncated and flagged incomplete.
+export const EXPORT_CLAIMS_MATCH_LIMIT = 10_000;
+
 // FHIR administrative gender, labeled the way the billing app displays it. The demographics forms,
 // the rules field catalog, and the engine's gender writer all share this one list.
 export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; label: string }[] = [

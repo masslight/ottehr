@@ -22,6 +22,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { EXPORT_CLAIMS_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import { ExportBillingClaimsInput, SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
@@ -681,6 +682,13 @@ export default function ClaimsList(): ReactElement {
         <Alert severity="warning" sx={{ mb: 2 }}>
           Some claims may be missing from these results. Narrow the search, or use the filters to find a claim you
           expected to see.
+        </Alert>
+      )}
+
+      {totalRows > EXPORT_CLAIMS_MATCH_LIMIT && !error && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This search matches {totalRows.toLocaleString()} claims, but an export includes at most{' '}
+          {EXPORT_CLAIMS_MATCH_LIMIT.toLocaleString()} records. Narrow the search to export the rest.
         </Alert>
       )}
 
