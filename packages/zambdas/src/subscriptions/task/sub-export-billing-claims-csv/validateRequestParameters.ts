@@ -21,7 +21,12 @@ export function validateRequestParameters(input: TaskSubscriptionInput): ExportB
     (taskInput) => taskInput.type?.coding?.some((coding) => coding.code === EXPORT_CLAIMS_FILTERS_CODE)
   )?.valueString;
 
-  const data = safeValidate(ExportBillingClaimsInputSchema, filters ? JSON.parse(filters) : {});
+  let data: ExportBillingClaimsInput;
+  try {
+    data = safeValidate(ExportBillingClaimsInputSchema, filters ? JSON.parse(filters) : {});
+  } catch {
+    data = safeValidate(ExportBillingClaimsInputSchema, {});
+  }
 
   return {
     ...data,
