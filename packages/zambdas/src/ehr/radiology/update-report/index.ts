@@ -244,6 +244,26 @@ const throwIfNotOk = async (response: Response, attempted: string): Promise<void
   throw new Error(
     `AdvaPACS DiagnosticReport ${attempted} errored out with statusCode ${response.status}, status text ${
       response.statusText
-    }, and body ${JSON.stringify(await response.json(), null, 2)}`
+    }, and body ${await readErrorBody(response)}`
   );
+};
+
+/**
+ * A failing response is not necessarily FHIR, or even JSON — a gateway or proxy in front of AdvaPACS answers
+ * with HTML, and an empty body is common too. Parsing it as JSON would reject and throw away the status code
+ * and status text along with it, so read text and only pretty-print when it does turn out to be JSON.
+ */
+export const readErrorBody = async (response: Response): Promise<string> => {
+  let body: string;
+  try {
+    body = await response.text();
+  } catch (error) {
+    return `<unreadable: ${error instanceof Error ? error.message : String(error)}>`;
+  }
+  if (!body) return '<empty>';
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    return body;
+  }
 };

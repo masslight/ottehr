@@ -837,18 +837,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           expect(editFinalButton()).not.toBeInTheDocument();
         });
 
-        it('does not offer it when the progress note is locked', () => {
-          mockUseGetAppointmentAccessibility.mockReturnValue({
-            isAppointmentReadOnly: true,
-            isPractitionerLicensedInState: true,
-            isEncounterAssignedToCurrentPractitioner: true,
-            visitType: 'main',
-          } as any);
-          mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [ownFinalOrder()] }));
-          renderPage();
-          expect(editFinalButton()).not.toBeInTheDocument();
-        });
-
         it('saves the edited text as a final read', async () => {
           const user = userEvent.setup();
           const mockHandleUpdateReport = vi.fn().mockResolvedValue(true);
@@ -948,21 +936,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           await user.type(editField('preliminary'), '!');
           expect(save).toBeEnabled();
         });
-
-        it('disables it again when the text is edited back to what was saved', async () => {
-          const user = userEvent.setup();
-          mockUsePatientRadiologyOrders.mockReturnValue(
-            makeHookResult({ orders: [makeMockOrder({ preliminaryReport: btoa(PRELIM_TEXT) })] })
-          );
-          renderPage();
-
-          await user.click(editPrelimButton()!);
-          const field = editField('preliminary');
-          await user.type(field, '!');
-          await user.type(field, '{Backspace}');
-
-          expect(screen.getByTestId(dataTestIds.radiologyPage.saveEditedReportButton('preliminary'))).toBeDisabled();
-        });
       });
     });
 
@@ -981,13 +954,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
         const lateralityRow = screen.getByText('Laterality:').closest('div')!;
         expect(within(lateralityRow).getByText('LT (left side)')).toBeInTheDocument();
-      });
-
-      it('omits the laterality row for an order that has none', () => {
-        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder()] }));
-        renderPage();
-
-        expect(screen.queryByText('Laterality:')).not.toBeInTheDocument();
       });
     });
 

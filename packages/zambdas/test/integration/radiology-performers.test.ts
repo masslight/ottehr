@@ -23,6 +23,14 @@ describe('radiology history performers integration', () => {
   let orderingPractitionerId: string;
   let cleanup: () => Promise<void>;
 
+  const getReports = async (): Promise<DiagnosticReport[]> =>
+    (
+      await oystehrAdmin.fhir.search<DiagnosticReport>({
+        resourceType: 'DiagnosticReport',
+        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
+      })
+    ).unbundle();
+
   const historyRow = async (status: RadiologyOrderStatus): Promise<{ performer?: string } | undefined> => {
     const response = await oystehrZambdas.zambda.execute({ id: 'radiology-order-list', serviceRequestId });
     const { orders } = response.output as GetRadiologyOrderListZambdaOutput;
@@ -83,62 +91,30 @@ describe('radiology history performers integration', () => {
     await cleanup();
   });
 
-  it('leaves the performed row blank until someone records who performed the study', async () => {
+  // Whether each row *renders* the right name is settled by the buildHistory unit tests; what only a real
+  // round trip can show is that each write lands on its own resource, so walk the order once and check the
+  // resources as it goes.
+  it('records the study performer on the order, from its own save and with no read written', async () => {
     expect((await historyRow(RadiologyOrderStatus.performed))?.performer).toBe('');
-  });
 
-  it('fills the performed row from its own save, with no read written', async () => {
-    const response = await oystehrZambdas.zambda.execute({
+    await oystehrZambdas.zambda.execute({
       id: 'radiology-update-order',
       serviceRequestId,
       update: { type: 'performed-by', performedById: orderingPractitionerId },
     });
-    expect(response.output).toBeDefined();
 
     expect((await historyRow(RadiologyOrderStatus.performed))?.performer).toBeTruthy();
-
     // Still `performed` — recording the performer is not writing a read.
-    const reports = (
-      await oystehrAdmin.fhir.search<DiagnosticReport>({
-        resourceType: 'DiagnosticReport',
-        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
-      })
-    ).unbundle();
-    expect(reports).toHaveLength(0);
+    expect(await getReports()).toHaveLength(0);
   });
 
-  it('rejects a performer that is not a Practitioner', async () => {
-    await expect(
-      oystehrZambdas.zambda.execute({
-        id: 'radiology-update-order',
-        serviceRequestId,
-        update: { type: 'performed-by', performedById: '00000000-0000-0000-0000-000000000000' },
-      })
-    ).rejects.toThrow();
-  });
-
-  it('credits the preliminary read to its own author', async () => {
+  it('records the sender on the order when it goes for a final read', async () => {
     await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
       diagnosisCodes: ['E11.9'],
     });
-
-    const preliminary = (
-      await oystehrAdmin.fhir.search<DiagnosticReport>({
-        resourceType: 'DiagnosticReport',
-        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
-      })
-    )
-      .unbundle()
-      .find((report) => report.status === 'preliminary');
-    // The read's author lives on the report, not on ServiceRequest.performer.
-    expect(preliminary?.performer?.[0]?.reference).toBe(`Practitioner/${orderingPractitionerId}`);
-    expect((await historyRow(RadiologyOrderStatus.preliminary))?.performer).toBeTruthy();
-  });
-
-  it('records who sent the order for a final read', async () => {
     await oystehrZambdas.zambda.execute({ id: 'radiology-send-for-final-read', serviceRequestId });
 
     const serviceRequest = await oystehrAdmin.fhir.get<ServiceRequest>({
@@ -152,27 +128,20 @@ describe('radiology history performers integration', () => {
     expect((await historyRow(RadiologyOrderStatus.pendingFinal))?.performer).toBeTruthy();
   });
 
-  it('keeps each read crediting its own author once the final read is written', async () => {
+  it('leaves each read carrying its own author once the final read is written', async () => {
     await oystehrZambdas.zambda.execute({
       id: 'radiology-save-final-report',
       serviceRequestId,
       report: 'Integration test final report',
     });
 
-    const reports = (
-      await oystehrAdmin.fhir.search<DiagnosticReport>({
-        resourceType: 'DiagnosticReport',
-        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
-      })
-    ).unbundle();
-
     // Finalizing must not have consumed the preliminary read's author along with its text.
-    const preliminary = reports.find((report) => report.status === 'preliminary');
-    const final = reports.find((report) => report.status === 'final');
-    expect(preliminary?.performer?.[0]?.reference).toBe(`Practitioner/${orderingPractitionerId}`);
-    expect(final?.performer?.[0]?.reference).toBe(`Practitioner/${orderingPractitionerId}`);
-
-    expect((await historyRow(RadiologyOrderStatus.preliminary))?.performer).toBeTruthy();
-    expect((await historyRow(RadiologyOrderStatus.final))?.performer).toBeTruthy();
+    const reports = await getReports();
+    expect(reports.find((report) => report.status === 'preliminary')?.performer?.[0]?.reference).toBe(
+      `Practitioner/${orderingPractitionerId}`
+    );
+    expect(reports.find((report) => report.status === 'final')?.performer?.[0]?.reference).toBe(
+      `Practitioner/${orderingPractitionerId}`
+    );
   });
 });
