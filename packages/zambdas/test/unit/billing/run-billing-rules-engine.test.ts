@@ -24,14 +24,14 @@ describe('run-billing-rules-engine - performEffect', () => {
     const { oystehr, transaction } = makeOystehr(echoCreatedTasks);
 
     const response = await performEffect(oystehr, [
-      { claimId: 'claim-1', engine: 'claim-submission' },
-      { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice' },
+      { claimId: 'claim-1', engine: 'claim-submission', skipRules: false },
+      { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', skipRules: true },
     ]);
 
     expect(response).toEqual({
       results: [
-        { claimId: 'claim-1', engine: 'claim-submission', taskId: 'task-1' },
-        { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', taskId: 'task-2' },
+        { claimId: 'claim-1', engine: 'claim-submission', taskId: 'task-1', skipRules: false },
+        { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', taskId: 'task-2', skipRules: true },
       ],
     });
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -57,7 +57,9 @@ describe('run-billing-rules-engine - performEffect', () => {
       Promise.resolve({ resourceType: 'Bundle', type: 'transaction-response', entry: [] })
     );
 
-    await expect(performEffect(oystehr, [{ claimId: 'claim-1', engine: 'claim-submission' }])).rejects.toThrow();
+    await expect(
+      performEffect(oystehr, [{ claimId: 'claim-1', engine: 'claim-submission', skipRules: false }])
+    ).rejects.toThrow();
   });
 });
 
@@ -80,11 +82,15 @@ describe('run-billing-rules-engine - complexValidation', () => {
       makeClaim('claim-2', AR_STAGE.nonInsurancePayer),
     ]);
 
-    const kickoffs = await complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null });
+    const kickoffs = await complexValidation(oystehr, {
+      claimIds: ['claim-1', 'claim-2'],
+      secrets: null,
+      skipRules: false,
+    });
 
     expect(kickoffs).toEqual([
-      { claimId: 'claim-1', engine: 'claim-submission' },
-      { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice' },
+      { claimId: 'claim-1', engine: 'claim-submission', skipRules: false },
+      { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', skipRules: false },
     ]);
     expect(search).toHaveBeenCalledTimes(1);
     expect(search).toHaveBeenCalledWith({
@@ -100,19 +106,19 @@ describe('run-billing-rules-engine - complexValidation', () => {
     const { oystehr } = makeSearchOystehr([makeClaim('claim-1', AR_STAGE.insurancePayer)]);
 
     await expect(
-      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2', 'claim-3'], secrets: null })
+      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2', 'claim-3'], secrets: null, skipRules: false })
     ).rejects.toMatchObject({ message: 'Claim(s) not found: claim-2, claim-3' });
   });
 
   it('names the claims no engine applies to', async () => {
     const { oystehr } = makeSearchOystehr([makeClaim('claim-1', AR_STAGE.insurancePayer), makeClaim('claim-2')]);
 
-    await expect(complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null })).rejects.toMatchObject(
-      {
-        message:
-          'No rules engine applies to claim(s): claim-2. ' +
-          'Set an AR Stage first — Patient AR claims must also be self-pay (no coverage).',
-      }
-    );
+    await expect(
+      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null, skipRules: false })
+    ).rejects.toMatchObject({
+      message:
+        'No rules engine applies to claim(s): claim-2. ' +
+        'Set an AR Stage first — Patient AR claims must also be self-pay (no coverage).',
+    });
   });
 });

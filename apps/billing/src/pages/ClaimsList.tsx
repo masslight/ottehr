@@ -51,7 +51,7 @@ import {
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { DateRangeInput } from '../components/DateRangeInput';
+import { DateRangeInput } from '../components/DateInput';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';

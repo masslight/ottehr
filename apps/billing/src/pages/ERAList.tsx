@@ -21,8 +21,9 @@ import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.ty
 import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
+import { searchBillingEras, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DateRangeInput } from '../components/DateInput';
 import { ImportEraDialog } from '../components/ImportEraDialog';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -99,7 +100,6 @@ export default function ERAList(): ReactElement {
   const [dosFrom, setDosFrom] = useState('');
   const [dosTo, setDosTo] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
-  const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const { debounce } = useDebounce();
 
@@ -146,21 +146,6 @@ export default function ERAList(): ReactElement {
           setPayerOptions([]);
         }
       }, 'payer');
-    },
-    [oystehrZambda, debounce]
-  );
-
-  const searchPatients = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      debounce(async () => {
-        try {
-          const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
-          setPatientOptions(res.patients ?? []);
-        } catch {
-          setPatientOptions([]);
-        }
-      }, 'patient');
     },
     [oystehrZambda, debounce]
   );
@@ -320,29 +305,18 @@ export default function ERAList(): ReactElement {
           isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
-        <TextField
-          size="small"
-          type="date"
-          label="ERA Date From"
-          value={eraDateFrom}
-          onChange={(e) => {
-            setEraDateFrom(e.target.value);
-            applyFilters({ eraDateFrom: e.target.value });
+        <DateRangeInput
+          label="ERA Date"
+          valueFrom={eraDateFrom}
+          valueTo={eraDateTo}
+          onChange={(from, to) => {
+            setEraDateFrom(from);
+            setEraDateTo(to);
+            applyFilters({
+              eraDateFrom: from,
+              eraDateTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 150 }}
-        />
-        <TextField
-          size="small"
-          type="date"
-          label="ERA Date To"
-          value={eraDateTo}
-          onChange={(e) => {
-            setEraDateTo(e.target.value);
-            applyFilters({ eraDateTo: e.target.value });
-          }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 150 }}
         />
       </Box>
 
@@ -368,47 +342,18 @@ export default function ERAList(): ReactElement {
             ))}
           </Select>
         </FormControl>
-        <Autocomplete
-          size="small"
-          options={patientOptions}
-          getOptionLabel={(o) => o.name || `${o.firstName} ${o.lastName}`}
-          onInputChange={(_, value, reason) => {
-            if (reason === 'input') searchPatients(value);
+        <DateRangeInput
+          label="Service Date"
+          valueFrom={dosFrom}
+          valueTo={dosTo}
+          onChange={(from, to) => {
+            setDosFrom(from);
+            setDosTo(to);
+            applyFilters({
+              dosFrom: from,
+              dosTo: to,
+            });
           }}
-          onOpen={() => searchPatients('')}
-          filterOptions={(x) => x}
-          value={selectedPatient}
-          onChange={(_, v) => {
-            setSelectedPatient(v);
-            applyFilters({ patientId: v?.id ?? '' });
-          }}
-          renderInput={(params) => <TextField {...params} label="Patient" />}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ minWidth: 200 }}
-        />
-        <TextField
-          size="small"
-          type="date"
-          label="DOS From"
-          value={dosFrom}
-          onChange={(e) => {
-            setDosFrom(e.target.value);
-            applyFilters({ dosFrom: e.target.value });
-          }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 150 }}
-        />
-        <TextField
-          size="small"
-          type="date"
-          label="DOS To"
-          value={dosTo}
-          onChange={(e) => {
-            setDosTo(e.target.value);
-            applyFilters({ dosTo: e.target.value });
-          }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 150 }}
         />
 
         {hasFilters && (
