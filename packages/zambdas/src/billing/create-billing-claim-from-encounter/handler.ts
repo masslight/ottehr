@@ -175,7 +175,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
   const engine = determineRulesEngineForClaim(claim);
-  if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, params.secrets);
+  if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, agent.who, params.secrets);
   return { statusCode: 200, body: JSON.stringify({ claimId }) };
 }
 

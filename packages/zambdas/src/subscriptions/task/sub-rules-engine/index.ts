@@ -91,6 +91,11 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
   // change the engine writes lands in the claim history attributed to it.
   const agent = await resolveClaimActor('rules', oystehr, undefined, secrets);
+  /*if (task.requester) {
+    agent.push({
+      who: task.requester,
+    });
+  }*/
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {

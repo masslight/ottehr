@@ -655,12 +655,13 @@ export async function kickOffRulesEngine(
   oystehr: Oystehr,
   engine: RulesEngineType,
   claimId: string,
+  requester: Reference,
   secrets: Secrets | null
 ): Promise<void> {
   // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   try {
-    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId, false));
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId, false, requester));
   } catch (error) {
     console.error(`Failed to enqueue ${engine} rules-engine Task for Claim/${claimId}:`, error);
     await sendErrors(error, env, { claimId, engine });
