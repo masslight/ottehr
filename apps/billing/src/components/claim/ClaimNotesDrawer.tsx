@@ -95,7 +95,7 @@ export function ClaimNotesDrawer({ open, onClose, claimId, onNoteAdded }: ClaimN
               }}
             >
               <Typography variant="body2" fontWeight={600}>
-                {note.actors.map((actor) => actor.display).join(',')}
+                {note.actor.display}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {formatDateTime(note.recorded)}

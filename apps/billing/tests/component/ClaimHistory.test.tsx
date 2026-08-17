@@ -21,12 +21,10 @@ const noteEntry: ClaimHistoryEntry = {
   id: 'prov-note',
   recorded: '2026-06-01T12:00:00Z',
   activity: 'Note',
-  actors: [
-    {
-      display: 'Jane Doe',
-      type: 'user',
-    },
-  ],
+  actor: {
+    display: 'Jane Doe',
+    type: 'user',
+  },
   changes: [],
   message: 'Called payer, on hold pending medical records',
 };
@@ -35,12 +33,10 @@ const changeEntry: ClaimHistoryEntry = {
   id: 'prov-update',
   recorded: '2026-05-31T12:00:00Z',
   activity: 'Update Coverage',
-  actors: [
-    {
-      display: 'Ottehr Rules Engine',
-      type: 'system',
-    },
-  ],
+  actor: {
+    display: 'Ottehr Rules Engine',
+    type: 'system',
+  },
   changes: [
     {
       field: 'memberId',

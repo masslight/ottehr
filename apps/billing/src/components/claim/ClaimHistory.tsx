@@ -149,16 +149,12 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
               <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(entry.recorded)}</TableCell>
               <TableCell>
                 <Stack>
-                  {entry.actors.map((actor) => {
-                    return (
-                      <Box key={actor.display} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2">{actor.display}</Typography>
-                        {actor.type === 'system' && (
-                          <Chip label="System" size="small" color="default" sx={{ height: 18, fontSize: 10 }} />
-                        )}
-                      </Box>
-                    );
-                  })}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2">{entry.actor.display}</Typography>
+                    {entry.actor.type === 'system' && (
+                      <Chip label="System" size="small" color="default" sx={{ height: 18, fontSize: 10 }} />
+                    )}
+                  </Box>
                 </Stack>
               </TableCell>
               <TableCell>{entry.activity}</TableCell>

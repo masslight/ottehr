@@ -2,11 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
+  CLAIM_PROVENANCE_AGENT_TYPE,
+  CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
@@ -160,7 +163,13 @@ function toHistoryEntry(
   const activityCode = provenance.activity?.coding?.[0]?.code;
   // target[0] is the changed resource (the claim itself is appended as a second target).
   const targetRef = provenance.target?.[0]?.reference;
-  const agentRef = provenance.agent?.[0]?.who?.reference;
+  // Take a human agent if it's present
+  const agent =
+    provenance.agent.find(
+      (agent) =>
+        getCoding(agent.type, CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM)?.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code
+    ) ?? provenance.agent?.[0];
+  const agentRef = agent?.who?.reference;
 
   // Our writer always sets these; a claim-history Provenance missing them is a real defect, not a
   // routine optional-field case — surface it rather than silently rendering blanks.
@@ -180,12 +189,10 @@ function toHistoryEntry(
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
     activity: activityDisplay(activityCode ?? '', resourceType),
-    actors: provenance.agent.map((agent) => {
-      return {
-        display: actorDisplay(agentsByRef.get(agent.who.reference ?? ''), agent.who.reference ?? ''),
-        type: agent.type?.coding?.[0]?.code === 'system' ? 'system' : 'user',
-      };
-    }),
+    actor: {
+      display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
+      type: agent.type?.coding?.[0]?.code === 'system' ? 'system' : 'user',
+    },
     changes: parseChanges(provenance, environment),
     ...(message ? { message } : {}),
   };
