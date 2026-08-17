@@ -129,7 +129,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
@@ -148,7 +148,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: true },
-      AGENT
+      [AGENT]
     );
 
     expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
@@ -173,7 +173,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     // persistModel skips the shared-resource write; completing would submit the claim as if the
@@ -199,7 +199,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -218,7 +218,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(submitClaimRcm).not.toHaveBeenCalled();
@@ -234,7 +234,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('failed');
@@ -263,7 +263,7 @@ describe('sub-rules-engine performEffect', () => {
         await performEffect(
           oystehr,
           { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
-          AGENT
+          [AGENT]
         )
     ).rejects.toMatchInlineSnapshot(
       `[Error: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
@@ -290,7 +290,7 @@ describe('pre-invoice engines performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -310,7 +310,7 @@ describe('pre-invoice engines performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -328,7 +328,7 @@ describe('pre-invoice engines performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -345,7 +345,7 @@ describe('pre-invoice engines performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -364,7 +364,7 @@ describe('pre-invoice engines performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -381,7 +381,7 @@ describe('pre-invoice engines performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('failed');
@@ -500,7 +500,7 @@ describe('sub-rules-engine charge master pricing', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -532,7 +532,7 @@ describe('sub-rules-engine charge master pricing', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -748,7 +748,7 @@ describe('sub-rules-engine patient coverage context', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -823,7 +823,7 @@ describe('sub-rules-engine patient coverage context', () => {
         await performEffect(
           oystehr,
           { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
-          AGENT
+          [AGENT]
         )
     ).rejects.toThrow('Rule "Rule cov" failed');
 
@@ -847,7 +847,7 @@ describe('sub-rules-engine persistModel', () => {
     const snapshot = snapshotModel(model);
     model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(1);
     const requests = transaction.mock.calls[0][0].requests;
@@ -860,7 +860,7 @@ describe('sub-rules-engine persistModel', () => {
     const model = makeModel();
     const snapshot = snapshotModel(model);
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
@@ -873,7 +873,7 @@ describe('sub-rules-engine persistModel', () => {
     const snapshot = snapshotModel(model);
     model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
@@ -903,7 +903,7 @@ describe('sub-rules-engine persistModel', () => {
     const localId = model.billingProvider.id!;
     const urn = `urn:uuid:${localId}`;
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(2); // the new copy + the claim
     // One atomic transaction: the copy's POST, its create-Provenance, the claim PUT, and the
@@ -976,7 +976,7 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     const claim = makeModel().claim;
     search.mockResolvedValue({ unbundle: () => [claim] });
 
-    await ensureClaimHeld(oystehr, claim, AGENT);
+    await ensureClaimHeld(oystehr, claim, [AGENT]);
 
     expect(transaction).toHaveBeenCalledTimes(1);
     const requests = transaction.mock.calls[0][0].requests;
@@ -989,7 +989,7 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     claim.meta!.tag = [...(claim.meta?.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
     search.mockResolvedValue({ unbundle: () => [claim] });
 
-    await ensureClaimHeld(oystehr, claim, AGENT);
+    await ensureClaimHeld(oystehr, claim, [AGENT]);
 
     expect(transaction).not.toHaveBeenCalled();
   });
