@@ -42,6 +42,7 @@ const mainRemit: EraClaimRemit = {
   serviceLines: [
     {
       itemSequence: 1,
+      claimItemSequence: 1,
       isClaimLevel: false,
       cptCode: '10060',
       modifiers: [],
@@ -53,10 +54,17 @@ const mainRemit: EraClaimRemit = {
       deductible: 0,
       coinsurance: 0,
       copay: 0,
-      adjustments: [{ groupCode: 'CO', reasonCode: '45', amount: 310.95 }],
+      adjustments: [
+        {
+          groupCode: 'CO',
+          reasonCode: '45',
+          amount: 310.95,
+        },
+      ],
     },
     {
       itemSequence: 2,
+      claimItemSequence: 2,
       isClaimLevel: false,
       cptCode: '99203',
       modifiers: ['25'],
@@ -68,10 +76,17 @@ const mainRemit: EraClaimRemit = {
       deductible: 0,
       coinsurance: 0,
       copay: 0,
-      adjustments: [{ groupCode: 'CO', reasonCode: '45', amount: 275.62 }],
+      adjustments: [
+        {
+          groupCode: 'CO',
+          reasonCode: '45',
+          amount: 275.62,
+        },
+      ],
     },
     {
       itemSequence: 3,
+      claimItemSequence: 3,
       isClaimLevel: false,
       cptCode: '99213',
       modifiers: [],
@@ -84,9 +99,21 @@ const mainRemit: EraClaimRemit = {
       coinsurance: 0,
       copay: 23,
       adjustments: [
-        { groupCode: 'PR', reasonCode: '27', amount: 20 },
-        { groupCode: 'PR', reasonCode: '3', amount: 23 },
-        { groupCode: 'CO', reasonCode: '45', amount: 230.02 },
+        {
+          groupCode: 'PR',
+          reasonCode: '27',
+          amount: 20,
+        },
+        {
+          groupCode: 'PR',
+          reasonCode: '3',
+          amount: 23,
+        },
+        {
+          groupCode: 'CO',
+          reasonCode: '45',
+          amount: 230.02,
+        },
       ],
     },
   ],
@@ -137,10 +164,17 @@ const unmatchedClaim: EraClaimListItem = {
       allowed: null,
       paid: 0,
       patientResp: 25,
-      patientRespAdjustments: [{ groupCode: 'PR', reasonCode: '3', amount: 25 }],
+      patientRespAdjustments: [
+        {
+          groupCode: 'PR',
+          reasonCode: '3',
+          amount: 25,
+        },
+      ],
       serviceLines: [
         {
           itemSequence: null,
+          claimItemSequence: null,
           isClaimLevel: true,
           cptCode: '',
           modifiers: [],
@@ -152,7 +186,13 @@ const unmatchedClaim: EraClaimListItem = {
           deductible: 0,
           coinsurance: 0,
           copay: 25,
-          adjustments: [{ groupCode: 'PR', reasonCode: '3', amount: 25 }],
+          adjustments: [
+            {
+              groupCode: 'PR',
+              reasonCode: '3',
+              amount: 25,
+            },
+          ],
         },
       ],
       notes: [],
