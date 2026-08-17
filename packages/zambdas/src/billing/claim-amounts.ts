@@ -167,8 +167,10 @@ export function summarizeClaimPayments(
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
-  // fallback for adjudications without CAS data, wont go negative
-  const patientResp = latestPatientResp ?? Math.max(allowed - insurancePaid, 0);
+  // no CAS data on the latest adjudication falls back to what the payer allowed but didn't pay.
+  // Floored either way: a reversal reports what it took back as negative PR, and the patient owes
+  // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
+  const patientResp = Math.max(latestPatientResp ?? allowed - insurancePaid, 0);
 
   return {
     allowed,

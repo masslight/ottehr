@@ -488,6 +488,20 @@ describe('summarizeClaimPayments', () => {
     expect(summary.patientResp).toBe(0);
   });
 
+  it('floors patient responsibility at zero when the latest remit reverses it', () => {
+    const payment = claimMdClaimResponse('2026-01-01');
+    const reversal = claimResponse('2026-02-01', {
+      totalPaid: -60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, -60), casAdjustment('PR', -20)]],
+    });
+
+    const summary = summarizeClaimPayments([payment, reversal], 100, 20);
+
+    expect(summary.patientResp).toBe(0);
+    // the 20 the patient already paid is their credit, not 40
+    expect(summary.balance).toBe(-20);
+  });
+
   it('keeps allowed from the latest response that carries allowed data', () => {
     const primary = claimMdClaimResponse('2026-01-01');
     // secondary ERAs often carry no allowed amount of their own
