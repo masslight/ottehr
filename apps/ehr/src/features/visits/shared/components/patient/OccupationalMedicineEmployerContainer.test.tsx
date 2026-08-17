@@ -7,10 +7,6 @@ import { EMPLOYER_NOTES_EXTENSION_URL } from 'utils/lib/fhir/organization';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ============================================================================
-// MOCKS
-// ============================================================================
-
 const { fhirGetMock } = vi.hoisted(() => ({ fhirGetMock: vi.fn() }));
 
 // `oystehrZambda` is left undefined so the employer dropdown's answer-options query stays disabled;
@@ -21,10 +17,6 @@ vi.mock('src/hooks/useAppClients', () => ({
 
 import { OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
 import { OccupationalMedicineEmployerInformationContainer } from './OccupationalMedicineEmployerContainer';
-
-// ============================================================================
-// FIXTURES & HARNESS
-// ============================================================================
 
 const EMPLOYER_REFERENCE: Reference = { reference: 'Organization/employer-1', display: 'FedEx International' };
 const NOTES = 'Send all results to the HR contact';
@@ -56,10 +48,6 @@ const renderContainer = (employer: Reference | null): void => {
     </QueryClientProvider>
   );
 };
-
-// ============================================================================
-// TESTS
-// ============================================================================
 
 describe('OccupationalMedicineEmployerInformationContainer employer notes', () => {
   beforeEach(() => {
