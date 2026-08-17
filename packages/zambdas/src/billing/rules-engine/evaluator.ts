@@ -88,6 +88,21 @@ export const evaluateOperator = (
     if (expectedScalar == null) return false;
     return typeof actual === 'string' && actual.startsWith(expectedScalar);
   };
+  // Standard (unanchored) regex semantics: the pattern can match anywhere in the value; authors
+  // anchor with ^/$ for a whole-value match. A list actual matches when any entry does. Save-time
+  // validation keeps uncompilable patterns out; if one slips through it evaluates as no-match
+  // rather than throwing mid-run.
+  const matchesPattern = (): boolean => {
+    if (expectedScalar == null) return false;
+    let pattern: RegExp;
+    try {
+      pattern = new RegExp(expectedScalar);
+    } catch {
+      return false;
+    }
+    if (Array.isArray(actual)) return actual.some((entry) => pattern.test(entry));
+    return typeof actual === 'string' && pattern.test(actual);
+  };
   // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
   // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition
   // false either way) when either side is missing/empty.
@@ -137,6 +152,10 @@ export const evaluateOperator = (
       return startsWith();
     case 'notStartsWith':
       return !startsWith();
+    case 'matches':
+      return matchesPattern();
+    case 'notMatches':
+      return !matchesPattern();
     default:
       return false;
   }

@@ -27,6 +27,8 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { BILLING_INSURANCE_TYPE_OPTIONS } from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -39,6 +41,8 @@ import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engi
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
+  attachPrimaryCoverageToClaim,
+  buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
   getClaimService,
@@ -78,11 +82,27 @@ export interface RulesEngineClaimModel {
   // Read-only reference data like referenceResources: shared resources, never persisted with the
   // model — the applyChargeMasterPrices action only reads prices out of them.
   chargeMasters?: ChargeItemDefinition[];
+  // The reference patient's active coverages by insurance-type slot (primary / secondary / workers
+  // comp, read from the patient's billing accounts), prefetched by the engine when the rule set
+  // references the "Coverage (from patient)" field. Read-only reference data like
+  // referenceResources: the writer copies out of it, never mutates or persists it.
+  patientCoverageContext?: PatientCoverageContext;
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
   // keeps the placeholder ids afterwards.
   createdCopyIds?: Set<string>;
+}
+
+// The reference patient's coverages, resolved to their insurance-type slots via the patient's
+// billing accounts (the same signal get-patient-coverages and the claim editor's coverage dialog
+// read). Assembled by the engine's loadPatientCoverageContext.
+export interface PatientCoverageContext {
+  // The active occupant of each slot, with its standalone policy-holder RelatedPerson when it has
+  // one (relationship not Self).
+  byType: Partial<Record<BillingInsuranceType, { coverage: Coverage; subscriber?: RelatedPerson }>>;
+  // "Coverage/<original id>" -> slot, for the insurance.coverageFromPatient reader.
+  typeByCoverageRef: Map<string, BillingInsuranceType>;
 }
 
 // --- shared accessors ---
@@ -91,12 +111,16 @@ const primaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.co
 const secondaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.coverages[1];
 
 // The primary policy holder: the primary coverage's subscriber when it is a standalone
-// RelatedPerson (i.e. the relationship is not Self).
+// RelatedPerson (i.e. the relationship is not Self). A subscriber copy minted by this run's
+// writers is referenced by its urn:uuid placeholder until persisted, so resolve that form too.
 const primaryPolicyHolder = (m: RulesEngineClaimModel): RelatedPerson | undefined => {
   const ref = primaryCoverage(m)?.subscriber?.reference;
-  if (!ref?.startsWith('RelatedPerson/')) return undefined;
-  const id = ref.slice('RelatedPerson/'.length);
-  return m.subscribers.find((s) => s.id === id);
+  const id = ref?.startsWith('RelatedPerson/')
+    ? ref.slice('RelatedPerson/'.length)
+    : ref?.startsWith('urn:uuid:')
+    ? ref.slice('urn:uuid:'.length)
+    : undefined;
+  return id ? m.subscribers.find((s) => s.id === id) : undefined;
 };
 
 type Provider = Practitioner | Organization;
@@ -105,7 +129,7 @@ type NamedResource = Patient | RelatedPerson | Practitioner;
 // The "ResourceType/id" of the reference resource a working copy was copied from (the
 // source-resource extension prepareWorkingCopy stamps). Copies made before the extension existed
 // read as absent.
-const sourceRef = (resource: Practitioner | Organization | Location | undefined): string | undefined =>
+const sourceRef = (resource: Practitioner | Organization | Location | Coverage | undefined): string | undefined =>
   resource?.extension?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
 
 const getProviderFamily = (p?: Provider): string | undefined => {
@@ -323,6 +347,12 @@ const READERS: Record<string, FieldReader> = {
 
   ...personReaders('patient', (m) => m.patient),
 
+  // The slot the claim's current primary coverage was copied from, when its source still occupies
+  // a slot on the reference patient (context prefetched by the engine when a rule uses the field).
+  'insurance.coverageFromPatient': (m) => {
+    const source = sourceRef(primaryCoverage(m));
+    return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
+  },
   'insurance.memberId': (m) => primaryCoverage(m)?.subscriberId,
   'insurance.planType': (m) => getCoveragePlanType(primaryCoverage(m)),
   'insurance.relationship': (m) => readRelationship(primaryCoverage(m)),
@@ -497,6 +527,75 @@ const setClaimResourceRef = (
   }
   // The rendering provider rides on careTeam sequence 1, and every item must point at it.
   setClaimRenderingProviderCareTeam(model.claim, { reference, display: resourceDisplayName(copy) });
+  return true;
+};
+
+// "Name (Payer ID)" like payerDisplay, derived synchronously from the coverage's plan class slice
+// (the writer cannot call RCM to resolve the payor); undefined when the coverage carries no class.
+const coveragePayerDisplay = (coverage: Coverage): string | undefined => {
+  const plan = coverage.class?.find((entry) => entry.type?.coding?.some((coding) => coding.code === 'plan'));
+  const name = plan?.name?.trim();
+  const payerId = plan?.value?.trim();
+  if (name && payerId) return `${name} (${payerId})`;
+  return name || payerId || undefined;
+};
+
+// Replace the claim's primary (focal) coverage with a fresh working copy of one of the reference
+// patient's coverages — the same attach the claim editor performs when picking a coverage from the
+// patient (update-billing-claim), driven by the slot the value names on the patient's billing
+// accounts (primary / secondary / workers comp). The writer is synchronous, so the engine must have
+// prefetched the patient coverage context; a missing context, an unpopulated slot, or a claim
+// without a working-copy patient fails the rule. The model's primary slot (and its policy holder)
+// is replaced so later rules read and edit the new copies, which persistModel POSTs alongside the
+// claim's update.
+const setPrimaryCoverageFromPatient = (model: RulesEngineClaimModel, value: string | null): boolean => {
+  const slot = BILLING_INSURANCE_TYPE_OPTIONS.find((option) => option.value === value)?.value;
+  const entry = slot ? model.patientCoverageContext?.byType[slot] : undefined;
+  const patientRef = model.claim.patient?.reference;
+  if (!entry?.coverage.id || !patientRef) return false;
+  // Validate before any mutation: a standalone policy holder named by the coverage must have been
+  // resolved into the context, or the copied coverage's subscriber would dangle.
+  const holdsRelatedPerson = entry.coverage.subscriber?.reference?.startsWith('RelatedPerson/') ?? false;
+  if (holdsRelatedPerson && !entry.subscriber?.id) return false;
+
+  const replacedPrimary = primaryCoverage(model);
+  const replacedSubscriber = primaryPolicyHolder(model);
+  // The swapped-out primary's policy-holder copy leaves the model with it: pending edits to it are
+  // discarded (as with a swapped-out provider), and a subscriber copy minted earlier in this run is
+  // never POSTed as an orphan.
+  if (replacedSubscriber?.id) {
+    model.subscribers = model.subscribers.filter((s) => s.id !== replacedSubscriber.id);
+    model.createdCopyIds?.delete(replacedSubscriber.id);
+  }
+
+  // The same copies the claim editor builds when a coverage is picked from the patient; here they
+  // are linked by urn placeholder, which persistModel resolves inside the run's transaction.
+  const { coverage: copy, subscriber: subscriberCopy } = buildClaimCoverageCopies({
+    coverage: entry.coverage,
+    subscriber: entry.subscriber,
+    patientReference: patientRef,
+  });
+  if (subscriberCopy) {
+    copy.subscriber = { reference: registerCreatedCopy(model, undefined, subscriberCopy) };
+    model.subscribers = [...model.subscribers, subscriberCopy];
+  }
+
+  const reference = registerCreatedCopy(model, replacedPrimary, copy);
+  model.coverages = [copy, ...model.coverages.slice(1)];
+
+  const payorRef = copy.payor?.[0]?.reference;
+  const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
+  attachPrimaryCoverageToClaim({
+    claim: model.claim,
+    coverageReference: reference,
+    // The display must always be present: claim-history diffs fall back to the raw reference when
+    // it is missing, and this entry's reference is a transient urn that must never be recorded.
+    // The stable source coverage reference is the fallback of last resort.
+    display: payerLabel ?? `Coverage/${entry.coverage.id}`,
+    payerReference: payorRef,
+  });
+  // The insurer carries the payer label alone — never the coverage-reference fallback.
+  if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
 
@@ -682,6 +781,7 @@ const WRITERS: Record<string, FieldWriter> = {
 
   ...personWriters('patient', (m) => m.patient),
 
+  'insurance.coverageFromPatient': (m, v) => setPrimaryCoverageFromPatient(m, v),
   'insurance.memberId': (m, v) => {
     const coverage = primaryCoverage(m);
     if (!coverage) return false;

@@ -1,4 +1,5 @@
 import { Basic, Extension, List, Task } from 'fhir/r4b';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   BillingRule,
@@ -28,6 +29,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const LIST_ORDER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/list-order';
+export const RULES_ENGINE_INPUT_SYSTEM = ottehrCodeSystemUrl('rules-engine-input');
+export const RULES_ENGINE_INPUT_SKIP_RULES_CODE = 'skip-rules';
 
 export function ruleToContainedBasic(rule: BillingRule): Basic {
   return {
@@ -110,12 +113,22 @@ export function isRulesEngineList(engine: RulesEngineType, list: Pick<List, 'met
 // The Task whose creation kicks off an engine for a claim. A Subscription per engine matches
 // `status=requested` + the engine's code and invokes the sub-rules-engine zambda,
 // which marks the Task completed/failed.
-export function buildRulesEngineKickoffTask(engine: RulesEngineType, claimId: string): Task {
+export function buildRulesEngineKickoffTask(engine: RulesEngineType, claimId: string, skipRules: boolean): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
     intent: 'order',
     code: { coding: [{ system: RULES_ENGINE_TASK_SYSTEM, code: RULES_ENGINE_FHIR[engine].taskCode }] },
     focus: { reference: `Claim/${claimId}` },
+    ...(skipRules
+      ? {
+          input: [
+            {
+              type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SKIP_RULES_CODE }] },
+              valueBoolean: true,
+            },
+          ],
+        }
+      : {}),
   };
 }

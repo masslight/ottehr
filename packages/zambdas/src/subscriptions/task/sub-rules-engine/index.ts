@@ -11,6 +11,7 @@ import {
   ProvenanceAgent,
   RelatedPerson,
   Task,
+  TaskInput,
 } from 'fhir/r4b';
 import {
   getResourcesFromBatchInlineRequests,
@@ -22,6 +23,7 @@ import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants
 import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetResourceRefs,
+  ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
@@ -39,10 +41,16 @@ import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model
 import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billing/rules-engine/constants';
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
+  RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SYSTEM,
+} from '../../../billing/rules-engine/serialization';
+import {
   BILLING_WORKING_COPY_TAG,
+  clinicalPatientIdOfCopy,
   createBillingClient,
   fetchById,
   fetchClaimGraph,
+  fetchPatientCoverages,
   findRulesEngineList,
   hasTag,
   listToRulesReportingMalformed,
@@ -69,6 +77,12 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const { task, secrets } = input;
   const claimId = extractClaimId(task);
   const engine = extractEngine(task);
+  const skipRules = extractInput<boolean>(
+    task,
+    RULES_ENGINE_INPUT_SYSTEM,
+    RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+    'valueBoolean'
+  );
 
   // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
   // billing workspace where the claim, its working copies, and the rules Lists live.
@@ -80,7 +94,7 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {
-    const validated = await complexValidation(oystehr, engine, claimId, env);
+    const validated = await complexValidation(oystehr, engine, claimId, env, skipRules);
     return await performEffect(oystehr, validated, agent);
   } catch (error) {
     try {
@@ -106,31 +120,36 @@ export interface ValidatedRulesRun {
   claimId: string;
   rules: BillingRule[];
   model: RulesEngineClaimModel;
+  skipRules: boolean;
 }
 
 export async function complexValidation(
   oystehr: Oystehr,
   engine: RulesEngineType,
   claimId: string,
-  env: string
+  env: string,
+  skipRules: boolean | null
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters] = await Promise.all([
+  const [referenceResources, chargeMasters, patientCoverageContext] = await Promise.all([
     loadReferenceResources(oystehr, rules),
     loadChargeMasters(oystehr, rules),
+    loadPatientCoverageContext(oystehr, rules, model.patient),
   ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
+  model.patientCoverageContext = patientCoverageContext;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
       `billingProvider=${model.billingProvider?.id ?? 'none'}, ` +
       `serviceFacility=${model.serviceFacility?.id ?? 'none'}, subscribers=${model.subscribers.length}` +
       (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '') +
-      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '')
+      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '') +
+      (model.patientCoverageContext ? `, patientCoverages=${model.patientCoverageContext.typeByCoverageRef.size}` : '')
   );
-  return { engine, claimId, rules, model };
+  return { engine, claimId, rules, model, skipRules: skipRules ?? false };
 }
 
 // The reference resources (provider/facility page originals) named by the rule set's "set
@@ -182,31 +201,67 @@ async function loadChargeMasters(
   return result.unbundle();
 }
 
+// The reference patient's coverages resolved to their insurance-type slots (primary / secondary /
+// workers comp), for the "Coverage (from patient)" field: the reader maps the claim's current
+// primary coverage back to its slot, and the writer copies the chosen slot's coverage onto the
+// claim. Fetched only when an enabled rule references the field. The reference patient is the
+// source the claim's working-copy Patient was copied from; when there is none (no working-copy
+// patient, or a copy made before the source extension existed) the context stays absent — a
+// setField then fails the rule and holds the claim, and a condition reads as empty.
+async function loadPatientCoverageContext(
+  oystehr: Oystehr,
+  rules: BillingRule[],
+  patient: Patient | undefined
+): Promise<RulesEngineClaimModel['patientCoverageContext']> {
+  if (!rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))) return undefined;
+  const sourcePatientId = patient ? clinicalPatientIdOfCopy(patient) : undefined;
+  if (!sourcePatientId) return undefined;
+
+  const records = await fetchPatientCoverages(oystehr, sourcePatientId);
+
+  const context: NonNullable<RulesEngineClaimModel['patientCoverageContext']> = {
+    byType: {},
+    typeByCoverageRef: new Map(),
+  };
+  for (const { coverage, insuranceType, subscriber } of records) {
+    // The engine must never attach a cancelled coverage (mirrors findCoverageOfType). The first
+    // active occupant of a slot wins, so a coverage that lost its slot to another reads as absent
+    // rather than as that slot.
+    if (!coverage.id || coverage.status === 'cancelled') continue;
+    if (!insuranceType || context.byType[insuranceType]) continue;
+    context.byType[insuranceType] = { coverage, subscriber };
+    context.typeByCoverageRef.set(`Coverage/${coverage.id}`, insuranceType);
+  }
+  return context;
+}
+
 export async function performEffect(
   oystehr: Oystehr,
-  { engine, claimId, rules, model }: ValidatedRulesRun,
+  { engine, claimId, rules, model, skipRules }: ValidatedRulesRun,
   agent: ProvenanceAgent
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
 
   let heldBy: BillingRule | undefined;
   let failure: { rule: BillingRule; error: string } | undefined;
-  for (const rule of rules) {
-    const { held, appliedActions, error } = executeRule(rule, model);
-    console.log(
-      `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
-        `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
-    );
-    if (error) {
-      // A rule whose action can't be applied must not fail quietly — the claim would proceed with
-      // the wrong data. Hold it and stop the run.
-      failure = { rule, error };
-      applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
-      break;
-    }
-    if (held) {
-      heldBy = rule;
-      break;
+  if (!skipRules) {
+    for (const rule of rules) {
+      const { held, appliedActions, error } = executeRule(rule, model);
+      console.log(
+        `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
+          `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
+      );
+      if (error) {
+        // A rule whose action can't be applied must not fail quietly — the claim would proceed with
+        // the wrong data. Hold it and stop the run.
+        failure = { rule, error };
+        applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+        break;
+      }
+      if (held) {
+        heldBy = rule;
+        break;
+      }
     }
   }
 
@@ -280,6 +335,15 @@ export function extractEngine(task: Task): RulesEngineType {
     throw new Error(`Task ${task.id} does not carry a known rules-engine code: ${code ?? 'none'}`);
   }
   return engine;
+}
+
+// The engine a kickoff Task belongs to, from its code (each engine's Subscription matches one code).
+export function extractInput<T>(task: Task, system: string, code: string, attr: keyof TaskInput): T | null {
+  const param = task.input?.find((i) => i.type.coding?.[0].system === system && i.type.coding?.[0].code === code);
+  if (!param) {
+    return null;
+  }
+  return param[attr] as T;
 }
 
 async function loadRules(oystehr: Oystehr, engine: RulesEngineType, env: string): Promise<BillingRule[]> {
