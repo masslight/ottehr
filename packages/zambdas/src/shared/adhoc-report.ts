@@ -71,15 +71,13 @@ function readSearchsets<T extends FhirResource>(completion: Bundle): { resources
   const matchedIds: string[] = [];
   for (const outer of completion.entry ?? []) {
     const searchset = outer.resource as Bundle | undefined;
-    if (!searchset || searchset.resourceType !== 'Bundle') {
-      if (outer.resource) resources.push(outer.resource as T);
-      continue;
-    }
+    if (!searchset || searchset.resourceType !== 'Bundle' || searchset.type !== 'searchset') continue;
     for (const entry of searchset.entry ?? []) {
       const resource = entry.resource;
-      if (!resource) continue;
+      const mode = entry.search?.mode ?? 'match';
+      if (!resource || mode === 'outcome') continue;
       resources.push(resource as T);
-      if ((entry.search?.mode ?? 'match') === 'match' && resource.id) matchedIds.push(resource.id);
+      if (mode === 'match' && resource.id) matchedIds.push(resource.id);
     }
   }
   return { resources, matchedIds };
