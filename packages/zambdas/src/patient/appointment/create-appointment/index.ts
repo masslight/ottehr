@@ -28,6 +28,7 @@ import {
   EXAM_MIGRATION_VERSION_URL,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
+  HARVESTABLE_FLOW_QR_TAG,
   INTAKE_PAPERWORK_QR_TAG,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PRIVATE_EXTENSION_BASE_URL,
@@ -38,7 +39,7 @@ import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
 import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { getCanonicalQuestionnaire, isOttehrManagedIntakeQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { makePrepopulatedItemsForPatient } from 'utils/lib/helpers/paperwork/prePopulation';
@@ -833,13 +834,23 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     JSON.stringify(item)
   );
 
+  // Marks this as the intake paperwork QR so readers recognize it even when it points at a
+  // paperwork flow (whose canonical is the flow url, not an intake-paperwork url).
+  const qrTag = [INTAKE_PAPERWORK_QR_TAG];
+
+  // adds a tag for flow containing harvestable data if applicable
+  // there are two subscriptions for triggering subscriptions/questionnaire-response/sub-intake-harvest/index.ts
+  // one looks at the questionnaire (either in person or virtual intake)
+  // the other checks for this tag which will be assigned when derivedFrom contains one of these questionnaires
+  if (questionnaire.derivedFrom && questionnaire.derivedFrom.some((url) => isOttehrManagedIntakeQuestionnaire(url))) {
+    qrTag.push(HARVESTABLE_FLOW_QR_TAG);
+  }
+
   const questionnaireResponseResource: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'in-progress',
-    // Marks this as the intake paperwork QR so readers recognize it even when it points at a
-    // paperwork flow (whose canonical is the flow url, not an intake-paperwork url).
-    meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
+    meta: { tag: qrTag },
     subject: { reference: patientRef },
     encounter: { reference: encUrl },
     item, // contains the pre-populated answers for the Patient

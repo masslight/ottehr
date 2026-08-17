@@ -537,6 +537,15 @@ export const INTAKE_PAPERWORK_QR_TAG = {
   code: 'intake-paperwork',
 };
 
+/**
+ * QuestionnaireResponses that point towards questionnaires other than IN_PERSON_INTAKE_PAPERWORK_URL & VIRTUAL_INTAKE_PAPERWORK_URL
+ * that need final harvesting should receive this tag
+ */
+export const HARVESTABLE_FLOW_QR_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-response-type'),
+  code: 'harvestable-flow-intake-paperwork',
+};
+
 /** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
 export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-practitioner-distribution-by');
 

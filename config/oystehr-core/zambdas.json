@@ -2704,6 +2704,24 @@
         ]
       }
     },
+    "SUB_INTAKE_HARVEST_SUBSCRIPTION_FOR_FLOWS": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "paperwork harvest",
+        "criteria": "QuestionnaireResponse?status=completed,amended&_tag=https://fhir.ottehr.com/CodeSystem/questionnaire-response-type|harvestable-flow-intake-paperwork",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-INTAKE-HARVEST/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_HARVEST_PAPERWORK_PAGE_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
