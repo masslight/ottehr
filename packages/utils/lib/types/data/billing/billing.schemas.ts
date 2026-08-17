@@ -637,6 +637,14 @@ export const UnmatchClaimResponseInputSchema = z.object({
   claimResponseId: nonEmptyString,
 });
 
+export const GetBillingPaymentsReportInputSchema = z.object({
+  // check (payment) date window, ISO dates
+  dateFrom: nonEmptyString.optional(),
+  dateTo: nonEmptyString.optional(),
+  // bypass the cached MeasureReport and recompute
+  refresh: z.boolean().optional(),
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -665,6 +673,7 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type GetBillingPaymentsReportInput = z.output<typeof GetBillingPaymentsReportInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;

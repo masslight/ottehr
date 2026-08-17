@@ -23,7 +23,9 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
+import PaymentsReport from './pages/PaymentsReport';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
+import Reports from './pages/Reports';
 import RuleDetail from './pages/RuleDetail';
 import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
@@ -93,6 +95,8 @@ export default function App(): ReactElement {
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/reports/payments" element={<PaymentsReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

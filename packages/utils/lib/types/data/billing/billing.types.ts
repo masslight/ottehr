@@ -548,6 +548,34 @@ export interface SearchBillingTagsResponse {
   tags: BillingTag[];
 }
 
+export interface PaymentsReportPayerRow {
+  payerId: string;
+  payerName: string;
+  eraCount: number;
+  claimCount: number;
+  billed: number;
+  allowed: number;
+  insurancePaid: number;
+  checkTotal: number;
+}
+
+export interface PaymentsReportWaterfallCell {
+  // 'YYYY-MM'; 'unknown' when the claim or its service date can't be resolved
+  serviceMonth: string;
+  // 'YYYY-MM' of the ERA check date
+  checkMonth: string;
+  paid: number;
+}
+
+export interface GetBillingPaymentsReportResponse {
+  rows: PaymentsReportPayerRow[];
+  totals: Omit<PaymentsReportPayerRow, 'payerId' | 'payerName'>;
+  // DOS-month × check-month matrix over all ERAs, independent of the report's date window
+  waterfall: PaymentsReportWaterfallCell[];
+  generatedAt: string;
+  fromCache: boolean;
+}
+
 export interface GetPatientCoveragesResponse {
   coverages: BillingCoverageOption[];
 }

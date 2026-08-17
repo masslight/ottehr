@@ -15,6 +15,7 @@ import {
   DeleteServiceFacilityInputSchema,
   ExportClaimX12InputSchema,
   GetBillingPatientBalanceInputSchema,
+  GetBillingPaymentsReportInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
@@ -57,6 +58,7 @@ import {
   EraDetailResponse,
   ExportClaimX12Response,
   GetBillingPatientBalanceResponse,
+  GetBillingPaymentsReportResponse,
   GetPatientCoveragesResponse,
   OkResponse,
   PatientDetailResponse,
@@ -342,6 +344,14 @@ export const lookupProcedureDescriptions = async (
 
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-tags');
+
+// --- Reports ---
+
+export const getBillingPaymentsReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPaymentsReportInputSchema>
+): Promise<GetBillingPaymentsReportResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-payments-report', parameters);
 
 export const saveBillingTag = (
   oystehr: Oystehr,

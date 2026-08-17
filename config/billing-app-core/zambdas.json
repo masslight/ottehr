@@ -260,6 +260,13 @@
       "src": "src/billing/run-billing-rules-engine/index",
       "zip": ".dist/zips/run-billing-rules-engine.zip"
     },
+    "GET-BILLING-PAYMENTS-REPORT": {
+      "name": "get-billing-payments-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/reports/get-billing-payments-report/index",
+      "zip": ".dist/zips/get-billing-payments-report.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
