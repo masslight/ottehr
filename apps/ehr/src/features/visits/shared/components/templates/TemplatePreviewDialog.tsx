@@ -491,6 +491,19 @@ const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }>
             />
           ))}
         </Stack>
+        {plan.cptCodes.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {plan.cptCodes.map((c, idx) => (
+              <Chip
+                key={`${plan.planId}-cpt-${idx}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`CPT ${formatCptCodeAndModifiersForDisplay(c)}${c.display ? ` — ${c.display}` : ''}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
         {plan.note ? (
           <Typography
             variant="caption"
