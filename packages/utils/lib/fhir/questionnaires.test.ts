@@ -1,8 +1,21 @@
-import { QuestionnaireItem } from 'fhir/r4b';
+import { QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { handleFlowQuestionnaireItem } from './questionnaires';
+import { IN_PERSON_INTAKE_PAPERWORK_URL } from '../ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_URL } from '../ottehr-config/intake-paperwork-virtual';
+import { INTAKE_PAPERWORK_QR_TAG } from './constants';
+import {
+  handleFlowQuestionnaireItem,
+  isIntakePaperworkQuestionnaireResponse,
+  isOttehrManagedIntakeQuestionnaire,
+} from './questionnaires';
 
 const makeItem = (linkId: string): QuestionnaireItem => ({ linkId, type: 'group' });
+
+const makeQR = (overrides: Partial<QuestionnaireResponse> = {}): QuestionnaireResponse => ({
+  resourceType: 'QuestionnaireResponse',
+  status: 'completed',
+  ...overrides,
+});
 
 describe('handleFlowQuestionnaireItem', () => {
   it('returns items unchanged when no linkId is duplicated', () => {
@@ -62,5 +75,85 @@ describe('handleFlowQuestionnaireItem', () => {
     const result = handleFlowQuestionnaireItem(items);
 
     expect(result.map((item) => item.linkId)).toEqual(['page-3', 'page-1', 'page-2']);
+  });
+});
+
+describe('isOttehrManagedIntakeQuestionnaire', () => {
+  it('returns true for an in-person intake paperwork url', () => {
+    expect(isOttehrManagedIntakeQuestionnaire(IN_PERSON_INTAKE_PAPERWORK_URL)).toBe(true);
+  });
+
+  it('returns true for an in-person intake paperwork url with a version suffix', () => {
+    expect(isOttehrManagedIntakeQuestionnaire(`${IN_PERSON_INTAKE_PAPERWORK_URL}|1.0.0`)).toBe(true);
+  });
+
+  it('returns true for a virtual intake paperwork url', () => {
+    expect(isOttehrManagedIntakeQuestionnaire(VIRTUAL_INTAKE_PAPERWORK_URL)).toBe(true);
+  });
+
+  it('returns true for a virtual intake paperwork url with a version suffix', () => {
+    expect(isOttehrManagedIntakeQuestionnaire(`${VIRTUAL_INTAKE_PAPERWORK_URL}|2.3.0`)).toBe(true);
+  });
+
+  it('returns false for an unrelated questionnaire url', () => {
+    expect(isOttehrManagedIntakeQuestionnaire('https://ottehr.com/FHIR/Questionnaire/patient-record')).toBe(false);
+  });
+
+  it('returns false for an empty string', () => {
+    expect(isOttehrManagedIntakeQuestionnaire('')).toBe(false);
+  });
+});
+
+describe('isIntakePaperworkQuestionnaireResponse', () => {
+  it('returns true when meta.tag contains the intake paperwork tag, regardless of the canonical url', () => {
+    const qr = makeQR({
+      questionnaire: 'https://ottehr.com/FHIR/Questionnaire/some-flow-canonical|1.0.0',
+      meta: { tag: [{ system: INTAKE_PAPERWORK_QR_TAG.system, code: INTAKE_PAPERWORK_QR_TAG.code }] },
+    });
+
+    expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(true);
+  });
+
+  it('returns true when the intake tag is present alongside unrelated tags', () => {
+    const qr = makeQR({
+      meta: {
+        tag: [
+          { system: 'https://example.com/other-tag-system', code: 'other-code' },
+          { system: INTAKE_PAPERWORK_QR_TAG.system, code: INTAKE_PAPERWORK_QR_TAG.code },
+        ],
+      },
+    });
+
+    expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(true);
+  });
+
+  it('returns false when meta.tag has a matching system but a different code', () => {
+    const qr = makeQR({
+      meta: { tag: [{ system: INTAKE_PAPERWORK_QR_TAG.system, code: 'not-intake-paperwork' }] },
+    });
+
+    expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(false);
+  });
+
+  it('returns false when there is no tag and no questionnaire canonical', () => {
+    expect(isIntakePaperworkQuestionnaireResponse(makeQR())).toBe(false);
+  });
+
+  it('returns true when there is no tag but the questionnaire canonical is the in-person intake paperwork url', () => {
+    const qr = makeQR({ questionnaire: `${IN_PERSON_INTAKE_PAPERWORK_URL}|1.0.0` });
+
+    expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(true);
+  });
+
+  it('returns true when there is no tag but the questionnaire canonical is the virtual intake paperwork url', () => {
+    const qr = makeQR({ questionnaire: `${VIRTUAL_INTAKE_PAPERWORK_URL}|1.0.0` });
+
+    expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(true);
+  });
+
+  it('returns false when there is no tag and the questionnaire canonical does not match a known intake url', () => {
+    const qr = makeQR({ questionnaire: 'https://ottehr.com/FHIR/Questionnaire/some-flow-canonical|1.0.0' });
+
+    expect(isIntakePaperworkQuestionnaireResponse(qr)).toBe(false);
   });
 });
