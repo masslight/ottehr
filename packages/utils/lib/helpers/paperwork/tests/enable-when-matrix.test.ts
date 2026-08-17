@@ -179,7 +179,7 @@ describe('evalEnableWhen operator matrix', () => {
       );
     });
 
-    it('returns a non-match instead of throwing when the comparison operator meets no answer', () => {
+    it('returns a non-match instead of throwing on a comparison operator when a boolean answer is not present', () => {
       const enableWhen = [
         { question: TRIGGER.bool, operator: '>', answerBoolean: true } as QuestionnaireItemEnableWhen,
       ];
