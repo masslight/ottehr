@@ -1,10 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Coding, Location, Patient, Questionnaire, QuestionnaireResponse, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { appointmentTypeForAppointment, getCancellationReasonDisplay } from 'utils/lib/fhir/appointments';
 import {
+  HARVESTABLE_FLOW_QR_TAG,
+  INTAKE_PAPERWORK_QR_TAG,
   parseQuestionnaireCanonicalExtension,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
@@ -13,6 +15,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
 import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -38,6 +41,7 @@ import {
   SlotListItem,
 } from 'utils/lib/utils/scheduleUtils';
 import { assert } from 'vitest';
+import { buildFlowQuestionnaire } from '../../src/ehr/paperwork-flow/shared';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
@@ -1447,5 +1451,132 @@ describe('prebook integration - from getting list of slots to booking with selec
         await cleanUpResources(initialResources);
       }
     );
+  });
+
+  describe('paperwork flow harvest tagging', () => {
+    const hasTag = (tags: Coding[] | undefined, tag: Coding): boolean =>
+      (tags ?? []).some((t) => t.system === tag.system && t.code === tag.code);
+
+    // Persist a paperwork flow Questionnaire whose derivedFrom includes the given form canonicals,
+    // tagged for process cleanup. Returns the created flow so the test can point a Slot at it.
+    const persistFlow = async (includedForms: string[]): Promise<Questionnaire> => {
+      assert(processId);
+      const flow = buildFlowQuestionnaire({
+        slug: `test-harvest-flow-${randomUUID()}`,
+        version: '1.0.0',
+        title: 'Integration Test Harvest Flow',
+        serviceModes: [ServiceMode['in-person']],
+        includedForms,
+        status: 'active',
+        ottehrManagedServices: [],
+      });
+      flow.meta = {
+        ...flow.meta,
+        tag: [
+          ...(flow.meta?.tag ?? []),
+          { system: 'OTTEHR_AUTOMATED_TEST', code: tagForProcessId(processId), display: 'integration test fixture' },
+        ],
+      };
+      return oystehrAdmin.fhir.create(flow);
+    };
+
+    // Book an appointment off a freshly vended in-person slot, optionally stamping the slot with a
+    // questionnaire canonical, and return the persisted QuestionnaireResponse (fetched as admin so the
+    // stored meta.tag can be asserted).
+    const bookAndGetQuestionnaireResponse = async (
+      initialResources: SetUpOutput,
+      questionnaireCanonical: CanonicalUrl | undefined
+    ): Promise<QuestionnaireResponse> => {
+      const getScheduleResponse = (
+        await oystehrTestUserM2M.zambda.executePublic({
+          id: 'get-schedule',
+          slug: initialResources.slug,
+          scheduleType: 'location',
+        })
+      ).output as GetScheduleResponse;
+      assert(getScheduleResponse);
+      const selectedSlot = getScheduleResponse.available[0];
+      assert(selectedSlot);
+
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(selectedSlot.slot, { status: 'busy-tentative' }),
+        ...(questionnaireCanonical ? { questionnaireCanonical } : {}),
+        // get-schedule above doesn't pass serviceCategoryCode; default to urgent-care so create-slot's
+        // invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
+      };
+      const { slot: createdSlot } = await createSlotAndValidate(
+        { params: createSlotParams, selectedSlot, schedule: initialResources.schedule },
+        oystehrTestUserM2M
+      );
+
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        email: 'test+flow-harvest-tag@example.com',
+        sex: 'female',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
+      const createAppointmentResponse = (
+        await oystehrTestUserM2M.zambda.execute({
+          id: 'create-appointment',
+          patient: patientInfo,
+          slotId: createdSlot.id!,
+        })
+      ).output as CreateAppointmentResponse;
+      assert(createAppointmentResponse?.questionnaireResponseId);
+
+      return oystehrAdmin.fhir.get<QuestionnaireResponse>({
+        resourceType: 'QuestionnaireResponse',
+        id: createAppointmentResponse.questionnaireResponseId,
+      });
+    };
+
+    test.concurrent(
+      'a flow QR deriving from the in-person intake questionnaire is stamped HARVESTABLE_FLOW_QR_TAG',
+      async () => {
+        const initialResources = await setUpInPersonResources();
+        let flow: Questionnaire | undefined;
+        try {
+          flow = await persistFlow([
+            `${IN_PERSON_INTAKE_PAPERWORK_CANONICAL.url}|${IN_PERSON_INTAKE_PAPERWORK_CANONICAL.version}`,
+          ]);
+          assert(flow.url && flow.version);
+
+          const qr = await bookAndGetQuestionnaireResponse(initialResources, {
+            url: flow.url,
+            version: flow.version,
+          });
+
+          // The QR points at the flow canonical (not a legacy intake url) ...
+          expect(qr.questionnaire).toEqual(`${flow.url}|${flow.version}`);
+          // ... yet carries both the intake tag and the flow-harvest tag, so the tag-based
+          // sub-intake-harvest subscription fires for it.
+          expect(hasTag(qr.meta?.tag, INTAKE_PAPERWORK_QR_TAG)).toBe(true);
+          expect(hasTag(qr.meta?.tag, HARVESTABLE_FLOW_QR_TAG)).toBe(true);
+        } finally {
+          if (flow?.id) {
+            await oystehrAdmin.fhir.delete({ resourceType: 'Questionnaire', id: flow.id });
+          }
+          await cleanUpResources(initialResources);
+        }
+      }
+    );
+
+    test.concurrent('a legacy (non-flow) intake QR is not stamped HARVESTABLE_FLOW_QR_TAG', async () => {
+      const initialResources = await setUpInPersonResources();
+      try {
+        // No questionnaire canonical on the slot → the default in-person intake questionnaire, which
+        // is not a flow (no derivedFrom).
+        const qr = await bookAndGetQuestionnaireResponse(initialResources, undefined);
+
+        expect(hasTag(qr.meta?.tag, INTAKE_PAPERWORK_QR_TAG)).toBe(true);
+        expect(hasTag(qr.meta?.tag, HARVESTABLE_FLOW_QR_TAG)).toBe(false);
+      } finally {
+        await cleanUpResources(initialResources);
+      }
+    });
   });
 });
