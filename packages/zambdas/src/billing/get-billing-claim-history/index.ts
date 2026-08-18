@@ -165,11 +165,12 @@ function toHistoryEntry(
   const targetRef = provenance.target?.[0]?.reference;
   // Take a human agent if it's present
   const agent =
-    provenance.agent.find(
+    provenance.agent?.find(
       (agent) =>
         getCoding(agent.type, CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM)?.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code
     ) ?? provenance.agent?.[0];
   const agentRef = agent?.who?.reference;
+  const agentTypeCode = agent?.type?.coding?.[0]?.code;
 
   // Our writer always sets these; a claim-history Provenance missing them is a real defect, not a
   // routine optional-field case — surface it rather than silently rendering blanks.
@@ -191,7 +192,7 @@ function toHistoryEntry(
     activity: activityDisplay(activityCode ?? '', resourceType),
     actor: {
       display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
-      type: agent.type?.coding?.[0]?.code === 'system' ? 'system' : 'user',
+      type: agentTypeCode === 'system' ? 'system' : 'user',
     },
     changes: parseChanges(provenance, environment),
     ...(message ? { message } : {}),

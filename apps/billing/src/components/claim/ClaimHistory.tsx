@@ -6,7 +6,6 @@ import {
   Chip,
   CircularProgress,
   Link as MuiLink,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -148,14 +147,12 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
             <TableRow key={entry.id} sx={{ verticalAlign: 'top', '& td': { borderColor: otherColors.lightDivider } }}>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(entry.recorded)}</TableCell>
               <TableCell>
-                <Stack>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2">{entry.actor.display}</Typography>
-                    {entry.actor.type === 'system' && (
-                      <Chip label="System" size="small" color="default" sx={{ height: 18, fontSize: 10 }} />
-                    )}
-                  </Box>
-                </Stack>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2">{entry.actor.display}</Typography>
+                  {entry.actor.type === 'system' && (
+                    <Chip label="System" size="small" color="default" sx={{ height: 18, fontSize: 10 }} />
+                  )}
+                </Box>
               </TableCell>
               <TableCell>{entry.activity}</TableCell>
               <TableCell>
