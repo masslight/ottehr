@@ -61,7 +61,7 @@ export const makeNursingOrderTransactionRequests = ({
     requester: {
       reference: `Practitioner/${attendingPractitionerId}`,
     },
-    authoredOn: now || undefined,
+    authoredOn: now,
     priority: 'stat',
     ...(locationId && {
       locationReference: [

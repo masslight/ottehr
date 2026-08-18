@@ -7,7 +7,6 @@ import {
   CodeableConcept,
   Encounter,
   FhirResource,
-  Location,
   Medication,
   MedicationAdministration,
   MedicationRequest,
@@ -17,6 +16,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import {
   getMedicationFromMA,
   getMedicationName,
@@ -493,9 +493,12 @@ async function createVitalsRecheckNursingOrderIfNeeded(
       return;
     }
 
-    const medicationAdministrationReference = `MedicationAdministration/${medicationAdministration.id}`;
+    const medicationAdministrationReference = `MedicationAdministration/${assertDefined(
+      medicationAdministration.id,
+      'MedicationAdministration.id'
+    )}`;
 
-    const [existingNursingOrders, encounterResources] = await Promise.all([
+    const [existingNursingOrders, encounters] = await Promise.all([
       oystehr.fhir.search<ServiceRequest>({
         resourceType: 'ServiceRequest',
         params: [
@@ -503,12 +506,9 @@ async function createVitalsRecheckNursingOrderIfNeeded(
           { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag|nursing order` },
         ],
       }),
-      oystehr.fhir.search<Encounter | Location>({
+      oystehr.fhir.search<Encounter>({
         resourceType: 'Encounter',
-        params: [
-          { name: '_id', value: encounterId },
-          { name: '_include', value: 'Encounter:location' },
-        ],
+        params: [{ name: '_id', value: encounterId }],
       }),
     ]);
 
@@ -523,15 +523,11 @@ async function createVitalsRecheckNursingOrderIfNeeded(
       return;
     }
 
-    const resources = encounterResources.unbundle();
-    const encounter = resources.find(
-      (res): res is Encounter => res.resourceType === 'Encounter' && res.id === encounterId
-    );
+    const encounter = encounters.unbundle().find((res) => res.id === encounterId);
     if (!encounter) {
       console.log(`No Encounter ${encounterId} found, skipping vitals re-check nursing order`);
       return;
     }
-    const location = resources.find((res): res is Location => res.resourceType === 'Location');
 
     // ServiceRequest.requester is not surfaced in the nursing orders UI (the ordering physician is read
     // from the create-order Provenance agent), so falling back to the administering practitioner keeps a
@@ -546,7 +542,7 @@ async function createVitalsRecheckNursingOrderIfNeeded(
         attendingPractitionerId,
         createdByPractitionerId: administeredByPractitionerId,
         notes: VITALS_RECHECK_NURSING_ORDER_NOTE,
-        locationId: location?.id,
+        locationId: getEncounterLocationId(encounter),
         supportingInfoReferences: [medicationAdministrationReference],
       }),
     });
