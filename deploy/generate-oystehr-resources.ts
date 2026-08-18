@@ -29,6 +29,7 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_INTEGRATION: '',
   PATIENT_BALANCE_SOURCE: 'candid',
   STRIPE_WEBHOOK_SECRET: '',
+  STRIPE_PLATFORM_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
