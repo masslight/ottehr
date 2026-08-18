@@ -1,5 +1,5 @@
-import { Encounter, List, Location, ServiceRequest } from 'fhir/r4b';
-import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { Encounter, List, Location, Procedure, ServiceRequest } from 'fhir/r4b';
+import { chartDataTagSystem, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
 import {
   FHIR_IDC10_VALUESET_SYSTEM,
@@ -9,16 +9,22 @@ import {
   PSC_HOLD_CONFIG,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
-import { describe, expect, test } from 'vitest';
+import { OrderableItemCptCode, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
+  collectExternalLabCptProcedures,
   findExternalLabPlans,
   getOrderingLocationFromEncounter,
   isExternalLabPlanServiceRequest,
   matchOrderableItemForPlan,
   parseExternalLabPlan,
 } from '../../src/ehr/apply-template/apply-external-labs';
+import { getOrderableItems } from '../../src/ehr/lab/shared/orderable-items';
 import { TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
+
+vi.mock('../../src/ehr/lab/shared/orderable-items', () => ({
+  getOrderableItems: vi.fn(),
+}));
 
 const EXTERNAL_LAB_PLAN_TAG = chartDataTagSystem('external-lab-template-plan');
 const LAB_GUID = 'lab-guid-1';
@@ -46,12 +52,13 @@ const makePlan = (id: string, overrides: Partial<ServiceRequest> = {}): ServiceR
 const makeOrderableItem = (
   itemCode: string,
   labGuid = LAB_GUID,
-  labName = 'Quest Diagnostics'
+  labName = 'Quest Diagnostics',
+  cptCodes: OrderableItemCptCode[] = []
 ): OrderableItemSearchResult =>
   ({
-    item: { itemCode, itemName: `Test ${itemCode}` },
+    item: { itemCode, itemName: `Test ${itemCode}`, cptCodes },
     lab: { labGuid, labName, labType: 'reference', compendiumVersion: '1' },
-  }) as OrderableItemSearchResult;
+  }) as unknown as OrderableItemSearchResult;
 
 describe('isExternalLabPlanServiceRequest / findExternalLabPlans', () => {
   test('identifies a tagged plan-intent SR as an external lab plan', () => {
@@ -245,5 +252,225 @@ describe('getOrderingLocationFromEncounter / locationIsEnabledForLabs', () => {
       identifier: [{ system: LAB_ACCOUNT_NUMBER_SYSTEM, value: 'ACCT-1' }],
     });
     expect(locationIsEnabledForLabs(location)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// collectExternalLabCptProcedures
+// ---------------------------------------------------------------------------
+
+const makeEncounterWithSubject = (): Encounter => ({
+  resourceType: 'Encounter',
+  id: 'enc-1',
+  status: 'in-progress',
+  class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+  subject: { reference: 'Patient/pat-1' },
+});
+
+const makeTemplateListWithPlan = (plan: ServiceRequest): List => ({
+  resourceType: 'List',
+  status: 'current',
+  mode: 'working',
+  contained: [plan],
+});
+
+describe('collectExternalLabCptProcedures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('returns empty when action is skip', async () => {
+    const plan = makePlan('plan-1');
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(plan),
+      makeEncounterWithSubject(),
+      'skip',
+      'mock-token'
+    );
+    expect(result.procedures).toHaveLength(0);
+    expect(result.cptCodesToSkip.size).toBe(0);
+    expect(getOrderableItems).not.toHaveBeenCalled();
+  });
+
+  test('returns empty when the template has no external lab plans', async () => {
+    const emptyList: List = { resourceType: 'List', status: 'current', mode: 'working', contained: [] };
+    const result = await collectExternalLabCptProcedures(emptyList, makeEncounterWithSubject(), 'append', 'mock-token');
+    expect(result.procedures).toHaveLength(0);
+    expect(result.cptCodesToSkip.size).toBe(0);
+  });
+
+  test('builds one Procedure per CPT code on the matched item', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [
+        { cptCode: '36415', serviceUnitsCount: 1 },
+        { cptCode: '80053', serviceUnitsCount: null },
+      ]),
+    ]);
+
+    const plan = makePlan('plan-1');
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(plan),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    expect(result.procedures).toHaveLength(2);
+    const codes = result.procedures.flatMap((p) => p.code?.coding ?? []).map((c) => c.code);
+    expect(codes).toContain('36415');
+    expect(codes).toContain('80053');
+  });
+
+  test('Procedure resources have the correct shape (subject, encounter, status, meta tag, CPT system)', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+
+    const encounter = makeEncounterWithSubject();
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      encounter,
+      'append',
+      'mock-token'
+    );
+
+    const proc = result.procedures[0] as Procedure;
+    expect(proc.resourceType).toBe('Procedure');
+    expect(proc.subject).toEqual(encounter.subject);
+    expect(proc.encounter?.reference).toBe(`Encounter/${encounter.id}`);
+    expect(proc.status).toBe('completed');
+    expect(proc.meta?.tag?.some((t) => t.system === chartDataTagSystem('cpt-code'))).toBe(true);
+    expect(proc.code?.coding?.[0]?.system).toBe(CPT_CODE_SYSTEM);
+    expect(proc.code?.coding?.[0]?.code).toBe('36415');
+  });
+
+  test('cptCodesToSkip contains every code contributed (unique)', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [
+        { cptCode: '36415', serviceUnitsCount: 1 },
+        { cptCode: '80053', serviceUnitsCount: null },
+      ]),
+    ]);
+
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    expect(result.cptCodesToSkip).toContain('36415');
+    expect(result.cptCodesToSkip).toContain('80053');
+  });
+
+  test('n plans with the same CPT code produce n Procedures (no dedup across plans)', async () => {
+    // Both plans share a lab guid so they go in one fetch call returning two items.
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+      makeOrderableItem('9999', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+
+    const planA = makePlan('plan-a');
+    const planB = makePlan('plan-b', {
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '9999', display: 'Other Test' }] },
+    });
+    const templateList: List = {
+      resourceType: 'List',
+      status: 'current',
+      mode: 'working',
+      contained: [planA, planB],
+    };
+
+    const result = await collectExternalLabCptProcedures(
+      templateList,
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    // Two plans each contribute CPT 36415 → two Procedure resources
+    const procedures = result.procedures.filter((p) => p.code?.coding?.some((c) => c.code === '36415'));
+    expect(procedures).toHaveLength(2);
+    // But the skip set is deduplicated
+    expect(result.cptCodesToSkip.size).toBe(1);
+  });
+
+  test('gracefully skips a plan whose lab fetch failed', async () => {
+    vi.mocked(getOrderableItems).mockRejectedValueOnce(new Error('network error'));
+
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    expect(result.procedures).toHaveLength(0);
+    expect(result.cptCodesToSkip.size).toBe(0);
+  });
+
+  test('gracefully skips a plan whose test is no longer in the compendium', async () => {
+    // Returns items for a different code — plan's 7788 won't match.
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('OTHER', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    expect(result.procedures).toHaveLength(0);
+  });
+
+  test('returns parsedPlans so callers can skip re-parsing', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+
+    const plan = makePlan('plan-1');
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(plan),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    expect(result.parsedPlans).toHaveLength(1);
+    expect(result.parsedPlans[0].planId).toBe('plan-1');
+    expect(result.parsedPlans[0].labGuid).toBe(LAB_GUID);
+    expect(result.parsedPlans[0].itemCode).toBe('7788');
+  });
+
+  test('returns itemsByLabGuid so callers can skip re-fetching the compendium', async () => {
+    const fetchedItem = makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [
+      { cptCode: '36415', serviceUnitsCount: 1 },
+    ]);
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([fetchedItem]);
+
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+
+    expect(result.itemsByLabGuid.size).toBe(1);
+    const items = result.itemsByLabGuid.get(LAB_GUID);
+    expect(Array.isArray(items)).toBe(true);
+    expect((items as OrderableItemSearchResult[])[0].item.itemCode).toBe('7788');
+  });
+
+  test('returns empty parsedPlans and itemsByLabGuid when action is skip', async () => {
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'skip',
+      'mock-token'
+    );
+    expect(result.parsedPlans).toHaveLength(0);
+    expect(result.itemsByLabGuid.size).toBe(0);
   });
 });
