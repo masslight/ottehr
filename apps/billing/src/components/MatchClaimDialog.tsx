@@ -10,6 +10,9 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  List,
+  ListItemButton,
+  ListItemText,
   TextField,
   Typography,
 } from '@mui/material';
@@ -45,6 +48,7 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
   } = methods;
 
   const [error, setError] = useState<string | null>(null);
+  const [claims, setClaims] = useState<BillingClaimItem[]>([]);
   const [claim, setClaim] = useState<BillingClaimItem | null>(null);
   const [claimLoading, setClaimLoading] = useState<boolean>(false);
 
@@ -57,18 +61,23 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
     callback: ({ values }) => {
       debounce(async () => {
         const searchText = values.searchText;
-        if (!oystehrZambda || !searchText) return;
+        if (!oystehrZambda) return;
+        if (!searchText) {
+          setClaims([]);
+          setClaim(null);
+          setError(null);
+          return;
+        }
         try {
           setError(null);
+          setClaims([]);
           setClaim(null);
           setClaimLoading(true);
           const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25 });
-          if (data.claims.length === 1) {
-            setClaim(data.claims[0]);
-          } else {
-            setError(data.claims.length === 0 ? 'Claim not found' : 'Multiple claims found');
-          }
+          setClaims(data.claims);
+          if (data.claims.length === 0) setError('Claim not found');
         } catch (err) {
+          setClaims([]);
           setError(getApiError({ error: err, defaultError: 'Failed to search claims' }));
         } finally {
           setClaimLoading(false);
@@ -134,6 +143,26 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
                     />
                   )}
                 />
+                {claims.length > 0 && (
+                  <List disablePadding sx={{ maxHeight: 240, overflowY: 'auto', border: 1, borderColor: 'divider' }}>
+                    {claims.map((option) => (
+                      <ListItemButton
+                        key={option.id}
+                        selected={claim?.id === option.id}
+                        onClick={() => setClaim(option)}
+                      >
+                        <ListItemText
+                          primary={option.patientName}
+                          secondary={`DOB ${option.patientDob || '—'} · DOS ${option.serviceDate || '—'} · Claim ID ${
+                            option.id
+                          }`}
+                          primaryTypographyProps={{ fontWeight: 600 }}
+                          secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                )}
                 {error && (
                   <Alert severity="error" sx={{ mb: 2 }}>
                     {error}
