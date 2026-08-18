@@ -50,6 +50,7 @@ import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
+import { collectResourceIds, diffCreatedResourceIds } from './chart-resource-ids';
 import { getAppointmentValues, getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
@@ -614,17 +615,34 @@ const useGetAppointment = (
   return query;
 };
 
+/** What `useSaveChartData` returns: the whole updated chart, plus the ids of the rows it just added. */
+export type SaveChartDataResult = PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>> & {
+  /**
+   * Resource ids present after the save that were not present before it. Callers that need to
+   * attribute, highlight or correct a row they just created key off these.
+   */
+  createdResourceIds: string[];
+};
+
 export const useSaveChartData = (): UseMutationResult<
-  PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>>,
+  SaveChartDataResult,
   Error,
-  Omit<SaveChartDataRequest, 'encounterId'>
+  // `encounterId` is OPTIONAL, not omitted: on a route keyed by encounter rather than appointment
+  // the appointment store is empty, so the id this hook used to read from it is undefined and the
+  // save fails. An explicit id is the fix — this, not "state coupling", is why a previous
+  // implementation wrapped saving itself and thereby skipped the read-only guard below.
+  Omit<SaveChartDataRequest, 'encounterId'> & { encounterId?: string }
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
+    mutationFn: async ({
+      encounterId: explicitEncounterId,
+      ...chartDataFields
+    }: Omit<SaveChartDataRequest, 'encounterId'> & { encounterId?: string }): Promise<SaveChartDataResult> => {
       // disabled saving chart data in read only mode except addendum note (legacy single-string field
       // and the per-author `notes` array entries of type ADDENDUM, which providers can still append
       // after the visit is signed and the claim is created)
@@ -642,13 +660,30 @@ export const useSaveChartData = (): UseMutationResult<
         }
       }
 
-      if (apiClient && encounter?.id) {
-        return apiClient.saveChartData({
-          encounterId: encounter.id,
-          ...chartDataFields,
-        });
+      // Explicit id first: a page keyed by encounterId in its own URL knows which encounter it is
+      // for, and the appointment store may not be populated at all there.
+      const encounterId = explicitEncounterId ?? encounter?.id;
+      if (!apiClient || !encounterId) {
+        throw new Error('api client not defined or encounterId not provided');
       }
-      throw new Error('api client not defined or encounterId not provided');
+
+      // Snapshot before the write so the response can be diffed into "what did I just create".
+      // The union across every cached chart query for this encounter is the right baseline: several
+      // consumers asking for different requestedFields coexist by design, and a row already known to
+      // any of them is not new.
+      const before = new Set<string>();
+      for (const key of [CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY]) {
+        for (const [, cached] of queryClient.getQueriesData({ queryKey: [key, encounterId] })) {
+          collectResourceIds(cached, before);
+        }
+      }
+
+      const response = await apiClient.saveChartData({ encounterId, ...chartDataFields });
+
+      return {
+        ...response,
+        createdResourceIds: diffCreatedResourceIds(before, collectResourceIds(response.chartData)),
+      };
     },
     retry: 2,
   });
@@ -696,6 +731,7 @@ export const useChartData = ({
   refetchInterval,
   refetchOnMount,
   encounterId: paramEncounterId,
+  requestedFields,
 }: {
   appointmentId?: string;
   onSuccess?: (data: ChartDataResponse | null) => void;
@@ -705,6 +741,12 @@ export const useChartData = ({
   refetchInterval?: number;
   refetchOnMount?: boolean;
   encounterId?: string;
+  /**
+   * Narrow the fetch to specific chart sections. The cache key already includes this, so several
+   * consumers asking for different field sets coexist by design — no collision.
+   * NOTE: only the UNSCOPED call (requestedFields omitted) returns `aiChat`, i.e. transcripts.
+   */
+  requestedFields?: ChartDataRequestedFields;
 } = {}): {
   refetch: () => Promise<void>;
   isLoading: boolean;
@@ -720,7 +762,11 @@ export const useChartData = ({
   const { update: updateRosObservations } = useRosObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
-  const encounterId = encounter?.id ?? paramEncounterId;
+  // Explicit parameter first, store second. The old order was store-first, which is backwards for a
+  // page keyed by encounterId in its own URL. It happened to work only because the routes that pass
+  // an explicit id have no `:id` param, so the appointment query is disabled and the store is empty
+  // — an implicit dependency on route shape, not a guarantee.
+  const encounterId = paramEncounterId ?? encounter?.id;
   const queryClient = useQueryClient();
 
   const {
@@ -732,7 +778,15 @@ export const useChartData = ({
     isFetched,
     isPending,
   } = useGetChartData(
-    { apiClient, encounterId, enabled, refetchInterval, refetchOnMount, requestKey: CHART_DATA_QUERY_KEY },
+    {
+      apiClient,
+      encounterId,
+      requestedFields,
+      enabled,
+      refetchInterval,
+      refetchOnMount,
+      requestKey: CHART_DATA_QUERY_KEY,
+    },
     (data) => {
       if (!data) {
         return;
@@ -825,10 +879,12 @@ export const useChartData = ({
 
   const chartDataRefetch = useCallback(async (): Promise<void> => {
     await queryClient.invalidateQueries({
-      queryKey: [CHART_DATA_QUERY_KEY, encounter?.id],
+      // Must match the id the query was keyed with, or a refetch on an encounter-keyed route
+      // invalidates nothing and the caller sees stale data with no error.
+      queryKey: [CHART_DATA_QUERY_KEY, encounterId],
       exact: false,
     });
-  }, [queryClient, encounter?.id]);
+  }, [queryClient, encounterId]);
 
   return {
     refetch: chartDataRefetch,

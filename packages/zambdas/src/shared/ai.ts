@@ -377,7 +377,9 @@ export async function createResourcesFromAiInterview(
     [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
     secrets
   );
-  console.log(`AI response: "${aiResponseString}"`);
+  // Same rule as invokeChatbotVertexAI's response log: this string is the extraction of the visit
+  // transcript (complaint, allergies, meds, history) — PHI. Log its shape, not its content.
+  console.log(`AI extraction response: ${aiResponseString.length} chars, source=${source}`);
   let aiResponse;
   try {
     aiResponse = JSON.parse(aiResponseString);
@@ -407,7 +409,11 @@ export async function createResourcesFromAiInterview(
     )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
-  console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
+  // The bundle carries the full transcript and every extracted Observation/Condition — log what is
+  // being written, not its contents.
+  console.log(
+    `Transaction requests: ${requests.length} — ${requests.map((r) => r.resource.resourceType).join(', ')}`
+  );
   const transactionBundle = await oystehr.fhir.transaction({
     requests: requests,
   });
@@ -584,7 +590,8 @@ export async function generateIcdTenCodesFromNotes(
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
     const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
-    console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
+    // The suggestions are diagnoses derived from this patient's HPI/MDM — PHI. Shape only.
+    console.log(`AI ICD-10 codes response: ${aiResponseString.length} chars`);
     let aiResponse;
     try {
       aiResponse = JSON.parse(aiResponseString);

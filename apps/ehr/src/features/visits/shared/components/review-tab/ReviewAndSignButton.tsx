@@ -20,6 +20,7 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
+import { computeSignBlockers, signBlockerMessages } from 'utils/lib/easy-chart/sign-blockers';
 import { getProviderType, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
@@ -92,11 +93,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const hpi = chartFields?.chiefComplaint?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
-  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
-  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
-  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
-  const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
+  // The accident date/state and pending-results checks moved into computeSignBlockers, which reads
+  // them straight off chartFields — hence no locals for them here any more.
   const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
@@ -139,29 +137,35 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (
-      !primaryDiagnosis ||
-      (mdmRequired && !medicalDecision) ||
-      !emCode ||
-      !hpi ||
-      accidentMissingDate ||
-      accidentMissingState
-    ) {
+    // The chart-content blockers come from computeSignBlockers, shared with the Easy Chart page so the
+    // two surfaces can't disagree about whether a note is signable. The wording below is unchanged —
+    // the shared rules are itemized, and each group is collapsed back into the message this button has
+    // always shown. Draft and appointment-status blockers stay local: they aren't chart data.
+    const blockers = computeSignBlockers({
+      hasPrimaryDiagnosis: !!primaryDiagnosis,
+      medicalDecision,
+      hasEmCode: !!emCode,
+      hpi,
+      patientInfoConfirmed,
+      accident: chartFields?.accident,
+      inHouseLabResults: chartFields?.inHouseLabResults,
+      mdmRequired,
+    });
+
+    if (blockers.some((b) => b.group === 'missing-data')) {
       messages.push('You need to fill in the missing data');
     }
 
-    if (!patientInfoConfirmed) {
+    if (blockers.some((b) => b.group === 'patient-info')) {
       messages.push('You need to confirm patient information');
     }
 
-    if (inHouseLabResultsPending) {
+    if (blockers.some((b) => b.id === 'inhouse-lab-results-pending')) {
       messages.push('In-House lab results pending');
     }
 
-    if (inHouseLabReflexTestPending) {
-      inHouseLabReflexTestPending.forEach((test) =>
-        messages.push(`In-House lab results have triggered a reflex test for ${test}`)
-      );
+    for (const test of inHouseLabReflexTestPending ?? []) {
+      messages.push(`In-House lab results have triggered a reflex test for ${test}`);
     }
 
     if (encounter.id) {
@@ -201,17 +205,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     completed,
     hasNPI,
     inPersonStatus,
-    primaryDiagnosis,
-    medicalDecision,
-    mdmRequired,
-    hpi,
-    emCode,
-    accidentMissingDate,
-    accidentMissingState,
-    patientInfoConfirmed,
-    inHouseLabResultsPending,
+    chartBlockers,
     isFollowup,
-    inHouseLabReflexTestPending,
     hasExternalLabDraft,
     hasInHouseLabDraft,
     hasRadiologyDraft,

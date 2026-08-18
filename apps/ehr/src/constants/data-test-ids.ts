@@ -32,6 +32,7 @@ export const dataTestIds = {
     startProviderButton: 'start-provider-button',
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,
+    easyChartButton: `easy-chart-button`,
     dischargeButton: 'discharge-button',
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
