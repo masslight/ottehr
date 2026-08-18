@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { HealthcareService, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { HealthcareService, Location, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { AdHocBillingInput, AdHocBillingOutput } from 'utils/lib/types/adhoc/datasets/billing';
@@ -90,6 +90,14 @@ import {
   IncompleteEncountersReportZambdaOutput,
 } from 'utils/lib/types/api/incomplete-encounters-report.types';
 import { UpdateInvoiceTaskZambdaInput } from 'utils/lib/types/api/invoicing.types';
+import {
+  CreateLocationParams,
+  DeleteLocationParams,
+  DeleteLocationResponse,
+  GetLocationParams,
+  ToggleLocationActiveParams,
+  UpdateLocationParams,
+} from 'utils/lib/types/api/locations';
 import {
   MailedStatementsReportZambdaInput,
   MailedStatementsReportZambdaOutput,
@@ -203,10 +211,14 @@ import {
   SaveFollowupEncounterZambdaOutput,
 } from 'utils/lib/types/api/save-followup-encounter.types';
 import {
+  CreateProviderGroupParams,
   CreateScheduleParams,
   GetScheduleParams,
+  ListProviderGroupsResponse,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
+  ToggleGroupActiveParams,
+  ToggleScheduleActiveParams,
   UpdateScheduleParams,
 } from 'utils/lib/types/api/schedules';
 import {
@@ -343,7 +355,6 @@ import {
 } from 'utils/lib/types/data/printing';
 import { SendPatientFormInput, SendPatientFormOutput } from 'utils/lib/types/data/send-patient-form';
 import {
-  AdminUpdateLocationSupportPhonesInput,
   AdminUpdateSupportDialogInput,
   GetLocationSupportPhonesOutput,
   GetSupportDialogOutput,
@@ -408,7 +419,16 @@ const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = 'update-lab-order-resources';
 const EHR_GET_SCHEDULE_ZAMBDA_ID = 'ehr-get-schedule';
 const UPDATE_SCHEDULE_ZAMBDA_ID = 'update-schedule';
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = 'list-schedule-owners';
+const LIST_PROVIDER_GROUPS_ZAMBDA_ID = 'list-provider-groups';
 const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
+const CREATE_LOCATION_ZAMBDA_ID = 'create-location';
+const GET_LOCATION_ZAMBDA_ID = 'get-location';
+const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
+const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
+const DELETE_LOCATION_ZAMBDA_ID = 'delete-location';
+const TOGGLE_GROUP_ACTIVE_ZAMBDA_ID = 'toggle-group-active';
+const TOGGLE_SCHEDULE_ACTIVE_ZAMBDA_ID = 'toggle-schedule-active';
+const ADMIN_CREATE_GROUP_ZAMBDA_ID = 'admin-create-group';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = 'create-in-house-lab-order';
 const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = 'get-in-house-orders';
@@ -456,7 +476,6 @@ const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
 const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
 const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
 const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
-const ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID = 'admin-set-schedule-owner-active';
 const ADMIN_UPDATE_GROUP_ZAMBDA_ID = 'admin-update-group';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
@@ -464,7 +483,6 @@ const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 const GET_SUPPORT_DIALOG_ZAMBDA_ID = 'get-support-dialog';
 const GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'get-public-location-support-phones';
 const ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID = 'admin-update-support-dialog';
-const ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'admin-update-location-support-phones';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
 const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
@@ -1187,6 +1205,11 @@ export const listScheduleOwners = async (
   }
 };
 
+export const listProviderGroups = async (oystehr: Oystehr): Promise<ListProviderGroupsResponse> => {
+  const response = await oystehr.zambda.execute({ id: LIST_PROVIDER_GROUPS_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
 export const getSchedule = async (params: GetScheduleParams, oystehr: Oystehr): Promise<ScheduleDTO> => {
   try {
     if (EHR_GET_SCHEDULE_ZAMBDA_ID == null) {
@@ -1232,6 +1255,63 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
     console.log(error);
     throw error;
   }
+};
+
+// ── Pure Location CRUD (keyed by Location id, decoupled from Schedule) ──
+
+export const createLocation = async (params: CreateLocationParams, oystehr: Oystehr): Promise<Location> => {
+  const response = await oystehr.zambda.execute({ id: CREATE_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<Location> => {
+  const response = await oystehr.zambda.execute({ id: GET_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const updateLocation = async (params: UpdateLocationParams, oystehr: Oystehr): Promise<Location> => {
+  const response = await oystehr.zambda.execute({ id: UPDATE_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const toggleLocationActive = async (
+  params: ToggleLocationActiveParams,
+  oystehr: Oystehr
+): Promise<{ id: string; status: string }> => {
+  const response = await oystehr.zambda.execute({ id: TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const deleteLocation = async (
+  params: DeleteLocationParams,
+  oystehr: Oystehr
+): Promise<DeleteLocationResponse> => {
+  const response = await oystehr.zambda.execute({ id: DELETE_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const toggleGroupActive = async (
+  params: ToggleGroupActiveParams,
+  oystehr: Oystehr
+): Promise<{ id: string; active: boolean }> => {
+  const response = await oystehr.zambda.execute({ id: TOGGLE_GROUP_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const toggleScheduleActive = async (
+  params: ToggleScheduleActiveParams,
+  oystehr: Oystehr
+): Promise<{ id: string; active: boolean }> => {
+  const response = await oystehr.zambda.execute({ id: TOGGLE_SCHEDULE_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const createProviderGroup = async (
+  params: CreateProviderGroupParams,
+  oystehr: Oystehr
+): Promise<HealthcareService> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_GROUP_ZAMBDA_ID, ...params });
+  return chooseJson(response);
 };
 
 export type UploadPatientProfilePhotoParameters = Omit<UploadPatientProfilePhotoInput, 'action'> & {
@@ -2594,21 +2674,6 @@ export const adminUpdateSupportDialog = async (
   }
 };
 
-export const adminUpdateLocationSupportPhones = async (
-  oystehr: Oystehr,
-  parameters: AdminUpdateLocationSupportPhonesInput
-): Promise<void> => {
-  try {
-    await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID,
-      ...parameters,
-    });
-  } catch (error: unknown) {
-    console.log(error);
-    throw apiErrorToThrow(error);
-  }
-};
-
 export const generateLabelXml = async (
   oystehr: Oystehr,
   parameters: OnDemandLabelXmlRequestInput
@@ -3550,17 +3615,6 @@ export const setPractitionerRoleActive = async (
 ): Promise<{ active: boolean }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
-    ...input,
-  } as any);
-  return chooseJson(response);
-};
-
-export const setScheduleOwnerActive = async (
-  oystehr: Oystehr,
-  input: { scheduleId: string; active: boolean }
-): Promise<{ active: boolean; owner: { resourceType: 'Location' | 'Practitioner'; id: string } }> => {
-  const response = await oystehr.zambda.execute({
-    id: ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID,
     ...input,
   } as any);
   return chooseJson(response);

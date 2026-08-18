@@ -16,10 +16,12 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Tab,
   Table,
   TableBody,
@@ -87,6 +89,7 @@ import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceL
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
+import { DateInput } from '../components/DateInput';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
@@ -145,6 +148,7 @@ export default function ClaimDetail(): ReactElement {
   const [serviceDate, setServiceDate] = useState('');
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
+  const [skipRules, setSkipRules] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -236,16 +240,16 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
-      enqueueSnackbar(
-        `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
-        { variant: 'info' }
-      );
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id], skipRules });
+      const messageSegment = skipRules
+        ? 'Claim submitted.'
+        : `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review.`;
+      enqueueSnackbar(`${messageSegment} Refresh to see the result.`, { variant: 'info' });
     } catch (err) {
       enqueueSnackbar(
         getApiError({
           error: err,
-          defaultError: 'Failed to start the rules engine',
+          defaultError: skipRules ? 'Failed to submit claim' : 'Failed to start the rules engine',
         }),
         { variant: 'error' }
       );
@@ -254,7 +258,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, fetchDetail]);
+  }, [oystehrZambda, id, claim, skipRules, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -342,13 +346,7 @@ export default function ClaimDetail(): ReactElement {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Date of Service
                   </Typography>
-                  <TextField
-                    type="date"
-                    size="small"
-                    value={serviceDate}
-                    onChange={(e) => setServiceDate(e.target.value)}
-                    sx={{ width: 165 }}
-                  />
+                  <DateInput size="small" value={serviceDate} onChange={(value) => setServiceDate(value)} />
                 </Box>
                 <Meta label="Claim ID" value={claim.id} />
                 <Box>
@@ -577,13 +575,24 @@ export default function ClaimDetail(): ReactElement {
         <ConfirmDialog
           open={confirmingSubmit}
           title={runEngine.runButtonLabel}
-          confirmLabel="Run rules"
+          confirmLabel={skipRules ? 'Submit claim (without running rules)' : 'Run rules'}
           loading={submitting}
           onConfirm={() => void handleRunRulesEngine()}
           onCancel={() => setConfirmingSubmit(false)}
         >
-          Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
-          {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+          <Typography variant="body2">
+            Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
+            {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+          </Typography>
+          <FormControlLabel
+            control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+            label="Skip rules"
+            slotProps={{
+              typography: {
+                variant: 'body2',
+              },
+            }}
+          />
         </ConfirmDialog>
       )}
     </Box>

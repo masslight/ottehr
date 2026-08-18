@@ -74,6 +74,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   EXCLUDE_WORKING_COPIES_PARAMS,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
   systemTagBasic,
 } from '../../../src/billing/shared';
@@ -1590,6 +1591,277 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
+    it('creates multiple claim-level coverages when patient billing account has multiple coverages', async () => {
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'other-billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'other-billing-coverage' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'other-claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'other-claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const wcAcct = structuredClone({ ...clinicalResources.account });
+      wcAcct.type!.coding![0].code = 'WCOMPACCT';
+      delete wcAcct.coverage![0].priority;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [
+            {
+              ...clinicalResources.account,
+              coverage: [
+                { coverage: { reference: 'Coverage/coverage-123' }, priority: 1 },
+                { coverage: { reference: 'Coverage/coverage-456' }, priority: 3 }, // intentionally out of order
+                { coverage: { reference: 'Coverage/coverage-789' }, priority: 2 },
+              ],
+            },
+          ],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [
+            clinicalResources.coverage,
+            {
+              ...clinicalResources.coverage,
+              id: 'coverage-456',
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-456' }],
+            },
+            {
+              ...clinicalResources.coverage,
+              id: 'coverage-789',
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-789' }],
+            },
+          ],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      expect(result.claimId).toEqual('claim');
+      // Expect coverage pointed at by both accounts to be copied twice
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
+            resource: {
+              resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
+                  { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+                {
+                  sequence: 2,
+                  focal: false,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-789' },
+                },
+                {
+                  sequence: 3,
+                  focal: false,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-456' },
+                },
+              ],
+              careTeam: undefined,
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: {
+                currency: 'USD',
+                value: 0,
+              },
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  net: {
+                    currency: 'USD',
+                    value: 0,
+                  },
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+          {
+            method: 'POST',
+            url: '/Coverage',
+            resource: {
+              resourceType: 'Coverage',
+              status: 'active',
+              subscriber: {
+                reference: 'urn:uuid:claim-coverage-rp-billing-coverage-coverage-123',
+              },
+              beneficiary: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
+              subscriberId: '123',
+              extension: [
+                {
+                  url: 'https://fhir.ottehr.com/billing/source-resource',
+                  valueReference: {
+                    reference: 'urn:uuid:billing-coverage-coverage-123',
+                  },
+                },
+              ],
+              meta: {
+                tag: [
+                  {
+                    system: 'https://fhir.ottehr.com/billing/resource-type',
+                    code: 'billing-working-copy',
+                  },
+                ],
+              },
+            },
+            fullUrl: 'urn:uuid:claim-coverage-billing-coverage-coverage-123',
+          },
+          {
+            method: 'POST',
+            url: '/Coverage',
+            resource: {
+              resourceType: 'Coverage',
+              status: 'active',
+              subscriber: {
+                reference: 'urn:uuid:claim-coverage-rp-billing-coverage-coverage-456',
+              },
+              beneficiary: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-456' }],
+              subscriberId: '123',
+              extension: [
+                {
+                  url: 'https://fhir.ottehr.com/billing/source-resource',
+                  valueReference: {
+                    reference: 'urn:uuid:billing-coverage-coverage-456',
+                  },
+                },
+              ],
+              meta: {
+                tag: [
+                  {
+                    system: 'https://fhir.ottehr.com/billing/resource-type',
+                    code: 'billing-working-copy',
+                  },
+                ],
+              },
+            },
+            fullUrl: 'urn:uuid:claim-coverage-billing-coverage-coverage-456',
+          },
+          {
+            method: 'POST',
+            url: '/Coverage',
+            resource: {
+              resourceType: 'Coverage',
+              status: 'active',
+              subscriber: {
+                reference: 'urn:uuid:claim-coverage-rp-billing-coverage-coverage-789',
+              },
+              beneficiary: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-789' }],
+              subscriberId: '123',
+              extension: [
+                {
+                  url: 'https://fhir.ottehr.com/billing/source-resource',
+                  valueReference: {
+                    reference: 'urn:uuid:billing-coverage-coverage-789',
+                  },
+                },
+              ],
+              meta: {
+                tag: [
+                  {
+                    system: 'https://fhir.ottehr.com/billing/resource-type',
+                    code: 'billing-working-copy',
+                  },
+                ],
+              },
+            },
+            fullUrl: 'urn:uuid:claim-coverage-billing-coverage-coverage-789',
+          },
+        ]),
+      });
+    });
     it('creates multiple claim-level coverages when patient has multiple accounts', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
         entry: [
@@ -2070,23 +2342,6 @@ describe('create-billing-claim-from-encounter', () => {
       );
       expect(patientPosts).toHaveLength(1);
       expect(patientPosts[0].resource.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
-
-      expect(patchFn).toHaveBeenCalledWith(
-        {
-          resourceType: 'Patient',
-          id: 'billing-patient-123',
-          operations: [
-            {
-              op: 'add',
-              path: '/identifier',
-              value: [clinicalPatientIdentifier('patient-123')],
-            },
-          ],
-        },
-        {
-          optimisticLockingVersionId: '7',
-        }
-      );
 
       const personUpdate = requests.find((r) => r.url === `/Person/${billingResources.person.id}`);
       expect(personUpdate).toMatchObject({
@@ -3321,6 +3576,10 @@ describe('create-billing-claim-from-encounter', () => {
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
               ],
+              identifier: [
+                { system: SOURCE_IDENTIFIER_SYSTEM, value: 'patient-123' },
+                { system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, value: '123456' },
+              ],
             },
           },
           {
@@ -3332,6 +3591,10 @@ describe('create-billing-claim-from-encounter', () => {
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'urn:uuid:main-patient' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
+              ],
+              identifier: [
+                { system: SOURCE_IDENTIFIER_SYSTEM, value: 'patient-123' },
+                { system: SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, value: '123456' },
               ],
               meta: {
                 tag: [BILLING_WORKING_COPY_TAG],
