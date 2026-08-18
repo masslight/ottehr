@@ -16,9 +16,9 @@ import {
 import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { getBillingClaimDetail, matchClaimResponseToClaim } from '../api/api';
+import { matchClaimResponseToClaim, searchBillingClaims } from '../api/api';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -31,12 +31,12 @@ interface Props {
 }
 
 interface FormData {
-  claimId: string | null;
+  searchText: string;
 }
 
 export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<FormData>({ defaultValues: { claimId: null } });
+  const methods = useForm<FormData>({ defaultValues: { searchText: '' } });
   const {
     control,
     handleSubmit,
@@ -45,7 +45,7 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
   } = methods;
 
   const [error, setError] = useState<string | null>(null);
-  const [claim, setClaim] = useState<ClaimDetailResponse | null>(null);
+  const [claim, setClaim] = useState<BillingClaimItem | null>(null);
   const [claimLoading, setClaimLoading] = useState<boolean>(false);
 
   const { debounce } = useDebounce();
@@ -56,16 +56,20 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
     },
     callback: ({ values }) => {
       debounce(async () => {
-        const claimId = values.claimId;
-        if (!oystehrZambda || !claimId) return;
+        const searchText = values.searchText;
+        if (!oystehrZambda || !searchText) return;
         try {
           setError(null);
           setClaim(null);
           setClaimLoading(true);
-          const data = await getBillingClaimDetail(oystehrZambda, { claimId });
-          setClaim(data);
-        } catch {
-          setError('Claim not found');
+          const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25 });
+          if (data.claims.length === 1) {
+            setClaim(data.claims[0]);
+          } else {
+            setError(data.claims.length === 0 ? 'Claim not found' : 'Multiple claims found');
+          }
+        } catch (err) {
+          setError(getApiError({ error: err, defaultError: 'Failed to search claims' }));
         } finally {
           setClaimLoading(false);
         }
@@ -94,7 +98,9 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
         <DialogTitle
           sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          <Typography variant="h5">Match to claim</Typography>
+          <Typography component="span" variant="h5">
+            Match to claim
+          </Typography>
           <IconButton size="small" onClick={onClose} aria-label="Close">
             <CloseIcon fontSize="small" />
           </IconButton>
@@ -104,18 +110,20 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                 <Controller
-                  name="claimId"
+                  name="searchText"
                   control={control}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                   render={({ field, fieldState: { error: fieldError } }) => (
                     <TextField
                       size="small"
                       fullWidth
-                      label="Claim id"
+                      label="Patient name or claim ID"
                       value={field.value}
                       onChange={(e) => field.onChange(e.target.value)}
                       error={!!fieldError}
-                      helperText={fieldError?.message}
+                      helperText={
+                        fieldError?.message ?? 'Patient names match from the start. Claim IDs must be entered in full.'
+                      }
                       InputProps={{
                         endAdornment: (
                           <InputAdornment position="end">
@@ -140,7 +148,7 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
                 {claim.patientName}
               </Typography>
               <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
-                <Meta label="Date of Service" value={claim.serviceLines[0]?.serviceDate ?? claim.created} />
+                <Meta label="Date of Service" value={claim.serviceDate} />
                 <Meta label="Claim ID" value={claim.id} />
                 <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
                 <Meta label="Service" value={formatAntCaseString(claim.service)} />
