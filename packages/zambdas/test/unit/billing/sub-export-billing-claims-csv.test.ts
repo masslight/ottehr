@@ -1,5 +1,4 @@
 import { Claim, Resource, Task } from 'fhir/r4b';
-import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { EXPORT_CSV_OUTPUT_URL_CODE } from 'utils/lib/types/api/invoicing.types';
 import {
   CLAIM_TAG_SYSTEM,
@@ -334,15 +333,16 @@ describe('sub-export-billing-claims-csv', () => {
     expect(outputValue(EXPORT_CLAIMS_INCOMPLETE_CODE)).toBe('false');
   });
 
-  // Falling through to an unfiltered search here would hand the biller every claim in the project.
-  it('exports nothing when the payer name matches no payer', async () => {
+  // Falling through to an unfiltered search here would hand the biller every claim in the project,
+  // and an empty CSV would read as "no claims match" rather than "the filter never resolved".
+  it('fails the export when the payer name matches no payer', async () => {
     stubSearches({ claimPages: [[makeClaim('claim-1'), patient]] });
     mockOystehrClient.rcm.listPayers.mockResolvedValue({ data: [] });
 
-    await runExport(makeTask({ payerName: 'Nonexistent Health' }));
+    await expect(runExport(makeTask({ payerName: 'Nonexistent Health' }))).rejects.toThrow('Nonexistent Health');
 
-    expect(await csvRows()).toHaveLength(1);
     expect(claimSearches()).toHaveLength(0);
+    expect(mockOystehrClient.z3.uploadFile).not.toHaveBeenCalled();
   });
 
   it('flags an export whose search could not see every match', async () => {
@@ -375,19 +375,10 @@ describe('sub-export-billing-claims-csv', () => {
     expect(csv).not.toContain('out-of-range');
   });
 
-  it('drops filters the claims list would not accept rather than failing the export', async () => {
+  it('refuses a Task carrying filters the claims list would not accept', async () => {
     stubSearches({ claimPages: [[makeClaim('claim-1'), patient]] });
 
-    const result = await runExport(makeTask({ type: 'dental' } as unknown as ExportBillingClaimsInput));
-
-    expect(result).toEqual({
-      taskStatus: 'completed',
-      statusReason: 'Exported 1 claim(s)',
-    });
-    expect(claimSearches()[0].params).not.toContainEqual(
-      expect.objectContaining({
-        value: `${CODE_SYSTEM_CLAIM_TYPE}|dental`,
-      })
-    );
+    await expect(runExport(makeTask({ type: 'dental' } as unknown as ExportBillingClaimsInput))).rejects.toBeDefined();
+    expect(mockOystehrClient.z3.uploadFile).not.toHaveBeenCalled();
   });
 });

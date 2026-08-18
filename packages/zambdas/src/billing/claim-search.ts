@@ -62,6 +62,8 @@ export type ClaimFilterInput = Pick<
   | 'tag'
 >;
 
+export type ClaimFilterParams = { params: ClaimSearchParam[] } | { unresolvable: string };
+
 export async function buildClaimFilterParams({
   oystehr,
   params,
@@ -70,7 +72,7 @@ export async function buildClaimFilterParams({
   oystehr: Oystehr;
   params: ClaimFilterInput;
   sort?: string;
-}): Promise<ClaimSearchParam[] | null> {
+}): Promise<ClaimFilterParams> {
   let insurerFilter: string | undefined;
   if (params.payerId) {
     insurerFilter = getPayerUrl(params.payerId);
@@ -80,7 +82,11 @@ export async function buildClaimFilterParams({
       limit: 50,
     });
     const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
-    if (payerIds.length === 0) return null;
+    if (payerIds.length === 0) {
+      return {
+        unresolvable: `no payer matches the payer name "${params.payerName}"`,
+      };
+    }
     insurerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
   }
 
@@ -142,7 +148,9 @@ export async function buildClaimFilterParams({
       value: `${CLAIM_TAG_SYSTEM}|${params.tag}`,
     });
 
-  return filterParams;
+  return {
+    params: filterParams,
+  };
 }
 
 export const getClaimServiceDate = (claim: Claim): string =>

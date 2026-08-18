@@ -36,17 +36,20 @@ async function performEffect(
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
 
-  const filterParams = await buildClaimFilterParams({
+  const resolved = await buildClaimFilterParams({
     oystehr,
     params,
   });
-  if (!filterParams)
+  if ('unresolvable' in resolved) {
+    console.log(`Claim search matched nothing: ${resolved.unresolvable}`);
     return {
       claims: [],
       total: 0,
       offset,
       pageSize,
     };
+  }
+  const filterParams = resolved.params;
 
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
 
