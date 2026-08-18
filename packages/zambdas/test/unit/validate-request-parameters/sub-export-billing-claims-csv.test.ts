@@ -87,12 +87,18 @@ describe('sub-export-billing-claims-csv - validateRequestParameters', () => {
     });
   });
 
-  it('rejects filters the claims list would not accept', () => {
-    expect(() => validateRequestParameters(inputFor(carrying(JSON.stringify({ type: 'dental' }))))).toThrow();
+  it('exports everything when the filters are not ones the claims list accepts', () => {
+    expect(validateRequestParameters(inputFor(carrying(JSON.stringify({ type: 'dental' }))))).toEqual({
+      taskId: 'task-1',
+      secrets,
+    });
   });
 
-  it('rejects a payload that is not the filter object', () => {
-    expect(() => validateRequestParameters(inputFor(carrying('not json')))).toThrow();
+  it('exports everything when the payload is not the filter object', () => {
+    expect(validateRequestParameters(inputFor(carrying('not json')))).toEqual({
+      taskId: 'task-1',
+      secrets,
+    });
   });
 
   it('throws without a task', () => {

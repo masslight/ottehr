@@ -1,4 +1,5 @@
 import { Claim, Resource, Task } from 'fhir/r4b';
+import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { EXPORT_CSV_OUTPUT_URL_CODE } from 'utils/lib/types/api/invoicing.types';
 import {
   CLAIM_TAG_SYSTEM,
@@ -374,10 +375,19 @@ describe('sub-export-billing-claims-csv', () => {
     expect(csv).not.toContain('out-of-range');
   });
 
-  it('refuses a Task carrying filters the claims list would not accept', async () => {
+  it('drops filters the claims list would not accept rather than failing the export', async () => {
     stubSearches({ claimPages: [[makeClaim('claim-1'), patient]] });
 
-    await expect(runExport(makeTask({ type: 'dental' } as unknown as ExportBillingClaimsInput))).rejects.toBeDefined();
-    expect(mockOystehrClient.z3.uploadFile).not.toHaveBeenCalled();
+    const result = await runExport(makeTask({ type: 'dental' } as unknown as ExportBillingClaimsInput));
+
+    expect(result).toEqual({
+      taskStatus: 'completed',
+      statusReason: 'Exported 1 claim(s)',
+    });
+    expect(claimSearches()[0].params).not.toContainEqual(
+      expect.objectContaining({
+        value: `${CODE_SYSTEM_CLAIM_TYPE}|dental`,
+      })
+    );
   });
 });
