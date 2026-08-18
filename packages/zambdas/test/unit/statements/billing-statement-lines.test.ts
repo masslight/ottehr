@@ -1,4 +1,5 @@
 import { Claim, ClaimItem, ClaimResponse } from 'fhir/r4b';
+import { AR_STAGE, ArStageCode, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it } from 'vitest';
 import { ADJUDICATION_CODES } from '../../../src/billing/claim-amounts';
 import { computeBillingStatementAmounts } from '../../../src/shared/statements/get-billing-statement-lines';
@@ -30,13 +31,29 @@ const claimItem = (parts: { sequence: number; code: string; charge: number }): C
   },
 });
 
-const billingClaim = (items = [XRAY, OFFICE_VISIT]): Claim =>
-  ({
+// A claim carries a real coverage and sits in patient AR, which is how one reaches a statement:
+// insurance has finished with it. `arStage` overrides the stage to model a claim still with the payer.
+const billingClaim = (
+  options: {
+    items?: { sequence: number; code: string; charge: number }[];
+    arStage?: ArStageCode;
+  } = {}
+): Claim => {
+  const { items = [XRAY, OFFICE_VISIT], arStage = AR_STAGE.patient } = options;
+  return {
     resourceType: 'Claim',
     id: 'c1',
     status: 'active',
     created: '2026-08-01',
     use: 'claim',
+    meta: {
+      tag: [
+        {
+          system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
+          code: arStage,
+        },
+      ],
+    },
     type: {
       coding: [],
     },
@@ -49,13 +66,22 @@ const billingClaim = (items = [XRAY, OFFICE_VISIT]): Claim =>
     provider: {
       reference: 'Organization/prov-1',
     },
-    insurance: [],
+    insurance: [
+      {
+        sequence: 1,
+        focal: true,
+        coverage: {
+          reference: 'Coverage/cov-1',
+        },
+      },
+    ],
     item: items.map(claimItem),
     total: {
       value: items.reduce((sum, item) => sum + item.charge, 0),
       currency: 'USD',
     },
-  }) as Claim;
+  } as Claim;
+};
 
 // Both lines fully adjudicated: the payer pays part, writes part off, and leaves the rest with the
 // patient as coinsurance. 104 = 55.32 + 28.68 + 20, and 339 = 200 + 71 + 68.
@@ -346,7 +372,7 @@ describe('computeBillingStatementAmounts', () => {
     expect(totals.balanceDueCents).toBe(0);
   });
 
-  it('bills the whole visit to the patient until insurance has adjudicated', () => {
+  it('bills the whole visit to the patient once insurance has finished without a remit', () => {
     const { lines, totals } = computeBillingStatementAmounts({
       claim: billingClaim(),
       claimResponses: [],
@@ -361,6 +387,35 @@ describe('computeBillingStatementAmounts', () => {
       deductibleCents: 0,
     });
     expect(lines.map((line) => line.patientOwesCents)).toEqual([10_400, 33_900]);
+  });
+
+  it('owes the patient nothing while an insured claim is still waiting on its payer', () => {
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim({ arStage: AR_STAGE.insurancePayer }),
+      claimResponses: [],
+      patientPaid: 0,
+    });
+
+    expect(totals).toEqual({
+      chargedCents: 0,
+      insurancePaidCents: 0,
+      patientPaidCents: 0,
+      balanceDueCents: 0,
+      deductibleCents: 0,
+    });
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([0, 0]);
+  });
+
+  it('still reports the payer figures for a claim the payer answered before it left insurance AR', () => {
+    const { totals } = computeBillingStatementAmounts({
+      claim: billingClaim({ arStage: AR_STAGE.insurancePayer }),
+      claimResponses: [fullyAdjudicatedRemit()],
+      patientPaid: 0,
+    });
+
+    // the remit is the authority once it exists, so the AR stage no longer gates anything
+    expect(totals.insurancePaidCents).toBe(25_532);
+    expect(totals.balanceDueCents).toBe(8800);
   });
 
   it('shares out an insurance payment the payer did not break down per procedure', () => {
