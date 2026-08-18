@@ -253,7 +253,7 @@ The tiers decompose into pull requests as a **DAG, not a single stack**: three s
 
 The chains: **1 → 11 → 12a–d → 17** (harness → component contracts → runner), **13 → 14 → 17** (hook cores → extension round-trips → runner), and **15 → 16/17** (shared walker → harvest properties / runner) — converging at the runner, then **17 → 18 → 19 → 20** crossing into `hosted-ottehr-builds`. PRs 2–10 can land in any order, in parallel, from day one. Mapped to the phases: Phase 0 ≈ 1–2 (+10 anytime), Phase 1 ≈ 3, 5–6, 11–14, Phase 2 ≈ 4, 7–9, 15–17, Phase 3 ≈ 18–19, Phase 4 = 20.
 
-PRs 1–3 are open as a stack: [#9108](https://github.com/masslight/ottehr/pull/9108) (test rig) → [#9109](https://github.com/masslight/ottehr/pull/9109) (dispatch matrix + catalog) → [#9110](https://github.com/masslight/ottehr/pull/9110) (enableWhen operator matrix). Merge in that order; GitHub retargets each stacked PR when its base branch is deleted on merge.
+Status: PRs 1–3 are **merged** ([#9108](https://github.com/masslight/ottehr/pull/9108) test rig, [#9109](https://github.com/masslight/ottehr/pull/9109) dispatch matrix + catalog, [#9110](https://github.com/masslight/ottehr/pull/9110) enableWhen operator matrix). PRs 4–6 are **open as independent PRs** against `develop` (no interdependencies, reviewable in any order): [#9201](https://github.com/masslight/ottehr/pull/9201) mechanism suites + enabled-page-set scenario matrix, [#9202](https://github.com/masslight/ottehr/pull/9202) makeValidationSchema accept/reject matrix, [#9203](https://github.com/masslight/ottehr/pull/9203) submit-validation failure mapping + legacy suite deletion.
 
 Sequencing constraints that matter:
 
