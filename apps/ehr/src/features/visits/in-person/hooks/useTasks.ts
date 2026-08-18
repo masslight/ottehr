@@ -28,6 +28,7 @@ import {
   Task,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
+import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
@@ -670,13 +671,14 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
   }
   if (category === FAX_TASK.category) {
     const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
-    const senderFaxNumber = getInputString(FAX_TASK.input.senderFaxNumber, task);
-    const pageCount = getInputString(FAX_TASK.input.pageCount, task);
     const receivedDate = getInputString(FAX_TASK.input.receivedDate, task);
     const communicationId = getInputString(FAX_TASK.input.communicationId, task);
 
     if (code === FAX_TASK.code.matchInboundFax) {
-      title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
+      // The fax subscription already wrote this sentence into the Task's description (`faxTaskTitle`), and
+      // the notification bell shows the same string — re-deriving it from the inputs here is how the three
+      // wordings drift apart.
+      title = task.description ?? '';
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       if (communicationId) {
         // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
@@ -684,7 +686,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
         const isActioned = task.status === 'completed' || task.status === 'cancelled';
         action = {
           name: isActioned ? VIEW_FAX : 'Match',
-          link: `/inbound-fax/${communicationId}/match`,
+          link: inboundFaxMatchPath(communicationId),
         };
       }
     }

@@ -38,9 +38,7 @@ export const ProviderNotifications: FC = memo(() => {
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
           timestamp: notification.communication.sent,
-          // FAX_NOTIFICATIONS_DISABLED: restore the `: notification.link` fallback (fax match page) when
-          // inbound-fax notifications come back.
-          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : undefined,
+          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : notification.link,
         };
       }) || []
     ).sort((a, b) => {
@@ -137,9 +135,11 @@ interface MenuItemProps {
   subtitle: string;
 }
 
-const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
+const MenuItem = ({ onClick, cursor, title, subtitle }: MenuItemProps): JSX.Element => {
   const theme = useTheme();
 
+  // A notification with nowhere to go must not offer a click affordance: no pointer, no hover highlight.
+  const isNavigable = cursor === 'pointer';
   const titleColor = theme.palette.getContrastText(theme.palette.background.default);
   return (
     <Button
@@ -153,9 +153,14 @@ const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
         py: 1,
         px: 2,
         mt: 1,
-        cursor: 'pointer',
-        '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.1) },
+        cursor,
+        // Spelled out for both cases: leaving the hover rule off would fall back to MUI's own Button
+        // hover, which is the highlight we're trying not to show.
+        '&:hover': {
+          backgroundColor: isNavigable ? alpha(theme.palette.primary.main, 0.1) : 'background.default',
+        },
       }}
+      disableRipple={!isNavigable}
       onClick={onClick}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', textTransform: 'none' }}>
