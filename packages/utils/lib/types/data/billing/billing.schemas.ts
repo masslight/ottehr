@@ -645,6 +645,27 @@ export const GetBillingPaymentsReportInputSchema = z.object({
   refresh: z.boolean().optional(),
 });
 
+export const GetBillingPaymentsReportDrilldownInputSchema = z.object({
+  // payer row context: payer ID, or 'none' for ERAs without a payer reference
+  payerId: nonEmptyString.optional(),
+  // check (payment) date window, ISO dates
+  dateFrom: nonEmptyString.optional(),
+  dateTo: nonEmptyString.optional(),
+  // waterfall cell context: 'YYYY-MM' or 'unknown'
+  serviceMonth: nonEmptyString.optional(),
+  checkMonth: nonEmptyString.optional(),
+});
+
+export const GetBillingPatientPaymentsReportInputSchema = z.object({
+  // payment (created) date window, ISO dates
+  dateFrom: nonEmptyString.optional(),
+  dateTo: nonEmptyString.optional(),
+  // drill-down: include individual payments (optionally row-filtered) with live Stripe status
+  detail: z.boolean().optional(),
+  locationName: nonEmptyString.optional(),
+  paymentMethod: nonEmptyString.optional(),
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -674,6 +695,8 @@ export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputS
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
 export type GetBillingPaymentsReportInput = z.output<typeof GetBillingPaymentsReportInputSchema>;
+export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
+export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;

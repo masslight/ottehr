@@ -576,6 +576,60 @@ export interface GetBillingPaymentsReportResponse {
   fromCache: boolean;
 }
 
+export interface PaymentsReportDrilldownClaim {
+  patientName: string;
+  pcn: string;
+  dos: string;
+  billed: number;
+  allowed: number;
+  paid: number;
+  patientResp: number;
+}
+
+export interface PaymentsReportDrilldownEra {
+  id: string;
+  checkNumber: string;
+  checkDate: string;
+  payerName: string;
+  checkAmount: number;
+  claims: PaymentsReportDrilldownClaim[];
+}
+
+export interface GetBillingPaymentsReportDrilldownResponse {
+  eras: PaymentsReportDrilldownEra[];
+}
+
+export interface PatientPaymentsReportRow {
+  locationName: string;
+  paymentMethod: string;
+  paymentCount: number;
+  collected: number;
+  refunded: number;
+  net: number;
+}
+
+export interface PatientPaymentItem {
+  date: string;
+  patientName: string;
+  locationName: string;
+  paymentMethod: string;
+  amount: number;
+  // live Stripe-derived status ('Paid', 'Invoice paid', 'Invoice past due', 'Refunded', ...); '' for manual payments
+  stripeStatus: string;
+  description: string;
+  // FHIR Appointment id of the visit the payment belongs to ('' when unresolved)
+  appointmentId: string;
+  encounterDate: string;
+}
+
+export interface GetBillingPatientPaymentsReportResponse {
+  rows: PatientPaymentsReportRow[];
+  totals: Omit<PatientPaymentsReportRow, 'locationName' | 'paymentMethod'>;
+  // present when detail was requested
+  payments?: PatientPaymentItem[];
+  generatedAt: string;
+}
+
 export interface GetPatientCoveragesResponse {
   coverages: BillingCoverageOption[];
 }

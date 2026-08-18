@@ -9,9 +9,10 @@ import { ZambdaInput } from '../shared/types/common';
 export const expressLambda = async (
   handler: Handler<any, APIGatewayProxyResult>,
   req: Request,
-  res: Response
+  res: Response,
+  opts?: { secretsFile?: string }
 ): Promise<void> => {
-  const lambdaInput = await buildLambdaInput(req);
+  const lambdaInput = await buildLambdaInput(req, opts?.secretsFile);
   const handlerResponse = await handler(
     lambdaInput,
     {} as unknown as Context, // Zambdas don't use it
@@ -40,14 +41,30 @@ export const expressLambda = async (
 
 const secrets: Record<string, string> = {};
 
+function loadSecretsFile(pathToSecretsFile: string): Record<string, string> {
+  const configString = readFileSync(resolve(__dirname, `../../${pathToSecretsFile}`), { encoding: 'utf8' });
+  return JSON.parse(configString);
+}
+
 function populateSecrets({ pathToSecretsFile }: { pathToSecretsFile: string }): void {
   console.log('Populating secrets from', pathToSecretsFile);
-  const configString = readFileSync(resolve(__dirname, `../../${pathToSecretsFile}`), { encoding: 'utf8' });
-  const fileContents: Record<string, string> = JSON.parse(configString);
-  Object.entries(fileContents).forEach(([key, value]) => {
+  Object.entries(loadSecretsFile(pathToSecretsFile)).forEach(([key, value]) => {
     secrets[key] = value;
   });
   console.log(`Populated ${Object.keys(secrets).length} secrets`);
+}
+
+// Local-only per-zambda secrets overrides (e.g. pointing reports at another project), cached per file.
+const overrideSecretsByFile = new Map<string, Record<string, string>>();
+
+function getOverrideSecrets(pathToSecretsFile: string): Record<string, string> {
+  let override = overrideSecretsByFile.get(pathToSecretsFile);
+  if (!override) {
+    override = loadSecretsFile(pathToSecretsFile);
+    overrideSecretsByFile.set(pathToSecretsFile, override);
+    console.log(`Loaded override secrets from ${pathToSecretsFile} (${Object.keys(override).length} keys)`);
+  }
+  return override;
 }
 
 const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHeaders => {
@@ -80,12 +97,12 @@ console.log('Loading secrets from', pathToSecretsFile);
 populateSecrets({ pathToSecretsFile });
 const populateSecretsPromise = Promise.resolve();
 
-async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
+async function buildLambdaInput(req: Request, secretsFile?: string): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
   await populateSecretsPromise;
   return {
     body: !_.isEmpty(req.body) ? req.body : null,
     headers: singleValueHeaders(req.headers),
-    secrets,
+    secrets: secretsFile ? getOverrideSecrets(secretsFile) : secrets,
   };
 }

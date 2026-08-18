@@ -18,19 +18,23 @@ app.use(cors());
 
 // Register routes lazily to avoid Vite SSR import issues during module initialization
 function registerRoutes(): void {
+  // Local-only: point reports zambdas at another project's secrets (e.g. REPORTS_SECRETS=.env/urgikids-production.json)
+  const reportsSecretsFile = process.env.REPORTS_SECRETS;
   Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).forEach(([_key, spec]) => {
     const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
     const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
+    const isReportsZambda = spec.src.includes('/reports/');
+    const secretsOverride = isReportsZambda && reportsSecretsFile ? { secretsFile: reportsSecretsFile } : undefined;
     app.post(path, async (req, res) => {
       const { index } = await import(`../../${spec.src}`);
-      await expressLambda(index, req, res);
+      await expressLambda(index, req, res, secretsOverride);
     });
     app.head('/', async (req, res) => {
       res.send({
         status: 200,
       });
     });
-    console.log(`Registered POST: ${path}`);
+    console.log(`Registered POST: ${path}${secretsOverride ? ` (override secrets: ${reportsSecretsFile})` : ''}`);
   });
 }
 

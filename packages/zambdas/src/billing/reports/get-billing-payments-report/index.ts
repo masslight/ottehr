@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, MeasureReport, PaymentReconciliation } from 'fhir/r4b';
+import { MeasureReport } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
@@ -10,9 +10,7 @@ import {
   PaymentsReportWaterfallCell,
 } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
-import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { fetchAllPages } from '../../../shared/fhir';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
@@ -20,7 +18,23 @@ import {
   extractReportedCharge,
   fetchClaimResponsesByPaymentReconciliations,
 } from '../../claim-amounts';
-import { createBillingClient, createEraReadClient, resolvePayersByRef } from '../../shared';
+import { createBillingClient, createEraReadClient } from '../../shared';
+import {
+  checkDateInRange,
+  claimResponseClaimId,
+  claimResponseServiceDay,
+  eraCheckMonth,
+  eraPayerRef,
+  eraReportedPayerName,
+  fetchAllEras,
+  fetchPartialClaimsById,
+  payerIdFromRef,
+  payerNamesByRef,
+  resolvePayersWithFallback,
+  toMonth,
+  UNKNOWN_PAYER_NAME,
+  WATERFALL_UNKNOWN_MONTH,
+} from '../shared';
 import { GetBillingPaymentsReportParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -29,35 +43,15 @@ const ZAMBDA_NAME = 'get-billing-payments-report';
 export const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
 export const PAYMENTS_REPORT_NAME = 'payments-by-payer';
 // bump when the cached MeasureReport shape changes, so stale-shape resources are never reused
-export const PAYMENTS_REPORT_CACHE_VERSION = 'v3';
+export const PAYMENTS_REPORT_CACHE_VERSION = 'v6';
 // canonical for the cached MeasureReport's required `measure` element; no Measure resource exists yet
 export const PAYMENTS_REPORT_MEASURE_URL = 'https://fhir.ottehr.com/billing/measures/payments-by-payer';
 export const REPORT_CACHE_TTL_MINUTES = 60;
 
-const UNKNOWN_PAYER_NAME = 'Unknown Payer';
 const METRIC_KEYS = ['billed', 'allowed', 'insurancePaid', 'checkTotal'] as const;
-const ERA_PAGE_SIZE = 200;
-const CLAIM_BATCH_SIZE = 100;
 
-export const WATERFALL_UNKNOWN_MONTH = 'unknown';
 // marker group inside the cached MeasureReport, distinguishing waterfall data from payer groups
 const WATERFALL_GROUP_CODE = '__payment-waterfall-matrix__';
-
-const toDay = (value?: string): string | null =>
-  value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;
-
-const toMonth = (value?: string): string | null => toDay(value)?.slice(0, 7) ?? null;
-
-export function checkDateInRange(era: PaymentReconciliation, from?: string, to?: string): boolean {
-  if (!from && !to) return true;
-  const day = toDay(era.paymentDate ?? era.created);
-  if (!day) return false;
-  const fromDay = toDay(from);
-  const toDayValue = toDay(to);
-  if (fromDay && day < fromDay) return false;
-  if (toDayValue && day > toDayValue) return false;
-  return true;
-}
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -132,34 +126,22 @@ async function findCachedReport(oystehr: Oystehr, cacheKey: string): Promise<Mea
 async function computeInsurancePayments(
   oystehr: Oystehr,
   eraReadClient: Oystehr,
-  params: { dateFrom?: string; dateTo?: string }
+  params: GetBillingPaymentsReportParams
 ): Promise<{ rows: PaymentsReportPayerRow[]; waterfall: PaymentsReportWaterfallCell[] }> {
-  const allEras: PaymentReconciliation[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
-      resourceType: 'PaymentReconciliation',
-      params: [
-        { name: '_count', value: String(count) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    allEras.push(...bundle.unbundle());
-    return bundle;
-  }, ERA_PAGE_SIZE);
+  const allEras = await fetchAllEras(eraReadClient);
   if (allEras.length === 0) return { rows: [], waterfall: [] };
 
   const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, allEras);
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
+  const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the ClaimResponses' payer
-  const [payersByRef, serviceDayByClaimId] = await Promise.all([
-    resolvePayersByRef(oystehr, [
-      ...allEras.map((pr) => pr.paymentIssuer?.reference),
-      ...allClaimResponses.map((cr) => cr.insurer?.reference),
-    ]),
-    fetchClaimServiceDays(
+  const [payersByRef, partialClaimsById] = await Promise.all([
+    resolvePayersWithFallback(
       oystehr,
-      allClaimResponses.map((cr) => cr.request?.reference?.replace('Claim/', '')).filter(Boolean) as string[]
+      [...allEras.map((pr) => pr.paymentIssuer?.reference), ...allClaimResponses.map((cr) => cr.insurer?.reference)],
+      params.secrets
     ),
+    fetchPartialClaimsById(oystehr, allClaimResponses.map(claimResponseClaimId).filter(Boolean) as string[]),
   ]);
 
   // no FHIR search parameter exists for paymentDate, so the check-date window filters in memory
@@ -171,21 +153,26 @@ async function computeInsurancePayments(
   const paidByMatrixKey = new Map<string, number>();
   for (const era of allEras) {
     const claimResponses = claimResponsesByPrId.get(era.id ?? '') ?? [];
-    const checkMonth = toMonth(era.paymentDate ?? era.created) ?? WATERFALL_UNKNOWN_MONTH;
+    const checkMonth = eraCheckMonth(era);
     const inWindow = erasInWindow.has(era.id);
 
     let row: PaymentsReportPayerRow | undefined;
     if (inWindow) {
-      const payerRef =
-        era.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
+      const payerRef = eraPayerRef(era, claimResponses);
       const payer = payerRef ? payersByRef.get(payerRef) : undefined;
       const key = payerRef ?? 'unknown';
+      const refPayerId = payerIdFromRef(payerRef);
 
       row = rowsByPayerKey.get(key);
       if (!row) {
         row = {
-          payerId: getPayerId(payer) ?? '',
-          payerName: payer?.name ?? era.paymentIssuer?.display ?? UNKNOWN_PAYER_NAME,
+          payerId: getPayerId(payer) ?? refPayerId ?? '',
+          payerName:
+            payer?.name ??
+            harvestedNamesByRef.get(payerRef ?? '') ??
+            eraReportedPayerName(claimResponses) ??
+            era.paymentIssuer?.display ??
+            (refPayerId ? `Payer ${refPayerId}` : UNKNOWN_PAYER_NAME),
           eraCount: 0,
           claimCount: 0,
           billed: 0,
@@ -209,8 +196,8 @@ async function computeInsurancePayments(
         row.insurancePaid += amounts.paid;
       }
 
-      const claimId = claimResponse.request?.reference?.replace('Claim/', '');
-      const serviceMonth = (claimId ? toMonth(serviceDayByClaimId.get(claimId)) : null) ?? WATERFALL_UNKNOWN_MONTH;
+      const serviceDay = claimResponseServiceDay(claimResponse, partialClaimsById);
+      const serviceMonth = toMonth(serviceDay ?? undefined) ?? WATERFALL_UNKNOWN_MONTH;
       const matrixKey = `${serviceMonth}|${checkMonth}`;
       paidByMatrixKey.set(matrixKey, (paidByMatrixKey.get(matrixKey) ?? 0) + amounts.paid);
     }
@@ -234,29 +221,6 @@ async function computeInsurancePayments(
     .sort((a, b) => a.serviceMonth.localeCompare(b.serviceMonth) || a.checkMonth.localeCompare(b.checkMonth));
 
   return { rows, waterfall };
-}
-
-// Claim service dates for lag bucketing; Claims live in the billing FHIR store.
-async function fetchClaimServiceDays(oystehr: Oystehr, claimIds: string[]): Promise<Map<string, string>> {
-  const serviceDayByClaimId = new Map<string, string>();
-  // unmatched ERA ClaimResponses carry logical/identifier request references, not Claim/{uuid}
-  const uniqueIds = [...new Set(claimIds)].filter(isValidUUID);
-  for (let i = 0; i < uniqueIds.length; i += CLAIM_BATCH_SIZE) {
-    const batch = uniqueIds.slice(i, i + CLAIM_BATCH_SIZE);
-    const bundle = await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [
-        { name: '_id', value: batch.join(',') },
-        { name: '_elements', value: 'id,item,created' },
-        { name: '_count', value: String(batch.length) },
-      ],
-    });
-    for (const claim of bundle.unbundle()) {
-      const day = toDay(claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created);
-      if (claim.id && day) serviceDayByClaimId.set(claim.id, day);
-    }
-  }
-  return serviceDayByClaimId;
 }
 
 export function totalsOf(rows: PaymentsReportPayerRow[]): GetBillingPaymentsReportResponse['totals'] {
