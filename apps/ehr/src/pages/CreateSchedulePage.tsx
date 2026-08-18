@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { BLANK_SCHEDULE_JSON_TEMPLATE } from 'utils/lib/utils/scheduleUtils';
 import {
@@ -94,7 +95,7 @@ export default function CreateSchedulePage(): ReactElement {
   const providers = useMemo(
     () =>
       (employeesData?.employees ?? [])
-        .filter((e) => e.isProvider && e.status === 'Active' && !!e.profile)
+        .filter((e) => isProvider(e) && e.status === 'Active' && !!e.profile)
         .map((e) => ({ userId: e.id, practitionerId: e.profile.split('/')[1], name: e.name }))
         .filter((p) => !!p.practitionerId),
     [employeesData]

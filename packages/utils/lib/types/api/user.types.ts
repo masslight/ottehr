@@ -13,6 +13,31 @@ export type User = OystehrUser & {
   birthDate?: string;
 };
 
+/**
+ * Whether an Oystehr user's profile points at a Practitioner.
+ *
+ * Self-registered users land on a Patient profile instead, which is what "needs review" means in the
+ * employee list: they hold no role and have no clinician record yet. `update-user` creates the
+ * Practitioner and repoints the profile the first time such a user is saved.
+ */
+export const hasPractitionerProfile = (profile: string | undefined): boolean =>
+  profile?.startsWith('Practitioner/') ?? false;
+
+/**
+ * Whether a role name is one of the roles an employee can hold.
+ *
+ * A project can carry roles that aren't employee roles at all — a self-registered user holds
+ * `Patient` — and those must not be echoed back when saving an employee record, both because
+ * `update-user` rejects them and because converting such a user to staff is precisely the point at
+ * which the old role should fall away.
+ *
+ * Note this is deliberately the whole {@link RoleType} enum rather than `AVAILABLE_EMPLOYEE_ROLES`:
+ * roles that exist but aren't offered as checkboxes are still real, and filtering to the displayed
+ * set would silently strip them from anyone who holds one.
+ */
+export const isRoleType = (roleName: string): roleName is RoleType =>
+  (Object.values(RoleType) as string[]).includes(roleName);
+
 export enum RoleType {
   Administrator = 'Administrator',
   AssistantAdmin = 'AssistantAdmin',

@@ -4,10 +4,10 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { FHIR_IDENTIFIER_NPI, PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { PractitionerLicense, PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
-import { RoleType, User } from 'utils/lib/types/api/user.types';
+import { isRoleType, RoleType, User } from 'utils/lib/types/api/user.types';
 import { updateUser } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -23,10 +23,12 @@ export default function EmployeeInformationForm({
   existingUser,
   isActive,
   licenses,
+  seenPatientRecently,
   getUserAndUpdatePage,
 }: EditEmployeeInformationProps): JSX.Element {
   const { oystehrZambda } = useApiClients();
   const evolveUser = useEvolveUser();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({
     submit: false,
@@ -93,12 +95,13 @@ export default function EmployeeInformationForm({
     }
   }, [formErrors]);
 
-  console.log(5, formErrors);
-
   useEffect(() => {
     if (existingUser) {
       setUser(existingUser);
-      setValue('roles', (existingUser as User).roles?.map((role) => role.name as RoleType) || []);
+      // Only genuine employee roles are seeded, so the form can't echo back something it never
+      // showed. A self-registered user holds `Patient`, which isn't an employee role at all — saving
+      // it unchanged failed validation, and converting them to staff is exactly when it should go.
+      setValue('roles', ((existingUser as User).roles ?? []).map((role) => role.name).filter(isRoleType));
 
       let firstName = '';
       let middleName = '';
@@ -175,7 +178,6 @@ export default function EmployeeInformationForm({
   const isProviderRoleSelected = getValues('roles')?.includes(RoleType.Provider) ?? false;
 
   const updateUserRequest = async (data: EmployeeForm): Promise<void> => {
-    console.log('updateUserRequest');
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
     }
@@ -309,7 +311,13 @@ export default function EmployeeInformationForm({
 
           {isProviderRoleSelected && (
             <Box>
-              <ProviderDetails control={control} setValue={setValue} photoSrc={photoSrc} roles={getValues('roles')} />
+              <ProviderDetails
+                control={control}
+                setValue={setValue}
+                photoSrc={photoSrc}
+                roles={getValues('roles')}
+                seenPatientRecently={seenPatientRecently}
+              />
 
               <ProviderQualifications
                 newLicenses={newLicenses}
@@ -346,20 +354,21 @@ export default function EmployeeInformationForm({
             {submitLabel}
           </LoadingButton>
 
-          <Link to="/employees">
-            <Button
-              variant="text"
-              type="submit"
-              color="primary"
-              sx={{
-                textTransform: 'none',
-                borderRadius: 28,
-                fontWeight: 'bold',
-              }}
-            >
-              Cancel
-            </Button>
-          </Link>
+          {/* Back to wherever the user came from. The previous target, `/employees`, has never been a
+              route — it silently bounced to `/` — and there's no single correct destination now that
+              this form is reachable both from the admin list and from a user's own record. */}
+          <Button
+            variant="text"
+            color="primary"
+            onClick={() => navigate(-1)}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 28,
+              fontWeight: 'bold',
+            }}
+          >
+            Cancel
+          </Button>
         </Grid>
       </form>
     </Paper>

@@ -18,6 +18,7 @@ export interface EditEmployeeInformationProps {
   existingUser: User;
   isActive: boolean | undefined;
   licenses: PractitionerLicense[];
+  seenPatientRecently: boolean;
   getUserAndUpdatePage: () => Promise<void>;
 }
 
@@ -48,6 +49,7 @@ export interface ProviderDetailsProps {
   setValue: UseFormSetValue<any>;
   photoSrc: string;
   roles: string[];
+  seenPatientRecently: boolean;
 }
 
 export interface RoleSelectionProps {

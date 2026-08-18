@@ -1,4 +1,5 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import BadgeIcon from '@mui/icons-material/Badge';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupIcon from '@mui/icons-material/Group';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
@@ -175,7 +176,26 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     label: 'My Profile',
     to: '/profile',
     icon: PersonIcon,
-    keywords: ['account', 'settings', 'my account'],
+    keywords: ['account', 'settings', 'my account', 'my settings', 'notifications', 'alerts'],
+  },
+  {
+    // Deliberately shares 'my profile' / 'my account' / 'my settings' with nav-profile above: there
+    // are two self-service pages and no reason a user should have to know which one holds their
+    // address versus their notification preferences, so either query offers both.
+    id: 'nav-my-record',
+    label: 'My Employee Record',
+    to: '/my-record',
+    icon: BadgeIcon,
+    keywords: [
+      'my profile',
+      'my account',
+      'my settings',
+      'my details',
+      'my address',
+      'my npi',
+      'my license',
+      'credentials',
+    ],
   },
 ];
 

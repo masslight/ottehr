@@ -244,6 +244,7 @@ function App(): ReactElement {
                 <Route path="/visits/add" element={<AddPatient />} />
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
+                <Route path="/my-record" element={<EditEmployeePage self />} />
                 <Route path="/patients" element={<PatientsPage />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
@@ -312,6 +313,7 @@ function App(): ReactElement {
                 <Route path="/visits/add" element={<AddPatient />} />
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
+                <Route path="/my-record" element={<EditEmployeePage self />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />

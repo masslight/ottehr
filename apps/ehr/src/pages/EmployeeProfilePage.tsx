@@ -1,7 +1,8 @@
-import { Box, CircularProgress, Grid, Paper, Skeleton, TextField, Typography } from '@mui/material';
+import { Box, CircularProgress, Grid, Paper, Skeleton, TextField, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
+import { Link } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
   useGetAllLocations,
@@ -17,6 +18,7 @@ import PageContainer from '../layout/PageContainer';
 
 export default function EmployeeProfilePage(): JSX.Element {
   const user = useEvolveUser();
+  const theme = useTheme();
 
   const initialPreferences = useMemo(
     () => getProviderNotificationPreferencesV2(user?.profileResource),
@@ -93,6 +95,12 @@ export default function EmployeeProfilePage(): JSX.Element {
             <Typography variant="body1" my={2}>
               {user?.email || <Skeleton width={250} />}
             </Typography>
+
+            {/* Name, contact details, address and (for providers) credentials live on the employee
+                record rather than here; point at it so this page isn't a dead end. */}
+            <Link to="/my-record" style={{ color: theme.palette.primary.main }}>
+              <Typography variant="body2">Edit my employee record</Typography>
+            </Link>
 
             <Paper sx={{ padding: 3, marginTop: 3 }}>
               <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 600, mb: 3 }}>

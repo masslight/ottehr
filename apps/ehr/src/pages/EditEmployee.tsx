@@ -1,28 +1,88 @@
+import { otherColors } from '@ehrTheme/colors';
 import { LoadingButton } from '@mui/lab';
-import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Chip, Grid, Paper, Skeleton, Typography, useTheme } from '@mui/material';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useGetEmployeeDetails } from 'src/features/admin/employees.queries';
 import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
+import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
-import { User } from 'utils/lib/types/api/user.types';
+import { getAllNotificationRows } from 'utils/lib/types/api/provider-notifications';
+import { hasPractitionerProfile } from 'utils/lib/types/api/user.types';
 import { UserActivationMode } from 'utils/lib/types/api/user-activation.types';
-import { getUserDetails, userActivation } from '../api/api';
+import { deleteUser, userActivation } from '../api/api';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
 import PractitionerRoleList from '../components/schedule/PractitionerRoleList';
 import { dataTestIds } from '../constants/data-test-ids';
 import { checkUserIsActive } from '../helpers/checkUserIsActive';
 import { useApiClients } from '../hooks/useAppClients';
+import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
-export default function EditEmployeePage(): JSX.Element {
-  const { oystehr, oystehrZambda } = useApiClients();
+/**
+ * @param self Render the signed-in user's own record instead of one named in the URL. Self-service
+ * mode drops the admin-only surfaces — breadcrumbs back to a list the user can't open, the schedule
+ * assignment card, and profile activation. Role checkboxes need no special handling: `RoleSelection`
+ * already disables them for anyone who isn't an Administrator or Customer Support.
+ */
+export default function EditEmployeePage({ self = false }: { self?: boolean } = {}): JSX.Element {
+  const { oystehrZambda } = useApiClients();
   const location = useLocation();
-  const [isActive, setIsActive] = useState<boolean>();
-  const [user, setUser] = useState<User>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const theme = useTheme();
+  const currentUser = useEvolveUser();
+  // get the user id from the url
+  const { id: routeId } = useParams();
+  const id = self ? currentUser?.id : routeId;
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
+
+  // React Query owns the fetched record; everything the page shows is derived from it, so there is
+  // nothing that can drift out of sync with what the server returned.
+  const { data: userDetails, refetch } = useGetEmployeeDetails(id);
+
+  const user = userDetails?.user;
+  const isActive = user ? checkUserIsActive(user) : undefined;
+  const seenPatientRecently = userDetails?.seenPatientRecently ?? false;
+  // The same condition the list reports as "needs review".
+  const needsSetup = user ? !hasPractitionerProfile(user.profile) : false;
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!oystehrZambda) throw new Error('Zambda Client not found');
+      if (!id) throw new Error('User ID is undefined');
+      return deleteUser(oystehrZambda, { userId: id });
+    },
+    onSuccess: async () => {
+      enqueueSnackbar('User deleted.', { variant: 'success' });
+      await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
+      navigate('/admin/employees');
+    },
+  });
+
+  const handleDeleteUser = async (): Promise<void> => {
+    setErrors({ submit: '' });
+    try {
+      await deleteMutation.mutateAsync();
+    } catch (error) {
+      const message = getApiError({ error, defaultError: 'Failed to delete user.' });
+      setErrors({ submit: message });
+      enqueueSnackbar(message, { variant: 'error' });
+    }
+  };
+
+  // The same derivation `get-employees` performs for its own alerts flag, done here off the
+  // Practitioner we already hold rather than by adding another field to the response.
+  const gettingAlerts = useMemo(() => {
+    const preferences = getProviderNotificationPreferencesV2(user?.profileResource);
+    return preferences ? getAllNotificationRows(preferences).some((row) => row.enabled) : false;
+  }, [user?.profileResource]);
 
   // When linked here from the Schedules list with `#schedule`, jump past the
   // employee form to the scheduling card. The card only mounts after the user
@@ -45,54 +105,9 @@ export default function EditEmployeePage(): JSX.Element {
     return [];
   }, [user]);
 
-  // get the user id from the url
-  const { id } = useParams();
-
-  // get the user from the database, wait for the response before continuing
-  useEffect(() => {
-    let loading = false;
-
-    async function getUser(): Promise<void> {
-      if (!oystehr) {
-        throw new Error('Oystehr client is undefined');
-      }
-      if (!oystehrZambda) {
-        throw new Error('Zambda Client not found');
-      }
-      if (id && !loading) {
-        loading = true;
-        const res = await getUserDetails(oystehrZambda, {
-          userId: id,
-        });
-        if (loading) {
-          const { user: appUser } = res;
-          setUser(appUser);
-          setIsActive(checkUserIsActive(appUser));
-          loading = false;
-        }
-      }
-    }
-
-    if (!loading) {
-      getUser().catch((error) => console.log(error));
-    }
-
-    return () => {
-      loading = false;
-    };
-  }, [oystehr, id, oystehrZambda]);
-
-  async function getUserAndUpdatePage(): Promise<void> {
-    if (!oystehrZambda) {
-      throw new Error('oystehrZambda is not defined');
-    }
-    const userDetailsTemp = await getUserDetails(oystehrZambda, {
-      userId: id,
-    });
-    const userTemp = userDetailsTemp.user;
-    setUser(userTemp);
-    setIsActive(checkUserIsActive(userTemp));
-  }
+  const getUserAndUpdatePage = useCallback(async (): Promise<void> => {
+    await refetch();
+  }, [refetch]);
 
   const handleUserActivation = async (userActivationMode: UserActivationMode): Promise<void> => {
     setLoading(true);
@@ -136,34 +151,59 @@ export default function EditEmployeePage(): JSX.Element {
   };
 
   return (
-    <PageContainer tabTitle={'Edit Employee'}>
+    <PageContainer tabTitle={self ? 'My Employee Record' : 'Edit Employee'}>
       <>
         <Grid container direction="row" alignItems="center" justifyContent="center">
-          <Grid item maxWidth={'584px'} width={'100%'}>
+          <Grid item maxWidth={'1100px'} width={'100%'}>
             {/* Breadcrumbs */}
-            <CustomBreadcrumbs
-              chain={[
-                { link: '/admin', children: 'Admin' },
-                { link: '/admin/employees', children: 'Employees' },
-                { link: '#', children: user?.name || <Skeleton width={150} /> },
-              ]}
-            />
+            {!self && (
+              <CustomBreadcrumbs
+                chain={[
+                  { link: '/admin', children: 'Admin' },
+                  { link: '/admin/employees', children: 'Employees' },
+                  { link: '#', children: user?.name || <Skeleton width={150} /> },
+                ]}
+              />
+            )}
 
             {/* Page Title */}
             <Typography
               variant="h3"
               color="primary.dark"
               marginTop={2}
-              sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
+              sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2, fontWeight: '600 !important' }}
             >
               {user?.name || <Skeleton width={250} />}
-              {isActive !== undefined && !isActive && (
-                <Chip label="Deactivated" color="error" size="small" sx={{ marginLeft: 3 }} />
+              {isActive !== undefined && !isActive && <Chip label="Deactivated" color="error" size="small" />}
+              {needsSetup && (
+                <Chip
+                  label="NEEDS REVIEW"
+                  size="small"
+                  data-testid={dataTestIds.employeesPage.needsReviewChip}
+                  sx={{ backgroundColor: otherColors.orange100, color: otherColors.orange800, borderRadius: '4px' }}
+                />
+              )}
+              {gettingAlerts && (
+                <Chip
+                  label="GETS ALERTS"
+                  size="small"
+                  data-testid={dataTestIds.employeesPage.gettingAlertsChip}
+                  sx={{ bgcolor: 'info.light', color: 'info.dark', borderRadius: '4px' }}
+                />
               )}
             </Typography>
             <Typography variant="body1" my={2}>
               {user?.email || <Skeleton width={250} />}
             </Typography>
+
+            {/* Notification preferences live on My Profile, not here. */}
+            {self && (
+              <Link to="/profile" style={{ color: theme.palette.primary.main }}>
+                <Typography variant="body2" mb={2}>
+                  Notification settings
+                </Typography>
+              </Link>
+            )}
 
             {/* Page Content */}
             <Box>
@@ -173,19 +213,70 @@ export default function EditEmployeePage(): JSX.Element {
                   existingUser={user}
                   isActive={isActive}
                   licenses={userLicenses}
+                  seenPatientRecently={seenPatientRecently}
                   getUserAndUpdatePage={getUserAndUpdatePage}
                 />
               )}
 
-              {isActive && user?.profileResource?.id && (
+              {!self && isActive && user?.profileResource?.id && (
                 <Box id="schedule" ref={scheduleAnchorRef}>
                   <PractitionerRoleList practitionerId={user.profileResource.id} />
                 </Box>
               )}
 
-              {/* Activate or Deactivate Profile */}
-              {isActive === undefined ? (
+              {/* A user who never completed setup has no clinician record and no role, so there is
+                  nothing to deactivate — the only meaningful action is removing the account. Filling
+                  in their details and saving is the other way out: `update-user` creates the
+                  Practitioner and repoints the profile, after which this becomes a normal record. */}
+              {self ? null : isActive === undefined ? (
                 <Skeleton height={300} sx={{ marginTop: -8 }} />
+              ) : needsSetup ? (
+                <Paper sx={{ padding: 3, marginTop: 3 }}>
+                  <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                    Delete user
+                  </Typography>
+                  <Typography variant="body1" marginTop={1}>
+                    This user signed up but has never been set up as an employee, so they hold no role and have no
+                    clinician record. Assign them a role above to finish setting them up, or delete the account to
+                    permanently block their access.
+                  </Typography>
+
+                  {errors.submit && (
+                    <Typography color="error" variant="body2" mt={1}>
+                      {errors.submit}
+                    </Typography>
+                  )}
+
+                  <ConfirmationDialog
+                    title="Delete user?"
+                    description={`This will permanently delete ${
+                      user?.email || user?.name
+                    } and block EHR access. This cannot be undone.`}
+                    response={handleDeleteUser}
+                    actionButtons={{
+                      proceed: { text: 'Delete', color: 'error', loading: deleteMutation.isPending },
+                    }}
+                  >
+                    {(showDialog) => (
+                      <LoadingButton
+                        variant="contained"
+                        color="error"
+                        data-testid={dataTestIds.employeesPage.deleteUserButton}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 28,
+                          marginTop: 4,
+                          fontWeight: 'bold',
+                          marginRight: 1,
+                        }}
+                        loading={deleteMutation.isPending}
+                        onClick={showDialog}
+                      >
+                        Delete
+                      </LoadingButton>
+                    )}
+                  </ConfirmationDialog>
+                </Paper>
               ) : (
                 <Paper sx={{ padding: 3, marginTop: 3 }}>
                   <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
