@@ -279,7 +279,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     }
   } catch (error: unknown) {
-    throw new Error(`Failed to update Practitioner: ${JSON.stringify(error)}`);
+    // Rethrow as-is: `JSON.stringify` on an Error yields `{}`, because `message` and `stack` are
+    // non-enumerable — so wrapping here reported every failure as `Failed to update Practitioner: {}`
+    // and discarded the stack along with it.
+    console.error(`Failed to update Practitioner ${practitionerId}:`, error);
+    throw error;
   }
   console.log(await updatedUserResponse.json());
   if (!updatedUserResponse.ok) {
@@ -292,7 +296,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       await oystehr.fhir.delete({ resourceType: 'Patient', id: orphanedPatientId });
     } catch (error: unknown) {
-      console.error(`Failed to delete orphaned Patient ${orphanedPatientId}:`, JSON.stringify(error));
+      console.error(`Failed to delete orphaned Patient ${orphanedPatientId}:`, error);
       // don't actually block zambda, will just have remnant patient resource
     }
   }

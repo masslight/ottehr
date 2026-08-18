@@ -97,7 +97,7 @@ export function BasicInformation({ control, existingUser, isActive }: BasicInfor
             rules={{
               pattern: {
                 value: phoneRegex,
-                message: '{Phone number must be} 10 digits',
+                message: 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
               },
             }}
             render={({ field: { onChange, value }, fieldState: { error } }) => (
