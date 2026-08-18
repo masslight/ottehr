@@ -16,9 +16,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getAppointmentAccessibilityData } from 'src/features/visits/shared/utils/appointment-accessibility.helper';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getAppointmentAccessibilityData } from 'src/features/visits/shared/utils/appointment-accessibility.helper';
 import { getPatientName } from 'src/shared/utils/getPatientName';
 
 export interface EasyChartVisit {
@@ -60,9 +60,7 @@ export function useEasyChartVisit(encounterId: string | undefined): EasyChartVis
       // default below keeps it from being treated as writable on the strength of missing data.
       const [appointment, patient] = await Promise.all([
         appointmentId
-          ? oystehr.fhir
-              .get<Appointment>({ resourceType: 'Appointment', id: appointmentId })
-              .catch(() => undefined)
+          ? oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId }).catch(() => undefined)
           : undefined,
         patientId
           ? oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }).catch(() => undefined)
@@ -96,7 +94,7 @@ export function useEasyChartVisit(encounterId: string | undefined): EasyChartVis
 function describePatientLine(patient: Patient | undefined): string {
   if (!patient) return '';
   const name = getPatientName(patient.name).firstLastName;
-  const parts: string[] = [name].filter(Boolean);
+  const parts: string[] = [name].filter((part): part is string => Boolean(part));
 
   if (patient.birthDate) {
     const birth = DateTime.fromISO(patient.birthDate);

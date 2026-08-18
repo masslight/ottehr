@@ -10,10 +10,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import {
-  REQUEST_ONLY_CHART_FIELDS,
-  UNREQUESTED_BY_DESIGN,
-} from '../../src/features/easy-chart/hooks/useEasyChartData';
+import { REQUEST_ONLY_CHART_FIELDS, UNREQUESTED_BY_DESIGN } from '../../src/features/easy-chart/hooks/useEasyChartData';
 
 const GET_CHART_DATA = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -52,9 +49,7 @@ describe('the Easy Chart chart-data request', () => {
   // an error.
   it('asks for every request-only field, or records why it does not', () => {
     const requested = new Set(fieldsRequestedByTheHook());
-    const missing = REQUEST_ONLY_CHART_FIELDS.filter(
-      (field) => !requested.has(field) && !UNREQUESTED_BY_DESIGN[field]
-    );
+    const missing = REQUEST_ONLY_CHART_FIELDS.filter((field) => !requested.has(field) && !UNREQUESTED_BY_DESIGN[field]);
     expect(
       missing,
       `${missing.join(', ')} are fetched only on request, are not in EXTRA_FIELDS, and have no reason in ` +

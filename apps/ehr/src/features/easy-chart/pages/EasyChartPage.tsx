@@ -30,30 +30,37 @@ import {
   Typography,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { LoadingScreen } from 'src/components/LoadingScreen';
-import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useGetImmunizationOrders } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { getPatientName } from 'src/shared/utils/getPatientName';
 import { NoteTextField } from 'utils/lib/easy-chart/actions';
-import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
+import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { computeSignBlockers } from 'utils/lib/easy-chart/sign-blockers';
+import { ItemCorrection } from '../components/AiChartedItem';
 import { AssistantColumn } from '../components/AssistantColumn';
 import { NotePane } from '../components/NotePane';
 import { buildChartSnapshot } from '../executor/chartSnapshot';
-import { PlanStep } from '../executor/types';
+import { CORRECTION_SEARCH, CORRECTION_WRITE } from '../executor/corrections';
+import { isCatalogueList, PlanStep } from '../executor/types';
+import { useCatalogue } from '../hooks/useCatalogue';
 import { useChartAssistant } from '../hooks/useChartAssistant';
 import { useChartWriter } from '../hooks/useChartWriter';
-import { useCatalogue } from '../hooks/useCatalogue';
 import { useEasyChartData } from '../hooks/useEasyChartData';
+import { useEasyChartLabOrders } from '../hooks/useEasyChartLabOrders';
+import { useEasyChartVisit } from '../hooks/useEasyChartVisit';
 import {
   clearAuthorship,
   emptyProvenance,
   markAllReviewed,
+  markProcedureFieldReviewed,
   markReviewed,
   needsReview,
   recordAiAuthorship,
+  recordFieldAuthorship,
 } from '../provenance/provenance';
 
 /** The Container's own bottom padding (`py: 2`), which the grid must leave room for. */
@@ -100,17 +107,32 @@ export const EasyChartPage: FC = () => {
   const { encounterId } = useParams<{ encounterId: string }>();
   const { chartData, isLoading, refetch } = useEasyChartData(encounterId);
   const { data: progressNoteConfig } = useProgressNoteConfig();
-  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  // Read the visit by ENCOUNTER id: the appointment store is empty on this route, and reading the
+  // lock state from it would report a signed visit as writable.
+  const visit = useEasyChartVisit(encounterId);
+  const isAppointmentReadOnly = visit.isReadOnly;
 
   const [provenance, setProvenance] = useState(emptyProvenance);
   const [verified, setVerified] = useState(false);
 
   const catalogue = useCatalogue({ encounterId });
+  // Lab ORDERS, which chart data does not carry — it carries results. Both sections exist, in that order.
+  const labOrders = useEasyChartLabOrders(encounterId);
   const writer = useChartWriter({
     encounterId: encounterId ?? '',
     diagnoses: chartData?.diagnosis,
+    // Both are for the procedure write: a quick-pick carries its own CPT codes and supporting
+    // diagnoses, and re-saving one the plan already charted from the dictation duplicated it on the
+    // note. `procedures` is how the write tells which row in its response is the one it just created.
+    cptCodes: chartData?.cptCodes,
+    procedures: chartData?.procedures,
     onRemoved: (ids) => setProvenance((state) => clearAuthorship(state, ids)),
-    onOrdersChanged: () => void refetch(),
+    onOrdersChanged: () => {
+      void refetch();
+      // The orders list is its own query, so a placed order has to refresh it too or the "Labs ordered"
+      // section stays a step behind what the assistant just did.
+      labOrders.refetch();
+    },
   });
 
   // Attribute every row a step created. A verified quote makes it `sourced` (blue); anything else,
@@ -120,13 +142,35 @@ export const EasyChartPage: FC = () => {
       let next = state;
       for (const step of steps) {
         const created = step.outcome?.createdResourceIds ?? [];
-        if (created.length === 0) continue;
-        next = recordAiAuthorship(next, {
-          resourceIds: created,
-          sourceText: step.action.sourceText,
-          caution: step.action.caution,
-          lowConfidence: step.outcome?.lowConfidence,
-        });
+        // A composite step creates rows of DIFFERENT provenance. A procedure quick-pick's linked
+        // diagnoses and CPT codes were contributed by the template, not spoken, so they must not
+        // inherit the procedure's verbatim quote and read as blue "the provider said this".
+        const fromTemplate = new Set(step.outcome?.inferredResourceIds ?? []);
+        const dictated = created.filter((id) => !fromTemplate.has(id));
+        if (dictated.length > 0) {
+          next = recordAiAuthorship(next, {
+            resourceIds: dictated,
+            sourceText: step.action.sourceText,
+            caution: step.action.caution,
+            lowConfidence: step.outcome?.lowConfidence,
+          });
+        }
+        if (fromTemplate.size > 0) {
+          next = recordAiAuthorship(next, {
+            resourceIds: [...fromTemplate],
+            caution: 'added by the procedure quick-pick, not stated in the visit',
+            lowConfidence: true,
+          });
+        }
+        // Per-field markers for the composite row itself: ten template-filled fields, ten separate
+        // confirmations.
+        for (const entry of step.outcome?.templateFilledFields ?? []) {
+          next = recordFieldAuthorship(
+            next,
+            entry.resourceId,
+            Object.fromEntries(entry.fields.map((field) => [field, { origin: 'template-default' as const }]))
+          );
+        }
       }
       return next;
     });
@@ -141,6 +185,23 @@ export const EasyChartPage: FC = () => {
     onStepsSettled,
     readOnly: isAppointmentReadOnly,
   });
+
+  // Two sections are NOT chart data, and getting them from there is what showed a medication from a
+  // previous visit: `chartData.inhouseMedications` is fetched PATIENT-scoped, so it is the patient's
+  // history across every encounter. The MAR and immunization queries are encounter-scoped.
+  const { data: medicationOrders } = useGetMedicationOrders({ field: 'encounterId', value: encounterId ?? '' });
+  const { data: immunizationOrders } = useGetImmunizationOrders({
+    encounterIds: encounterId ? [encounterId] : undefined,
+  });
+  const administeredImmunizations = useMemo(
+    () =>
+      (immunizationOrders?.orders ?? []).filter(
+        // Only what was actually GIVEN. An ordered-but-not-administered immunization is not part of
+        // this visit's record.
+        (order) => order.status === 'administered' || order.status === 'administered-partly'
+      ),
+    [immunizationOrders]
+  );
 
   const snapshot = useMemo(() => buildChartSnapshot(chartData), [chartData]);
 
@@ -163,124 +224,268 @@ export const EasyChartPage: FC = () => {
 
   const unreviewed = needsReview(provenance);
 
+  /**
+   * Click-to-correct, per field. The search is the SAME catalogue the assistant resolved against, so a
+   * provider correcting a row is choosing from what the assistant could have chosen — and the write
+   * replaces the row rather than adding a second one.
+   */
+  const buildCorrection = useCallback(
+    (field: string, item: { resourceId: string; display: string }): ItemCorrection | undefined => {
+      const search = CORRECTION_SEARCH[field];
+      const write = CORRECTION_WRITE[field];
+      if (!search || !write || isAppointmentReadOnly) return undefined;
+      return {
+        initialQuery: item.display,
+        search: async (query) => {
+          const result = await search(catalogue, query);
+          // `undefined` means the catalogue could not be consulted at all, which is not the same as
+          // "nothing matched" — an empty list is the honest answer for both, but the editor's own
+          // message tells the provider to reword rather than to go elsewhere.
+          return isCatalogueList(result) ? result.map((match) => ({ id: match.id, display: match.display })) : [];
+        },
+        replace: async (option) => {
+          try {
+            // Remove first, then write: leaving both versions on the note is worse than a brief gap.
+            await writer.remove(field, item);
+            await writer.save(write(option, undefined));
+            await refetch();
+          } catch (error) {
+            console.error('[easy-chart] correction failed', error);
+            enqueueSnackbar(
+              `Could not replace "${item.display}": ${error instanceof Error ? error.message : 'unknown error'}`,
+              { variant: 'error' }
+            );
+          }
+        },
+      };
+    },
+    [catalogue, writer, refetch, isAppointmentReadOnly]
+  );
+
   const saveNoteText = useCallback(
     async (field: NoteTextField, text: string): Promise<void> => {
-      await writer.save({ [chartKeyForNoteField(field)]: { text } });
-      await refetch();
+      try {
+        await writer.save({ [chartKeyForNoteField(field)]: { text } });
+        await refetch();
+      } catch (error) {
+        console.error('[easy-chart] note save failed', error);
+        enqueueSnackbar(
+          `Could not save ${NOTE_FIELD_LABELS[field]}: ${error instanceof Error ? error.message : 'unknown error'}`,
+          { variant: 'error' }
+        );
+      }
     },
     [writer, refetch]
   );
 
-  if (!encounterId) return <Typography>No encounter selected.</Typography>;
-  if (isLoading) return <LoadingScreen />;
+  // Before the early returns: the loading screen renders instead of the grid, and a hook skipped on
+  // that render would change hook order.
+  const viewport = useFillViewportHeight();
 
-  const patient = chartData?.patientId;
+  if (!encounterId) return <Typography>No encounter selected.</Typography>;
+  if (isLoading || visit.isLoading) return <LoadingScreen />;
+
   const bannerSeverity = blockers.length > 0 ? 'warning' : unreviewed.length > 0 ? 'info' : 'success';
 
   return (
     <Container maxWidth={false} sx={{ py: 2 }}>
-      <Stack spacing={2} sx={{ height: { md: 'calc(100vh - 120px)' }, minHeight: 0 }}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-            <Box>
-              <Typography variant="h6">{getPatientName(undefined).firstLastName || 'Visit note'}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Encounter {encounterId}
-                {patient ? ` · Patient ${patient}` : ''}
-              </Typography>
-              {/* Red and bold when allergies exist, a grey "none" when they do not — a provider must be
-                  able to see at a glance that this was checked. */}
-              <Typography
-                variant="body2"
-                sx={{
-                  color: snapshot.allergies.length > 0 ? 'error.main' : 'text.secondary',
-                  fontWeight: snapshot.allergies.length > 0 ? 700 : 400,
-                }}
-              >
-                Allergies:{' '}
-                {snapshot.allergies.length > 0 ? snapshot.allergies.map((a) => a.display).join(', ') : 'none recorded'}
-              </Typography>
-            </Box>
-            {/* The in-person route is keyed by APPOINTMENT id, not encounter id. Handing it an
-                encounter id loads no appointment into the store, so the layout's mode-initialisation
-                effect never fires and the page spins on a loader with no error. Hide the button when
-                the visit has no appointment (an annotation follow-up) rather than link nowhere. */}
-            {visit.appointment?.id && (
-              <Button
-                size="small"
-                endIcon={<OpenInNewIcon />}
-                component={Link}
-                href={`/in-person/${visit.appointment.id}/progress-note`}
-                target="_blank"
-                rel="noopener"
-              >
-                Open in regular chart
-              </Button>
-            )}
-          </Stack>
-        </Paper>
+      {/* Fixed chrome. Plain text rather than a card: a bordered Paper here costs ~32px of both
+          scrolling columns for nothing, and the detail line reads fine as one row. */}
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h6" fontWeight={600} data-testid="easy-chart-patient">
+            {visit.patientLine || 'Visit note'}
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'baseline' }}>
+            <Typography variant="caption" color="text.secondary">
+              {visit.reasonForVisit ? `Reason: ${visit.reasonForVisit}` : `Encounter ${encounterId}`}
+            </Typography>
+            {/* Red and bold when allergies exist, a grey "none" when they do not — a provider must be
+                able to see at a glance that this was checked. */}
+            <Typography
+              variant="caption"
+              sx={{
+                color: snapshot.allergies.length > 0 ? 'error.main' : 'text.secondary',
+                fontWeight: snapshot.allergies.length > 0 ? 700 : 400,
+              }}
+            >
+              Allergies: {snapshot.allergies.length > 0 ? snapshot.allergies.map((a) => a.display).join(', ') : 'none'}
+            </Typography>
+          </Box>
+        </Box>
+        {/* The in-person route is keyed by APPOINTMENT id, not encounter id. Handing it an
+            encounter id loads no appointment into the store, so the layout's mode-initialisation
+            effect never fires and the page spins on a loader with no error. Hide the button when
+            the visit has no appointment (an annotation follow-up) rather than link nowhere. */}
+        {visit.appointment?.id && (
+          <Button
+            variant="outlined"
+            size="small"
+            endIcon={<OpenInNewIcon />}
+            component={Link}
+            href={`/in-person/${visit.appointment.id}/progress-note`}
+            target="_blank"
+            rel="noopener"
+            sx={{ textTransform: 'none', flexShrink: 0 }}
+          >
+            Open in regular chart
+          </Button>
+        )}
+      </Stack>
 
-        {/* Attestation one. Amber until checked, green once checked. */}
-        <Alert severity={verified ? 'success' : 'warning'} sx={{ py: 0 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={verified}
-                onChange={(event) => setVerified(event.target.checked)}
-                data-testid="easy-chart-verify-patient"
+      <Box
+        ref={viewport.ref}
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: '1fr', md: '3fr minmax(320px, 2fr)' },
+          // Viewport-bound on md+ so the two columns scroll independently and the chat stays pinned.
+          // Below md there is one column and the page scrolls normally, which is the right behaviour
+          // on a phone — a pinned half-height chat there would leave no room for the note.
+          height: { md: viewport.height },
+          minHeight: 0,
+        }}
+      >
+        {/* The note's own scroll. `pr` keeps the scrollbar off the section text. */}
+        <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 }, minHeight: 0 }}>
+          <Stack spacing={2}>
+            {/* Attestation one. Amber until checked, green once checked. */}
+            <Alert severity={verified ? 'success' : 'warning'} sx={{ py: 0 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={verified}
+                    onChange={(event) => setVerified(event.target.checked)}
+                    data-testid="easy-chart-verify-patient"
+                  />
+                }
+                label="I verified patient's name and date of birth."
               />
-            }
-            label="I verified patient's name and date of birth."
-          />
-        </Alert>
+            </Alert>
 
-        {/* Attestation two: one banner, not several. */}
-        <Alert
-          severity={bannerSeverity}
-          action={
-            unreviewed.length > 0 ? (
-              <Button size="small" onClick={() => setProvenance(markAllReviewed)}>
-                Confirm all
-              </Button>
-            ) : undefined
-          }
-        >
-          <AlertTitle sx={{ mb: 0 }}>
-            {unreviewed.length > 0 ? `${unreviewed.length} item${unreviewed.length === 1 ? '' : 's'} need review` : null}
-            {unreviewed.length > 0 && blockers.length > 0 ? ' · ' : ''}
-            {blockers.length > 0 ? blockers.map((blocker) => blocker.text).join(' · ') : null}
-            {unreviewed.length === 0 && blockers.length === 0 ? 'Ready to sign.' : null}
-          </AlertTitle>
-        </Alert>
+            {/* Attestation two: one banner, not several. */}
+            <Alert
+              severity={bannerSeverity}
+              action={
+                unreviewed.length > 0 ? (
+                  <Button size="small" onClick={() => setProvenance(markAllReviewed)}>
+                    Confirm all
+                  </Button>
+                ) : undefined
+              }
+            >
+              <AlertTitle sx={{ mb: 0 }}>
+                {unreviewed.length > 0
+                  ? `${unreviewed.length} item${unreviewed.length === 1 ? '' : 's'} need review`
+                  : null}
+                {unreviewed.length > 0 && blockers.length > 0 ? ' · ' : ''}
+                {blockers.length > 0 ? blockers.map((blocker) => blocker.text).join(' · ') : null}
+                {unreviewed.length === 0 && blockers.length === 0 ? 'Ready to sign.' : null}
+              </AlertTitle>
+            </Alert>
 
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 2,
-            gridTemplateColumns: { xs: '1fr', md: '3fr minmax(320px, 2fr)' },
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <Paper variant="outlined" sx={{ p: 2, overflowY: { md: 'auto' }, minHeight: 0 }}>
-            <NotePane
-              chartData={chartData}
-              provenance={provenance}
-              readOnly={isAppointmentReadOnly}
-              onSaveNoteText={saveNoteText}
-              onNoteEditStart={() => {
-                // A hand-edit clears the AI mark for that field's row, so the note reflects who really
-                // wrote what. The field's own resourceId is the row it owns.
-                const ids = [chartData?.chiefComplaint?.resourceId, chartData?.medicalDecision?.resourceId].filter(
-                  (id): id is string => Boolean(id)
-                );
-                setProvenance((state) => clearAuthorship(state, ids));
-              }}
-              onConfirmItem={(resourceId) => setProvenance((state) => markReviewed(state, [resourceId]))}
-              onDeleteItem={(field, resourceId, display) => {
-                void writer.remove(field, { resourceId, display }).then(refetch);
-              }}
-            />
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <NotePane
+                chartData={chartData}
+                provenance={provenance}
+                readOnly={isAppointmentReadOnly}
+                onSaveNoteText={saveNoteText}
+                onNoteEditStart={() => {
+                  // A hand-edit clears the AI mark for that field's row, so the note reflects who really
+                  // wrote what. The field's own resourceId is the row it owns.
+                  const ids = [chartData?.chiefComplaint?.resourceId, chartData?.medicalDecision?.resourceId].filter(
+                    (id): id is string => Boolean(id)
+                  );
+                  setProvenance((state) => clearAuthorship(state, ids));
+                }}
+                onConfirmItem={(resourceId) => setProvenance((state) => markReviewed(state, [resourceId]))}
+                // A vital typed by hand is provider-entered, so it carries no AI mark. The editor has
+                // already converted to the canonical unit the chart stores.
+                onSaveVital={async (draft) => {
+                  try {
+                    await writer.save({ vitalsObservations: [draft] });
+                    await refetch();
+                  } catch (error) {
+                    console.error('[easy-chart] vital save failed', error);
+                    enqueueSnackbar(
+                      `Could not save that vital: ${error instanceof Error ? error.message : 'unknown error'}`,
+                      { variant: 'error' }
+                    );
+                  }
+                }}
+                // Promoting a diagnosis demotes the current primary in the SAME save, so the note is
+                // never momentarily left with two primaries or none.
+                onMakePrimary={async (diagnosis) => {
+                  const current = chartData?.diagnosis?.find(
+                    (dx) => dx.isPrimary && dx.resourceId !== diagnosis.resourceId
+                  );
+                  try {
+                    await writer.save({
+                      diagnosis: [
+                        ...(current ? [{ ...current, isPrimary: false }] : []),
+                        { ...diagnosis, isPrimary: true },
+                      ],
+                    });
+                    await refetch();
+                  } catch (error) {
+                    console.error('[easy-chart] make primary failed', error);
+                    enqueueSnackbar(
+                      `Could not make "${diagnosis.display}" primary: ${
+                        error instanceof Error ? error.message : 'unknown error'
+                      }`,
+                      { variant: 'error' }
+                    );
+                  }
+                }}
+                // Confirming ONE template-filled field. The whole-item confirm is separate on purpose:
+                // accepting a procedure must not accept ten assertions the provider never made.
+                onConfirmProcedureField={(resourceId, field) =>
+                  setProvenance((state) => markProcedureFieldReviewed(state, resourceId, field))
+                }
+                buildCorrection={buildCorrection}
+                labOrders={labOrders.orders}
+                appointmentStart={visit.appointment?.start}
+                encounterId={encounterId}
+                // The disposition card writes through its own mutation, so this page's chart query has
+                // to be refetched or the sign-blockers and the assistant's snapshot stay a step behind.
+                onDispositionSaved={() => void refetch()}
+                // A field the provider rewrote by hand is no longer AI-written, so the mark on the row it
+                // owns is dropped as well as the chart being refetched.
+                onNoteFieldSaved={() => {
+                  const ids = [chartData?.chiefComplaint?.resourceId, chartData?.mechanismOfInjury?.resourceId].filter(
+                    (id): id is string => Boolean(id)
+                  );
+                  setProvenance((state) => clearAuthorship(state, ids));
+                  void refetch();
+                }}
+                addendumResources={{
+                  encounterId,
+                  appointmentId: visit.appointment?.id,
+                  patientId: visit.patient?.id,
+                }}
+                inHouseMedications={medicationOrders?.orders ?? []}
+                immunizations={administeredImmunizations.map((order) => ({
+                  id: order.id,
+                  medicationName: order.details.medication.name,
+                  status: order.status,
+                  details: [order.details.dose, order.details.units, order.details.route].filter(Boolean).join(' '),
+                }))}
+                onDeleteItem={(field, resourceId, display) => {
+                  // A failed delete must SAY so. `void promise.then()` with no catch is how "remove did
+                  // nothing" happens: the row stays, the error goes to an unhandled rejection, and the
+                  // provider has no idea whether the item is still on the chart.
+                  writer
+                    .remove(field, { resourceId, display })
+                    .then(refetch)
+                    .catch((error) => {
+                      console.error('[easy-chart] remove failed', error);
+                      enqueueSnackbar(
+                        `Could not remove "${display}": ${error instanceof Error ? error.message : 'unknown error'}`,
+                        { variant: 'error' }
+                      );
+                    });
+                }}
+              />
             </Paper>
 
             <Typography variant="caption" color="text.secondary">

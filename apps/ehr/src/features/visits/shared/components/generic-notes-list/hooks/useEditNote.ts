@@ -6,12 +6,13 @@ import { useChartFields } from '../../../hooks/useChartFields';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import { EditableNote, UseEditNote } from '../types';
 
-export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
+export const useEditNote: UseEditNote = ({ appointmentId, encounterId, apiConfig }) => {
   const apiClient = useOystehrAPIClient();
   const user = useEvolveUser();
 
   const { setQueryCache } = useChartFields({
     appointmentId,
+    encounterId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
 

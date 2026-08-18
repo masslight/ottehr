@@ -10,10 +10,10 @@
 // checkable without a model, and they cost nothing to re-run. Reserve the LLM judge for free text
 // and semantics — and keep it in tools/, never as a deployed endpoint.
 
+import { PLANNABLE_VITAL_FIELDS } from './actions';
 import { ChartPlanResponse, PlannedAction } from './api';
 import { isCptShaped, isHcpcsShaped, isIcd10Shaped } from './codes';
 import { findingPolarity, rosPolarity } from './provenance';
-import { PLANNABLE_VITAL_FIELDS } from './actions';
 
 export type EvalRuleId =
   | 'diagnosis-code-missing'

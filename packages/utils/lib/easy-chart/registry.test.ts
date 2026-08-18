@@ -8,12 +8,13 @@ import { buildStaticInstructions } from './prompt';
 import {
   CAPABILITIES,
   capabilitiesForSurface,
+  capabilityOf,
   fieldsForSurface,
   hasRequiredFields,
   missingRequiredFields,
   NON_CHART_TARGETS,
 } from './registry';
-import { buildResponseSchema, findNumberTypedFields, NUMERIC_FIELDS } from './schema';
+import { buildResponseSchema, buildReviewResponseSchema, findNumberTypedFields, NUMERIC_FIELDS } from './schema';
 
 describe('action registry', () => {
   it('gives every kind exactly one capability entry, and names no kind that does not exist', () => {
@@ -34,7 +35,9 @@ describe('action registry', () => {
 
   it('names exactly one write target per kind: a chartField XOR a NON_CHART_TARGETS entry', () => {
     for (const kind of ACTION_KINDS) {
-      const hasChartField = CAPABILITIES[kind].chartField != null;
+      // Through the accessor: CAPABILITIES is `as const satisfies`, so an entry WITHOUT a chartField
+      // has no such property to read off the union. capabilityOf exists for exactly this.
+      const hasChartField = capabilityOf(kind).chartField != null;
       const hasNonChartTarget = NON_CHART_TARGETS[kind] != null;
       expect(
         hasChartField !== hasNonChartTarget,
@@ -62,9 +65,7 @@ describe('action registry', () => {
   // model can never satisfy it, so 100% of those actions are rejected at runtime and nothing says so.
   it.each(SURFACES)('declares every required field in the %s surface schema', (surface) => {
     const declared = Object.keys(
-      (
-        (buildResponseSchema(surface).properties as Record<string, any>).actions.items as Record<string, any>
-      ).properties
+      ((buildResponseSchema(surface).properties as Record<string, any>).actions.items as Record<string, any>).properties
     );
     for (const kind of capabilitiesForSurface(surface)) {
       for (const field of CAPABILITIES[kind].required) {
@@ -93,9 +94,8 @@ describe('action registry', () => {
   it.each(SURFACES)('never mentions an action the %s surface does not offer as an emittable kind', (surface) => {
     const offered = new Set<string>(capabilitiesForSurface(surface));
     const schemaKinds = (
-      (
-        (buildResponseSchema(surface).properties as Record<string, any>).actions.items as Record<string, any>
-      ).properties.kind as Record<string, any>
+      ((buildResponseSchema(surface).properties as Record<string, any>).actions.items as Record<string, any>).properties
+        .kind as Record<string, any>
     ).enum as string[];
     expect(new Set(schemaKinds)).toEqual(offered);
   });
@@ -148,9 +148,7 @@ describe('response schemas', () => {
 
   it.each(SURFACES)('declares exactly the registry field list for the %s surface', (surface) => {
     const declared = Object.keys(
-      (
-        (buildResponseSchema(surface).properties as Record<string, any>).actions.items as Record<string, any>
-      ).properties
+      ((buildResponseSchema(surface).properties as Record<string, any>).actions.items as Record<string, any>).properties
     );
     expect(new Set(declared)).toEqual(new Set(fieldsForSurface(surface)));
   });
@@ -184,5 +182,32 @@ describe('prompt structure', () => {
 
   it('is deterministic — same registry in, same bytes out', () => {
     expect(buildStaticInstructions('plan')).toBe(buildStaticInstructions('plan'));
+  });
+});
+
+// The review surface's CATEGORY vocabulary. The prompt numbers its checks and names a category for each;
+// the schema constrains the field to an enum. Nothing tied the two together, and the failure is silent in
+// the worst way: under constrained decoding a model told to emit an eleventh category cannot return it, so
+// it is forced into one of the existing ten and the finding arrives MIS-LABELLED rather than missing. Add a
+// check to the prompt, add it to the enum.
+describe('review categories', () => {
+  const categoriesInSchema = (): string[] => {
+    const suggestions = (buildReviewResponseSchema().properties as Record<string, any>).suggestions;
+    return ((suggestions.items as Record<string, any>).properties.category as { enum: string[] }).enum;
+  };
+
+  it('offers exactly the categories the review prompt describes', () => {
+    const prompt = buildStaticInstructions('review');
+    // The prompt writes each check as `N) "category-name"`.
+    const inPrompt = [...prompt.matchAll(/^\d+\)\s*"([a-z-]+)"/gm)].map((m) => m[1]);
+    expect(inPrompt.length, 'the review prompt lists no numbered checks — did its shape change?').toBeGreaterThan(0);
+    expect([...categoriesInSchema()].sort()).toEqual([...new Set(inPrompt)].sort());
+  });
+
+  it('names every schema category somewhere in the prompt', () => {
+    const prompt = buildStaticInstructions('review');
+    for (const category of categoriesInSchema()) {
+      expect(prompt, `the review prompt never mentions the "${category}" category`).toContain(category);
+    }
   });
 });

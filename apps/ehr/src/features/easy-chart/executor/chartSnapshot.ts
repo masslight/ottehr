@@ -8,6 +8,7 @@
 // text a provider would recognise — not an id, not a code.
 
 import { buildExamLeafCatalogue } from 'utils/lib/config-helpers/exam-leaves';
+import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -81,4 +82,123 @@ export function buildChartSnapshot(
 
     hasEmCode: Boolean(chartData?.emCode?.code),
   };
+}
+
+/**
+ * Advance a snapshot by one APPLIED action.
+ *
+ * WHY THIS EXISTS. The snapshot used to be built once, before the run, and handed unchanged to every
+ * step. That is wrong for any plan whose steps depend on each other, and the normal shape of a plan is
+ * exactly that — the assessment is charted before the plan that references it. Three symptoms came from
+ * the one cause, each reproduced by a test in easy-chart-executor.test.ts:
+ *
+ *  - a plan that charted a diagnosis and THEN ordered a send-out lab skipped the order, because the lab
+ *    step read the pre-plan snapshot, saw no diagnosis, and refused;
+ *  - a diagnosis SWAP (remove-diagnosis + add-diagnosis, which is what the review pass emits when it
+ *    corrects a diagnosis) left the note with NO primary: the removed row was still in the snapshot, so
+ *    the never-usurp rule demoted the replacement — even one explicitly marked primary;
+ *  - a removal could not target something an earlier step in the same plan had just charted.
+ *
+ * Only APPLIED actions advance it: a skipped or failed step changed nothing. Kinds whose effect no later
+ * step can observe are deliberate no-ops rather than exhaustively mapped — the point is to keep the
+ * decisions handlers actually make honest, not to mirror the whole chart.
+ */
+export function advanceSnapshot(snapshot: ChartSnapshot, action: PlannedAction, createdIds: string[]): ChartSnapshot {
+  const next: ChartSnapshot = {
+    ...snapshot,
+    diagnoses: [...snapshot.diagnoses],
+    examFindings: [...snapshot.examFindings],
+    rosFindings: [...snapshot.rosFindings],
+    medications: [...snapshot.medications],
+    allergies: [...snapshot.allergies],
+    conditions: [...snapshot.conditions],
+    surgicalHistory: [...snapshot.surgicalHistory],
+    hospitalizations: [...snapshot.hospitalizations],
+    procedures: [...snapshot.procedures],
+    cptCodes: [...snapshot.cptCodes],
+  };
+  // A row charted mid-plan may not have a server id yet (the writer reports ids, but a fake or an order
+  // path returns none). A synthetic key keeps list identity stable without pretending it is real.
+  const id = createdIds[0] ?? `pending:${action.kind}:${action.display ?? action.code ?? ''}`;
+  const display = (action.display ?? '').trim();
+
+  const dropByDisplay = (items: ChartedItem[]): ChartedItem[] => {
+    const needle = display.toLowerCase();
+    if (!needle) return items;
+    // The same containment rule the remove handler resolves with, so the snapshot drops the row the
+    // handler actually removed rather than a different one that merely looks similar.
+    const hit =
+      items.find((item) => item.display.toLowerCase() === needle) ??
+      items.find((item) => item.display.toLowerCase().includes(needle) || needle.includes(item.display.toLowerCase()));
+    return hit ? items.filter((item) => item !== hit) : items;
+  };
+
+  switch (action.kind) {
+    case 'add-diagnosis':
+      next.diagnoses.push({ resourceId: id, display, code: action.code, isPrimary: action.isPrimary === true });
+      break;
+    case 'remove-diagnosis':
+      next.diagnoses = dropByDisplay(next.diagnoses) as ChartSnapshot['diagnoses'];
+      break;
+    case 'add-condition':
+      next.conditions.push({ resourceId: id, display });
+      break;
+    case 'remove-condition':
+      next.conditions = dropByDisplay(next.conditions);
+      break;
+    case 'add-allergy':
+      next.allergies.push({ resourceId: id, display });
+      break;
+    case 'remove-allergy':
+      next.allergies = dropByDisplay(next.allergies);
+      break;
+    case 'add-medication':
+      next.medications.push({ resourceId: id, display });
+      break;
+    case 'remove-medication':
+      next.medications = dropByDisplay(next.medications);
+      break;
+    case 'add-surgical-history':
+      next.surgicalHistory.push({ resourceId: id, display });
+      break;
+    case 'remove-surgical-history':
+      next.surgicalHistory = dropByDisplay(next.surgicalHistory);
+      break;
+    case 'add-hospitalization':
+      next.hospitalizations.push({ resourceId: id, display });
+      break;
+    case 'remove-hospitalization':
+      next.hospitalizations = dropByDisplay(next.hospitalizations);
+      break;
+    case 'add-exam-finding':
+      next.examFindings.push({ resourceId: id, display });
+      break;
+    case 'remove-exam-finding':
+      next.examFindings = dropByDisplay(next.examFindings);
+      break;
+    case 'add-ros-finding':
+      next.rosFindings.push({ resourceId: id, display });
+      break;
+    case 'remove-ros-finding':
+      next.rosFindings = dropByDisplay(next.rosFindings);
+      break;
+    case 'add-cpt':
+      next.cptCodes.push({ resourceId: id, display, code: action.code });
+      break;
+    case 'remove-cpt':
+      next.cptCodes = next.cptCodes.filter((cpt) => cpt.code !== action.code);
+      break;
+    case 'set-em-code':
+      next.hasEmCode = true;
+      break;
+    case 'remove-em-code':
+      next.hasEmCode = false;
+      break;
+    case 'add-procedure':
+      next.procedures.push({ resourceId: id, display });
+      break;
+    default:
+      break;
+  }
+  return next;
 }

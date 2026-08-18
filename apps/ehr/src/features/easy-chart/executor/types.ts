@@ -5,8 +5,15 @@
 // without a model, a network, or a rendered page: given an action list, its behaviour is
 // deterministic.
 
+import { Encounter } from 'fhir/r4b';
 import { Action, ActionKind, ActionOfKind } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
+import {
+  CreateLabPaymentMethod,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+} from 'utils/lib/types/data/labs/labs.types';
+import { ProcedureQuickPickContext } from './procedure-quick-pick';
 
 /**
  * How a step ended. EVERY step must end in one of these — silent no-ops are the single worst failure
@@ -27,6 +34,18 @@ export interface StepOutcome {
   lowConfidence?: boolean;
   /** Extra note for the provenance record ("template default, verify", "auto-picked from 3 matches"). */
   note?: string;
+  /**
+   * Rows this step created that THE DICTATION DID NOT NAME — a procedure quick-pick's linked diagnoses
+   * and CPT codes. They are charted because the practice's template says the procedure implies them,
+   * which is a weaker claim than "the provider said it", so they carry the amber inferred mark even
+   * when the step itself came from a verified quote.
+   */
+  inferredResourceIds?: string[];
+  /**
+   * Per-field "default, verify" markers for a composite row. A provider says four words and a procedure
+   * quick-pick asserts ten fields; marking only the row would claim they stated all ten.
+   */
+  templateFilledFields?: { resourceId: string; fields: string[] }[];
 }
 
 export const applied = (createdResourceIds: string[] = [], extra: Partial<StepOutcome> = {}): StepOutcome => ({
@@ -55,6 +74,14 @@ export interface CatalogueMatch {
 export interface CatalogueQuery {
   display: string;
   searchTerms?: string[];
+  /**
+   * What the visit actually said, for catalogues that must judge a candidate against the VISIT rather
+   * than against the query. A medication search needs it: "antifungal cream" ranks an athlete's-foot
+   * product and a vaginal one identically, and only the visit says which is right. Carries the action's
+   * verbatim source quote when it has one — an inferred action has none, and then a product carrying a
+   * site qualifier has nothing to justify it, which is the correct outcome.
+   */
+  evidence?: string;
 }
 
 /**
@@ -147,6 +174,7 @@ export interface ChartWriter {
     radiologyOrders: boolean;
     nursingOrders: boolean;
     templates: boolean;
+    procedures: boolean;
   };
   /** Endpoints that are not chart data at all. Only called when the matching `supports` flag is set. */
   orderLab(match: CatalogueMatch, inHouse: boolean): Promise<string[]>;
@@ -157,6 +185,23 @@ export interface ChartWriter {
   orderRadiology(match: CatalogueMatch, request: { dictatedStudyName: string }): Promise<string[]>;
   createNursingOrder(text: string): Promise<string[]>;
   applyTemplate(match: CatalogueMatch): Promise<string[]>;
+  /**
+   * A procedure, which needs TWO saves rather than one: its CPT codes and supporting diagnoses have to
+   * exist as their own rows before the procedure can reference them. Returns more than a list of ids
+   * because the three kinds of row it creates have three different provenances.
+   */
+  addProcedure(context: ProcedureQuickPickContext): Promise<ProcedureWriteResult>;
+}
+
+export interface ProcedureWriteResult {
+  /** Every row created, for the item-level marks. */
+  createdResourceIds: string[];
+  /** The procedure row itself, which the per-field markers hang off. */
+  procedureResourceId?: string;
+  /** The linked dx/CPT rows the TEMPLATE contributed, not the dictation. */
+  inferredResourceIds: string[];
+  /** Fields of the procedure whose value came from the quick-pick. */
+  templateFilledFields: string[];
 }
 
 /** What is already on the chart, as the executor needs to see it. */

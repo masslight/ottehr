@@ -50,9 +50,19 @@ describe('the rules cover every section the note pane renders', () => {
 });
 
 describe('an empty chart', () => {
-  it('shows nothing but the privacy line when the note is read-only', () => {
+  it('shows nothing but the privacy line and the addendum when the note is read-only', () => {
+    // Read-only means SIGNED, which is when an addendum is the one thing still writable.
     const shown = Object.entries(visibility()).filter(([, isVisible]) => isVisible);
-    expect(shown.map(([id]) => id)).toEqual(['privacy-policy']);
+    expect(shown.map(([id]) => id)).toEqual(['privacy-policy', 'addendum']);
+  });
+
+  // The four free-text fields, the E&M dropdown and the privacy line. E&M is here for the same reason the
+  // free-text fields are — it is editable, it is REQUIRED to sign, and a hidden section cannot be set.
+  it('shows only the editable-while-empty sections and the privacy line on an open, empty chart', () => {
+    const shown = Object.entries(visibility({}, { editable: true })).filter(([, isVisible]) => isVisible);
+    expect(shown.map(([id]) => id).sort()).toEqual(
+      ['chief-complaint', 'em-code', 'hpi', 'mdm', 'mechanism-of-injury', 'privacy-policy'].sort()
+    );
   });
 
   // THE exception that makes hand-charting possible. Hide these when empty and there is nowhere to type.
@@ -68,8 +78,8 @@ describe('an empty chart', () => {
     const shown = visibility({}, { editable: true });
     expect(shown.allergies).toBe(false);
     expect(shown.assessment).toBe(false);
-    expect(shown['em-code']).toBe(false);
     expect(shown.procedures).toBe(false);
+    expect(shown['cpt-codes']).toBe(false);
   });
 });
 
@@ -140,9 +150,9 @@ describe('review of systems', () => {
 
 describe('examination', () => {
   it('shows a ticked finding', () => {
-    expect(visibility({ examObservations: [{ field: 'ears-tm-erythematous', value: true }] as never }).examination).toBe(
-      true
-    );
+    expect(
+      visibility({ examObservations: [{ field: 'ears-tm-erythematous', value: true }] as never }).examination
+    ).toBe(true);
   });
 
   // The note is the provider's own words about the exam; it must not disappear with the checkbox.
@@ -184,6 +194,16 @@ describe('the two lab sections', () => {
 });
 
 describe('addenda', () => {
+  // The addendum card is editable even on a locked visit — an addendum is precisely what a provider may
+  // append after signing. Hiding the empty section there would leave nowhere to write the first one.
+  it('show on a signed visit even with none recorded', () => {
+    expect(visibility({}, { editable: false }).addendum).toBe(true);
+  });
+
+  it('stay hidden on an open visit with none recorded, where the heading is just noise', () => {
+    expect(visibility({}, { editable: true }).addendum).toBe(false);
+  });
+
   it('show for a per-author addendum', () => {
     expect(visibility({ notes: [note(NOTE_TYPE.ADDENDUM)] }).addendum).toBe(true);
   });
@@ -201,10 +221,8 @@ describe('addenda', () => {
 describe('the sections with a plain non-empty rule', () => {
   it.each([
     ['medical-history', { conditions: [{ resourceId: 'c1' }] }],
-    ['immunization', {}],
     ['procedures', { procedures: [{ resourceId: 'p1' }] }],
     ['assessment', { diagnosis: [{ resourceId: 'd1' }] }],
-    ['em-code', { emCode: { code: '99213' } }],
     ['cpt-codes', { cptCodes: [{ code: '10060' }] }],
     ['radiology', { radiologyOrders: [{ serviceRequestId: 'r1' }] }],
     ['prescriptions', { prescribedMedications: [{ resourceId: 'rx1' }] }],
@@ -214,6 +232,13 @@ describe('the sections with a plain non-empty rule', () => {
   ])('shows %s when it has content', (sectionId, chartData) => {
     expect(visibility(chartData as never)[sectionId]).toBe(true);
     if (Object.keys(chartData).length > 0) expect(visibility()[sectionId]).toBe(false);
+  });
+
+  // On a READ-ONLY note E&M follows the plain rule; on an editable one it renders empty so the level can
+  // be set, which the test above covers.
+  it('shows the E&M section for a charted level even when read-only', () => {
+    expect(visibility({ emCode: { code: '99213' } } as never)['em-code']).toBe(true);
+    expect(visibility()['em-code']).toBe(false);
   });
 
   it('shows immunization for an administered order, which is not chart data', () => {

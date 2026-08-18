@@ -78,7 +78,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(
     `[${ZAMBDA_NAME}] planned=${actions.length} rejected=${rejected.length} escalated=${escalation.escalated} ` +
-      `attempts=${escalation.attempts} triggers=${triggers.map((t) => `${t.trigger}:${t.fired}/${t.complied}`).join(',')}`
+      `attempts=${escalation.attempts} triggers=${triggers
+        .map((t) => `${t.trigger}:${t.fired}/${t.complied}`)
+        .join(',')}`
   );
 
   const response: ChartPlanResponse = { actions, rejected, usage, escalation, triggers };

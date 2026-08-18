@@ -132,9 +132,7 @@ describe('scorePlan', () => {
 
   // A rejection with a blank reason is a silent no-op wearing a hat.
   it('catches a skipped step with no reason', () => {
-    expect(rules(envelope(CLEAN_PLAN, [{ kind: 'add-medication', reason: '' }]))).toContain(
-      'rejection-without-reason'
-    );
+    expect(rules(envelope(CLEAN_PLAN, [{ kind: 'add-medication', reason: '' }]))).toContain('rejection-without-reason');
   });
 });
 

@@ -8,21 +8,10 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
-import {
-  dispositionCheckboxOptions,
-  getSpecialtyTransferDisplay,
-  mapDispositionTypeToLabel,
-} from 'utils/lib/fhir/disposition';
-import {
-  followUpInOptions,
-  NOTHING_TO_EAT_OR_DRINK_FIELD,
-  NOTHING_TO_EAT_OR_DRINK_LABEL,
-  REFUSAL_OF_EMS_TRANSPORT_FIELD,
-  REFUSAL_OF_EMS_TRANSPORT_LABEL,
-} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
 import { useChartData } from '../../../stores/appointment/appointment.store';
+import { DispositionSummary, dispositionTypeLabel, SubspecialtyFollowUpList } from '../../DispositionSummary';
 
 export const PatientInstructionsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
@@ -57,50 +46,16 @@ export const PatientInstructionsContainer: FC = () => {
     ),
     showDischargeInstructions && (
       <>
-        <AssessmentTitle>
-          Disposition - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
-        </AssessmentTitle>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {disposition?.specialty && disposition.specialty.length > 0 && (
-            <Typography>{getSpecialtyTransferDisplay(disposition.specialty, disposition.specialtyOther)}</Typography>
-          )}
-          {disposition?.note && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{disposition?.note}</Typography>}
-          {disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] && <Typography>{NOTHING_TO_EAT_OR_DRINK_LABEL}</Typography>}
-          {disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] && <Typography>{REFUSAL_OF_EMS_TRANSPORT_LABEL}</Typography>}
-          {disposition?.labService && disposition.labService.length > 0 && (
-            <Typography>Lab Services: {disposition.labService.join(', ')}</Typography>
-          )}
-
-          {disposition?.virusTest && disposition.virusTest.length > 0 && (
-            <Typography>Virus Tests: {disposition.virusTest.join(', ')}</Typography>
-          )}
-
-          {typeof disposition?.followUpIn === 'number' && (
-            <Typography>
-              Follow-up visit{' '}
-              {disposition.followUpIn === 0
-                ? followUpInOptions.find((option) => option.value === disposition.followUpIn)?.label
-                : `in ${followUpInOptions.find((option) => option.value === disposition.followUpIn)?.label}`}
-            </Typography>
-          )}
-
-          {disposition?.reason && disposition.reason.length > 0 && (
-            <Typography>Reason for transfer: {disposition.reason}</Typography>
-          )}
-        </Box>
+        <AssessmentTitle>Disposition - {dispositionTypeLabel(disposition?.type) ?? 'Not provided'}</AssessmentTitle>
+        {/* Shared with the Easy Chart note pane. A disposition carries eight fields beyond its type, and
+            two surfaces rendering them by hand agree only until one of them gains a ninth. */}
+        <DispositionSummary disposition={disposition} />
       </>
     ),
     showFollowUp && (
       <>
         <AssessmentTitle>Subspecialty follow-up</AssessmentTitle>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {disposition?.followUp?.map((followUp) => {
-            const option = dispositionCheckboxOptions.find((o) => o.name === followUp.type);
-            if (!option) return null;
-            const note = followUp.type === 'other' && followUp.note ? `: ${followUp.note}` : '';
-            return <Typography key={followUp.type}>{`${option.label}${note}`}</Typography>;
-          })}
-        </Box>
+        <SubspecialtyFollowUpList disposition={disposition} />
       </>
     ),
     showSchoolWorkExcuse && (

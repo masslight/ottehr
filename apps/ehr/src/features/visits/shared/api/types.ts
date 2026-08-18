@@ -4,6 +4,9 @@ export type GetOystehrTelemedAPIParams = {
   getChartDataZambdaID?: string;
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
+  /** Easy Chart: the planner (narrative → typed actions) and the review pass (a second look). */
+  easyChartPlanZambdaID?: string;
+  easyChartReviewZambdaID?: string;
   changeInPersonVisitStatusZambdaID?: string;
   assignPractitionerZambdaID?: string;
   unassignPractitionerZambdaID?: string;

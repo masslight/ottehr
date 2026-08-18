@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { buildExamLeafCatalogue, ExamLeaf } from '../config-helpers/exam-leaves';
 import { DefaultExamComponentsConfig } from '../ottehr-config/examination/default-components.config';
 import { InPersonRosConfig } from '../ottehr-config/review-of-systems/in-person.config';
+import { EXAM_ANATOMY_SECTION_OF } from './matcher-tables';
 import {
   anatomySectionOf,
   assertsNormal,
@@ -14,7 +15,6 @@ import {
   RosCatalogueEntry,
   stem,
 } from './matchers';
-import { EXAM_ANATOMY_SECTION_OF } from './matcher-tables';
 
 const LEAVES = buildExamLeafCatalogue(DefaultExamComponentsConfig);
 
@@ -38,14 +38,29 @@ describe('the exam leaf catalogue', () => {
     }
   });
 
-  it('gives every leaf a unique field or a consistent duplicate', () => {
-    const byField = new Map<string, ExamLeaf>();
+  // A field may repeat, but ONLY for a checkbox-with-modal: its options are stored as COMPONENTS of the
+  // parent observation, so they all carry the parent's field and are told apart by `component`. Pushing
+  // an option's own key as the field is what produced "Exam observation with field
+  // skin-abscess-fluctuant not found" from save-chart-data, so a repeat without a component is a bug.
+  it('repeats a field only for modal options of the same parent', () => {
+    const byField = new Map<string, ExamLeaf[]>();
     for (const leaf of LEAVES) {
-      const existing = byField.get(leaf.field);
-      if (existing) expect(existing.leafLabel).toBe(leaf.leafLabel);
-      byField.set(leaf.field, leaf);
+      byField.set(leaf.field, [...(byField.get(leaf.field) ?? []), leaf]);
     }
-    expect(byField.size).toBeGreaterThan(200);
+    for (const [field, leaves] of byField) {
+      if (leaves.length === 1) continue;
+      const withoutComponent = leaves.filter((leaf) => !leaf.component);
+      // The parent checkbox itself is one legitimate componentless leaf; anything beyond that is a
+      // distinct observation wrongly sharing a field.
+      expect(
+        withoutComponent.length,
+        `"${field}" repeats without a component: ${withoutComponent.map((l) => l.leafLabel).join(', ')}`
+      ).toBeLessThanOrEqual(1);
+    }
+    // Two different counts, and the gap between them is the point: there are more selectable LEAVES
+    // than saveable FIELDS, because a modal's options collapse onto their parent observation.
+    expect(LEAVES.length).toBeGreaterThan(200);
+    expect(byField.size).toBeGreaterThan(150);
   });
 
   // The anatomy guard files findings by CARD LABEL, so a typo in the table silently disables the

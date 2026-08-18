@@ -13,10 +13,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import {
-  dispositionTypeLabel,
-  followUpInLabel,
-} from '../../src/features/visits/shared/components/DispositionSummary';
+import { dispositionTypeLabel, followUpInLabel } from '../../src/features/visits/shared/components/DispositionSummary';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const NOTE_PANE = join(HERE, '../../src/features/easy-chart/components/NotePane.tsx');

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  findingPolarity,
-  quoteOccursInNarrative,
-  rosPolarity,
-  verifiedSourceText,
-} from './provenance';
+import { findingPolarity, quoteOccursInNarrative, rosPolarity, verifiedSourceText } from './provenance';
 
 const NARRATIVE =
   'Seven-year-old male here with two days of sore throat and fever to 102. No cough, no runny nose. ' +

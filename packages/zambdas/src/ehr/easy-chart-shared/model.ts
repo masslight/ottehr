@@ -34,7 +34,10 @@ export interface ModelCallResult<T> {
 }
 
 class ModelAttemptError extends Error {
-  constructor(readonly reason: ModelFailureReason, message: string) {
+  constructor(
+    readonly reason: ModelFailureReason,
+    message: string
+  ) {
     super(message);
     this.name = 'ModelAttemptError';
   }

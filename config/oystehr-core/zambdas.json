@@ -1182,6 +1182,20 @@
       "src": "src/ehr/em-codes/delete/index",
       "zip": ".dist/zips/delete-em-code.zip"
     },
+    "EASY-CHART-PLAN": {
+      "name": "easy-chart-plan",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-plan/index",
+      "zip": ".dist/zips/easy-chart-plan.zip"
+    },
+    "EASY-CHART-REVIEW": {
+      "name": "easy-chart-review",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-review/index",
+      "zip": ".dist/zips/easy-chart-review.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",

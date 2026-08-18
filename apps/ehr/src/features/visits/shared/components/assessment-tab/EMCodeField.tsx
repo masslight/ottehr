@@ -2,14 +2,32 @@ import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { useEMCodes } from '../../hooks/useEMCodes';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 
-export const EMCodeField: FC = () => {
+export interface EMCodeFieldProps {
+  /**
+   * Write to this encounter instead of resolving one from the appointment store — for a page keyed by
+   * encounter, where the store is empty and the save would fall back to an undefined id and throw.
+   */
+  encounterId?: string;
+  /**
+   * The currently charted code, when the caller has it. This field normally reads it from the appointment
+   * store's chart data; a page that does not populate the store would otherwise show an empty dropdown
+   * for a visit that HAS a level set — and picking a new one would then build on `{ ...undefined }`,
+   * losing the existing resourceId and charting a SECOND E&M row.
+   */
+  emCode?: CPTCodeDTO;
+  /** Called after a save or delete lands, so a page with its own chart query can refresh it. */
+  onSaved?: () => void;
+}
+
+export const EMCodeField: FC<EMCodeFieldProps> = ({ encounterId, emCode: emCodeOverride, onSaved }) => {
   const { emCodes, isLoading: emCodesLoading } = useEMCodes();
   const { chartData, setPartialChartData } = useChartData();
-  const emCode = chartData?.emCode;
+  const emCode = emCodeOverride ?? chartData?.emCode;
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
@@ -17,7 +35,7 @@ export const EMCodeField: FC = () => {
     const prevValue = emCode ? { ...emCode } : undefined;
     if (value) {
       saveChartData(
-        { emCode: { ...emCode, ...value } },
+        { encounterId, emCode: { ...emCode, ...value } },
         {
           onSuccess: (data) => {
             const saved = data.chartData?.emCode;
@@ -25,6 +43,7 @@ export const EMCodeField: FC = () => {
             if (saved) {
               setPartialChartData({ emCode: saved });
             }
+            onSaved?.();
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
@@ -38,10 +57,11 @@ export const EMCodeField: FC = () => {
       // Optimistic update
       setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
       deleteChartData(
-        { emCode },
+        { encounterId, emCode },
         {
           onSuccess: async () => {
             // No need to update again, optimistic update already applied
+            onSaved?.();
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });

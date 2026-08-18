@@ -9,10 +9,11 @@ import { UseDeleteNote } from '../types';
 // Soft-deletes a note by re-saving it with `deleted: true`. The backend flips
 // Communication.status to 'entered-in-error', preserves the original text, and stamps the caller
 // as the deleter so the tombstone shows who removed it.
-export const useSoftDeleteNote: UseDeleteNote = ({ appointmentId, apiConfig, locales }) => {
+export const useSoftDeleteNote: UseDeleteNote = ({ appointmentId, encounterId, apiConfig, locales }) => {
   const apiClient = useOystehrAPIClient();
   const { setQueryCache } = useChartFields({
     appointmentId,
+    encounterId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
 

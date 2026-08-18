@@ -164,8 +164,8 @@ describe('resolveOrderingOffice', () => {
 
 describe('labOrgIdsFor', () => {
   it('strips the resource-type prefix and joins', () => {
-    expect(
-      labOrgIdsFor({ enabledLabs: [{ labOrgRef: 'Organization/a' }, { labOrgRef: 'Organization/b' }] })
-    ).toBe('a,b');
+    expect(labOrgIdsFor({ enabledLabs: [{ labOrgRef: 'Organization/a' }, { labOrgRef: 'Organization/b' }] })).toBe(
+      'a,b'
+    );
   });
 });

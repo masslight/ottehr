@@ -7,6 +7,8 @@ export const FeatureFlagsConfigSchema = z.object({
   nursingOrdersEnabled: z.boolean(),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
+  /** Easy Chart: the AI-assisted charting page. Gated by BOTH this flag and the charting role set. */
+  easyChartEnabled: z.boolean(),
   globalTemplatesEnabled: z.boolean(),
   formsEnabled: z.boolean(),
   legacyDataEnabled: z.boolean(),

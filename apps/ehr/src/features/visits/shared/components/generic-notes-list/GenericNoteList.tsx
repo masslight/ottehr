@@ -13,11 +13,15 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
   containerSx,
+  resources: explicitResources,
 }) => {
   const { resources } = useAppointmentData();
-  const encounterId = resources.encounter?.id;
-  const appointmentId = resources.appointment?.id;
-  const patientId = resources.patient?.id;
+  // Explicit resources first, store second. This component's whole job is resolving the three ids
+  // `EditableNotesList` needs; a page keyed by ENCOUNTER has no appointment in the store, so the guard
+  // below never passes and the list sits on a spinner forever instead of saying anything.
+  const encounterId = explicitResources?.encounterId ?? resources.encounter?.id;
+  const appointmentId = explicitResources?.appointmentId ?? resources.appointment?.id;
+  const patientId = explicitResources?.patientId ?? resources.patient?.id;
 
   if (!encounterId || !patientId || !appointmentId) return <Loader />;
 

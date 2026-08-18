@@ -692,17 +692,27 @@ export const useSaveChartData = (): UseMutationResult<
 export const useDeleteChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['deleteChartData']>>,
   Error,
-  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
+  // `encounterId` is OPTIONAL, not omitted — the same fix `useSaveChartData` needed and for the same
+  // reason. On a route keyed by encounter rather than appointment the store is empty, so the id read
+  // from it is undefined and the delete throws instead of deleting. A caller that knows its encounter
+  // passes it.
+  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[]; encounterId?: string }
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
-      if (apiClient && encounter?.id) {
+    mutationFn: ({
+      encounterId: explicitEncounterId,
+      ...chartDataFields
+    }: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[]; encounterId?: string }) => {
+      // Explicit id first: a page keyed by encounterId in its own URL knows which encounter it is for,
+      // and the appointment store may not be populated at all there.
+      const encounterId = explicitEncounterId ?? encounter?.id;
+      if (apiClient && encounterId) {
         return apiClient.deleteChartData({
-          encounterId: encounter.id,
+          encounterId,
           ...chartDataFields,
         });
       }

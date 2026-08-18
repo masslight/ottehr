@@ -120,6 +120,7 @@ export const invalidateChartFields = (
 export function useChartFields<T extends ChartDataRequestedFields>({
   requestedFields,
   appointmentId,
+  encounterId: explicitEncounterId,
   enabled = true,
   onSuccess,
   onError,
@@ -127,6 +128,15 @@ export function useChartFields<T extends ChartDataRequestedFields>({
 }: {
   requestedFields: T;
   appointmentId?: string;
+  /**
+   * Read this encounter instead of resolving one from the appointment store.
+   *
+   * Needed by a page keyed by ENCOUNTER rather than appointment: the store is empty there, so the id
+   * derived from it is undefined, the query never enables, and a consumer waiting on the data sits on a
+   * loading skeleton forever rather than erroring. Explicit id first, store fallback — the same shape
+   * `useSaveChartData` takes, and for the same reason.
+   */
+  encounterId?: string;
   enabled?: boolean;
   onSuccess?: (data: ChartFieldsResponse | null) => void;
   onError?: (error: unknown) => void;
@@ -138,7 +148,7 @@ export function useChartFields<T extends ChartDataRequestedFields>({
   const apiClient = useOystehrAPIClient();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
-  const encounterId = encounter?.id;
+  const encounterId = explicitEncounterId ?? encounter?.id;
   const queryClient = useQueryClient();
   const user = useEvolveUser();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();

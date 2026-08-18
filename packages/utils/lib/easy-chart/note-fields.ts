@@ -13,7 +13,12 @@
 import { NoteTextField } from './actions';
 
 /** Chart-data keys the free-text note fields are stored under. */
-export type NoteChartKey = 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
+export type NoteChartKey =
+  | 'chiefComplaint'
+  | 'historyOfPresentIllness'
+  | 'mechanismOfInjury'
+  | 'ros'
+  | 'medicalDecision';
 
 const CLINICAL_FIELD_TO_CHART_KEY: Record<NoteTextField, NoteChartKey> = {
   // Swapped on purpose — see the module comment.

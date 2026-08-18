@@ -84,12 +84,20 @@ describe('the scope each note section reads', () => {
 
   // Named individually because these are the ones where getting it wrong produces a plausible-looking
   // note about the wrong visit.
-  it.each(['vitalsObservations', 'chiefComplaint', 'historyOfPresentIllness', 'medicalDecision', 'ros', 'disposition', 'instructions', 'observations', 'prescribedMedications', 'radiologyOrders'])(
-    'fetches %s for this encounter only',
-    (field) => {
-      expect(scopesInZambda().get(field)).toBe('encounter');
-    }
-  );
+  it.each([
+    'vitalsObservations',
+    'chiefComplaint',
+    'historyOfPresentIllness',
+    'medicalDecision',
+    'ros',
+    'disposition',
+    'instructions',
+    'observations',
+    'prescribedMedications',
+    'radiologyOrders',
+  ])('fetches %s for this encounter only', (field) => {
+    expect(scopesInZambda().get(field)).toBe('encounter');
+  });
 
   it.each(['allergies', 'conditions', 'medications', 'surgicalHistory'])(
     'fetches %s patient-wide on purpose, because it is history',

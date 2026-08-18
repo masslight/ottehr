@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
+import { ChartPlanRequest, ChartPlanResponse, ChartReviewRequest, ChartReviewResponse } from 'utils/lib/easy-chart/api';
 import { getOystehrApiHelpers } from 'utils/lib/helpers/oystehrApi';
 import { AISuggestionNotes, AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 import {
@@ -109,6 +110,8 @@ enum ZambdaNames {
   'get chart data' = 'get chart data',
   'save chart data' = 'save chart data',
   'delete chart data' = 'delete chart data',
+  'easy chart plan' = 'easy chart plan',
+  'easy chart review' = 'easy chart review',
   'change in person visit status' = 'change in person visit status',
   'assign practitioner' = 'assign practitioner',
   'unassign practitioner' = 'unassign practitioner',
@@ -150,6 +153,8 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get chart data': false,
   'save chart data': false,
   'delete chart data': false,
+  'easy chart plan': false,
+  'easy chart review': false,
   'change in person visit status': false,
   'assign practitioner': false,
   'unassign practitioner': false,
@@ -200,6 +205,8 @@ export const getOystehrTelemedAPI = (
   getChartData: typeof getChartData;
   saveChartData: typeof saveChartData;
   deleteChartData: typeof deleteChartData;
+  easyChartPlan: typeof easyChartPlan;
+  easyChartReview: typeof easyChartReview;
   changeInPersonVisitStatus: typeof changeInPersonVisitStatus;
   assignPractitioner: typeof assignPractitioner;
   unassignPractitioner: typeof unassignPractitioner;
@@ -242,6 +249,8 @@ export const getOystehrTelemedAPI = (
     getChartDataZambdaID,
     saveChartDataZambdaID,
     deleteChartDataZambdaID,
+    easyChartPlanZambdaID,
+    easyChartReviewZambdaID,
     changeInPersonVisitStatusZambdaID,
     assignPractitionerZambdaID,
     unassignPractitionerZambdaID,
@@ -283,6 +292,8 @@ export const getOystehrTelemedAPI = (
     'get chart data': getChartDataZambdaID,
     'save chart data': saveChartDataZambdaID,
     'delete chart data': deleteChartDataZambdaID,
+    'easy chart plan': easyChartPlanZambdaID,
+    'easy chart review': easyChartReviewZambdaID,
     'change in person visit status': changeInPersonVisitStatusZambdaID,
     'assign practitioner': assignPractitionerZambdaID,
     'unassign practitioner': unassignPractitionerZambdaID,
@@ -344,6 +355,19 @@ export const getOystehrTelemedAPI = (
 
   const deleteChartData = async (parameters: DeleteChartDataRequest): Promise<DeleteChartDataResponse> => {
     return await makeZapRequest('delete chart data', parameters);
+  };
+
+  /**
+   * Easy Chart's two model calls. Both go through the SAME zambda transport as every other endpoint —
+   * the model never writes, it returns typed actions that the client resolves and writes through the
+   * existing chart-data endpoints.
+   */
+  const easyChartPlan = async (parameters: ChartPlanRequest): Promise<ChartPlanResponse> => {
+    return await makeZapRequest('easy chart plan', parameters);
+  };
+
+  const easyChartReview = async (parameters: ChartReviewRequest): Promise<ChartReviewResponse> => {
+    return await makeZapRequest('easy chart review', parameters);
   };
 
   const changeInPersonVisitStatus = async (
@@ -543,6 +567,8 @@ export const getOystehrTelemedAPI = (
     getChartData,
     saveChartData,
     deleteChartData,
+    easyChartPlan,
+    easyChartReview,
     changeInPersonVisitStatus,
     assignPractitioner,
     unassignPractitioner,

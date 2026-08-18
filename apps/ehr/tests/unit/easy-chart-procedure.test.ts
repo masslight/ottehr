@@ -6,14 +6,14 @@
 // stops being distinguishable from the dictation unless the code keeps them apart, so it is tested
 // directly rather than through the page.
 
+import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it } from 'vitest';
 import {
   linkQuickPickCodes,
   procedureQuickPickContext,
   templateFilledFields,
 } from '../../src/features/easy-chart/executor/procedure-quick-pick';
-import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 
 const NOW = '2026-08-17T15:04:05.000Z';
 const TYPE_NAMES = new Map([['incision-and-drainage', 'Incision and Drainage']]);
@@ -73,7 +73,11 @@ describe('the "Other" free-text fields', () => {
   });
 
   it('leaves a multi-select alone when there is no free text', () => {
-    const { dto } = procedureQuickPickContext(quickPick({ postInstructions: ['Keep dry', 'Return in 2 days'] }), TYPE_NAMES, NOW);
+    const { dto } = procedureQuickPickContext(
+      quickPick({ postInstructions: ['Keep dry', 'Return in 2 days'] }),
+      TYPE_NAMES,
+      NOW
+    );
     expect(dto.postInstructions).toBe('Keep dry, Return in 2 days');
   });
 
@@ -126,7 +130,9 @@ describe('which fields need their own confirmation', () => {
 });
 
 describe('linking the quick-pick’s codes without duplicating them', () => {
-  const charted: DiagnosisDTO[] = [{ resourceId: 'dx-existing', code: 'L02.419', display: 'Abscess of limb', isPrimary: true }];
+  const charted: DiagnosisDTO[] = [
+    { resourceId: 'dx-existing', code: 'L02.419', display: 'Abscess of limb', isPrimary: true },
+  ];
 
   // THE regression: the plan charts "abscess of limb" from the dictation, then the I&D quick-pick
   // carries the same code. Saving it again left the note with the diagnosis twice.
