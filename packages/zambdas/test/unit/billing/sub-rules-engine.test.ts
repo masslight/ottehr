@@ -321,7 +321,7 @@ describe('sub-rules-engine performEffect', () => {
           AGENT
         )
     ).rejects.toMatchInlineSnapshot(
-      `[Error: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
+      `[RuleFailureError: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
     );
 
     expect(submitClaimRcm).not.toHaveBeenCalled();
@@ -353,6 +353,7 @@ describe('sub-rules-engine performEffect', () => {
 
     const expectedRule: ClaimHistoryRuleRef = { id: 'bad', name: 'Rule bad', engine: 'claim-submission' };
     expect(thrown).toBeInstanceOf(RuleFailureError);
+    expect((thrown as RuleFailureError).name).toBe('RuleFailureError');
     expect((thrown as RuleFailureError).rule).toEqual(expectedRule);
     // The persisted Hold's history record names the failing rule.
     expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual(expectedRule);

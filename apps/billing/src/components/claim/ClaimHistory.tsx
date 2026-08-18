@@ -55,7 +55,7 @@ function HistoryValue({
 
 // The rule that made a change, as a suffix linking to the rule's editor.
 function RuleSuffix({ rule }: { rule?: ClaimHistoryRuleRef }): ReactElement | null {
-  if (!rule?.id || !rule.name) return null;
+  if (!rule?.id || !rule.name || !rule.engine) return null;
   return (
     <Box component="span" sx={{ color: 'text.secondary' }}>
       {' · via '}

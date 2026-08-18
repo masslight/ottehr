@@ -109,6 +109,30 @@ describe('ClaimHistory', () => {
     expect(within(row).getByText(/via/)).toBeInTheDocument();
   });
 
+  it('renders no rule link when the stored attribution is missing a field', async () => {
+    getBillingClaimHistoryMock.mockResolvedValue({
+      entries: [
+        {
+          ...changeEntry,
+          changes: [
+            {
+              field: 'tags',
+              label: 'Tags',
+              previousValue: 'Ready to submit',
+              newValue: 'Ready to submit, Hold',
+              rule: { id: 'rule-1', name: 'Normalize tags' } as never,
+            },
+          ],
+        },
+      ],
+    });
+    renderHistory();
+
+    const row = (await screen.findByText('Update Coverage')).closest('tr')!;
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(row).queryByText(/via/)).not.toBeInTheDocument();
+  });
+
   it('shows a dash for an entry with neither a message nor changes', async () => {
     getBillingClaimHistoryMock.mockResolvedValue({
       entries: [

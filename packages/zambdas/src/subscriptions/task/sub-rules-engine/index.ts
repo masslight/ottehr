@@ -271,6 +271,7 @@ export class RuleFailureError extends Error {
     readonly rule: ClaimHistoryRuleRef
   ) {
     super(message);
+    this.name = 'RuleFailureError';
   }
 }
 
