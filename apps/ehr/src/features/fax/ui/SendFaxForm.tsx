@@ -149,9 +149,12 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, visits, isSending, 
               key={field.id}
               index={index}
               isPcp={Boolean(recipients[index]?.saveAsPcp)}
-              // The record holds exactly one PCP, so selecting one clears the rest.
-              onSaveAsPcpChange={(value) =>
-                recipientsArray.replace(applySaveAsPcp(getValues('recipients'), index, value))
+              // Only a single-visit preview offers PCP management. The record holds exactly one PCP,
+              // so selecting one recipient clears the flag from the others.
+              onSaveAsPcpChange={
+                preview
+                  ? (value) => recipientsArray.replace(applySaveAsPcp(getValues('recipients'), index, value))
+                  : undefined
               }
               onRemove={index > 0 ? () => recipientsArray.remove(index) : undefined}
             />

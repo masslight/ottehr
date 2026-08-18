@@ -2,6 +2,7 @@ import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils/lib/types/api
 import { describe, expect, it } from 'vitest';
 import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './faxDocuments';
+import { buildDefaultFormValues } from './faxForm';
 import {
   FAX_STATUS_POLL_INTERVALS_MS,
   FAX_STATUS_POLL_TIMEOUT_MS,
@@ -63,6 +64,10 @@ describe('faxDocuments', () => {
 });
 
 describe('faxRecipients', () => {
+  it('does not opt a preview-less patient fax into replacing the PCP', () => {
+    expect(buildDefaultFormValues(undefined).recipients[0].saveAsPcp).toBe(false);
+  });
+
   it('prefills from the PCP and only offers to save when none is on file', () => {
     const pcp = { name: 'Tomas Jhonson', organization: 'Urgent Care Clinic', faxNumber: '2027139680' };
     expect(initialRecipients(pcp, false)[0]).toMatchObject({ ...pcp, saveAsPcp: true });
@@ -121,6 +126,15 @@ describe('faxRecipients', () => {
       recipients: [recipient({ saveAsPcp: true }), recipient({ faxNumber: '2027139681' })],
     });
     expect(input.recipients.filter((entry) => entry.saveAsPcp)).toHaveLength(1);
+  });
+
+  it('drops stale saveAsPcp state from patient-level sources', () => {
+    const input = toSendFaxPacketInput(
+      { type: 'medical-record', patientId: 'patient-1' },
+      { recipients: [recipient({ saveAsPcp: true })] }
+    );
+
+    expect(input.recipients[0].saveAsPcp).toBeUndefined();
   });
 });
 

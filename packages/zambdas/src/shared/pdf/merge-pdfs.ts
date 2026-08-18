@@ -1,10 +1,13 @@
+import { Jimp, JimpMime } from 'jimp';
 import { PageSizes, PDFDocument } from 'pdf-lib';
 import { MIME_TYPES } from 'utils/lib/utils/file';
+import { getImageOrientation } from 'utils/lib/utils/image-orientation';
 import { createPresignedUrl } from '../z3Utils';
 
 // Match the existing fax cover renderer so image-backed packets do not mix A4 and Letter pages.
 const [PAGE_WIDTH, PAGE_HEIGHT] = PageSizes.A4;
 const IMAGE_MARGIN = 24;
+const FAX_JPEG_QUALITY = 85;
 
 /**
  * Downloads a file stored at the given z3 url, presigning it for download first.
@@ -32,11 +35,13 @@ export async function normalizeFileToPdf(bytes: Uint8Array, contentType?: string
   if (detectedType === MIME_TYPES.PDF) return bytes;
 
   const pdf = await PDFDocument.create();
+  const jpegBytes =
+    detectedType === MIME_TYPES.JPEG || detectedType === MIME_TYPES.JPG ? await normalizeJpegOrientation(bytes) : bytes;
   const image =
     detectedType === MIME_TYPES.PNG
       ? await pdf.embedPng(bytes)
       : detectedType === MIME_TYPES.JPEG || detectedType === MIME_TYPES.JPG
-      ? await pdf.embedJpg(bytes)
+      ? await pdf.embedJpg(jpegBytes)
       : undefined;
   if (!image) throw new Error(`Unsupported fax attachment type: ${contentType || 'unknown'}`);
 
@@ -55,6 +60,19 @@ export async function normalizeFileToPdf(bytes: Uint8Array, contentType?: string
   });
   return pdf.save();
 }
+
+/** Jimp applies EXIF orientation while decoding. Only tagged JPEGs are re-encoded, avoiding needless
+ * quality loss and CPU work for the common already-upright path. */
+const normalizeJpegOrientation = async (bytes: Uint8Array): Promise<Uint8Array> => {
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const orientation = getImageOrientation(arrayBuffer);
+  if (orientation < 2 || orientation > 8) return bytes;
+
+  const image = await Jimp.read(Buffer.from(bytes));
+  // cast: jimp's Buffer type resolves against a second @types/node copy in this workspace
+  const encoded = (await image.getBuffer(JimpMime.jpeg, { quality: FAX_JPEG_QUALITY })) as unknown as Uint8Array;
+  return Uint8Array.from(encoded);
+};
 
 const detectFileType = (bytes: Uint8Array): string | undefined => {
   // The PDF header may legally appear after a short binary preamble, but must be within the first 1024 bytes.

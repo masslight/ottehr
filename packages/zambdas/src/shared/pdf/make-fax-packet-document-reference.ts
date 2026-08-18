@@ -69,7 +69,10 @@ export async function makeFaxPacketDocumentReference(args: {
     // Scoped to whatever the packet hangs off, so the unique-title check only looks at its own siblings.
     searchParams: encounterId
       ? [{ name: 'encounter', value: `Encounter/${encounterId}` }]
-      : [{ name: 'subject', value: `Patient/${patientId}` }],
+      : [
+          { name: 'subject', value: `Patient/${patientId}` },
+          { name: 'type', value: `http://loinc.org|${FAX_PACKET_CODE}` },
+        ],
     listResources,
   });
   return docRefs[0];

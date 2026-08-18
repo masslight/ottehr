@@ -9,12 +9,12 @@ import { getAddressString, getCoding, getNPI } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
+import { FAX_PACKET_MAX_PAGES, FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { sendFaxAttempt } from '../send-fax-attempt';
-import { buildAndUploadPacketForRecipient, toFaxPacketBody } from './build-fax-packet';
+import { buildAndUploadPacketForRecipient, faxPacketLimitGuidance, toFaxPacketBody } from './build-fax-packet';
 import { FaxPacketPlan } from './resolve-fax-source';
 
 const DEFAULT_TIMEZONE = 'America/New_York';
@@ -46,6 +46,15 @@ export const deliverFaxPacket = async (args: {
     throw new Error('No documents could be collected for the fax packet. Nothing was sent.');
   }
   const body = toFaxPacketBody(plan.sections);
+  // Each section requires at least one cover page. Reject a body that cannot possibly fit before
+  // repeating cover rendering and full-packet merging for every recipient.
+  const projectedPageCount = body.pageCount + body.sections.length;
+  if (projectedPageCount > FAX_PACKET_MAX_PAGES) {
+    throw new Error(
+      `Fax packet is ${projectedPageCount} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit. ` +
+        faxPacketLimitGuidance(plan.sourceType)
+    );
+  }
   console.log(
     `[fax-packet] built body: ${body.sections.length} section(s), ${body.parts.length} part(s), ` +
       `${body.pageCount} page(s)`

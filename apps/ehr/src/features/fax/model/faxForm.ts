@@ -11,7 +11,9 @@ export const buildDefaultFormValues = (
   preview: GetFaxPacketPreviewOutput | undefined,
   visits?: FaxVisitOption[]
 ): FaxFormValues => ({
-  recipients: initialRecipients(preview?.pcp, preview?.hasSavedPcp ?? false),
+  // Patient-level sources have no preview and do not offer PCP management. Treat them as already
+  // having a PCP so their blank recipient never opts into replacing generalPractitioner.
+  recipients: initialRecipients(preview?.pcp, preview ? preview.hasSavedPcp : true),
   // Start from the newest visits the packet can hold rather than letting the user find the ceiling on send.
   ...(visits ? { selectedAppointmentIds: visits.slice(0, FAX_MAX_VISITS).map((visit) => visit.appointmentId) } : {}),
 });

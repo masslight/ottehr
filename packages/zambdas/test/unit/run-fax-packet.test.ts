@@ -1,4 +1,5 @@
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { FAX_PACKET_MAX_PAGES } from 'utils/lib/types/api/fax.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockBuildAndUploadPacketForRecipient = vi.fn();
@@ -110,6 +111,24 @@ describe('deliverFaxPacket', () => {
     await expect(
       deliverFaxPacket(deliverArgs([{ faxNumber: '+12125551234' }], { plan: plan({ sections: [] }) }))
     ).rejects.toThrow(/No documents could be collected/);
+  });
+
+  it('rejects an oversized shared body before doing work for any recipient', async () => {
+    const firstSection = plan().sections[0];
+    const oversizedPlan = plan({
+      sourceType: 'visits',
+      sections: [
+        { ...firstSection, pageCount: FAX_PACKET_MAX_PAGES / 2 },
+        { ...firstSection, pageCount: FAX_PACKET_MAX_PAGES / 2 },
+      ],
+    });
+
+    await expect(
+      deliverFaxPacket(
+        deliverArgs([{ faxNumber: '+12125551111' }, { faxNumber: '+12125552222' }], { plan: oversizedPlan })
+      )
+    ).rejects.toThrow(`Fax packet is ${FAX_PACKET_MAX_PAGES + 2} pages`);
+    expect(mockBuildAndUploadPacketForRecipient).not.toHaveBeenCalled();
   });
 
   it('sends a patient-level packet that names no visit', async () => {

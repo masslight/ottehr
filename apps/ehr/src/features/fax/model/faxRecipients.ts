@@ -62,6 +62,8 @@ export const toSendFaxPacketInput = (source: FaxPacketSource, values: FaxFormVal
     organization: trimmedOrUndefined(recipient.organization),
     faxNumber: recipient.faxNumber.trim(),
     phoneNumber: trimmedOrUndefined(recipient.phoneNumber),
-    ...(recipient.saveAsPcp ? { saveAsPcp: true } : {}),
+    // PCP management belongs to the original single-visit flow. Patient-level dialogs do not expose
+    // that control, and stale form state must not make those sends mutate generalPractitioner.
+    ...(source.type === 'visit' && recipient.saveAsPcp ? { saveAsPcp: true } : {}),
   })),
 });

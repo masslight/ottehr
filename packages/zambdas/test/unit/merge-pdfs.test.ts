@@ -1,6 +1,7 @@
 import { Jimp, JimpMime } from 'jimp';
 import { PageSizes, PDFDocument } from 'pdf-lib';
 import { describe, expect, test } from 'vitest';
+import { makeOrientedSceneJpeg } from '../../src/ehr/extract-insurance-card/test/image-fixtures';
 import { countPdfPages, mergePdfDocuments, normalizeFileToPdf } from '../../src/shared/pdf/merge-pdfs';
 
 const makePdf = async (pageCount: number): Promise<Uint8Array> => {
@@ -65,6 +66,18 @@ describe('normalizeFileToPdf', () => {
   test('renders a JPEG attachment onto one landscape PDF page', async () => {
     const image = new Jimp({ width: 2, height: 1, color: 0xffffffff });
     const jpeg = Uint8Array.from(await image.getBuffer(JimpMime.jpeg));
+
+    const bytes = await normalizeFileToPdf(jpeg, 'image/jpeg');
+    const pdf = await PDFDocument.load(bytes);
+
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getPage(0).getWidth()).toBeCloseTo(PageSizes.A4[1]);
+    expect(pdf.getPage(0).getHeight()).toBeCloseTo(PageSizes.A4[0]);
+  });
+
+  test.each([6, 8] as const)('applies EXIF orientation %s before choosing the PDF page layout', async (orientation) => {
+    // The displayed scene is landscape, while the stored pixels are portrait for orientations 6/8.
+    const jpeg = Uint8Array.from(await makeOrientedSceneJpeg(orientation, 32, 16));
 
     const bytes = await normalizeFileToPdf(jpeg, 'image/jpeg');
     const pdf = await PDFDocument.load(bytes);
