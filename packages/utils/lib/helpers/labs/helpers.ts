@@ -11,6 +11,7 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CPT_CODE_SYSTEM } from '../../fhir';
 import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir/patient';
 import { LabSetStatus } from '../../types/data/labs/lab-set.schema';
 import {
@@ -225,6 +226,13 @@ export const parseLabInfoFromServiceRequest = (
   );
 
   return getTestDetailsFromActivityDefinition(activityDefinition);
+};
+
+export const labOrderHasCptCodes = (serviceRequest: ServiceRequest): boolean => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+  return !!activityDefinition?.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
 };
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {

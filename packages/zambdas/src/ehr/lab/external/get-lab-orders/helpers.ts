@@ -35,6 +35,7 @@ import {
   getAdditionalPlacerId,
   getOrderNumber,
   getOrderNumberFromDr,
+  labOrderHasCptCodes,
   parseLabInfoFromServiceRequest,
 } from 'utils/lib/helpers/labs/helpers';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -272,6 +273,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     location: parseLocation(serviceRequest, locations),
     orderLevelNoteByUser,
     clinicalInfoNoteByUser,
+    hasCptCodes: labOrderHasCptCodes(serviceRequest),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {

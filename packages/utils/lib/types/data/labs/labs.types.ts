@@ -158,6 +158,7 @@ export type LabOrderListPageDTO = {
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
   orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
   clinicalInfoNoteByUser: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
+  hasCptCodes: boolean; // true when the contained ActivityDefinition has at least one CPT code in its code.coding
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -200,6 +201,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'orderLevelNoteByUser'
   | 'clinicalInfoNoteByUser'
   | 'isGenericOrder'
+  | 'hasCptCodes'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
