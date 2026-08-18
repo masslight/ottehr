@@ -1,5 +1,6 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
+import { holdPendingObservationFields } from 'src/features/visits/shared/stores/appointment/pending-observation-fields.store';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 
@@ -14,16 +15,31 @@ export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => 
   const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
 
   const { debounce } = useDebounce(700);
+  const queuedWriteReleaseRef = useRef<() => void>();
 
   const onChange = (value: string): void => {
     value = value.trim();
 
+    // The debounced write counts the field as busy from the keystroke on, not from the moment the
+    // request leaves: a "Clear Exam" landing inside the debounce window would be undone by this
+    // write, which would also be aimed at the Observation the clear has just deleted. The hold
+    // replaces the one held for the keystroke this one supersedes.
+    queuedWriteReleaseRef.current?.();
+    queuedWriteReleaseRef.current = holdPendingObservationFields([name]);
+
     debounce(() => {
+      // Released only after the write has taken its own hold, so the field never reads as free in
+      // between.
+      const release = queuedWriteReleaseRef.current;
+      queuedWriteReleaseRef.current = undefined;
+
       if (value) {
         update({ ...field, field: name, note: value });
       } else {
         deleteField(field);
       }
+
+      release?.();
     });
   };
 
