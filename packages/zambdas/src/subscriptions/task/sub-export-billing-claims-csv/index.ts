@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, Resource, Task, TaskOutput } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { toCsv } from 'utils/lib/helpers/csv';
@@ -110,7 +110,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
   const exported = new Set<string>();
 
   const addPage = async (claims: Claim[], includedResources: Resource[]): Promise<void> => {
-    const fresh = claims.filter((claim): claim is Claim & { id: string } => !!claim.id && !exported.has(claim.id));
+    const fresh = claims.filter(
+      (claim): claim is FhirResourceReturnValue<Claim> => !!claim.id && !exported.has(claim.id)
+    );
     if (fresh.length === 0) return;
     fresh.forEach((claim) => exported.add(claim.id));
     const items = await enrichAndMapClaims({
