@@ -473,4 +473,62 @@ describe('collectExternalLabCptProcedures', () => {
     expect(result.parsedPlans).toHaveLength(0);
     expect(result.itemsByLabGuid.size).toBe(0);
   });
+
+  test('returns empty warnings when all plans parse successfully', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token'
+    );
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  test('returns a warning for each malformed plan instead of silently dropping it', async () => {
+    const malformedPlan = makePlan('bad-plan', { performer: [] }); // no lab guid → parseExternalLabPlan returns null
+    const goodPlan = makePlan('good-plan');
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+    const list: List = {
+      resourceType: 'List',
+      status: 'current',
+      mode: 'working',
+      contained: [malformedPlan, goodPlan],
+    };
+    const result = await collectExternalLabCptProcedures(list, makeEncounterWithSubject(), 'append', 'mock-token');
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].section).toBe('externalLabs');
+    expect(result.warnings[0].message).toMatch(/CBC With Differential/);
+    // The valid plan still processed
+    expect(result.parsedPlans).toHaveLength(1);
+    expect(result.parsedPlans[0].planId).toBe('good-plan');
+  });
+
+  test('returns warnings (no fetch) when all plans are malformed', async () => {
+    const malformedPlan = makePlan('bad-plan', { performer: [] });
+    const list: List = {
+      resourceType: 'List',
+      status: 'current',
+      mode: 'working',
+      contained: [malformedPlan],
+    };
+    const result = await collectExternalLabCptProcedures(list, makeEncounterWithSubject(), 'append', 'mock-token');
+    expect(result.warnings).toHaveLength(1);
+    expect(result.parsedPlans).toHaveLength(0);
+    expect(getOrderableItems).not.toHaveBeenCalled();
+  });
+
+  test('returns empty warnings when action is skip', async () => {
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'skip',
+      'mock-token'
+    );
+    expect(result.warnings).toHaveLength(0);
+  });
 });

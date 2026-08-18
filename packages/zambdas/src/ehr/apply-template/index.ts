@@ -372,7 +372,12 @@ const performEffect = async (
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
   return {
-    warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings, ...inHouseMedicationsResult.warnings],
+    warnings: [
+      ...externalLabCptResult.warnings,
+      ...inHouseLabsResult.warnings,
+      ...externalLabsResult.warnings,
+      ...inHouseMedicationsResult.warnings,
+    ],
   };
 };
 

@@ -309,16 +309,18 @@ export interface ExternalLabCptResult {
   parsedPlans: ParsedExternalLabPlan[];
   /** Live compendium items keyed by lab guid — reusable by applyExternalLabPlans. */
   itemsByLabGuid: Map<string, OrderableItemSearchResult[] | 'fetch-failed'>;
+  /** Warnings for malformed plans — surfaced to the user at apply time. */
+  warnings: TemplateWarning[];
 }
 
 /**
  * Fetches live compendium data for each external lab plan on the template and
  * builds one CPT Procedure resource per CPT code per plan. Returns the Procedure
  * list (for inclusion in the apply transaction), the set of CPT codes contributed
- * (for dedup against the template's standalone CPT Codes section), and the
+ * (for dedup against the template's standalone CPT Codes section), the
  * intermediate parsed plans + item map so applyExternalLabPlans can reuse them
- * without re-fetching. Short-circuits to empty when the external labs section is
- * 'skip'.
+ * without re-fetching, and warnings for any malformed plan entries.
+ * Short-circuits to empty when the external labs section is 'skip'.
  */
 export const collectExternalLabCptProcedures = async (
   templateList: List,
@@ -331,12 +333,25 @@ export const collectExternalLabCptProcedures = async (
     cptCodesToSkip: new Set(),
     parsedPlans: [],
     itemsByLabGuid: new Map(),
+    warnings: [],
   };
   if (action === 'skip') return empty;
 
-  const plans = findExternalLabPlans(templateList);
-  const parsedPlans = plans.map(parseExternalLabPlan).filter((p): p is NonNullable<typeof p> => p !== null);
-  if (parsedPlans.length === 0) return empty;
+  const rawPlans = findExternalLabPlans(templateList);
+  const warnings: TemplateWarning[] = [];
+  const parsedPlans: ParsedExternalLabPlan[] = [];
+  for (const plan of rawPlans) {
+    const parsed = parseExternalLabPlan(plan);
+    if (!parsed) {
+      warnings.push({
+        section: 'externalLabs',
+        message: `Skipped "${labelForExternalLabPlan(plan)}" — the template entry is missing its lab or test identity.`,
+      });
+      continue;
+    }
+    parsedPlans.push(parsed);
+  }
+  if (parsedPlans.length === 0) return { ...empty, warnings };
 
   const itemsByLabGuid = await fetchPlanItemsByLabGuid(parsedPlans, m2mToken);
 
@@ -359,7 +374,7 @@ export const collectExternalLabCptProcedures = async (
       });
     }
   }
-  return { procedures, cptCodesToSkip, parsedPlans, itemsByLabGuid };
+  return { procedures, cptCodesToSkip, parsedPlans, itemsByLabGuid, warnings };
 };
 
 export const fetchPlanItemsByLabGuid = async (
