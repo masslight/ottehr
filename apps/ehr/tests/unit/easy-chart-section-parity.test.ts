@@ -77,8 +77,6 @@ describe('the note section manifest', () => {
   // The deliberate gaps, listed here so shrinking the list is a visible diff rather than a quiet win.
   it('has exactly the gaps we know about', () => {
     expect(NOTE_SECTIONS.filter((section) => !section.easyChart).map((section) => section.id)).toEqual([
-      'school-work-excuse',
-      'labs-ordered',
       'exam-migration-warning',
     ]);
   });

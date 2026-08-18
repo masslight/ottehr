@@ -7,10 +7,19 @@ import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 type HistoryOfPresentIllnessFieldProps = {
   label?: string;
+  /**
+   * Read and write this encounter instead of resolving one from the appointment store — for a page keyed
+   * by encounter, where the store is empty and the field would neither load nor save.
+   */
+  encounterId?: string;
+  /** Called after a save lands, for a page that owns its own chart query. */
+  onSaved?: () => void;
 };
 
 export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps> = ({
   label = 'History of Present Illness',
+  encounterId,
+  onSaved,
 }) => {
   const { data: chartDataFields } = useChartFields({
     requestedFields: {
@@ -18,6 +27,7 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
         _tag: 'chief-complaint',
       },
     },
+    encounterId,
   });
 
   const methods = useForm({
@@ -34,7 +44,10 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
 
   const { control } = methods;
 
-  const { onValueChange, isLoading, isChartDataLoading } = useDebounceNotesField('chiefComplaint');
+  const { onValueChange, isLoading, isChartDataLoading } = useDebounceNotesField('chiefComplaint', {
+    encounterId,
+    onSaved,
+  });
 
   return (
     <Controller
@@ -69,11 +82,13 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
 
 export const HistoryOfPresentIllnessFieldReadOnly: FC<HistoryOfPresentIllnessFieldProps> = ({
   label = 'History of Present Illness',
+  encounterId,
 }) => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
       chiefComplaint: { _tag: 'chief-complaint' },
     },
+    encounterId,
   });
 
   const historyOfPresentIllness = chartFields?.chiefComplaint?.text;

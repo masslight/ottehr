@@ -19,6 +19,7 @@ import {
   EXAM_NEGATION_TOKENS,
   EXAM_QUERY_STOPWORDS,
   GENERIC_FINDING_TOKENS,
+  MED_QUALIFIER_EVIDENCE,
   NORMALCY_PATTERNS,
   ROS_QUERY_STOPWORDS,
 } from './matcher-tables';
@@ -71,7 +72,10 @@ export function assertsNormal(query: string): boolean {
 }
 
 export function isNegated(query: string): boolean {
-  const tokens = query.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  const tokens = query
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean);
   return tokens.some((token) => EXAM_NEGATION_TOKENS.has(token));
 }
 
@@ -192,9 +196,51 @@ export function findRosMatches(
       best = Math.max(best, (hits / queryTokens.length) * 0.5 + (hits / labelTokens.size) * 0.5);
     }
     if (best > 0) {
-      results.push({ id: entry.baseField, display: `${entry.systemLabel}: ${entry.label}`, score: best, payload: entry });
+      results.push({
+        id: entry.baseField,
+        display: `${entry.systemLabel}: ${entry.label}`,
+        score: best,
+        payload: entry,
+      });
     }
   }
 
   return results.sort((a, b) => b.score - a.score || a.display.localeCompare(b.display));
+}
+
+/**
+ * Right drug, right form (requirements section 9).
+ *
+ * A medication catalogue is full of product names that carry a SITE or INDICATION in the name:
+ * "Clotrimazole AF Athlete's Foot Cream", "Miconazole Vaginal Cream", "Neomycin Otic Solution". They
+ * are the same active ingredient, so a name-similarity search ranks them interchangeably — and the top
+ * hit for "antifungal cream" on a vaginal candidiasis visit was an athlete's-foot product. Charting it
+ * is a wrong route and a wrong indication, not a cosmetic mismatch.
+ *
+ * A candidate whose name carries such a qualifier is only eligible when the REQUEST TEXT shows evidence
+ * for it. Absence of evidence DISQUALIFIES the candidate rather than merely lowering its score — a
+ * demoted candidate still wins when it is the only one, which is exactly the case that hurt.
+ *
+ * Only qualifiers in the table are judged: an unlisted word is not treated as a qualifier at all, so a
+ * plain "Amoxicillin 500 mg" is never filtered. High precision over coverage, deliberately.
+ */
+export function medicationQualifierSupported(candidateName: string, requestText: string): boolean {
+  const evidence = requestText.toLowerCase();
+  for (const token of tokenize(candidateName, new Set())) {
+    const required = MED_QUALIFIER_EVIDENCE[token];
+    if (!required) continue;
+    // Substring, not token, matching on the evidence side: the table's entries are deliberately stems
+    // ("vagin", "ophthalm", "prurit") so they hit the inflections a visit actually uses.
+    if (!required.some((word) => evidence.includes(word))) return false;
+  }
+  return true;
+}
+
+/**
+ * Drop catalogue candidates whose product name claims a site or indication the request does not support.
+ * An empty result is honest: the caller reports it as "nothing matched", and charting a wrong-route
+ * product would be worse than asking the provider to name the one they meant.
+ */
+export function filterUnsupportedQualifiers<T extends { display: string }>(candidates: T[], requestText: string): T[] {
+  return candidates.filter((candidate) => medicationQualifierSupported(candidate.display, requestText));
 }

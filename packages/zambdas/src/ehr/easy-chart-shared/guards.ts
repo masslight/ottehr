@@ -5,7 +5,7 @@
 // Silent no-ops are the single worst failure mode in this product.
 
 import Oystehr from '@oystehr/sdk';
-import { ActionKind, PlannableVitalField, PLANNABLE_VITAL_FIELDS, RawAction } from 'utils/lib/easy-chart/actions';
+import { ActionKind, PLANNABLE_VITAL_FIELDS, PlannableVitalField, RawAction } from 'utils/lib/easy-chart/actions';
 import { PlannedAction, RejectedAction, TriggerReport } from 'utils/lib/easy-chart/api';
 import {
   isCptShaped,
@@ -202,7 +202,11 @@ async function guardDiagnosisLike(action: PlannedAction, context: GuardContext):
 
   // A "history of…" Z-code used when the visit describes a CURRENT problem. add-condition may
   // legitimately record past history; a visit diagnosis may not.
-  if (kind === 'add-diagnosis' && isPersonalHistoryCode(row.code) && !/\bhistory\b|\bh\/o\b|\bprior\b|\bpast\b/i.test(context.narrative)) {
+  if (
+    kind === 'add-diagnosis' &&
+    isPersonalHistoryCode(row.code) &&
+    !/\bhistory\b|\bh\/o\b|\bprior\b|\bpast\b/i.test(context.narrative)
+  ) {
     return {
       rejected: {
         kind,
@@ -389,7 +393,11 @@ function guardRemoval(action: PlannedAction, kind: ActionKind, context: GuardCon
   });
   if (matches.length === 0) {
     return {
-      rejected: { kind, display: action.display, reason: `"${action.display}" is not on the chart, so nothing was removed` },
+      rejected: {
+        kind,
+        display: action.display,
+        reason: `"${action.display}" is not on the chart, so nothing was removed`,
+      },
     };
   }
   return { action };

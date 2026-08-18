@@ -285,7 +285,14 @@ describe('provenance', () => {
 
   it('keeps a quote the narrative really contains', async () => {
     const { actions } = await run(
-      [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'Rapid strep antigen was positive' }],
+      [
+        {
+          kind: 'add-diagnosis',
+          display: 'Strep throat',
+          code: 'J02.0',
+          sourceText: 'Rapid strep antigen was positive',
+        },
+      ],
       narrative
     );
     expect(actions[0].sourceText).toBe('Rapid strep antigen was positive');
@@ -329,10 +336,7 @@ describe('deterministic triggers', () => {
   });
 
   it('reports a voiced prescription commitment that produced neither a med nor a note', async () => {
-    const { triggers } = await run(
-      [{ kind: 'set-em-code', code: '99214' }],
-      "I'll send you something for the cough."
-    );
+    const { triggers } = await run([{ kind: 'set-em-code', code: '99214' }], "I'll send you something for the cough.");
     expect(triggers.find((t) => t.trigger === 'voiced-prescription-commitment')).toMatchObject({
       fired: true,
       complied: false,

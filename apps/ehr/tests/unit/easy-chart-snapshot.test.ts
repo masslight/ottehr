@@ -58,9 +58,12 @@ describe('buildChartSnapshot', () => {
 
   it('resolves an exam label from the real config when the observation carries none', () => {
     const snapshot = buildChartSnapshot(
-      chart({ examObservations: [{ resourceId: 'e-3', field: 'general-normal-appearance-well', value: true }] })
+      // A REAL field from the default config, so the assertion proves the label was resolved rather
+      // than proving a made-up field falls back to itself.
+      chart({ examObservations: [{ resourceId: 'e-3', field: 'well-hydrated', value: true }] })
     );
-    expect(snapshot.examFindings[0].display).not.toBe('general-normal-appearance-well');
+    expect(snapshot.examFindings[0].display).not.toBe('well-hydrated');
+    expect(snapshot.examFindings[0].display).toContain('Well-hydrated');
   });
 
   // The provider reads "Denies fever", so a removal must match that, not the bare symptom.

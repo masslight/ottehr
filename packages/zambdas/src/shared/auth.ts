@@ -7,7 +7,7 @@ import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
 import { getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 import { ZambdaInput } from './types/common';
 
@@ -35,12 +35,6 @@ export async function callerHasRole(
     return false;
   }
 }
-export const getUserToken = (input: { headers?: { Authorization?: string } }): string => {
-  const token = input.headers?.Authorization?.replace('Bearer ', '');
-  if (!token) throw MISSING_AUTH_TOKEN;
-  return token;
-};
-
 // The caller's bearer token, or NOT_AUTHORIZED (a handled 401) when there isn't one.
 //
 // The `input.headers.Authorization.replace('Bearer ', '')` line this replaces is copy-pasted at ~118

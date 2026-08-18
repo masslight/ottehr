@@ -15,7 +15,11 @@ import type {
 import { isDropdownComponent, isMultiSelectComponent } from '../ottehr-config/examination/examination.schema';
 
 export interface ExamLeaf {
-  /** The chart-data field name this leaf writes. */
+  /**
+   * The SAVEABLE chart-data field. For a modal option this is the PARENT checkbox's field, not the
+   * option's own key: `getAllExamFieldsMetadata` only registers the parent, and save-chart-data rejects
+   * anything else with "Exam observation with field … not found".
+   */
   field: string;
   /** What the provider reads, fully qualified ("Right: Appearance: Swelling"). */
   label: string;
@@ -28,9 +32,20 @@ export interface ExamLeaf {
   polarity: 'normal' | 'abnormal';
   /** The path from the card down to the leaf, for disambiguating in a picker. */
   path: string[];
+  /**
+   * Set when this leaf is an option inside a checkbox-with-modal. Such an option is NOT its own
+   * observation — it is stored as a component of `field`, so the write has to build the component
+   * rather than a second row.
+   */
+  component?: { code: string; label: string; groupLabel: string; columnLabel?: string; abnormal?: boolean };
 }
 
-/** Every selectable leaf in an exam config, in config order. */
+/**
+ * Every selectable leaf in an exam config, in config order.
+ *
+ * NOTE: several leaves can share one `field` — a checkbox-with-modal's options all save into the
+ * parent observation, distinguished by their `component`. Do not key a map on `field` alone.
+ */
 export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
   const leaves: ExamLeaf[] = [];
 
@@ -40,7 +55,8 @@ export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
     path: string[],
     sectionKey: string,
     sectionLabel: string,
-    polarity: 'normal' | 'abnormal'
+    polarity: 'normal' | 'abnormal',
+    component?: ExamLeaf['component']
   ): void => {
     if (!leafLabel?.trim()) return;
     leaves.push({
@@ -51,11 +67,13 @@ export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
       sectionLabel,
       polarity,
       path,
+      ...(component ? { component } : {}),
     });
   };
 
   const walkModal = (
     modal: Record<string, ExamModalWithColumnsSection>,
+    parentField: string,
     path: string[],
     sectionKey: string,
     sectionLabel: string,
@@ -67,16 +85,25 @@ export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
         // one side must not match the normal on the other.
         const columnPath = [...path, section.label, column.header ?? ''].filter(Boolean);
         for (const group of Object.values(column.groups)) {
-          for (const [field, option] of Object.entries(group.options)) {
+          for (const [optionKey, option] of Object.entries(group.options)) {
             push(
-              field,
+              // The PARENT's field, not `optionKey`. An option key is not a saveable observation —
+              // saving one returns "Exam observation with field … not found".
+              parentField,
               option.label,
               [...columnPath, group.label],
               sectionKey,
               sectionLabel,
               // A modal option declares its own polarity, which is more reliable than the side of
               // the card the modal's checkbox happens to live on.
-              option.abnormal === false ? 'normal' : option.abnormal === true ? 'abnormal' : polarity
+              option.abnormal === false ? 'normal' : option.abnormal === true ? 'abnormal' : polarity,
+              {
+                code: optionKey,
+                label: option.label,
+                groupLabel: group.label,
+                ...(column.header ? { columnLabel: column.header } : {}),
+                ...(option.abnormal != null ? { abnormal: option.abnormal } : {}),
+              }
             );
           }
         }
@@ -103,7 +130,7 @@ export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
           break;
         case 'checkbox-with-modal':
           push(field, component.label, path, sectionKey, sectionLabel, polarity);
-          walkModal(component.modal, [...path, component.label], sectionKey, sectionLabel, polarity);
+          walkModal(component.modal, field, [...path, component.label], sectionKey, sectionLabel, polarity);
           break;
         case 'dropdown':
           if (isDropdownComponent(component)) {

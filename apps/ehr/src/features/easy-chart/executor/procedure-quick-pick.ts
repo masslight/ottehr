@@ -93,12 +93,12 @@ export function procedureQuickPickContext(
   return {
     dto,
     cptCodes: (quickPick.cptCodes ?? [])
-      .filter((code): code is { code: string; display?: string } => Boolean(code?.code))
+      .filter((code) => Boolean(code?.code))
       .map((code) => ({ code: code.code, display: code.display ?? code.code })),
     // A procedure's linked diagnoses are SUPPORTING dx, never the encounter's primary — the primary is
     // the provider's own call and `add-diagnosis` owns it.
     diagnoses: (quickPick.diagnoses ?? [])
-      .filter((dx): dx is { code: string; display?: string } => Boolean(dx?.code))
+      .filter((dx) => Boolean(dx?.code))
       .map((dx) => ({ code: dx.code, display: dx.display ?? dx.code, isPrimary: false })),
     templateFilledFields: templateFilledFields(dto),
   };

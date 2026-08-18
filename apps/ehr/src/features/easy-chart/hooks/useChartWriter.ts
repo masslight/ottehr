@@ -14,7 +14,7 @@
 // on differently. The bodies below still throw as a backstop, so a `supports` flag that lies is a
 // loud bug rather than a silent no-op.
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import {
   applyTemplate as applyTemplateRequest,
   createExternalLabOrder,
@@ -24,9 +24,16 @@ import {
 } from 'src/api/api';
 import { useDeleteChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AllChartValues, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AllChartValues, CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
-import { CatalogueMatch, ChartedItem, ChartWriter, ExternalLabOrderContext } from '../executor/types';
+import { linkQuickPickCodes, ProcedureQuickPickContext } from '../executor/procedure-quick-pick';
+import {
+  CatalogueMatch,
+  ChartedItem,
+  ChartWriter,
+  ExternalLabOrderContext,
+  ProcedureWriteResult,
+} from '../executor/types';
 
 export interface UseChartWriterOptions {
   encounterId: string;
@@ -35,6 +42,16 @@ export interface UseChartWriterOptions {
    * diagnosis, and the endpoints want the real DTO rather than the executor's display-only view.
    */
   diagnoses?: DiagnosisDTO[];
+  /**
+   * The CPT codes currently on the chart. Needed for the same reason as `diagnoses`: a procedure
+   * quick-pick carries its own codes, and re-saving one already charted duplicates it.
+   */
+  cptCodes?: CPTCodeDTO[];
+  /**
+   * The procedures already on the chart. Only their ids are used, to tell which row in a save's
+   * response is the one just created.
+   */
+  procedures?: { resourceId?: string }[];
   /** Called with the ids a delete removed, so the provenance map does not keep stale entries. */
   onRemoved?: (resourceIds: string[]) => void;
   /**
@@ -49,6 +66,8 @@ export interface UseChartWriterOptions {
 export function useChartWriter({
   encounterId,
   diagnoses = [],
+  cptCodes = [],
+  procedures = [],
   onRemoved,
   onOptimisticRemove,
   onOrdersChanged,
@@ -179,6 +198,79 @@ export function useChartWriter({
     [oystehrZambda, encounterId, diagnoses, onOrdersChanged]
   );
 
+  // A procedure takes TWO saves, and this mirrors what the regular Procedures page does on Save: its
+  // CPT codes and supporting diagnoses have to exist as their own rows before the procedure can point
+  // at them, so save those first and link the procedure to the ids that come back.
+  //
+  // Reading the response's `procedures` array directly, rather than the flat `createdResourceIds`, is
+  // deliberate. Between the two saves the query cache has not been updated, so the second save reports
+  // the FIRST save's dx/CPT as new as well — keying provenance off `createdResourceIds[0]` would hang
+  // the procedure's per-field markers on a diagnosis.
+  const chartedRef = useRef({ diagnoses, cptCodes, procedures });
+  chartedRef.current = { diagnoses, cptCodes, procedures };
+
+  const addProcedure = useCallback(
+    async (context: ProcedureQuickPickContext): Promise<ProcedureWriteResult> => {
+      const charted = chartedRef.current;
+      // Only codes not already on the chart get created; the rest link to the existing row. Without
+      // this, a plan that charted "abscess of skin" from the dictation and then applied an I&D
+      // quick-pick carrying the same code left the note with the diagnosis twice.
+      const dx = linkQuickPickCodes(context.diagnoses, charted.diagnoses);
+      const cpt = linkQuickPickCodes(context.cptCodes, charted.cptCodes);
+
+      let createdCodeIds: string[] = [];
+      let savedDx: DiagnosisDTO[] = [];
+      let savedCpt: CPTCodeDTO[] = [];
+      if (dx.toCreate.length > 0 || cpt.toCreate.length > 0) {
+        const step1 = await saveChartData({
+          encounterId,
+          ...(dx.toCreate.length > 0 ? { diagnosis: dx.toCreate } : {}),
+          ...(cpt.toCreate.length > 0 ? { cptCodes: cpt.toCreate } : {}),
+        });
+        savedDx = step1.chartData?.diagnosis ?? [];
+        savedCpt = step1.chartData?.cptCodes ?? [];
+        createdCodeIds = step1.createdResourceIds;
+      }
+
+      // Every linked code resolved to a row that really exists: the one already charted, else the one
+      // just created. A code that resolves to neither is dropped rather than linked by value — a
+      // ServiceRequest referencing a resource that was never written is worse than an unlinked one.
+      const linkedDx = context.diagnoses
+        .map((row) => dx.existing.find((e) => e.code === row.code) ?? savedDx.find((e) => e.code === row.code))
+        .filter((row): row is DiagnosisDTO => Boolean(row?.resourceId));
+      const linkedCpt = context.cptCodes
+        .map((row) => cpt.existing.find((e) => e.code === row.code) ?? savedCpt.find((e) => e.code === row.code))
+        .filter((row): row is CPTCodeDTO => Boolean(row?.resourceId));
+
+      const knownProcedureIds = new Set(
+        charted.procedures.map((row) => row.resourceId).filter((id): id is string => Boolean(id))
+      );
+      const step2 = await saveChartData({
+        encounterId,
+        procedures: [
+          {
+            ...context.dto,
+            ...(linkedCpt.length > 0 ? { cptCodes: linkedCpt } : {}),
+            ...(linkedDx.length > 0 ? { diagnoses: linkedDx } : {}),
+          },
+        ],
+      });
+      const procedure = (step2.chartData?.procedures ?? []).find(
+        (row) => row.resourceId && !knownProcedureIds.has(row.resourceId)
+      );
+
+      return {
+        // The procedure and the genuinely-new codes. Codes that were already charted keep whatever
+        // provenance they already had — the procedure did not author them.
+        createdResourceIds: [...(procedure?.resourceId ? [procedure.resourceId] : []), ...createdCodeIds],
+        procedureResourceId: procedure?.resourceId,
+        inferredResourceIds: createdCodeIds,
+        templateFilledFields: context.templateFilledFields,
+      };
+    },
+    [saveChartData, encounterId]
+  );
+
   return useMemo<ChartWriter>(
     () => ({
       save,
@@ -188,12 +280,15 @@ export function useChartWriter({
         radiologyOrders: Boolean(oystehrZambda),
         nursingOrders: Boolean(oystehrZambda),
         templates: Boolean(oystehrZambda),
+        // Chart data, so it needs no zambda client of its own — the shared mutation is always there.
+        procedures: true,
       },
       orderLab,
       orderRadiology,
       createNursingOrder: createNursingOrderForVisit,
       applyTemplate,
+      addProcedure,
     }),
-    [save, remove, orderLab, orderRadiology, createNursingOrderForVisit, applyTemplate, oystehrZambda]
+    [save, remove, orderLab, orderRadiology, createNursingOrderForVisit, applyTemplate, addProcedure, oystehrZambda]
   );
 }

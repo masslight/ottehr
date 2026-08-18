@@ -14,8 +14,12 @@ export const useNoteHandlers: UseNoteHandlers = ({
   locales,
   softDeleteWithTombstone,
 }) => {
+  // THE READ. Without the encounter id this resolves one from the appointment store, which a page keyed
+  // by encounter does not populate — the query then never enables and the list renders with no entries at
+  // all, which looks exactly like a visit that has none.
   const { data: chartData, isLoading } = useChartFields({
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
+    encounterId,
   });
 
   const entities = ((chartData?.[apiConfig.fieldName] || []) as NoteDTO[]).map((note: NoteDTO) => ({
@@ -32,9 +36,9 @@ export const useNoteHandlers: UseNoteHandlers = ({
   })) as EditableNote[];
 
   const handleSave = useSaveNote({ encounterId, appointmentId, patientId, apiConfig });
-  const handleEdit = useEditNote({ appointmentId, apiConfig });
-  const hardDelete = useDeleteNote({ appointmentId, apiConfig, locales });
-  const softDelete = useSoftDeleteNote({ appointmentId, apiConfig, locales });
+  const handleEdit = useEditNote({ appointmentId, encounterId, apiConfig });
+  const hardDelete = useDeleteNote({ appointmentId, encounterId, apiConfig, locales });
+  const softDelete = useSoftDeleteNote({ appointmentId, encounterId, apiConfig, locales });
   const handleDelete = softDeleteWithTombstone ? softDelete : hardDelete;
 
   return {

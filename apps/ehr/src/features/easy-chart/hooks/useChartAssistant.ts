@@ -11,19 +11,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { ConversationTurn, ModelUsage, PlannedAction } from 'utils/lib/easy-chart/api';
-import { buildChartSnapshot } from '../executor/chartSnapshot';
-import { runPlan, summarisePlan } from '../executor/runPlan';
-import {
-  Catalogue,
-  ChartWriter,
-  ExecutionMode,
-  PickerRequest,
-  PickerResponse,
-  PlanStep,
-} from '../executor/types';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { ConversationTurn, ModelUsage, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
 import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { buildChartSnapshot } from '../executor/chartSnapshot';
+import { runPlan } from '../executor/runPlan';
+import { Catalogue, ChartWriter, ExecutionMode, PickerRequest, PickerResponse, PlanStep } from '../executor/types';
 
 /** How long a call must run before the elapsed counter appears. */
 const ELAPSED_VISIBLE_AFTER_MS = 4000;
@@ -34,13 +27,24 @@ export type ThreadEntry =
   | { id: number; role: 'provider'; text: string }
   | { id: number; role: 'assistant'; kind: 'reply' | 'provider-note' | 'unknown'; text: string }
   | { id: number; role: 'assistant'; kind: 'plan'; steps: PlanStep[] }
+  | { id: number; role: 'assistant'; kind: 'review'; suggestions: ReviewSuggestion[] }
   | { id: number; role: 'assistant'; kind: 'error'; text: string };
+
+/**
+ * A thread entry before it is given an id.
+ *
+ * DISTRIBUTIVE on purpose. A bare `Omit<ThreadEntry, 'id'>` collapses the union into the properties its
+ * members SHARE — which is `role` alone — so `kind` and `text` become unknown properties and every
+ * `push` fails to typecheck. `T extends any ? Omit<T, 'id'> : never` omits from each member instead.
+ */
+export type NewThreadEntry = ThreadEntry extends infer T ? (T extends ThreadEntry ? Omit<T, 'id'> : never) : never;
 
 export interface AssistantState {
   thread: ThreadEntry[];
   /** The plan currently running, so the current step can be kept in view. */
   liveSteps: PlanStep[];
-  status: 'idle' | 'planning' | 'executing';
+  /** `reviewing` is the SECOND pass — the model reading the finished note back against the narrative. */
+  status: 'idle' | 'planning' | 'executing' | 'reviewing';
   /** Seconds elapsed on the current call, once it has run long enough to be worth showing. */
   elapsedSeconds: number | null;
   /** Messages typed while the assistant was busy. They send when it frees up. */
@@ -100,7 +104,7 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
     return elapsed >= ELAPSED_VISIBLE_AFTER_MS ? Math.floor(elapsed / 1000) : null;
   }, [startedAt, now]);
 
-  const push = useCallback((entry: Omit<ThreadEntry, 'id'>): void => {
+  const push = useCallback((entry: NewThreadEntry): void => {
     setThread((current) => [...current, { ...entry, id: nextId.current++ } as ThreadEntry]);
   }, []);
 
@@ -210,17 +214,53 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
 
         // Summarise the assistant's turn, quote the provider's. What they SAID is evidence; what the
         // assistant DID is already in the chart state, so one line per action is enough.
-        history.current = [
-          ...history.current,
+        const turns: ConversationTurn[] = [
           { role: 'provider', text: message },
           {
             role: 'assistant',
             charted: allSteps.filter((s) => s.outcome?.status === 'applied').map((s) => s.label),
             skipped: allSteps.filter((s) => s.outcome?.status !== 'applied').map((s) => s.label),
           },
-        ].slice(-HISTORY_TURNS * 2);
+        ];
+        history.current = [...history.current, ...turns].slice(-HISTORY_TURNS * 2);
 
         await options.refetchChart();
+
+        // THE SECOND LOOK, and only after a BULK run. A pasted narrative is where the first pass has most
+        // to miss; a one-line correction is not worth a second model call. Its findings are pushed as
+        // QUESTIONS with their reasoning — never applied — because the review pass reasons about a note it
+        // did not write, and the provider decides.
+        if (mode === 'bulk') {
+          setStatus('reviewing');
+          try {
+            const chartAfter = chartRef.current;
+            const review = await apiClient.easyChartReview({
+              narrative: message,
+              encounterId: options.encounterId,
+              noteContext: {
+                chiefComplaint: chartAfter?.[chartKeyForNoteField('chiefComplaint')]?.text,
+                historyOfPresentIllness: chartAfter?.[chartKeyForNoteField('historyOfPresentIllness')]?.text,
+                mechanismOfInjury: chartAfter?.mechanismOfInjury?.text,
+                medicalDecision: chartAfter?.medicalDecision?.text,
+              },
+              chartState: summariseChartState(chartAfter),
+              chartedExamFindings: buildChartSnapshot(chartAfter).examFindings.map((item) => item.display),
+            });
+            addUsage(review.usage);
+            if (review.suggestions.length > 0) {
+              push({ role: 'assistant', kind: 'review', suggestions: review.suggestions });
+            }
+          } catch (error) {
+            // A failed review must not read as a failed CHARTING turn — the note was written. Say what
+            // did not happen, and no more.
+            console.error('[easy-chart] review pass failed', error);
+            push({
+              role: 'assistant',
+              kind: 'provider-note',
+              text: 'The note was charted, but the second-look review could not run. Review it yourself before signing.',
+            });
+          }
+        }
       } catch (error) {
         console.error('[easy-chart] turn failed', error);
         push({

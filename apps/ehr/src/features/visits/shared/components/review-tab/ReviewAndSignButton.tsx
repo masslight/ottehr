@@ -20,7 +20,7 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
-import { computeSignBlockers, signBlockerMessages } from 'utils/lib/easy-chart/sign-blockers';
+import { computeSignBlockers } from 'utils/lib/easy-chart/sign-blockers';
 import { getProviderType, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
@@ -205,7 +205,17 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     completed,
     hasNPI,
     inPersonStatus,
-    chartBlockers,
+    // The chart inputs `computeSignBlockers` reads, rather than a pre-computed list: the rules are pure,
+    // so memoizing on their inputs is what keeps the tooltip in step with the chart.
+    primaryDiagnosis,
+    medicalDecision,
+    emCode,
+    hpi,
+    patientInfoConfirmed,
+    chartFields?.accident,
+    chartFields?.inHouseLabResults,
+    mdmRequired,
+    inHouseLabReflexTestPending,
     isFollowup,
     hasExternalLabDraft,
     hasInHouseLabDraft,

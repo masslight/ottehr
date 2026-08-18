@@ -23,11 +23,7 @@ type ExamMigrationWarningProps = {
   onMigrated?: () => void | Promise<void>;
 };
 
-export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({
-  unmatchedFields,
-  encounterId,
-  onMigrated,
-}) => {
+export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedFields, encounterId, onMigrated }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { resources } = useAppointmentData();

@@ -15,11 +15,13 @@
 
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { ProcedureQuickPickContext } from './procedure-quick-pick';
 import { describeQuery, resolvePick } from './resolve';
 import {
   applied,
   CatalogueMatch,
   CatalogueQuery,
+  CatalogueResult,
   ChartedItem,
   failed,
   Handler,
@@ -30,9 +32,11 @@ import {
   StepOutcome,
 } from './types';
 
-const query = (action: { display?: string; searchTerms?: string[] }): CatalogueQuery => ({
+const query = (action: { display?: string; searchTerms?: string[]; sourceText?: string }): CatalogueQuery => ({
   display: action.display ?? '',
   searchTerms: action.searchTerms,
+  // The quote is the only thing here that speaks for the VISIT rather than for the model's phrasing.
+  evidence: [action.sourceText, action.display, ...(action.searchTerms ?? [])].filter(Boolean).join(' '),
 });
 
 /**
@@ -47,7 +51,12 @@ async function addFromCatalogue(
     noun: string;
     /** Set when the write path is not reachable here; the step skips before searching. */
     unsupported?: boolean;
-    write: (match: CatalogueMatch) => Promise<string[]>;
+    /**
+     * A plain id list for a simple row. A COMPOSITE row (a procedure) returns the extra provenance it
+     * produced instead — which of the rows it created were the template's contribution rather than the
+     * provider's words, and which of its fields need their own "default, verify".
+     */
+    write: (match: CatalogueMatch) => Promise<string[] | CompositeWriteResult>;
   }
 ): Promise<StepOutcome> {
   const subject = describeQuery(action.display);
@@ -55,7 +64,9 @@ async function addFromCatalogue(
   // Not supported HERE is not a failure and not an empty search result. Say what it is, and say
   // where the provider can do it, so a dictated item is never just quietly gone.
   if (options.unsupported) {
-    return skipped(`adding a ${options.noun} ("${subject}") is not available on this page yet — add it in the regular chart`);
+    return skipped(
+      `adding a ${options.noun} ("${subject}") is not available on this page yet — add it in the regular chart`
+    );
   }
 
   const result = await options.search(query(action));
@@ -76,8 +87,21 @@ async function addFromCatalogue(
   if (!pick) {
     return skipped(`no ${options.noun} in the catalogue matches "${subject}"`);
   }
-  const created = await options.write(pick.match);
-  return applied(created, { lowConfidence: pick.lowConfidence, note: pick.note });
+  const written = await options.write(pick.match);
+  const composite: CompositeWriteResult = Array.isArray(written) ? { createdResourceIds: written } : written;
+  return applied(composite.createdResourceIds, {
+    lowConfidence: pick.lowConfidence,
+    note: pick.note,
+    ...(composite.inferredResourceIds?.length ? { inferredResourceIds: composite.inferredResourceIds } : {}),
+    ...(composite.templateFilledFields?.length ? { templateFilledFields: composite.templateFilledFields } : {}),
+  });
+}
+
+/** What a write returns when the row it created is composite. See `addFromCatalogue`'s `write`. */
+interface CompositeWriteResult {
+  createdResourceIds: string[];
+  inferredResourceIds?: string[];
+  templateFilledFields?: { resourceId: string; fields: string[] }[];
 }
 
 /**
@@ -225,7 +249,9 @@ export const HANDLERS = {
       search: (q) => context.catalogue.conditions(q),
       noun: 'condition',
       write: (match) =>
-        context.writer.save({ conditions: [{ display: match.display, code: action.code, ...(match.payload as object) }] }),
+        context.writer.save({
+          conditions: [{ display: match.display, code: action.code, ...(match.payload as object) }],
+        }),
     }),
   'remove-condition': async (action, context) =>
     removeCharted(action, context, { items: context.chart.conditions, field: 'conditions', noun: 'condition' }),
@@ -253,7 +279,8 @@ export const HANDLERS = {
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.surgicalHistory(q),
       noun: 'procedure',
-      write: (match) => context.writer.save({ surgicalHistory: [{ display: match.display, ...(match.payload as object) }] }),
+      write: (match) =>
+        context.writer.save({ surgicalHistory: [{ display: match.display, ...(match.payload as object) }] }),
     }),
   'remove-surgical-history': async (action, context) =>
     removeCharted(action, context, {
@@ -266,7 +293,8 @@ export const HANDLERS = {
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.hospitalizations(q),
       noun: 'hospitalization',
-      write: (match) => context.writer.save({ episodeOfCare: [{ display: match.display, ...(match.payload as object) }] }),
+      write: (match) =>
+        context.writer.save({ episodeOfCare: [{ display: match.display, ...(match.payload as object) }] }),
     }),
   'remove-hospitalization': async (action, context) =>
     removeCharted(action, context, {
@@ -326,18 +354,49 @@ export const HANDLERS = {
       noun: 'send-out lab',
       write: (match) => context.writer.orderLab(match, false),
     }),
-  'add-radiology': async (action, context) =>
-    addFromCatalogue(action, context, {
+  'add-radiology': async (action, context) => {
+    // An imaging order is filed AGAINST a diagnosis, so refuse before searching rather than placing an
+    // unlinked order the radiology tab would reject.
+    if (context.chart.diagnoses.length === 0) {
+      return skipped(`"${describeQuery(action.display)}" needs a diagnosis on the chart before it can be ordered`);
+    }
+    return addFromCatalogue(action, context, {
       search: (q) => context.catalogue.radiology(q),
       noun: 'imaging study',
-      write: (match) => context.writer.orderRadiology(match),
-    }),
+      unsupported: !context.writer.supports.radiologyOrders,
+      // `dictatedStudyName` is what the PROVIDER said, which is what goes on the order — the catalogue
+      // match supplies the CPT, and its own display is the coding system's wording, not the visit's.
+      write: (match) => context.writer.orderRadiology(match, { dictatedStudyName: action.display ?? match.display }),
+    });
+  },
 
+  // A procedure is one dictated phrase in and a ten-field clinical form out, all of it pre-filled by
+  // the practice's quick-pick: complications, patientResponse and timeSpent among them. Two of those
+  // are legal claims and one feeds billing, so under per-ITEM provenance alone one confirm click would
+  // have accepted ten assertions the provider never made — which is why this was deferred until the
+  // per-FIELD "default, verify" marker existed. It does, so the write reports which fields the template
+  // filled and each is confirmed on its own.
   'add-procedure': async (action, context) =>
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.procedures(q),
       noun: 'procedure',
-      write: (match) => context.writer.save({ procedures: [{ procedureType: match.display, ...(match.payload as object) }] }),
+      unsupported: !context.writer.supports.procedures,
+      write: async (match) => {
+        const written = await context.writer.addProcedure(match.payload as ProcedureQuickPickContext);
+        return {
+          createdResourceIds: written.createdResourceIds,
+          inferredResourceIds: written.inferredResourceIds,
+          // Only when the row came back with an id: a marker keyed to `undefined` would attach the
+          // whole template's verify set to whatever row that hashes to.
+          ...(written.procedureResourceId && written.templateFilledFields.length > 0
+            ? {
+                templateFilledFields: [
+                  { resourceId: written.procedureResourceId, fields: written.templateFilledFields },
+                ],
+              }
+            : {}),
+        };
+      },
     }),
   'update-procedure': async (action, context) => {
     const target = action.procedureMatch?.toLowerCase().trim();

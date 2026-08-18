@@ -190,7 +190,12 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
         };
       }
       if (converted.value <= 0) {
-        return { status: 'implausible', value: converted.value, unit: converted.unit, reason: 'weight must be above 0' };
+        return {
+          status: 'implausible',
+          value: converted.value,
+          unit: converted.unit,
+          reason: 'weight must be above 0',
+        };
       }
       return { status: 'ok', value: converted.value, unit: converted.unit };
     });
@@ -303,10 +308,7 @@ const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
       String.raw`(?:weigh\w*|weight)\D{0,12}(${NUMBER}\s*(?:kgs?\b|kilos?\b|kilograms?\b|lbs?\b|pounds?\b|#|grams?\b|g\b|stones?\b|st\b))`,
       'i'
     ),
-    new RegExp(
-      String.raw`(${NUMBER}\s*(?:kgs?\b|kilos?\b|kilograms?\b|lbs?\b|pounds?\b|#|stones?\b))`,
-      'i'
-    ),
+    new RegExp(String.raw`(${NUMBER}\s*(?:kgs?\b|kilos?\b|kilograms?\b|lbs?\b|pounds?\b|#|stones?\b))`, 'i'),
   ],
   'vital-temperature': [
     new RegExp(String.raw`(${NUMBER}\s*(?:°\s*)?(?:f\b|c\b|degrees?\b|fahrenheit\b|celsius\b))`, 'i'),
@@ -317,10 +319,7 @@ const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
     new RegExp(String.raw`(?:heart\s*rate|pulse|\bhr\b)\D{0,12}(${NUMBER})`, 'i'),
   ],
   'vital-respiration-rate': [
-    new RegExp(
-      String.raw`(?:respirat\w*\s*rate|resp\s*rate|respirations?|\brr\b)\D{0,12}(${NUMBER})`,
-      'i'
-    ),
+    new RegExp(String.raw`(?:respirat\w*\s*rate|resp\s*rate|respirations?|\brr\b)\D{0,12}(${NUMBER})`, 'i'),
   ],
   'vital-oxygen-sat': [
     new RegExp(String.raw`(${NUMBER}\s*(?:%|percent\b))`, 'i'),

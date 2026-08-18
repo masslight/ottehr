@@ -42,13 +42,12 @@ describe('the sections that come from the regular chart', () => {
 
   // The read-only path matters as much: on a signed visit the note should read as a document, not as a
   // form full of disabled inputs.
-  it.each([
-    ['HistoryOfPresentIllnessFieldReadOnly'],
-    ['MechanismOfInjuryFieldReadOnly'],
-    ['DispositionSummary'],
-  ])('has a read-only counterpart for a signed visit: %s', (component) => {
-    expect(NOTE_PANE).toContain(`<${component}`);
-  });
+  it.each([['HistoryOfPresentIllnessFieldReadOnly'], ['MechanismOfInjuryFieldReadOnly'], ['DispositionSummary']])(
+    'has a read-only counterpart for a signed visit: %s',
+    (component) => {
+      expect(NOTE_PANE).toContain(`<${component}`);
+    }
+  );
 });
 
 describe('the page keeps its own state in step with those components', () => {

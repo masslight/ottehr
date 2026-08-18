@@ -5,6 +5,7 @@
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { describe, expect, it, vi } from 'vitest';
 import { HANDLERS } from '../../src/features/easy-chart/executor/handlers';
+import { ProcedureQuickPickContext } from '../../src/features/easy-chart/executor/procedure-quick-pick';
 import { AMBIGUITY_RATIO, classifyMatches } from '../../src/features/easy-chart/executor/resolve';
 import { runPlan, summarisePlan } from '../../src/features/easy-chart/executor/runPlan';
 import {
@@ -36,6 +37,9 @@ interface Harness {
   removed: { field: string; display: string }[];
   said: { text: string; kind: string }[];
   asks: PickerRequest[];
+  orderedLabs: { display: string; inHouse: boolean }[];
+  orderedImaging: { id: string; dictatedStudyName: string }[];
+  addedProcedures: ProcedureQuickPickContext[];
 }
 
 function harness(
@@ -45,15 +49,46 @@ function harness(
     mode?: 'bulk' | 'interactive';
     answer?: (request: PickerRequest) => PickerResponse;
     saveFails?: boolean;
+    supports?: Partial<ChartWriter['supports']>;
+    /** Catalogue name -> the reason it could not be consulted. */
+    unavailable?: Record<string, string>;
   } = {}
 ): Harness {
   const saved: Record<string, unknown>[] = [];
   const removed: { field: string; display: string }[] = [];
   const said: { text: string; kind: string }[] = [];
   const asks: PickerRequest[] = [];
+  const orderedLabs: { display: string; inHouse: boolean }[] = [];
+  const orderedImaging: { id: string; dictatedStudyName: string }[] = [];
+  const addedProcedures: ProcedureQuickPickContext[] = [];
   let nextId = 1;
 
   const writer: ChartWriter = {
+    // Everything supported by default, so a test that cares about the unsupported path says so.
+    supports: {
+      labOrders: true,
+      radiologyOrders: true,
+      nursingOrders: true,
+      templates: true,
+      procedures: true,
+      ...overrides.supports,
+    },
+    // The two saves the real writer makes, in the shape the handler consumes: the procedure row, the
+    // linked codes it had to create first, and the fields the template filled.
+    addProcedure: async (procedureContext) => {
+      if (overrides.saveFails) throw new Error('the chart could not be saved');
+      addedProcedures.push(procedureContext);
+      const procedureResourceId = `res-${nextId++}`;
+      const inferredResourceIds = [...procedureContext.diagnoses, ...procedureContext.cptCodes].map(
+        () => `res-${nextId++}`
+      );
+      return {
+        createdResourceIds: [procedureResourceId, ...inferredResourceIds],
+        procedureResourceId,
+        inferredResourceIds,
+        templateFilledFields: procedureContext.templateFilledFields,
+      };
+    },
     save: async (fields) => {
       if (overrides.saveFails) throw new Error('the chart could not be saved');
       saved.push(fields);
@@ -62,8 +97,14 @@ function harness(
     remove: async (field, item) => {
       removed.push({ field, display: item.display });
     },
-    orderLab: async () => [`res-${nextId++}`],
-    orderRadiology: async () => [`res-${nextId++}`],
+    orderLab: async (match, inHouse) => {
+      orderedLabs.push({ display: match.display, inHouse });
+      return [];
+    },
+    orderRadiology: async (match, request) => {
+      orderedImaging.push({ id: match.id, dictatedStudyName: request.dictatedStudyName });
+      return [];
+    },
     createNursingOrder: async () => [`res-${nextId++}`],
     applyTemplate: async () => [`res-${nextId++}`],
   };
@@ -95,7 +136,7 @@ function harness(
     say: (text, kind) => said.push({ text, kind }),
   };
 
-  return { context, saved, removed, said, asks };
+  return { context, saved, removed, said, asks, orderedLabs, orderedImaging, addedProcedures };
 }
 
 const match = (id: string, display: string, score: number): CatalogueMatch => ({ id, display, score });
@@ -231,7 +272,10 @@ describe('vitals', () => {
   // A guard let something through: fail loudly rather than writing a vital with no number.
   it('fails rather than charting a vital with no usable reading', async () => {
     const h = harness();
-    const { steps } = await runPlan([{ kind: 'set-vital', field: 'vital-weight', display: '80 stones-ish' }], h.context);
+    const { steps } = await runPlan(
+      [{ kind: 'set-vital', field: 'vital-weight', display: '80 stones-ish' }],
+      h.context
+    );
     expect(steps[0].outcome?.status).toBe('failed');
     expect(h.saved).toEqual([]);
   });
@@ -247,7 +291,9 @@ describe('the exactly-one-primary-diagnosis invariant', () => {
   // Demote rather than drop: a note that loses a secondary diagnosis is worse than one with a
   // demoted flag, and the provider is told what happened.
   it('demotes a second primary and says so', async () => {
-    const h = harness({ chart: { diagnoses: [{ resourceId: 'dx-1', display: 'AOM', code: 'H66.91', isPrimary: true }] } });
+    const h = harness({
+      chart: { diagnoses: [{ resourceId: 'dx-1', display: 'AOM', code: 'H66.91', isPrimary: true }] },
+    });
     const { steps } = await runPlan(
       [{ kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: true }],
       h.context
@@ -262,7 +308,10 @@ describe('the exactly-one-primary-diagnosis invariant', () => {
       [{ kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0' }],
       h.context
     );
-    expect(steps[0].outcome).toMatchObject({ status: 'skipped', reason: expect.stringMatching(/already on the chart/) });
+    expect(steps[0].outcome).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/already on the chart/),
+    });
     expect(h.saved).toEqual([]);
   });
 });
@@ -394,5 +443,77 @@ describe('the created-row map', () => {
     );
     expect([...createdBy.keys()]).toEqual(['res-1', 'res-2']);
     expect(createdBy.get('res-1')?.action.kind).toBe('edit-note-text');
+  });
+});
+
+describe('primary diagnosis is not lost when a plan swaps it', () => {
+  // REGRESSION. The review pass corrects a wrong diagnosis as a PAIR: remove-diagnosis +
+  // add-diagnosis. The add carries isPrimary:false (or omits it) because of the never-usurp rule —
+  // correct for a pure addition, wrong here: the diagnosis being removed IS the primary, so the note
+  // ends up with no primary at all, which is billing-invalid.
+  const PRIMARY = [{ resourceId: 'dx-1', display: 'Viral pharyngitis', code: 'J02.9', isPrimary: true }];
+
+  it('promotes the replacement when the removed diagnosis was primary', async () => {
+    const h = harness({ chart: { diagnoses: PRIMARY } });
+    const { steps } = await runPlan(
+      [
+        { kind: 'remove-diagnosis', display: 'Viral pharyngitis' },
+        { kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: false },
+      ],
+      h.context
+    );
+    expect(steps.map((s) => s.outcome?.status)).toEqual(['applied', 'applied']);
+    const charted = h.saved.flatMap((f) => (f.diagnosis as { isPrimary?: boolean }[]) ?? []);
+    expect(charted).toHaveLength(1);
+    expect(charted[0].isPrimary).toBe(true);
+  });
+
+  it('does not promote when the removed diagnosis was NOT primary', async () => {
+    const secondary = [
+      { resourceId: 'dx-1', display: 'Fever', code: 'R50.9', isPrimary: false },
+      { resourceId: 'dx-2', display: 'Otitis media', code: 'H66.90', isPrimary: true },
+    ];
+    const h = harness({ chart: { diagnoses: secondary } });
+    await runPlan(
+      [
+        { kind: 'remove-diagnosis', display: 'Fever' },
+        { kind: 'add-diagnosis', display: 'Pharyngitis', code: 'J02.9', isPrimary: false },
+      ],
+      h.context
+    );
+    const charted = h.saved.flatMap((f) => (f.diagnosis as { isPrimary?: boolean }[]) ?? []);
+    expect(charted[0].isPrimary).toBe(false);
+  });
+
+  it('never mints a second primary when an add already claims it', async () => {
+    const h = harness({ chart: { diagnoses: PRIMARY } });
+    await runPlan(
+      [
+        { kind: 'remove-diagnosis', display: 'Viral pharyngitis' },
+        { kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: true },
+        { kind: 'add-diagnosis', display: 'Fever', code: 'R50.9', isPrimary: false },
+      ],
+      h.context
+    );
+    const charted = h.saved.flatMap((f) => (f.diagnosis as { isPrimary?: boolean }[]) ?? []);
+    expect(charted.filter((d) => d.isPrimary)).toHaveLength(1);
+  });
+});
+
+describe('a plan sees what its own earlier steps charted', () => {
+  // REGRESSION. The snapshot used to be built once, before the run. A plan that charts a diagnosis and
+  // THEN orders a lab is the normal shape — the planner charts the assessment before the plan — but the
+  // lab step read the pre-plan snapshot, saw no diagnosis, and skipped an order the provider voiced.
+  it('orders a send-out lab against a diagnosis added earlier in the same plan', async () => {
+    const h = harness({ matches: { labs: [match('cbc', 'CBC', 1)] } });
+    const { steps } = await runPlan(
+      [
+        { kind: 'add-diagnosis', display: 'Fatigue', code: 'R53.83', isPrimary: true },
+        { kind: 'add-external-lab', display: 'CBC' },
+      ],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(steps[1].outcome?.status, steps[1].outcome?.reason).toBe('applied');
   });
 });

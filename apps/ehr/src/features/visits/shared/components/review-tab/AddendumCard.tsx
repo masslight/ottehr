@@ -29,16 +29,27 @@ const addendumNotesConfig: GenericNotesConfig = {
   },
 };
 
-export const AddendumCard: FC = () => {
+export interface AddendumCardProps {
+  /**
+   * The visit's ids, for a caller with no appointment in the store. The note list needs all three and
+   * renders a spinner until it has them, so a page keyed by ENCOUNTER must supply them.
+   */
+  resources?: { encounterId?: string; appointmentId?: string; patientId?: string };
+  /** `plain` drops the AccordionCard chrome, for a surface that supplies its own heading. */
+  variant?: 'card' | 'plain';
+}
+
+export const AddendumCard: FC<AddendumCardProps> = ({ resources, variant = 'card' }) => {
   // Surface the legacy single-string addendumNote (Encounter extension) so any pre-existing
   // content still appears after the migration to per-author NoteDTO entries.
   const { data: legacyFields } = useChartFields({
     requestedFields: { addendumNote: {} },
+    encounterId: resources?.encounterId,
   });
   const legacyAddendumText = legacyFields?.addendumNote?.text;
 
-  return (
-    <AccordionCard label="Addendum">
+  const body = (
+    <>
       <GenericNoteList
         apiConfig={addendumNotesConfig.apiConfig}
         locales={addendumNotesConfig.locales}
@@ -46,7 +57,15 @@ export const AddendumCard: FC = () => {
         alwaysEditable
         showEditedMarker
         softDeleteWithTombstone
-        containerSx={{ mt: 0 }}
+        // `plain` sits inside a surface that already has its own card, so the list's own Paper — elevation
+        // 3 plus a box shadow — reads as a second card nested in the first, with a shadow around the input
+        // and the Add button. Only the contents belong there.
+        containerSx={
+          variant === 'plain'
+            ? { mt: 0, boxShadow: 'none', backgroundColor: 'transparent', backgroundImage: 'none' }
+            : { mt: 0 }
+        }
+        resources={resources}
       />
 
       {legacyAddendumText && (
@@ -59,6 +78,8 @@ export const AddendumCard: FC = () => {
           </Box>
         </BoxStyled>
       )}
-    </AccordionCard>
+    </>
   );
+
+  return variant === 'plain' ? body : <AccordionCard label="Addendum">{body}</AccordionCard>;
 };

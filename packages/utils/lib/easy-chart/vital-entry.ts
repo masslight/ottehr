@@ -110,13 +110,13 @@ export function vitalEntrySpec(field: PlannableVitalField): VitalEntrySpec {
       fields: [
         {
           label: 'cm',
-          parse: (text) => HeightMeasurement.fromCmText(text)?.inCm(),
+          parse: (text) => HeightMeasurement.fromCmText(text)?.getCm(),
           render: (cm) => trimVitalNumber(cm),
         },
         {
           label: 'in',
-          parse: (text) => HeightMeasurement.fromInchesText(text)?.inCm(),
-          render: (cm) => trimVitalNumber(HeightMeasurement.fromCm(cm).inInches()),
+          parse: (text) => HeightMeasurement.fromInchesText(text)?.getCm(),
+          render: (cm) => trimVitalNumber(HeightMeasurement.fromCm(cm).getInches()),
         },
       ],
       toStored: (cm) => Math.round(cm * 100) / 100,
@@ -124,9 +124,7 @@ export function vitalEntrySpec(field: PlannableVitalField): VitalEntrySpec {
   }
 
   return {
-    fields: [
-      { label: VITAL_FIXED_UNIT[field] ?? '', parse: numberOrUndefined, render: (n) => trimVitalNumber(n) },
-    ],
+    fields: [{ label: VITAL_FIXED_UNIT[field] ?? '', parse: numberOrUndefined, render: (n) => trimVitalNumber(n) }],
     toStored: (n) => n,
   };
 }

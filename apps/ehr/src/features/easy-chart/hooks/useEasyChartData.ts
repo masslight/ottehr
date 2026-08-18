@@ -13,7 +13,7 @@
 // The unscoped call is load-bearing: ONLY a request with requestedFields omitted returns `aiChat`,
 // i.e. the transcripts this page is built around.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 
@@ -30,17 +30,62 @@ const EXTRA_FIELDS = {
   accident: { _tag: 'accident' },
   vitalsObservations: {},
   disposition: {},
+  ros: { _tag: 'ros' },
+  // Past hospitalizations. get-chart-data fetches this ONLY when it is asked for — unlike conditions,
+  // medications and surgical history, which the unscoped call brings by default. Omitting it does not
+  // produce an error, it produces an empty section, which is why it was invisible.
+  episodeOfCare: {},
+  surgicalHistoryNote: {},
   notes: {},
   addendumNote: {},
   patientInfoConfirmed: {},
   prescribedMedications: {},
-  inhouseMedications: {},
+  // NOT requested. `inhouseMedications` is fetched PATIENT-scoped with a `_tag`, so it returns the
+  // patient's in-house medication history across every visit — it showed a medication from a previous
+  // encounter and omitted the one just given here. The note pane takes MAR orders from the
+  // encounter-scoped get-medication-orders query instead, which is what Review & Sign does too.
+
+  cptCodes: {},
   externalLabResults: {},
   inHouseLabResults: {},
   procedures: {},
   radiologyOrders: {},
   patientHasPreviousVisits: {},
+  // Generated school / work excuses. Encounter-scoped DocumentReferences, fetched only when asked for.
+  schoolWorkNotes: {},
 } as const;
+
+/**
+ * Fields get-chart-data fetches ONLY on an explicit request, i.e. never from the unscoped call.
+ * EXTRA_FIELDS must cover every one this page renders, or the section is silently empty rather than
+ * erroring — the failure mode that hid hospitalizations. Pinned by a test.
+ */
+export const REQUEST_ONLY_CHART_FIELDS = [
+  'accident',
+  'birthHistory',
+  'chiefComplaint',
+  'cptCodes',
+  'disposition',
+  'episodeOfCare',
+  'historyOfPresentIllness',
+  'mechanismOfInjury',
+  'medicalDecision',
+  'notes',
+  'practitioners',
+  'preferredPharmacies',
+  'prescribedMedications',
+  'radiologyOrders',
+  'ros',
+  'surgicalHistoryNote',
+  'vitalsObservations',
+] as const;
+
+/** Request-only fields this page deliberately does not ask for, with the reason. */
+export const UNREQUESTED_BY_DESIGN: Record<string, string> = {
+  birthHistory: 'not a visit-note section — it belongs to the patient record, not this encounter',
+  practitioners: 'the note pane names no practitioners; the visit query already resolves the attender',
+  preferredPharmacies: 'a prescribing concern, and prescriptions are transmitted from the regular chart',
+};
 
 export interface EasyChartData {
   chartData: GetChartDataResponse | undefined;

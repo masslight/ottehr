@@ -19,9 +19,9 @@
 import { AllChartValues } from '../types/api/chart-data/chart-data.types';
 import {
   Action,
+  ACTION_KINDS,
   ActionField,
   ActionKind,
-  ACTION_KINDS,
   NOTE_TEXT_FIELDS,
   PLANNABLE_DISPOSITION_TYPES,
   PLANNABLE_VITAL_FIELDS,

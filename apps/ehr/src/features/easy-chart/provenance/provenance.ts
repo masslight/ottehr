@@ -59,8 +59,8 @@ export function recordAiAuthorship(state: ProvenanceState, input: RecordInput): 
   const origin: ProvenanceOrigin = input.templateName
     ? 'template-default'
     : quote && !input.lowConfidence
-      ? 'sourced'
-      : 'inferred';
+    ? 'sourced'
+    : 'inferred';
 
   for (const id of input.resourceIds) {
     byResourceId.set(id, {
@@ -112,8 +112,23 @@ export function recordFieldAuthorship(
   return { byResourceId };
 }
 
-export const isAiAuthored = (state: ProvenanceState, resourceId: string): boolean =>
-  state.byResourceId.has(resourceId);
+/**
+ * Mark ONE field of a composite item reviewed. A procedure's `complications` and `timeSpent` are
+ * separate assertions from the procedure itself, so they are confirmed separately; the item's own
+ * record stays until every field it carries has been seen.
+ */
+export function markProcedureFieldReviewed(state: ProvenanceState, resourceId: string, field: string): ProvenanceState {
+  const record = state.byResourceId.get(resourceId);
+  if (!record?.fields?.[field]) return state;
+  const byResourceId = new Map(state.byResourceId);
+  byResourceId.set(resourceId, {
+    ...record,
+    fields: { ...record.fields, [field]: { ...record.fields[field], reviewed: true } },
+  });
+  return { byResourceId };
+}
+
+export const isAiAuthored = (state: ProvenanceState, resourceId: string): boolean => state.byResourceId.has(resourceId);
 
 /** Rows the provider has not yet confirmed. Drives the "N items need review" banner. */
 export function needsReview(state: ProvenanceState): string[] {
@@ -142,7 +157,9 @@ export function explainProvenance(record: ProvenanceRecord | undefined): string 
       parts.push('Proposed by the review pass.');
       break;
     case 'template-default':
-      parts.push(record.templateName ? `Template default (${record.templateName}) — verify.` : 'Template default — verify.');
+      parts.push(
+        record.templateName ? `Template default (${record.templateName}) — verify.` : 'Template default — verify.'
+      );
       break;
   }
   if (record.reviewNote) parts.push(record.reviewNote);

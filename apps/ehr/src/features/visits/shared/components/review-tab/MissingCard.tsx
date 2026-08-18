@@ -107,20 +107,20 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  // Same shared rules the sign button and the Easy Chart page use, so this card can't claim the note
-  // is complete while the button refuses to sign it (or vice versa). `suggestionNote` stays separate:
-  // it's an AI HPI-quality hint, not a hard blocker. Lab-results blockers are excluded here because
-  // this card is about MISSING DATA the provider can go fill in — pending results aren't that.
-  const blockers = computeSignBlockers({
-    hasPrimaryDiagnosis: !!primaryDiagnosis,
-    medicalDecision,
-    hasEmCode: !!emCode,
-    hpi,
-    patientInfoConfirmed,
-    accident: chartFields?.accident,
-    mdmRequired,
-  });
-  if (!blockers.some((b) => b.group === 'missing-data' || b.group === 'patient-info') && !suggestionNote) {
+  // `blockerIds` above is the SAME computation, from the same shared rules and the same chart reads —
+  // this card must not claim the note is complete while the sign button refuses it, or vice versa.
+  // `suggestionNote` stays separate: it is an AI HPI-quality hint, not a hard blocker. Lab-results
+  // blockers are excluded because this card is about MISSING DATA a provider can go and fill in.
+  const hasMissingData = [
+    'no-primary-dx',
+    'no-mdm',
+    'no-em',
+    'no-hpi',
+    'accident-no-date',
+    'accident-no-state',
+    'patient-info-unconfirmed',
+  ].some((id) => blockerIds.has(id));
+  if (!hasMissingData && !suggestionNote) {
     return null;
   }
 
@@ -189,7 +189,7 @@ export const MissingCard: FC = () => {
               HPI
             </Link>
           )}
-          {!primaryDiagnosis && (
+          {blockerIds.has('no-primary-dx') && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}
@@ -200,7 +200,7 @@ export const MissingCard: FC = () => {
               Primary diagnosis
             </Link>
           )}
-          {mdmRequired && !medicalDecision && (
+          {blockerIds.has('no-mdm') && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}
@@ -211,7 +211,7 @@ export const MissingCard: FC = () => {
               Medical decision making
             </Link>
           )}
-          {!emCode && (
+          {blockerIds.has('no-em') && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}

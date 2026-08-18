@@ -54,8 +54,37 @@ import { UppercaseCaptionTypography } from './UppercaseCaptionTypography';
 
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
 
-export const DispositionCard: FC = () => {
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+export interface DispositionCardProps {
+  /**
+   * Read and write this encounter instead of resolving one from the appointment store.
+   *
+   * The Plan tab passes nothing and keeps reading the store. A page keyed by ENCOUNTER has no
+   * appointment in the store, so without this the chart-fields query never enables (the card sits on
+   * its loading skeleton forever) and the save falls back to an undefined id and throws.
+   */
+  encounterId?: string;
+  /**
+   * Override the read-only decision.
+   *
+   * NOT cosmetic. `useGetAppointmentAccessibility` derives the lock from the appointment in the store,
+   * and an empty store yields `isLocked: false` — so on a page that does not populate it, a SIGNED
+   * visit would render as editable. A caller that knows the lock state passes it.
+   */
+  isReadOnly?: boolean;
+  /** `plain` drops the AccordionCard chrome, for a surface that supplies its own heading. */
+  variant?: 'card' | 'plain';
+  /** Called after a save lands, so a page with its own chart query can refresh it. */
+  onSaved?: () => void;
+}
+
+export const DispositionCard: FC<DispositionCardProps> = ({
+  encounterId,
+  isReadOnly: isReadOnlyOverride,
+  variant = 'card',
+  onSaved,
+}) => {
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const isReadOnly = isReadOnlyOverride ?? isAppointmentReadOnly;
   const isResetting = useRef(false);
   const latestRequestId = useRef(0);
 
@@ -79,6 +108,7 @@ export const DispositionCard: FC = () => {
     isLoading: isChartFieldsLoading,
   } = useChartFields({
     requestedFields: { disposition: {} },
+    encounterId,
     onSuccess: (data) => {
       isResetting.current = true;
       reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
@@ -111,7 +141,7 @@ export const DispositionCard: FC = () => {
       const requestId = ++latestRequestId.current;
       debounce(() => {
         mutate(
-          { disposition: dispositionToSave },
+          { encounterId, disposition: dispositionToSave },
           {
             onSuccess: (data) => {
               if (requestId === latestRequestId.current) {
@@ -123,6 +153,7 @@ export const DispositionCard: FC = () => {
                   isResetting.current = false;
                 }
               }
+              onSaved?.();
             },
             onError: () => {
               if (requestId === latestRequestId.current) {
@@ -136,7 +167,7 @@ export const DispositionCard: FC = () => {
         );
       });
     },
-    [debounce, mutate, withNote, setQueryCache, reset]
+    [debounce, mutate, withNote, setQueryCache, reset, encounterId, onSaved]
   );
 
   useEffect(() => {
@@ -153,31 +184,29 @@ export const DispositionCard: FC = () => {
   const fields = dispositionFieldsPerType[currentType] ?? [];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
-  if (isChartFieldsLoading || !chartFields?.disposition) {
-    return (
-      <AccordionCard label="Disposition">
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Skeleton variant="rounded" height={36} />
-          <Skeleton variant="rounded" height={36} />
-          <Skeleton variant="rounded" height={36} />
-        </Box>
+  // `plain` renders the same body with no card chrome, so a surface with its own section heading does not
+  // end up with a heading inside a heading.
+  const shell = (children: React.ReactNode, headerItem?: React.ReactNode): React.ReactElement =>
+    variant === 'plain' ? (
+      <>{children}</>
+    ) : (
+      <AccordionCard label="Disposition" headerItem={headerItem}>
+        {children}
       </AccordionCard>
+    );
+
+  if (isChartFieldsLoading || !chartFields?.disposition) {
+    return shell(
+      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Skeleton variant="rounded" height={36} />
+        <Skeleton variant="rounded" height={36} />
+        <Skeleton variant="rounded" height={36} />
+      </Box>
     );
   }
 
-  return (
-    <AccordionCard
-      label="Disposition"
-      headerItem={
-        isLoading || isDirty ? (
-          <CircularProgress size="20px" />
-        ) : isError ? (
-          <Tooltip title={ERROR_TEXT}>
-            <ErrorOutlineIcon color="error" />
-          </Tooltip>
-        ) : undefined
-      }
-    >
+  return shell(
+    <>
       <FormProvider {...methods}>
         <Box
           sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}
@@ -544,6 +573,13 @@ export const DispositionCard: FC = () => {
           )}
         </Box>
       </FormProvider>
-    </AccordionCard>
+    </>,
+    isLoading || isDirty ? (
+      <CircularProgress size="20px" />
+    ) : isError ? (
+      <Tooltip title={ERROR_TEXT}>
+        <ErrorOutlineIcon color="error" />
+      </Tooltip>
+    ) : undefined
   );
 };

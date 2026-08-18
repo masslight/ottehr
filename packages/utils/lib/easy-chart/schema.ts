@@ -16,7 +16,7 @@
 // FIELD ORDER is part of the cached prompt payload. It follows ACTION_FIELDS and must stay stable;
 // do not reorder for cosmetics.
 
-import { ActionField, ACTION_FIELDS, PLANNABLE_DISPOSITION_TYPES, Surface } from './actions';
+import { ACTION_FIELDS, ActionField, PLANNABLE_DISPOSITION_TYPES, Surface } from './actions';
 import { capabilitiesForSurface, fieldsForSurface } from './registry';
 
 /**

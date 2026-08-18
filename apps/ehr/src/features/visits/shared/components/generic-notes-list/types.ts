@@ -43,6 +43,11 @@ export interface GenericNoteListProps extends CustomizableNotesConfig {
   locales: NoteLocales;
   addNoteButtonDataTestId?: string;
   noteLoadingIndicatorDataTestId?: string;
+  /**
+   * The three ids the list needs, for a caller that has them but no appointment in the store. Omit on
+   * the in-person pages, which resolve them from the store as before.
+   */
+  resources?: { encounterId?: string; appointmentId?: string; patientId?: string };
 }
 
 export interface EditableNotesListProps extends CustomizableNotesConfig {
@@ -89,13 +94,18 @@ export type UseSaveNote = (props: {
   apiConfig: NoteApiConfig;
 }) => (text: string) => Promise<void>;
 
+// `encounterId` is on every one of these because they all call `useChartFields` — to READ the list and to
+// update its cache after a write. That hook keys its cache by encounter, so a hook that omits the id
+// writes to a DIFFERENT cache entry than the one the list reads: the note saves and does not appear.
 export type UseDeleteNote = (props: {
   appointmentId: string;
+  encounterId: string;
   apiConfig: NoteApiConfig;
   locales: NoteLocales;
 }) => (entity: EditableNote) => Promise<void>;
 
 export type UseEditNote = (props: {
   appointmentId: string;
+  encounterId: string;
   apiConfig: NoteApiConfig;
 }) => (entity: EditableNote, newText: string) => Promise<void>;

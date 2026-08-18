@@ -7,9 +7,10 @@
 import { ActionKind, ActionOfKind, RawAction } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { hasRequiredFields, missingRequiredFields } from 'utils/lib/easy-chart/registry';
+import { advanceSnapshot } from './chartSnapshot';
 import { HANDLERS, isHandledKind } from './handlers';
 import { describeAction } from './labels';
-import { failed, HandlerContext, PlanStep, skipped, StepOutcome } from './types';
+import { ChartSnapshot, failed, HandlerContext, PlanStep, skipped, StepOutcome } from './types';
 
 export interface RunPlanOptions {
   /** Called as each step starts, so the UI can keep the current step in view. */
@@ -26,17 +27,71 @@ export interface PlanResult {
   createdBy: Map<string, PlanStep>;
 }
 
+/**
+ * Let the replacement diagnosis reclaim primary when the plan REMOVES the primary one.
+ *
+ * A diagnosis correction is a PAIR — remove-diagnosis + add-diagnosis — and that is what the review
+ * pass emits whenever it replaces a wrong diagnosis. The add carries isPrimary:false (or omits it),
+ * which is right for a pure addition: an addition must never usurp a primary the provider already set.
+ * It is wrong here, because the primary is on its way out. Left alone the note ends up with no primary
+ * at all, which is billing-invalid — and a missing primary is much worse than a debatable one.
+ *
+ * Deliberately narrow. It fires only when ALL of these hold, so it can never mint a second primary or
+ * override a deliberate choice:
+ *   - the plan removes a diagnosis that IS primary on the chart right now;
+ *   - the plan adds at least one diagnosis;
+ *   - no add in the plan claims primary for itself.
+ * Then the FIRST add becomes primary, even over an explicit false. Pure: returns a new array.
+ */
+export function reclaimPrimaryOnSwap(actions: PlannedAction[], chart: ChartSnapshot): PlannedAction[] {
+  const removes = actions.filter((a) => a.kind === 'remove-diagnosis');
+  const addIndex = actions.findIndex((a) => a.kind === 'add-diagnosis');
+  if (removes.length === 0 || addIndex < 0) return actions;
+  if (actions.some((a) => a.kind === 'add-diagnosis' && a.isPrimary === true)) return actions;
+
+  // Resolve the removal against the chart with the same containment rule the remove handler uses, so
+  // this agrees with the row that will actually be removed.
+  const removesPrimary = removes.some((remove) => {
+    const needle = (remove.display ?? '').toLowerCase().trim();
+    if (!needle) return false;
+    const hit =
+      chart.diagnoses.find((dx) => dx.display.toLowerCase() === needle) ??
+      chart.diagnoses.find(
+        (dx) => dx.display.toLowerCase().includes(needle) || needle.includes(dx.display.toLowerCase())
+      );
+    return hit?.isPrimary === true;
+  });
+  if (!removesPrimary) return actions;
+
+  return actions.map((action, index) => (index === addIndex ? { ...action, isPrimary: true } : action));
+}
+
 export async function runPlan(
   actions: PlannedAction[],
   context: HandlerContext,
   options: RunPlanOptions = {}
 ): Promise<PlanResult> {
-  const steps: PlanStep[] = actions.map((action, index) => ({
+  // Plan-level pre-pass: decided before anything executes, because it depends on what the plan as a
+  // whole does, not on what any one step can see.
+  const planned = reclaimPrimaryOnSwap(actions, context.chart);
+  const steps: PlanStep[] = planned.map((action, index) => ({
     index,
     action,
     label: describeAction(action),
   }));
   const createdBy = new Map<string, PlanStep>();
+
+  // THE SNAPSHOT ADVANCES AS THE PLAN RUNS. Steps in one plan depend on each other — the assessment
+  // is charted before the plan that references it — so a snapshot frozen before the run makes later
+  // steps reason about a chart that no longer exists. See advanceSnapshot for the three defects that
+  // came from freezing it. Handlers read `context.chart` unchanged; the getter is what makes it current.
+  let liveChart = context.chart;
+  const liveContext: HandlerContext = {
+    ...context,
+    get chart() {
+      return liveChart;
+    },
+  };
 
   for (const step of steps) {
     if (options.signal?.aborted) {
@@ -46,7 +101,11 @@ export async function runPlan(
     }
 
     options.onStepStart?.(step);
-    step.outcome = await executeStep(step.action, context);
+    step.outcome = await executeStep(step.action, liveContext);
+    // Only an applied step changed the chart; a skipped or failed one must not move the snapshot.
+    if (step.outcome.status === 'applied') {
+      liveChart = advanceSnapshot(liveChart, step.action, step.outcome.createdResourceIds ?? []);
+    }
     for (const id of step.outcome.createdResourceIds ?? []) createdBy.set(id, step);
     options.onStepSettled?.(step);
   }

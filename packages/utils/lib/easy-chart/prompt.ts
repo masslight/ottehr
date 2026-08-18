@@ -15,7 +15,7 @@
 //    trades measured quality for tidiness.
 
 import { Surface } from './actions';
-import { capabilitiesForSurface, CAPABILITIES } from './registry';
+import { CAPABILITIES, capabilitiesForSurface } from './registry';
 
 export const FIXED_INSTRUCTIONS_END = '═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══';
 
