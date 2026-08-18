@@ -1163,6 +1163,16 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
   },
 } as const;
 
+/**
+ * Routes that mean IV medication entered the patient, and therefore warrant a vitals re-check once the
+ * order is administered. Administering an order on one of these routes auto-generates a nursing order
+ * prompting the clinician to re-record temp, RR, HR, BP and SpO2.
+ */
+export const IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK: string[] = [
+  medicationApplianceRoutes.INTRAVENOUS.code,
+  medicationApplianceRoutes.INFUSION.code,
+];
+
 export interface EmergencyContactRelationship {
   code: string;
   system: string;
