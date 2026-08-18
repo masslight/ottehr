@@ -176,6 +176,9 @@ export default function EmployeeInformationForm({
   }, [existingUser, setValue]);
 
   const isProviderRoleSelected = getValues('roles')?.includes(RoleType.Provider) ?? false;
+  // Derived rather than passed down from the page: the ids are already here, and a `self` prop
+  // threaded through would be a second source of truth for the same fact.
+  const isOwnRecord = !!evolveUser?.id && evolveUser.id === existingUser?.id;
 
   const updateUserRequest = async (data: EmployeeForm): Promise<void> => {
     if (!oystehrZambda) {
@@ -305,6 +308,7 @@ export default function EmployeeInformationForm({
             control={control}
             errors={errors}
             isActive={isActive}
+            isOwnRecord={isOwnRecord}
             getValues={getValues}
             setValue={setValue}
           />

@@ -90,21 +90,39 @@ describe('EmployeeInformationForm role submission', () => {
     expect(mockUpdateUser.mock.calls[0][1].selectedRoles).toEqual([RoleType.Clinician]);
   });
 
-  it('preserves roles that are real but have no checkbox', async () => {
+  it('keeps every role the user already held when an unrelated field is edited', async () => {
+    // Deliberately not Provider: that makes NPI a required input, so an empty one blocks submission
+    // and the test would be measuring NPI validation rather than role handling.
     renderForm(
       makeUser([
-        { id: 'r-cc', name: RoleType.CallCentre },
+        { id: 'r-manager', name: RoleType.Manager },
         { id: 'r-staff', name: RoleType.Staff },
       ])
     );
 
     await saveWithNames();
 
-    // CallCentre isn't in AVAILABLE_EMPLOYEE_ROLES, so it renders no checkbox — but it's a genuine
-    // role, and a save must not quietly strip it.
+    // The filter guarding against `Patient` must not become a filter that quietly drops roles: the
+    // form submits the full role set on every save, so editing a name would otherwise demote someone.
     await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
     expect(mockUpdateUser.mock.calls[0][1].selectedRoles).toEqual(
-      expect.arrayContaining([RoleType.CallCentre, RoleType.Staff])
+      expect.arrayContaining([RoleType.Manager, RoleType.Staff])
     );
+  });
+
+  it('passes the Inactive role through rather than reactivating someone as a side effect', async () => {
+    renderForm(
+      makeUser([
+        { id: 'r-staff', name: RoleType.Staff },
+        { id: 'r-inactive', name: RoleType.Inactive },
+      ])
+    );
+
+    await saveWithNames();
+
+    // Inactive is a real role with no checkbox. Whether saving a deactivated user reactivates them
+    // is the zambda's call — the form shouldn't decide it by silently dropping the role here.
+    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
+    expect(mockUpdateUser.mock.calls[0][1].selectedRoles).toContain(RoleType.Inactive);
   });
 });

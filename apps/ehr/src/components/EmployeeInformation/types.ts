@@ -56,6 +56,9 @@ export interface RoleSelectionProps {
   control: Control<any>;
   errors: FormErrors;
   isActive: boolean;
+  /** Whether the signed-in user is looking at their own record, which only changes how the
+   *  role-permission hint is worded. */
+  isOwnRecord: boolean;
   getValues: UseFormGetValues<any>;
   setValue: UseFormSetValue<any>;
 }

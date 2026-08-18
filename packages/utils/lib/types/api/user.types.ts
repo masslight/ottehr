@@ -26,35 +26,29 @@ export const hasPractitionerProfile = (profile: string | undefined): boolean =>
 /**
  * Whether a role name is one of the roles an employee can hold.
  *
- * A project can carry roles that aren't employee roles at all — a self-registered user holds
+ * A project carries roles that aren't employee roles at all — a self-registered user holds
  * `Patient` — and those must not be echoed back when saving an employee record, both because
  * `update-user` rejects them and because converting such a user to staff is precisely the point at
  * which the old role should fall away.
  *
- * Note this is deliberately the whole {@link RoleType} enum rather than `AVAILABLE_EMPLOYEE_ROLES`:
- * roles that exist but aren't offered as checkboxes are still real, and filtering to the displayed
- * set would silently strip them from anyone who holds one.
+ * Checks the whole {@link RoleType} enum rather than `AVAILABLE_EMPLOYEE_ROLES`, which additionally
+ * keeps `Inactive` — a real role, just not one assigned from the checkbox list. Deactivation state
+ * is the activation zambda's business, so the form passes it through untouched rather than silently
+ * reactivating someone as a side effect of an unrelated edit.
  */
 export const isRoleType = (roleName: string): roleName is RoleType =>
   (Object.values(RoleType) as string[]).includes(roleName);
 
 export enum RoleType {
   Administrator = 'Administrator',
-  AssistantAdmin = 'AssistantAdmin',
   BillingAdmin = 'BillingAdmin',
-  Billing = 'Billing',
-  CallCentre = 'CallCentre',
   // Clinical staff without an NPI (e.g. nurses, medical assistants). Provider-level EHR access
   // except NPI-gated actions (sign notes, e-prescribe, external labs & imaging, claims, in-house meds).
   Clinician = 'Clinician',
   CustomerSupport = 'Customer Support',
-  FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
   Manager = 'Manager',
-  // Medical Assistant
-  NewUser = 'NewUser',
   Provider = 'Provider',
-  RegionalTelemedLead = 'RegionalTelemedLead',
   Staff = 'Staff',
 }
 

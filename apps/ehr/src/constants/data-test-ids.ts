@@ -9,6 +9,11 @@ export const dataTestIds = {
   deleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
     userName: 'header-user-name',
+    myProfileMenuItem: 'header-my-profile-menu-item',
+  },
+  myProfilePage: {
+    profileTab: 'my-profile-profile-tab',
+    notificationsTab: 'my-profile-notifications-tab',
   },
   inPersonHeader: {
     container: 'in-person-header-container',
@@ -194,6 +199,7 @@ export const dataTestIds = {
     addressState: 'employee-address-state',
     addressZip: 'employee-address-zip',
     rolesSection: 'employee-roles-section',
+    roleEditPermissionHint: 'employee-role-edit-permission-hint',
     roleRow: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
     providerDetailsCredentialsDropdown: 'employees-provider-details-credentials-dropdown',
     providerDetailsCredentialsOtherText: 'employees-provider-details-credentials',

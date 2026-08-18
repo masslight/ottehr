@@ -176,18 +176,9 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     label: 'My Profile',
     to: '/profile',
     icon: PersonIcon,
-    keywords: ['account', 'settings', 'my account', 'my settings', 'notifications', 'alerts'],
-  },
-  {
-    // Deliberately shares 'my profile' / 'my account' / 'my settings' with nav-profile above: there
-    // are two self-service pages and no reason a user should have to know which one holds their
-    // address versus their notification preferences, so either query offers both.
-    id: 'nav-my-record',
-    label: 'My Employee Record',
-    to: '/my-record',
-    icon: BadgeIcon,
     keywords: [
-      'my profile',
+      'account',
+      'settings',
       'my account',
       'my settings',
       'my details',
@@ -196,6 +187,16 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
       'my license',
       'credentials',
     ],
+  },
+  {
+    // Its own entry rather than a keyword on My Profile: it's a distinct destination now that the
+    // page is tabbed, and "notifications" should land on the tab that holds them.
+    id: 'nav-notification-settings',
+    label: 'Notification Settings',
+    to: '/profile',
+    query: { tab: 'notifications' },
+    icon: BadgeIcon,
+    keywords: ['notifications', 'alerts', 'my notifications'],
   },
 ];
 

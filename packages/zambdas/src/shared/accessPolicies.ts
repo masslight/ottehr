@@ -403,62 +403,6 @@ export const CUSTOMER_SUPPORT_RULES: AccessPolicy = {
   rule: [...ADMINISTRATOR_RULES.rule, ...PROVIDER_RULES.rule],
 };
 
-export const FRONT_DESK_RULES: AccessPolicy = {
-  rule: [
-    {
-      action: ['FHIR:Search', 'FHIR:Read'],
-      effect: 'Allow',
-      resource: [
-        'FHIR:Patient',
-        'FHIR:Consent',
-        'FHIR:Coverage',
-        'FHIR:RelatedPerson',
-        'FHIR:Organization',
-        'FHIR:Location',
-        'FHIR:HealthcareService',
-        'FHIR:QuestionnaireResponse',
-        'FHIR:Questionnaire',
-        'FHIR:DocumentReference',
-      ],
-    },
-    {
-      action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update'],
-      effect: 'Allow',
-      resource: ['FHIR:Appointment', 'FHIR:Encounter'],
-    },
-    {
-      action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      effect: 'Allow',
-      resource: ['FHIR:Communication'],
-    },
-    {
-      action: ['Z3:GetObject'],
-      effect: 'Allow',
-      resource: ['Z3:*'],
-    },
-    {
-      action: ['Zambda:InvokeFunction'],
-      effect: 'Allow',
-      resource: ['Zambda:Function:*'],
-    },
-    {
-      action: ['Messaging:SendTransactionalSMS'],
-      effect: 'Allow',
-      resource: ['*'],
-    },
-    {
-      action: ['Messaging:GetConfiguration'],
-      effect: 'Allow',
-      resource: ['Messaging:Messaging:*'],
-    },
-    {
-      action: ['FHIR:History'],
-      effect: 'Allow',
-      resource: ['FHIR:Patient', 'FHIR:Appointment'],
-    },
-  ],
-};
-
 export const INACTIVE_RULES: AccessPolicy = {
   rule: [
     {

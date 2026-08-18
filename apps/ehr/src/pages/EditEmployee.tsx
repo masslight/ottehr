@@ -1,10 +1,10 @@
 import { otherColors } from '@ehrTheme/colors';
 import { LoadingButton } from '@mui/lab';
-import { Box, Chip, Grid, Paper, Skeleton, Typography, useTheme } from '@mui/material';
+import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useGetEmployeeDetails } from 'src/features/admin/employees.queries';
 import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
@@ -21,25 +21,20 @@ import PractitionerRoleList from '../components/schedule/PractitionerRoleList';
 import { dataTestIds } from '../constants/data-test-ids';
 import { checkUserIsActive } from '../helpers/checkUserIsActive';
 import { useApiClients } from '../hooks/useAppClients';
-import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
 /**
- * @param self Render the signed-in user's own record instead of one named in the URL. Self-service
- * mode drops the admin-only surfaces — breadcrumbs back to a list the user can't open, the schedule
- * assignment card, and profile activation. Role checkboxes need no special handling: `RoleSelection`
- * already disables them for anyone who isn't an Administrator or Customer Support.
+ * The admin view of one employee's record. A user editing their own record does it on My Profile,
+ * which reuses {@link EmployeeInformationForm} directly — this page adds the surfaces only an admin
+ * gets: breadcrumbs, schedule assignment, and activation or deletion.
  */
-export default function EditEmployeePage({ self = false }: { self?: boolean } = {}): JSX.Element {
+export default function EditEmployeePage(): JSX.Element {
   const { oystehrZambda } = useApiClients();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const theme = useTheme();
-  const currentUser = useEvolveUser();
   // get the user id from the url
-  const { id: routeId } = useParams();
-  const id = self ? currentUser?.id : routeId;
+  const { id } = useParams();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
 
@@ -151,20 +146,18 @@ export default function EditEmployeePage({ self = false }: { self?: boolean } = 
   };
 
   return (
-    <PageContainer tabTitle={self ? 'My Employee Record' : 'Edit Employee'}>
+    <PageContainer tabTitle={'Edit Employee'}>
       <>
         <Grid container direction="row" alignItems="center" justifyContent="center">
           <Grid item maxWidth={'1100px'} width={'100%'}>
             {/* Breadcrumbs */}
-            {!self && (
-              <CustomBreadcrumbs
-                chain={[
-                  { link: '/admin', children: 'Admin' },
-                  { link: '/admin/employees', children: 'Employees' },
-                  { link: '#', children: user?.name || <Skeleton width={150} /> },
-                ]}
-              />
-            )}
+            <CustomBreadcrumbs
+              chain={[
+                { link: '/admin', children: 'Admin' },
+                { link: '/admin/employees', children: 'Employees' },
+                { link: '#', children: user?.name || <Skeleton width={150} /> },
+              ]}
+            />
 
             {/* Page Title */}
             <Typography
@@ -196,15 +189,6 @@ export default function EditEmployeePage({ self = false }: { self?: boolean } = 
               {user?.email || <Skeleton width={250} />}
             </Typography>
 
-            {/* Notification preferences live on My Profile, not here. */}
-            {self && (
-              <Link to="/profile" style={{ color: theme.palette.primary.main }}>
-                <Typography variant="body2" mb={2}>
-                  Notification settings
-                </Typography>
-              </Link>
-            )}
-
             {/* Page Content */}
             <Box>
               {user && (
@@ -218,7 +202,7 @@ export default function EditEmployeePage({ self = false }: { self?: boolean } = 
                 />
               )}
 
-              {!self && isActive && user?.profileResource?.id && (
+              {isActive && user?.profileResource?.id && (
                 <Box id="schedule" ref={scheduleAnchorRef}>
                   <PractitionerRoleList practitionerId={user.profileResource.id} />
                 </Box>
@@ -228,7 +212,7 @@ export default function EditEmployeePage({ self = false }: { self?: boolean } = 
                   nothing to deactivate — the only meaningful action is removing the account. Filling
                   in their details and saving is the other way out: `update-user` creates the
                   Practitioner and repoints the profile, after which this becomes a normal record. */}
-              {self ? null : isActive === undefined ? (
+              {isActive === undefined ? (
                 <Skeleton height={300} sx={{ marginTop: -8 }} />
               ) : needsSetup ? (
                 <Paper sx={{ padding: 3, marginTop: 3 }}>
