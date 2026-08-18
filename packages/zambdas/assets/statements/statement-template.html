@@ -45,7 +45,7 @@
     .due-item { display:flex; flex-direction:column; align-items:flex-end; }
     .due-label  { font-size:8px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--faint); margin-bottom:2px; }
     .due-value  { font-size:12px; font-weight:600; color:var(--navy); }
-    .due-amount { font-size:18px; font-weight:700; color:var(--red); }
+    .due-amount { font-size:18px; font-weight:700; color:var(--red); white-space:nowrap; }
 
     /* info row */
     .info-row { display:flex; padding:14px var(--margin) 10px; gap:0; }
@@ -62,17 +62,18 @@
     table.services thead tr { border-top:1px solid var(--navy); border-bottom:1px solid var(--navy); }
     table.services th { font-size:8px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--navy); padding:4px 5px; text-align:right; white-space:normal; line-height:1.3; }
     table.services th:first-child, table.services th:nth-child(2) { text-align:left; }
-    table.services td { padding:5px 5px; font-size:11px; border-bottom:1px solid #eef1f6; text-align:right; color:var(--ink); }
+    /* nowrap keeps a negative amount whole — browsers break a line after the minus sign otherwise */
+    table.services td { padding:5px 5px; font-size:11px; border-bottom:1px solid #eef1f6; text-align:right; color:var(--ink); white-space:nowrap; }
     table.services td:first-child { text-align:left; font-weight:600; color:var(--blue); font-size:10.5px; font-family:'Courier New',monospace; letter-spacing:.3px; }
-    table.services td:nth-child(2){ text-align:left; color:var(--mid); font-size:10.5px; }
+    table.services td:nth-child(2){ text-align:left; color:var(--mid); font-size:10.5px; white-space:normal; }
     table.services tbody tr:last-child td { border-bottom:none; }
 
     /* balance line */
     .balance-row { display:flex; justify-content:space-between; align-items:baseline; padding:6px 5px; border-top:1.5px solid var(--navy); }
     .balance-inline { display:flex; gap:22px; align-items:baseline; font-size:10px; color:var(--mid); }
-    .balance-inline .val { font-weight:600; color:var(--ink); }
+    .balance-inline .val { font-weight:600; color:var(--ink); white-space:nowrap; }
     .balance-due-label  { font-size:13px; font-weight:700; color:var(--navy); }
-    .balance-due-amount { font-size:16px; font-weight:700; color:var(--navy); margin-left:6px; }
+    .balance-due-amount { font-size:16px; font-weight:700; color:var(--navy); margin-left:6px; white-space:nowrap; }
     .past-due-badge     { display:none; background:#8b0000; color:#fff; font-size:16px; font-weight:900; letter-spacing:2px; text-transform:uppercase; padding:5px 14px; border-radius:3px; margin-left:14px; vertical-align:middle; }
     .past-due-badge.final-notice { font-size:26px; letter-spacing:3px; padding:8px 20px; }
 

@@ -249,6 +249,10 @@ export function emptyClaimStatusValues(): ClaimStatusValues {
   }, {} as ClaimStatusValues);
 }
 
+export function hasReachedPatientAr(claim: Pick<Claim, 'meta'> | undefined): boolean {
+  return getClaimStatusValues(claim).arStage === AR_STAGE.patient;
+}
+
 // Human-readable label for a field value code (empty/unknown -> '').
 export function formatClaimStatusValue(field: ClaimStatusFieldDef, code: string | undefined): string {
   if (!code) return '';

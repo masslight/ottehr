@@ -144,6 +144,7 @@ function buildServiceLine(
   const buckets = patientRespBuckets(amounts.adjustments);
   return {
     itemSequence: item.itemSequence ?? null,
+    claimItemSequence: submitted?.sequence ?? null,
     isClaimLevel: claimLevel,
     cptCode: cptCode || submitted?.productOrService?.coding?.[0]?.code || '',
     modifiers: (submitted?.modifier ?? []).map((modifier) => modifier.coding?.[0]?.code ?? '').filter(Boolean),
