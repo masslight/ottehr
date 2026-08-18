@@ -16,7 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
@@ -51,40 +51,49 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
   const [claims, setClaims] = useState<BillingClaimItem[]>([]);
   const [claim, setClaim] = useState<BillingClaimItem | null>(null);
   const [claimLoading, setClaimLoading] = useState<boolean>(false);
+  const searchRequest = useRef(0);
 
-  const { debounce } = useDebounce();
+  const { clear, debounce } = useDebounce();
 
-  subscribe({
-    formState: {
-      values: true,
-    },
-    callback: ({ values }) => {
-      debounce(async () => {
-        const searchText = values.searchText;
-        if (!oystehrZambda) return;
+  useEffect(() => {
+    const unsubscribe = subscribe({
+      formState: { values: true },
+      callback: ({ values }) => {
+        const request = ++searchRequest.current;
+        const searchText = values.searchText ?? '';
+        setClaims([]);
+        setClaim(null);
+        setError(null);
+        setClaimLoading(false);
+
         if (!searchText) {
-          setClaims([]);
-          setClaim(null);
-          setError(null);
+          clear();
           return;
         }
-        try {
-          setError(null);
-          setClaims([]);
-          setClaim(null);
-          setClaimLoading(true);
-          const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25 });
-          setClaims(data.claims);
-          if (data.claims.length === 0) setError('Claim not found');
-        } catch (err) {
-          setClaims([]);
-          setError(getApiError({ error: err, defaultError: 'Failed to search claims' }));
-        } finally {
-          setClaimLoading(false);
-        }
-      });
-    },
-  });
+
+        debounce(async () => {
+          if (!oystehrZambda) return;
+          try {
+            setClaimLoading(true);
+            const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25 });
+            if (request !== searchRequest.current) return;
+            setClaims(data.claims);
+            if (data.claims.length === 0) setError('Claim not found');
+          } catch (err) {
+            if (request !== searchRequest.current) return;
+            setClaims([]);
+            setError(getApiError({ error: err, defaultError: 'Failed to search claims' }));
+          } finally {
+            if (request === searchRequest.current) setClaimLoading(false);
+          }
+        });
+      },
+    });
+    return () => {
+      unsubscribe();
+      searchRequest.current += 1;
+    };
+  }, [clear, debounce, oystehrZambda, subscribe]);
 
   const handleMatch = async (_data: FormData): Promise<void> => {
     if (!oystehrZambda || !claim) return;
