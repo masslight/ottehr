@@ -571,13 +571,28 @@ const summary = (over: Partial<ClaimPaymentSummary>): ClaimPaymentSummary => ({
 });
 
 describe('summarizePatientBalance', () => {
-  it('counts a payment on an un-adjudicated claim as a credit, not a balance owed', () => {
+  const pendingInsurance = (
+    payments: ClaimPaymentSummary
+  ): { payments: ClaimPaymentSummary; reachedPatientAr: boolean } => ({
+    payments,
+    reachedPatientAr: false,
+  });
+  const patientOwed = (
+    payments: ClaimPaymentSummary
+  ): { payments: ClaimPaymentSummary; reachedPatientAr: boolean } => ({
+    payments,
+    reachedPatientAr: true,
+  });
+
+  it('counts a payment on a claim still with the payer as a credit, not a balance owed', () => {
     const result = summarizePatientBalance([
-      summary({
-        adjudicated: false,
-        patientPaid: 14.69,
-        balance: -14.69,
-      }),
+      pendingInsurance(
+        summary({
+          adjudicated: false,
+          patientPaid: 14.69,
+          balance: -14.69,
+        })
+      ),
     ]);
     expect(result.currentBalance).toBe(-14.69);
     expect(result.claimsWithPatientBalance).toBe(0);
@@ -586,36 +601,58 @@ describe('summarizePatientBalance', () => {
 
   it('counts an adjudicated claim with an outstanding patient balance', () => {
     const result = summarizePatientBalance([
-      summary({
-        adjudicated: true,
-        patientResp: 20,
-        patientPaid: 5,
-        balance: 15,
-      }),
+      patientOwed(
+        summary({
+          adjudicated: true,
+          patientResp: 20,
+          patientPaid: 5,
+          balance: 15,
+        })
+      ),
     ]);
     expect(result.currentBalance).toBe(15);
     expect(result.claimsWithPatientBalance).toBe(1);
   });
 
-  it('ignores un-adjudicated billed amounts but nets payments across claims', () => {
+  it('owes the patient a self-pay visit as soon as it is billed, with no remit to wait for', () => {
+    const result = summarizePatientBalance([
+      patientOwed(
+        summary({
+          adjudicated: false,
+          patientPaid: 0,
+          balance: 221.04,
+        })
+      ),
+    ]);
+    expect(result.currentBalance).toBe(221.04);
+    expect(result.claimsWithPatientBalance).toBe(1);
+  });
+
+  it('ignores billed amounts still with the payer but nets payments across claims', () => {
     const result = summarizePatientBalance([
       // billed pending insurance, no payment, must not count toward the patient
-      summary({
-        adjudicated: false,
-        balance: 200,
-      }),
-      // prepaid credit on an un-adjudicated claim
-      summary({
-        adjudicated: false,
-        patientPaid: 30,
-        balance: -30,
-      }),
+      pendingInsurance(
+        summary({
+          adjudicated: false,
+          balance: 200,
+        })
+      ),
+      // prepaid credit on a claim still with the payer
+      pendingInsurance(
+        summary({
+          adjudicated: false,
+          patientPaid: 30,
+          balance: -30,
+        })
+      ),
       // adjudicated amount the patient still owes
-      summary({
-        adjudicated: true,
-        patientResp: 40,
-        balance: 40,
-      }),
+      patientOwed(
+        summary({
+          adjudicated: true,
+          patientResp: 40,
+          balance: 40,
+        })
+      ),
     ]);
     expect(result.currentBalance).toBe(10);
     expect(result.claimsWithPatientBalance).toBe(1);
@@ -624,12 +661,14 @@ describe('summarizePatientBalance', () => {
   it('does not count a fully paid claim as outstanding when its balance is float residue', () => {
     const patientResp = 0.1 + 0.2;
     const result = summarizePatientBalance([
-      summary({
-        adjudicated: true,
-        patientResp,
-        patientPaid: 0.3,
-        balance: patientResp - 0.3,
-      }),
+      patientOwed(
+        summary({
+          adjudicated: true,
+          patientResp,
+          patientPaid: 0.3,
+          balance: patientResp - 0.3,
+        })
+      ),
     ]);
     expect(result.claimsWithPatientBalance).toBe(0);
     expect(result.currentBalance).toBe(0);
@@ -637,14 +676,18 @@ describe('summarizePatientBalance', () => {
 
   it('keeps the running total at cent precision', () => {
     const result = summarizePatientBalance([
-      summary({
-        adjudicated: true,
-        balance: 0.1,
-      }),
-      summary({
-        adjudicated: true,
-        balance: 0.2,
-      }),
+      patientOwed(
+        summary({
+          adjudicated: true,
+          balance: 0.1,
+        })
+      ),
+      patientOwed(
+        summary({
+          adjudicated: true,
+          balance: 0.2,
+        })
+      ),
     ]);
     expect(result.currentBalance).toBe(0.3);
   });

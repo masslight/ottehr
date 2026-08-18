@@ -3,7 +3,7 @@ import { Claim, ClaimItem, ClaimResponse } from 'fhir/r4b';
 import { StatementDetails } from 'utils/lib/statements/generate-statement';
 import { EraRemitServiceLine } from 'utils/lib/types/data/billing/billing.types';
 import { patientRespBuckets } from 'utils/lib/types/data/billing/carc';
-import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { hasReachedPatientAr } from 'utils/lib/types/data/billing/claim-status';
 import { STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import {
@@ -92,8 +92,7 @@ export function computeBillingStatementAmounts(params: {
   const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid);
 
   const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
-  const inPatientAr = getClaimStatusValues(claim).arStage === AR_STAGE.patient;
-  const unadjudicatedRespCents = inPatientAr ? toCents(claim.total?.value) : 0;
+  const unadjudicatedRespCents = hasReachedPatientAr(claim) ? toCents(claim.total?.value) : 0;
   const patientRespCents = Math.max(payments.adjudicated ? toCents(payments.patientResp) : unadjudicatedRespCents, 0);
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = toCents(payments.patientPaid);

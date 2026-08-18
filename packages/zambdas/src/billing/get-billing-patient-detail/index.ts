@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient } from 'fhir/r4b';
 import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { hasReachedPatientAr } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
@@ -148,7 +149,12 @@ async function fetchPatientClaims(
     };
   });
 
-  const balance = summarizePatientBalance(summaries);
+  const balance = summarizePatientBalance(
+    claims.map((c, idx) => ({
+      payments: summaries[idx],
+      reachedPatientAr: hasReachedPatientAr(c),
+    }))
+  );
 
   return {
     claims: claimItems,
