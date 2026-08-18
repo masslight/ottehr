@@ -162,6 +162,7 @@ const mockTemplateDetail = {
         note: 'fasting required',
         psc: true,
         missing: false,
+        cptCodes: [{ code: '85025', display: 'CBC With Differential', modifiers: [] }],
       },
       {
         planId: 'ext-plan-2',
@@ -173,6 +174,7 @@ const mockTemplateDetail = {
         note: null,
         psc: false,
         missing: true,
+        cptCodes: [],
       },
     ],
     procedures: [
