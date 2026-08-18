@@ -109,10 +109,8 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
   const rows: string[][] = [];
   const exported = new Set<string>();
 
-  const addPage = async (claims: Claim[], includedResources: Resource[]): Promise<void> => {
-    const fresh = claims.filter(
-      (claim): claim is FhirResourceReturnValue<Claim> => !!claim.id && !exported.has(claim.id)
-    );
+  const addPage = async (claims: FhirResourceReturnValue<Claim>[], includedResources: Resource[]): Promise<void> => {
+    const fresh = claims.filter((claim) => !exported.has(claim.id));
     if (fresh.length === 0) return;
     fresh.forEach((claim) => exported.add(claim.id));
     const items = await enrichAndMapClaims({
@@ -143,7 +141,7 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
           claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo)
         )
       : matched.claims;
-    const claimIds = matching.map((claim) => claim.id).filter(Boolean) as string[];
+    const claimIds = matching.map((claim) => claim.id);
     const withinLimit = claimIds.slice(0, EXPORT_CLAIMS_MATCH_LIMIT);
 
     for (let start = 0; start < withinLimit.length; start += EXPORT_PAGE_SIZE) {
@@ -191,7 +189,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     const claims = entries
       .filter((entry) => entry.search?.mode !== 'include')
       .map((entry) => entry.resource)
-      .filter((resource): resource is Claim => resource?.resourceType === 'Claim');
+      .filter(
+        (resource): resource is FhirResourceReturnValue<Claim> => resource?.resourceType === 'Claim' && !!resource.id
+      );
     if (claims.length === 0) break;
 
     await addPage(

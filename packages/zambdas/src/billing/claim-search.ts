@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -246,7 +246,7 @@ const claimLastUpdated = (claim: Claim): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-const unionClaimsNewestFirst = (claims: Claim[]): Claim[] =>
+const unionClaimsNewestFirst = (claims: FhirResourceReturnValue<Claim>[]): FhirResourceReturnValue<Claim>[] =>
   deduplicateUnbundledResources(claims).sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a));
 
 export const describeClaimSearchClause = (clause: ClaimSearchParam[]): string =>
@@ -267,7 +267,7 @@ export async function searchClaimsBySearchText({
   searchText: string;
   filterParams: ClaimSearchParam[];
   withServiceDateElements: boolean;
-}): Promise<{ claims: Claim[]; incomplete: boolean }> {
+}): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const pageParams: ClaimSearchParam[] = [
     {
       name: '_elements',
@@ -287,7 +287,7 @@ export async function searchClaimsBySearchText({
 
   const clauses = buildClaimSearchTextQueries({ searchText });
 
-  const claims: Claim[] = [];
+  const claims: FhirResourceReturnValue<Claim>[] = [];
   const truncatedClauses: string[] = [];
   let failures = 0;
   let lastFailure: unknown;
@@ -315,7 +315,7 @@ export async function searchClaimsBySearchText({
       const clause = describeClaimSearchClause(chunk[index]);
       console.debug(`claim search clause matched ${bundle.total ?? 'unknown'}: ${clause}`);
       if ((bundle.total ?? 0) > CLAIM_SEARCH_TEXT_MATCH_LIMIT) truncatedClauses.push(clause);
-      claims.push(...bundle.unbundle());
+      claims.push(...bundle.unbundle().filter((claim): claim is FhirResourceReturnValue<Claim> => !!claim.id));
     });
   }
 
@@ -340,7 +340,7 @@ export async function fetchClaimsPageByIds({
 }: {
   oystehr: Oystehr;
   claimIds: string[];
-}): Promise<{ claims: Claim[]; includedResources: Resource[] }> {
+}): Promise<{ claims: FhirResourceReturnValue<Claim>[]; includedResources: Resource[] }> {
   if (claimIds.length === 0) {
     return {
       claims: [],
@@ -365,10 +365,14 @@ export async function fetchClaimsPageByIds({
 
   const includedResources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
   const claimsById = new Map(
-    includedResources.filter((r): r is Claim => r.resourceType === 'Claim' && !!r.id).map((claim) => [claim.id, claim])
+    includedResources
+      .filter((r): r is FhirResourceReturnValue<Claim> => r.resourceType === 'Claim' && !!r.id)
+      .map((claim) => [claim.id, claim])
   );
 
-  const claims = claimIds.map((id) => claimsById.get(id)).filter((claim): claim is Claim => !!claim);
+  const claims = claimIds
+    .map((id) => claimsById.get(id))
+    .filter((claim): claim is FhirResourceReturnValue<Claim> => !!claim);
   console.debug(`fetchClaimsPageByIds: asked for ${claimIds.length} claim(s), hydrated ${claims.length}`);
 
   return {

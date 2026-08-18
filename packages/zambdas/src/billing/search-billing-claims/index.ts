@@ -72,10 +72,7 @@ async function performEffect(
     total = matching.length;
     const page = await fetchClaimsPageByIds({
       oystehr,
-      claimIds: matching
-        .slice(offset, offset + pageSize)
-        .map((c) => c.id)
-        .filter(Boolean) as string[],
+      claimIds: matching.slice(offset, offset + pageSize).map((c) => c.id),
     });
     pageClaims = page.claims;
     includedResources = page.includedResources;
