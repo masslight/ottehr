@@ -16,6 +16,7 @@ import MailedStatements from 'src/pages/reports/MailedStatements';
 import PracticeKpis from 'src/pages/reports/PracticeKpis';
 import RecentPatients from 'src/pages/reports/RecentPatients';
 import VisitsOverview from 'src/pages/reports/VisitsOverview';
+import { EASY_CHART_ROLES } from 'utils/lib/easy-chart/access';
 import { setupSentry } from 'utils/lib/frontend';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
@@ -97,6 +98,9 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
+// Lazy: the page pulls in the executor, the matchers and the flattened exam catalogue, none of which
+// any other route needs.
+const EasyChartPageLazy = lazy(() => import('./features/easy-chart/pages/EasyChartPage'));
 
 const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Administrator,
@@ -321,6 +325,22 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
+
+                {/* Behind a feature flag AND the charting role set — the same list the endpoints
+                    check, so a role that can open the page can always use its API and vice versa. */}
+                {FEATURE_FLAGS.EASY_CHART_ENABLED && currentUser.hasRole([...EASY_CHART_ROLES]) && (
+                  <Route
+                    // A literal, not a template: the admin route-coverage test resolves every
+                    // `${CONST}` in App.tsx against adminRoutes.ts and throws on one it does not know.
+                    // easy-chart-route.test.ts asserts this literal matches EASY_CHART_ROUTE_BASE.
+                    path="/easy-chart/:encounterId"
+                    element={
+                      <Suspense fallback={<LoadingScreen />}>
+                        <EasyChartPageLazy />
+                      </Suspense>
+                    }
+                  />
+                )}
 
                 {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
                   <Route element={<AdminLayout />}>

@@ -1,4 +1,5 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -37,6 +38,7 @@ import {
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { otherColors } from 'src/themes/ottehr/colors';
+import { getEasyChartUrl } from 'utils/lib/easy-chart/access';
 import { LOCATION_REVIEW_LINK_EXTENSION_URL, ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -1157,6 +1159,17 @@ export default function AppointmentTableRow({
           >
             <MedicalInformationIcon />
           </GoToButton>
+          {/* Sits BETWEEN Visit Details and the progress note on purpose: it reads as a third way into
+              the same visit, not as a separate product. */}
+          {FEATURE_FLAGS.EASY_CHART_ENABLED && encounterId && (
+            <GoToButton
+              text="Easy Chart"
+              onClick={() => navigate(getEasyChartUrl(encounterId))}
+              dataTestId={dataTestIds.dashboard.easyChartButton}
+            >
+              <AutoAwesomeIcon />
+            </GoToButton>
+          )}
           {renderProgressNoteButton()}
         </Stack>
       </TableCell>
