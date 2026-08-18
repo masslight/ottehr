@@ -229,10 +229,15 @@ export const parseLabInfoFromServiceRequest = (
 };
 
 export const labOrderHasCptCodes = (serviceRequest: ServiceRequest): boolean => {
+  // CPT codes land in two places on an external lab SR: directly on SR.code.coding (current behaviour)
+  // and on the contained ActivityDefinition.code.coding. We check both so that historical SRs created
+  // before the ActivityDefinition was introduced are still recognised as having CPT codes.
+  const hasServiceRequestCptCodes = !!serviceRequest.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
   const activityDefinition = serviceRequest.contained?.find(
     (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
   );
-  return !!activityDefinition?.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
+  const hasActivityDefinitionCptCodes = !!activityDefinition?.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
+  return hasServiceRequestCptCodes || hasActivityDefinitionCptCodes;
 };
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
