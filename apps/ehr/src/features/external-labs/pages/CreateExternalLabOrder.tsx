@@ -323,7 +323,17 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         });
         console.log('cptCodesForLabs is: ', cptCodesForLabs);
 
-        if (cptCodesForLabs.length) await saveCptsForLabs(cptCodesForLabs);
+        if (cptCodesForLabs.length) {
+          try {
+            await saveCptsForLabs(cptCodesForLabs);
+          } catch (e) {
+            const cptSaveError = e as Oystehr.OystehrSdkError;
+            console.log('error saving cpt codes for external lab order', cptSaveError.code, cptSaveError.message);
+            enqueueSnackbar('External lab order created, but CPT codes could not be saved to the chart.', {
+              variant: 'warning',
+            });
+          }
+        }
 
         navigate(`/in-person/${appointmentIdFromUrl}/external-lab-orders`);
       } catch (e) {
