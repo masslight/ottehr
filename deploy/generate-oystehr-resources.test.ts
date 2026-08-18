@@ -373,6 +373,11 @@ describe('generate-oystehr-resources', () => {
         secrets: {
           BILLING_INTEGRATION_FEATURE_FLAG: { name: 'BILLING_INTEGRATION', value: '#{var/BILLING_INTEGRATION}' },
           PATIENT_BALANCE_SOURCE: { name: 'PATIENT_BALANCE_SOURCE', value: '#{var/PATIENT_BALANCE_SOURCE}' },
+          STRIPE_WEBHOOK_SECRET: { name: 'STRIPE_WEBHOOK_SECRET', value: '#{var/STRIPE_WEBHOOK_SECRET}' },
+          STRIPE_PLATFORM_WEBHOOK_SECRET: {
+            name: 'STRIPE_PLATFORM_WEBHOOK_SECRET',
+            value: '#{var/STRIPE_PLATFORM_WEBHOOK_SECRET}',
+          },
         },
       };
       const setupMocks = (vars: VarsFile): void => {
@@ -420,6 +425,11 @@ describe('generate-oystehr-resources', () => {
         expect(billingSecret.value).toBe('');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
         expect(balanceSourceSecret.value).toBe('candid');
+        const connectedWebhookSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_WEBHOOK_SECRET;
+        expect(connectedWebhookSecret.value).toBe('');
+        const platformWebhookSecret =
+          writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
+        expect(platformWebhookSecret.value).toBe('');
       });
 
       it('prefers configured BILLING_* vars over defaults', async () => {
@@ -427,6 +437,8 @@ describe('generate-oystehr-resources', () => {
           BILLING_LOGIN_REDIRECT_URL: 'https://billing.example.com/',
           BILLING_INTEGRATION: 'all',
           PATIENT_BALANCE_SOURCE: 'ottehr',
+          STRIPE_WEBHOOK_SECRET: 'whsec_connected',
+          STRIPE_PLATFORM_WEBHOOK_SECRET: 'whsec_platform',
         });
 
         await generateOystehrResources(createTestArgs());
@@ -438,6 +450,11 @@ describe('generate-oystehr-resources', () => {
         expect(billingSecret.value).toBe('all');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
         expect(balanceSourceSecret.value).toBe('ottehr');
+        const connectedWebhookSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_WEBHOOK_SECRET;
+        expect(connectedWebhookSecret.value).toBe('whsec_connected');
+        const platformWebhookSecret =
+          writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
+        expect(platformWebhookSecret.value).toBe('whsec_platform');
       });
     });
   });
