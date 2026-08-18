@@ -14,7 +14,7 @@
     "thRight": { "fontSize": 7,   "bold": true, "color": "#1e2d4a", "characterSpacing": 0.6, "alignment": "right" },
     "tdCode":  { "fontSize": 9.5, "bold": true, "color": "#2b5fa8", "font": "CodeMono" },
     "tdDesc":  { "fontSize": 9.5, "color": "#3f4c63" },
-    "tdRight": { "fontSize": 9.5, "color": "#121a2a", "alignment": "right" },
+    "tdRight": { "fontSize": 9.5, "color": "#121a2a", "alignment": "right", "noWrap": true },
     "sectionLabel": { "fontSize": 8, "bold": false, "color": "#2b5fa8", "characterSpacing": 0 },
     "colName":      { "fontSize": 11, "bold": true, "color": "#1e2d4a" },
     "colDetail":    { "fontSize": 9,  "color": "#3f4c63", "lineHeight": 1.45 }
