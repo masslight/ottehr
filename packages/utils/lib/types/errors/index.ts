@@ -71,6 +71,7 @@ export enum APIErrorCode {
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
   ERA_IMPORT_FAILED = 4502,
   MANUAL_PAYMENT_CONFLICT = 4503,
+  STATEMENT_BILLING_CLAIM_NOT_FOUND = 4504,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -405,6 +406,12 @@ export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError 
   code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
   statusCode: 409,
   message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
+});
+// Raised when a statement is requested for a visit that was never billed through Ottehr billing.
+export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({
+  code: APIErrorCode.STATEMENT_BILLING_CLAIM_NOT_FOUND,
+  statusCode: 404,
+  message: `No billing claim found for Encounter/${encounterId}, so a statement cannot be generated.`,
 });
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,

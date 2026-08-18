@@ -241,15 +241,15 @@ export default function ClaimDetail(): ReactElement {
     setSubmitting(true);
     try {
       await runBillingRulesEngine(oystehrZambda, { claimIds: [id], skipRules });
-      enqueueSnackbar(
-        `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
-        { variant: 'info' }
-      );
+      const messageSegment = skipRules
+        ? 'Claim submitted.'
+        : `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review.`;
+      enqueueSnackbar(`${messageSegment} Refresh to see the result.`, { variant: 'info' });
     } catch (err) {
       enqueueSnackbar(
         getApiError({
           error: err,
-          defaultError: 'Failed to start the rules engine',
+          defaultError: skipRules ? 'Failed to submit claim' : 'Failed to start the rules engine',
         }),
         { variant: 'error' }
       );
