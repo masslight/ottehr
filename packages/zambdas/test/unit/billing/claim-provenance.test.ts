@@ -414,7 +414,7 @@ describe('claimProvenanceRequest rule attribution', () => {
     const oystehr = { fhir: { transaction } } as unknown as Oystehr;
     const claim = { resourceType: 'Claim', id: 'c1', type: { coding: [] } } as unknown as Claim;
 
-    await addErrorProvenanceForClaimSubmission(oystehr, claim, new Error('Rule "R" failed'), agent, RULE_REF);
+    await addErrorProvenanceForClaimSubmission(oystehr, claim, new Error('Rule "R" failed'), [agent], RULE_REF);
 
     const provenance = transaction.mock.calls[0][0].requests[0].resource as Provenance;
     expect(parseChanges(provenance)).toEqual([

@@ -289,7 +289,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -345,7 +345,7 @@ describe('sub-rules-engine performEffect', () => {
       await performEffect(
         oystehr,
         { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
-        AGENT
+        [AGENT]
       );
     } catch (error) {
       thrown = error;
@@ -374,7 +374,7 @@ describe('sub-rules-engine performEffect', () => {
     const result = await performEffect(
       oystehr,
       { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
-      AGENT
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('failed');
