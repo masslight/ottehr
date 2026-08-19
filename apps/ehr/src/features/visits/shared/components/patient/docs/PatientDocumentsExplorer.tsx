@@ -8,6 +8,7 @@ import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'reac
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { SendFaxDialog, useSendFax } from 'src/features/fax';
 import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
@@ -84,6 +85,27 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
+  const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
+
+  const faxSource = useMemo(
+    () =>
+      documentIdToFax ? ({ type: 'document', patientId, documentReferenceId: documentIdToFax } as const) : undefined,
+    [documentIdToFax, patientId]
+  );
+  const faxController = useSendFax(faxSource);
+  const { open: openFaxDialog, isOpen: isFaxDialogOpen } = faxController;
+
+  useEffect(() => {
+    if (!isFaxDialogOpen) setDocumentIdToFax(null);
+  }, [isFaxDialogOpen]);
+
+  const handleDocumentFax = useCallback(
+    (documentId: string): void => {
+      setDocumentIdToFax(documentId);
+      openFaxDialog();
+    },
+    [openFaxDialog]
+  );
 
   useEffect(() => {
     if (!pendingSelectInternalName) return;
@@ -274,10 +296,11 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
       isActionAllowed: (_documentId: string, actionType: DocumentTableActionType): boolean =>
         actionType === DocumentTableActionType.ActionDownload || !readOnly,
       onDocumentDownload: downloadDocument,
+      onDocumentFax: handleDocumentFax,
       onDocumentRename: renameDocument,
       onDocumentDelete: documentActions.deleteDocumentAction,
     };
-  }, [documentActions.deleteDocumentAction, downloadDocument, renameDocument, readOnly]);
+  }, [documentActions.deleteDocumentAction, downloadDocument, handleDocumentFax, renameDocument, readOnly]);
 
   return (
     <Stack spacing={2}>
@@ -417,6 +440,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
       </Grid>
 
       <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
+      <SendFaxDialog controller={faxController} title="Fax Document" />
     </Stack>
   );
 };

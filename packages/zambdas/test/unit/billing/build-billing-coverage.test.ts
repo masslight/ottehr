@@ -28,7 +28,6 @@ describe('buildBillingCoverage', () => {
       payerOrg,
       memberId: 'M1',
       status: 'active',
-      insuranceType: 'primary',
       relationship: 'Self',
       subscriberReference: `Patient/${PATIENT_ID}`,
     });
@@ -60,7 +59,6 @@ describe('buildBillingCoverage', () => {
       payerOrg,
       memberId: 'M2',
       status: 'active',
-      insuranceType: 'secondary',
       relationship: 'Spouse',
       subscriberReference: 'RelatedPerson/rp-1',
     });
@@ -77,7 +75,6 @@ describe('buildBillingCoverage', () => {
       payerOrg,
       memberId: 'M1',
       status: 'active',
-      insuranceType: 'primary',
       planType: '12',
       relationship: 'Self',
       subscriberReference: `Patient/${PATIENT_ID}`,

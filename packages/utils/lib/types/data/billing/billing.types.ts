@@ -9,6 +9,8 @@ import type { RulesEngineType } from './rules-engine.constants';
 export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
   { value: 'primary', label: 'Primary' },
   { value: 'secondary', label: 'Secondary' },
+  { value: 'tertiary', label: 'Tertiary' },
+  { value: 'quaternary', label: 'Quaternary' },
   { value: 'workersComp', label: 'Workers Comp' },
 ];
 
@@ -16,6 +18,8 @@ export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; labe
 export const BILLING_INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string> = {
   primary: 'Primary Insurance',
   secondary: 'Secondary Insurance',
+  tertiary: 'Tertiary Insurance',
+  quaternary: 'Quaternary Insurance',
   workersComp: 'Workers Comp',
 };
 
@@ -23,6 +27,8 @@ export const BILLING_INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string>
 export const BILLING_INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string> = {
   primary: 'primary',
   secondary: 'secondary',
+  tertiary: 'tertiary',
+  quaternary: 'quaternary',
   workersComp: 'workers comp',
 };
 
@@ -415,6 +421,14 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  tertiaryCoverageFhirId: string;
+  tertiaryPayerName: string;
+  tertiaryPayerId: string;
+  tertiaryMemberId: string;
+  quaternaryCoverageFhirId: string;
+  quaternaryPayerName: string;
+  quaternaryPayerId: string;
+  quaternaryMemberId: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -758,6 +772,8 @@ export interface GetBillingProductivityReportResponse {
   totals: { actions: number; claimsTouched: number; actors: number };
   generatedAt: string;
 }
+
+export type GetBillingCoverageResponse = BillingCoverageOption;
 
 export interface GetPatientCoveragesResponse {
   coverages: BillingCoverageOption[];

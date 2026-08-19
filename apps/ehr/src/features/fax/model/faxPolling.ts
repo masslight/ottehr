@@ -1,3 +1,6 @@
+import { FaxPacketSource } from 'utils/lib/types/api/fax.types';
+import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
+
 /**
  * Cadence for polling the fax-packet Task status.
  *
@@ -27,3 +30,13 @@ export const FAX_STATUS_POLL_TIMEOUT_MS =
  */
 export const nextFaxPollInterval = (completedPolls: number): number | false =>
   FAX_STATUS_POLL_INTERVALS_MS[completedPolls - 1] ?? false;
+
+export const faxHistoryQueryKey = (source: FaxPacketSource): readonly unknown[] =>
+  source.type === 'visit'
+    ? ['get-visit-fax-history', source.appointmentId]
+    : actionLogsQueryKey('fax', source.patientId);
+
+export const faxStatusTimeoutMessage = (source: FaxPacketSource): string =>
+  source.type === 'visit'
+    ? "We couldn't confirm whether the fax was sent. Check the visit's fax history before resending."
+    : "We couldn't confirm whether the fax was sent. Check the patient's fax history before resending.";

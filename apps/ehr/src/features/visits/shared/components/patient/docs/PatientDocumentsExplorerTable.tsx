@@ -2,6 +2,7 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
@@ -11,6 +12,7 @@ import {
   Menu,
   MenuItem,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -20,13 +22,17 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
+import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { isFaxableAttachment } from 'utils/lib/utils/file';
 
 export enum DocumentTableActionType {
   ActionDownload = 'ActionDownload',
+  ActionFax = 'ActionFax',
   ActionRename = 'ActionRename',
   ActionDelete = 'ActionDelete',
 }
@@ -34,12 +40,14 @@ export enum DocumentTableActionType {
 export type DocumentTableActions = {
   isActionAllowed: (documentId: string, actionType: DocumentTableActionType) => boolean;
   onDocumentDownload: (documentId: string) => Promise<void>;
+  /** Opens the fax dialog for this document; faxing is a single-document action by design. */
+  onDocumentFax: (documentId: string) => void;
   onDocumentRename: (documentId: string, newName: string) => Promise<void>;
   onDocumentDelete: (documentId: string) => Promise<void>;
 };
 
 const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableActions }> = ({ docInfo, actions }) => {
-  const { isActionAllowed, onDocumentDownload, onDocumentRename, onDocumentDelete } = actions;
+  const { isActionAllowed, onDocumentDownload, onDocumentFax, onDocumentRename, onDocumentDelete } = actions;
   const theme = useTheme();
   const lineColor = theme.palette.primary.main;
 
@@ -130,6 +138,18 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
           <IconButton aria-label="Download" onClick={handleDocDownload}>
             <DownloadIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
           </IconButton>
+        )}
+
+        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionFax) && isDocumentFaxable(docInfo) && (
+          <Tooltip title="Send Fax">
+            <IconButton
+              aria-label="Send Fax"
+              onClick={() => onDocumentFax(docInfo.id)}
+              data-testid={dataTestIds.patientDocsPage.faxDocumentButton(docInfo.id)}
+            >
+              <FaxOutlinedIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
+            </IconButton>
+          </Tooltip>
         )}
 
         {/* {isActionAllowed(docInfo.id, DocumentTableActionType.ActionDownload) && (
@@ -228,6 +248,20 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
         }
       />
     </>
+  );
+};
+
+/**
+ * Only documents a fax can actually carry get the action — offering it for a medical-record archive
+ * or another unsupported format would fail later with "nothing faxable".
+ */
+const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean => {
+  if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
+  // Judged on the stored attachment, exactly as the server judges it when the fax is built — a
+  // display title is not a MIME type, and offering an action the server will drop is worse than
+  // hiding one it would have accepted.
+  return (docInfo.attachments ?? []).some((attachment) =>
+    isFaxableAttachment({ url: attachment.z3Url, contentType: attachment.contentType })
   );
 };
 

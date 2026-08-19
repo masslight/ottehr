@@ -1079,7 +1079,6 @@ export function buildBillingCoverage(params: {
   payerOrg: Organization;
   memberId: string;
   status: Coverage['status'];
-  insuranceType: BillingInsuranceType;
   planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
@@ -1141,12 +1140,30 @@ export function attachPrimaryCoverageToClaim(params: {
   ]);
   if (payerReference) claim.insurer = { reference: payerReference, display };
 }
+export function attachCoverageToClaim(params: {
+  claim: Claim;
+  coverageReference: string;
+  type: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  display?: string;
+  payerReference?: string;
+}): void {
+  const { claim, coverageReference, display, payerReference } = params;
+  const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
+  const focal = params.type === 'primary';
+  claim.insurance = ensureClaimInsurance([
+    { sequence, focal, coverage: { reference: coverageReference, display } },
+    ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
+  ]);
+  if (payerReference) claim.insurer = { reference: payerReference, display };
+}
 
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
 // account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
 const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
   primary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 1 },
   secondary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 2 },
+  tertiary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 3 },
+  quaternary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 4 },
   workersComp: { type: WORKERS_COMP_ACCOUNT_TYPE, code: 'WCOMPACCT', priority: 1 },
 };
 
@@ -1183,6 +1200,8 @@ export function getCoverageInsuranceType(
   const pbillEntry = pbillAccount?.coverage?.find((c) => c.coverage?.reference === ref);
   if (pbillEntry?.priority === 1) return 'primary';
   if (pbillEntry?.priority === 2) return 'secondary';
+  if (pbillEntry?.priority === 3) return 'tertiary';
+  if (pbillEntry?.priority === 4) return 'quaternary';
   return undefined;
 }
 

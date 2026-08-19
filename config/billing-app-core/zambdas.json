@@ -120,6 +120,13 @@
       "src": "src/billing/update-billing-coverage/index",
       "zip": ".dist/zips/update-billing-coverage.zip"
     },
+    "GET-BILLING-COVERAGE": {
+      "name": "get-billing-coverage",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-coverage/index",
+      "zip": ".dist/zips/get-billing-coverage.zip"
+    },
     "DELETE-BILLING-COVERAGE": {
       "name": "delete-billing-coverage",
       "type": "http_auth",
