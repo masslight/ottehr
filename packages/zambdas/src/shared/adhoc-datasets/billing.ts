@@ -1,11 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
   ChargeItem,
   ChargeItemDefinition,
-  Claim,
-  ClaimResponse,
   Condition,
   Coverage,
   Encounter,
@@ -19,55 +16,23 @@ import {
 } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { AdHocBillingInput, AdHocBillingOutputSchema, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
-import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
-import { CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
+import { AdHocBillingInput, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
-} from '../../shared/adhoc-report';
-import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
-import { fetchAllPages } from '../../shared/fhir';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { wrapHandler } from '../../shared/sentry';
-import { ZambdaInput } from '../../shared/types/common';
-import { validateOutputWithSchema } from '../../shared/validate-zod';
-import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
-
-const ZAMBDA_NAME = 'adhoc-billing';
+} from '../adhoc-report';
+import { fetchAllPages } from '../fhir';
 
 const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
-// A Claim carries the source clinical encounter id as an identifier (set by Ottehr's own claim
-// creation, not Candid) — this is how a claim joins back to its encounter.
-const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const round2 = (n: number): number => Math.round(n * 100) / 100;
-
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, ...params } = validateRequestParameters(input);
-
-  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-
-  const rows = await fetchAdHocBillingRows(oystehr, params);
-
-  // The endpoint's Zod schema is its contract: what leaves the zambda MUST match what the LLM was
-  // told about the rows. Fail loud at the source instead of as a client-side parse error.
-  const output = validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME);
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
 
 // The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
 // stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
 // schema the runtime output validation uses.
 export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBillingInput): Promise<AdHocBillingRow[]> {
-  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, includeClaims } = params;
+  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes } = params;
 
   // The main search stays LIGHT — only the bounded per-appointment resources ride along; each opt-in
   // billing layer's resources are pulled afterward, scoped to the encounter/patient ids (below).
@@ -131,7 +96,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     return out;
   }
 
-  // Per-encounter layer resources are fetched via the shared scoped/paginated/chunked helper.
+  // Per-encounter layer resources are fetched via the shared async-bulk scoped helper.
   const fetchScoped = <T extends FhirResource>(
     resourceType: T['resourceType'],
     paramName: string,
@@ -151,8 +116,6 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
   const proceduresByEncId = new Map<string, Procedure[]>();
   const conditionById = new Map<string, Condition>();
   const cptPriceMap = new Map<string, number>(); // CPT code -> fee-schedule price (USD)
-  const claimsByEncId = new Map<string, Claim[]>();
-  const responsesByClaimId = new Map<string, ClaimResponse[]>();
 
   if (encRefs.length) {
     if (includePayments) {
@@ -200,18 +163,6 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
       const procedures = await fetchScoped<Procedure>('Procedure', 'encounter', encRefs);
       for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
-    }
-    if (includeClaims) {
-      // Claims are few project-wide; fetch all and join to encounters by the claim-encounter-id
-      // identifier the practice's claim creation stamps on each Claim.
-      const claims = await fetchAll<Claim>('Claim');
-      const inScope = new Set(encIds);
-      for (const claim of claims) {
-        const encId = claim.identifier?.find((i) => i.system === CLAIM_ENCOUNTER_ID_SYSTEM)?.value;
-        if (encId && inScope.has(encId)) pushTo(claimsByEncId, encId, claim);
-      }
-      const responses = await fetchAll<ClaimResponse>('ClaimResponse');
-      for (const cr of responses) pushTo(responsesByClaimId, stripRef(cr.request?.reference, 'Claim'), cr);
     }
   }
 
@@ -360,46 +311,6 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       row.cptCodes = cptCodes;
       row.emCode = emCode;
       row.icdCodes = icdCodes;
-    }
-
-    if (includeClaims) {
-      const claims = [...(claimsByEncId.get(encId) ?? [])].sort((a, b) =>
-        (b.created ?? '').localeCompare(a.created ?? '')
-      );
-      // Cancelled claims are dead paper — their totals must not count toward what was billed.
-      const billableClaims = claims.filter((c) => c.status !== 'cancelled');
-      const billed = billableClaims.reduce((acc, c) => acc + (c.total?.value ?? 0), 0);
-      const hasBilled = billableClaims.some((c) => typeof c.total?.value === 'number');
-      // ClaimResponse adjudication (forward-compatible — none exist until the billing tool posts them).
-      const PATIENT_OWED = new Set(['copay', 'deductible', 'coins', 'coinsurance', 'patientresp']);
-      let paid = 0;
-      let patientResp = 0;
-      let sawResponse = false;
-      for (const claim of claims) {
-        for (const cr of responsesByClaimId.get(claim.id ?? '') ?? []) {
-          sawResponse = true;
-          paid +=
-            cr.payment?.amount?.value ??
-            (cr.total ?? [])
-              .filter((t) => t.category?.coding?.some((c) => c.code === 'benefit'))
-              .reduce((a, t) => a + (t.amount?.value ?? 0), 0);
-          patientResp += (cr.total ?? [])
-            .filter((t) => t.category?.coding?.some((c) => c.code && PATIENT_OWED.has(c.code)))
-            .reduce((a, t) => a + (t.amount?.value ?? 0), 0);
-        }
-      }
-      const mostRecent = claims[0];
-      const claimStatus = mostRecent
-        ? mostRecent.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? mostRecent.status ?? ''
-        : '';
-      const billedAmount = hasBilled ? round2(billed) : null;
-      const insurancePaid = sawResponse ? round2(paid) : null;
-      row.claimCount = claims.length;
-      row.claimStatus = claimStatus;
-      row.billedAmount = billedAmount;
-      row.insurancePaid = insurancePaid;
-      row.patientResponsibility = sawResponse ? round2(patientResp) : null;
-      row.claimBalance = billedAmount !== null && insurancePaid !== null ? round2(billedAmount - insurancePaid) : null;
     }
 
     rows.push(row);

@@ -93,9 +93,7 @@ async function provisionSharedClient(
         RoleType.Manager,
         RoleType.CustomerSupport,
         'CustomerSupport',
-        RoleType.FrontDesk,
         RoleType.Staff,
-        RoleType.Billing,
       ] as string[];
       const providerRoleIds = roles.filter((r) => providerRoleNames.includes(r.name)).map((r) => r.id);
       if (providerRoleIds.length === 0) throw new Error('No provider/staff roles found for shared M2M client');

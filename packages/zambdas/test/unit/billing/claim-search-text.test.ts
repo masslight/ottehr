@@ -8,7 +8,7 @@ import {
   describeClaimSearchClause,
   fetchClaimsPageByIds,
   searchClaimsBySearchText,
-} from '../../../src/billing/search-billing-claims';
+} from '../../../src/billing/claim-search';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const CLAIM_ID = '3f2b9c1a-7d4e-4a8b-9c6d-0e1f2a3b4c5d';

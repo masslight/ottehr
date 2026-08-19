@@ -7,9 +7,9 @@ import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patien
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { describe, expect, it } from 'vitest';
-import { fetchAdHocBillingRows } from '../src/ehr/adhoc-billing/index';
-import { fetchAdHocEncounterRows } from '../src/ehr/adhoc-encounters/index';
-import { fetchAdHocPatientRows } from '../src/ehr/adhoc-patients/index';
+import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
+import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
+import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
@@ -87,20 +87,45 @@ const condition: Condition = {
   },
 };
 
-// What the root Appointment search returns (the _include/_revinclude graph rides along in one bundle).
+// The Appointment search pulls its whole _include/_revinclude graph in one searchset; scoped layer
+// searches return that type's fixtures.
 const rootResources: FhirResource[] = [appointment, encounter, patient, location, practitioner];
+const scopedByType: Record<string, FhirResource[]> = { Condition: [condition] };
+const resourcesFor = (resourceType: string): FhirResource[] =>
+  resourceType === 'Appointment' ? rootResources : scopedByType[resourceType] ?? [];
 
-// Scoped layer searches, keyed by resourceType; anything not listed returns empty.
-const scopedByType: Record<string, FhirResource[]> = {
-  Condition: [condition],
-};
-
-const bundleOf = (resources: FhirResource[]): unknown => ({ unbundle: () => resources, link: [] });
-
+// Emulates the async-bundle path the zambdas use: search returns a job handle (jobId encodes the
+// resource type and the requested offset), and waitForAsyncJob returns the completion bundle
+// (batch-response) whose first entry holds the searchset. The fixtures all fit on the first page,
+// so a non-zero offset returns an empty page — matching how searchAllAsync terminates.
 const fakeOystehr = {
   fhir: {
-    search: async ({ resourceType }: { resourceType: string }) =>
-      resourceType === 'Appointment' ? bundleOf(rootResources) : bundleOf(scopedByType[resourceType] ?? []),
+    search: async ({ resourceType, params }: { resourceType: string; params?: { name: string; value: string }[] }) => ({
+      jobId: `${resourceType}#${params?.find((p) => p.name === '_offset')?.value ?? '0'}`,
+      contentLocation: '',
+      mode: 'bundle',
+    }),
+    waitForAsyncJob: async (jobId: string) => {
+      const [resourceType, offset] = jobId.split('#');
+      const resources = Number(offset) === 0 ? resourcesFor(resourceType) : [];
+      return {
+        status: 200,
+        mode: 'bundle',
+        bundle: {
+          resourceType: 'Bundle',
+          type: 'batch-response',
+          entry: [
+            {
+              resource: {
+                resourceType: 'Bundle',
+                type: 'searchset',
+                entry: resources.map((resource) => ({ resource })),
+              },
+            },
+          ],
+        },
+      };
+    },
   },
   user: { list: async () => [] },
 } as unknown as Oystehr;
