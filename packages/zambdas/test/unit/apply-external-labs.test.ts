@@ -9,7 +9,11 @@ import {
   PSC_HOLD_CONFIG,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { OrderableItemCptCode, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import {
+  LabPaymentMethod,
+  OrderableItemCptCode,
+  OrderableItemSearchResult,
+} from 'utils/lib/types/data/labs/labs.types';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   collectExternalLabCptProcedures,
@@ -285,7 +289,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(plan),
       makeEncounterWithSubject(),
       'skip',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
     expect(result.procedures).toHaveLength(0);
     expect(result.cptCodesToSkip.size).toBe(0);
@@ -294,7 +299,13 @@ describe('collectExternalLabCptProcedures', () => {
 
   test('returns empty when the template has no external lab plans', async () => {
     const emptyList: List = { resourceType: 'List', status: 'current', mode: 'working', contained: [] };
-    const result = await collectExternalLabCptProcedures(emptyList, makeEncounterWithSubject(), 'append', 'mock-token');
+    const result = await collectExternalLabCptProcedures(
+      emptyList,
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token',
+      LabPaymentMethod.ClientBill
+    );
     expect(result.procedures).toHaveLength(0);
     expect(result.cptCodesToSkip.size).toBe(0);
   });
@@ -312,7 +323,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(plan),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     expect(result.procedures).toHaveLength(2);
@@ -331,7 +343,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       encounter,
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     const proc = result.procedures[0] as Procedure;
@@ -356,7 +369,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     expect(result.cptCodesToSkip).toContain('36415');
@@ -385,7 +399,8 @@ describe('collectExternalLabCptProcedures', () => {
       templateList,
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     // Two plans each contribute CPT 36415 → two Procedure resources
@@ -402,7 +417,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     expect(result.procedures).toHaveLength(0);
@@ -419,7 +435,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     expect(result.procedures).toHaveLength(0);
@@ -435,7 +452,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(plan),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     expect(result.parsedPlans).toHaveLength(1);
@@ -454,7 +472,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
 
     expect(result.itemsByLabGuid.size).toBe(1);
@@ -468,7 +487,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'skip',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
     expect(result.parsedPlans).toHaveLength(0);
     expect(result.itemsByLabGuid.size).toBe(0);
@@ -482,7 +502,8 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'append',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
     expect(result.warnings).toHaveLength(0);
   });
@@ -499,7 +520,13 @@ describe('collectExternalLabCptProcedures', () => {
       mode: 'working',
       contained: [malformedPlan, goodPlan],
     };
-    const result = await collectExternalLabCptProcedures(list, makeEncounterWithSubject(), 'append', 'mock-token');
+    const result = await collectExternalLabCptProcedures(
+      list,
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token',
+      LabPaymentMethod.ClientBill
+    );
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0].section).toBe('externalLabs');
     expect(result.warnings[0].message).toMatch(/CBC With Differential/);
@@ -516,7 +543,13 @@ describe('collectExternalLabCptProcedures', () => {
       mode: 'working',
       contained: [malformedPlan],
     };
-    const result = await collectExternalLabCptProcedures(list, makeEncounterWithSubject(), 'append', 'mock-token');
+    const result = await collectExternalLabCptProcedures(
+      list,
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token',
+      LabPaymentMethod.ClientBill
+    );
     expect(result.warnings).toHaveLength(1);
     expect(result.parsedPlans).toHaveLength(0);
     expect(getOrderableItems).not.toHaveBeenCalled();
@@ -527,8 +560,51 @@ describe('collectExternalLabCptProcedures', () => {
       makeTemplateListWithPlan(makePlan('plan-1')),
       makeEncounterWithSubject(),
       'skip',
-      'mock-token'
+      'mock-token',
+      LabPaymentMethod.ClientBill
     );
     expect(result.warnings).toHaveLength(0);
+  });
+
+  test('returns no CPT procedures when payment method is not client bill', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+    for (const paymentMethod of [
+      LabPaymentMethod.Insurance,
+      LabPaymentMethod.SelfPay,
+      LabPaymentMethod.WorkersComp,
+      undefined,
+    ]) {
+      vi.mocked(getOrderableItems).mockResolvedValueOnce([
+        makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+      ]);
+      const result = await collectExternalLabCptProcedures(
+        makeTemplateListWithPlan(makePlan('plan-1')),
+        makeEncounterWithSubject(),
+        'append',
+        'mock-token',
+        paymentMethod
+      );
+      expect(result.procedures).toHaveLength(0);
+      expect(result.cptCodesToSkip.size).toBe(0);
+      // parsedPlans and itemsByLabGuid are still populated — callers (applyExternalLabPlans) still need them
+      expect(result.parsedPlans).toHaveLength(1);
+    }
+  });
+
+  test('returns CPT procedures only when payment method is client bill', async () => {
+    vi.mocked(getOrderableItems).mockResolvedValueOnce([
+      makeOrderableItem('7788', LAB_GUID, 'Quest Diagnostics', [{ cptCode: '36415', serviceUnitsCount: 1 }]),
+    ]);
+    const result = await collectExternalLabCptProcedures(
+      makeTemplateListWithPlan(makePlan('plan-1')),
+      makeEncounterWithSubject(),
+      'append',
+      'mock-token',
+      LabPaymentMethod.ClientBill
+    );
+    expect(result.procedures).toHaveLength(1);
+    expect(result.cptCodesToSkip).toContain('36415');
   });
 });

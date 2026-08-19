@@ -217,7 +217,13 @@ const performEffect = async (
   // which depend on the template List. Run them in parallel.
   const [latestInHouseLabAds, externalLabCptResult] = await Promise.all([
     getLatestInHouseLabActivityDefinitionsForTemplatePlan(oystehr, templateList),
-    collectExternalLabCptProcedures(templateList, encounter, actions.externalLabs, m2mToken),
+    collectExternalLabCptProcedures(
+      templateList,
+      encounter,
+      actions.externalLabs,
+      m2mToken,
+      validatedInput.externalLabs?.paymentMethod
+    ),
   ]);
 
   // Kick off in-house lab plan application in parallel with the chart-data

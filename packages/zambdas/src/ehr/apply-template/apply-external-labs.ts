@@ -12,7 +12,11 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { CreateLabPaymentMethod, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import {
+  CreateLabPaymentMethod,
+  LabPaymentMethod,
+  OrderableItemSearchResult,
+} from 'utils/lib/types/data/labs/labs.types';
 import { fillMeta } from '../../shared/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { buildExternalLabOrderRequests } from '../lab/external/create-lab-order/build-order';
@@ -321,12 +325,15 @@ export interface ExternalLabCptResult {
  * intermediate parsed plans + item map so applyExternalLabPlans can reuse them
  * without re-fetching, and warnings for any malformed plan entries.
  * Short-circuits to empty when the external labs section is 'skip'.
+ * CPT Procedures are only created when the selected payment method is ClientBill,
+ * matching the create-order flow which only saves CPT codes for client bill orders.
  */
 export const collectExternalLabCptProcedures = async (
   templateList: List,
   encounter: Encounter,
   action: TemplateSectionAction,
-  m2mToken: string
+  m2mToken: string,
+  selectedPaymentMethod: CreateLabPaymentMethod | undefined
 ): Promise<ExternalLabCptResult> => {
   const empty: ExternalLabCptResult = {
     procedures: [],
@@ -357,21 +364,24 @@ export const collectExternalLabCptProcedures = async (
 
   const cptCodesToSkip = new Set<string>();
   const procedures: Procedure[] = [];
-  for (const plan of parsedPlans) {
-    const items = itemsByLabGuid.get(plan.labGuid);
-    if (!items || items === 'fetch-failed') continue;
-    const matched = matchOrderableItemForPlan(plan, items);
-    if (!matched || !encounter.subject) continue;
-    for (const cpt of matched.item.cptCodes) {
-      cptCodesToSkip.add(cpt.cptCode);
-      procedures.push({
-        resourceType: 'Procedure',
-        subject: encounter.subject,
-        encounter: { reference: `Encounter/${encounter.id}` },
-        status: 'completed',
-        meta: fillMeta('cpt-code', 'cpt-code'),
-        code: { coding: [{ system: CPT_CODE_SYSTEM, code: cpt.cptCode, display: plan.testName }] },
-      });
+  // CPT codes only apply to client bill orders — skip procedure creation for other payment types
+  if (selectedPaymentMethod === LabPaymentMethod.ClientBill) {
+    for (const plan of parsedPlans) {
+      const items = itemsByLabGuid.get(plan.labGuid);
+      if (!items || items === 'fetch-failed') continue;
+      const matched = matchOrderableItemForPlan(plan, items);
+      if (!matched || !encounter.subject) continue;
+      for (const cpt of matched.item.cptCodes) {
+        cptCodesToSkip.add(cpt.cptCode);
+        procedures.push({
+          resourceType: 'Procedure',
+          subject: encounter.subject,
+          encounter: { reference: `Encounter/${encounter.id}` },
+          status: 'completed',
+          meta: fillMeta('cpt-code', 'cpt-code'),
+          code: { coding: [{ system: CPT_CODE_SYSTEM, code: cpt.cptCode, display: plan.testName }] },
+        });
+      }
     }
   }
   return { procedures, cptCodesToSkip, parsedPlans, itemsByLabGuid, warnings };
