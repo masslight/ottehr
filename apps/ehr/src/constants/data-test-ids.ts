@@ -1,5 +1,6 @@
 import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { RadiologyReportType } from 'utils/lib/types/api/radiology';
 import { RoleType } from 'utils/lib/types/api/user.types';
 
 export const dataTestIds = {
@@ -749,6 +750,11 @@ export const dataTestIds = {
     submitOrderButton: 'radiology-submit-order-button',
     performedBySelect: 'radiology-performed-by-select',
     performedByValue: 'radiology-performed-by-value',
+    savePerformedByButton: 'radiology-save-performed-by-button',
+    markAsReviewedButton: 'radiology-mark-as-reviewed-button',
+    editReportButton: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-button`,
+    editReportInput: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-input`,
+    saveEditedReportButton: (reportType: RadiologyReportType) => `radiology-save-${reportType}-report-button`,
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     externalOrderLabel: (serviceRequestId: string) => `radiology-external-order-label-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
