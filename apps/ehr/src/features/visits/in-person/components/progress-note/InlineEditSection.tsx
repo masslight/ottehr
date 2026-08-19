@@ -1,6 +1,6 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, IconButton, Typography } from '@mui/material';
-import { FC, ReactNode, useState } from 'react';
+import { FC, ReactNode, useEffect, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
@@ -27,6 +27,20 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scrollBackOnCollapse = useRef(false);
+
+  // The editor is usually much taller than the summary, so after clicking Done at the
+  // bottom of a long editor the scroll position can land far below the collapsed
+  // section. Bring the section heading back into view (72px clears the sticky navbar).
+  useEffect(() => {
+    if (isEditing || !scrollBackOnCollapse.current) return;
+    scrollBackOnCollapse.current = false;
+    const el = rootRef.current;
+    if (el && el.getBoundingClientRect().top < 72) {
+      el.scrollIntoView?.({ block: 'start' });
+    }
+  }, [isEditing]);
 
   const canEdit = FEATURE_FLAGS.INLINE_PROGRESS_NOTE_EDITING_ENABLED && !isAppointmentReadOnly && !disabled;
 
@@ -53,7 +67,10 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <RoundedButton
               variant="contained"
-              onClick={() => setIsEditing(false)}
+              onClick={() => {
+                scrollBackOnCollapse.current = true;
+                setIsEditing(false);
+              }}
               data-testid={dataTestIds.progressNotePage.inlineEditDoneButton(sectionName)}
             >
               Done
@@ -65,7 +82,11 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
   }
 
   return (
-    <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
+    <Box
+      ref={rootRef}
+      sx={{ width: '100%', scrollMarginTop: '72px' }}
+      data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}
+    >
       <Box
         onClick={() => setIsEditing(true)}
         sx={{

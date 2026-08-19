@@ -83,6 +83,20 @@ describe('InlineEditSection', () => {
     expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
   });
 
+  it('scrolls the section back into view when a long editor collapses', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    // jsdom reports the section at top 0, which counts as hidden behind the sticky navbar
+    await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+  });
+
   it('renders plain children on read-only appointments', () => {
     mocks.isAppointmentReadOnly = true;
     renderSection();
