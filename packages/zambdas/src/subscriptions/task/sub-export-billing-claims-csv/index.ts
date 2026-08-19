@@ -91,15 +91,13 @@ export interface ClaimExportRows {
 }
 
 async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): Promise<ClaimExportRows> {
-  const resolved = await buildClaimFilterParams({
+  const filterParams = await buildClaimFilterParams({
     oystehr,
     params: filters,
     // Only the offset-paged branch below needs a sort an edit can't shift mid-export. The search
     // text clauses truncate at a match limit, so they keep the list's order to take the newest.
     sort: filters.searchText ? undefined : '_id',
   });
-  if ('unresolvable' in resolved) throw new Error(`Export filters could not be resolved: ${resolved.unresolvable}`);
-  const filterParams = resolved.params;
 
   const filteringByServiceDate = Boolean(filters.serviceDateFrom || filters.serviceDateTo);
   const rows: string[][] = [];

@@ -7,6 +7,7 @@ import {
   EXPORT_CLAIMS_MATCH_LIMIT,
 } from 'utils/lib/types/data/billing/billing.constants';
 import { ExportBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLAIM_SEARCH_TEXT_MATCH_LIMIT } from '../../../src/billing/claim-search';
 
@@ -339,7 +340,9 @@ describe('sub-export-billing-claims-csv', () => {
     stubSearches({ claimPages: [[makeClaim('claim-1'), patient]] });
     mockOystehrClient.rcm.listPayers.mockResolvedValue({ data: [] });
 
-    await expect(runExport(makeTask({ payerName: 'Nonexistent Health' }))).rejects.toThrow('Nonexistent Health');
+    await expect(runExport(makeTask({ payerName: 'Nonexistent Health' }))).rejects.toMatchObject(
+      INVALID_INPUT_ERROR('No payer matches the payer name "Nonexistent Health"')
+    );
 
     expect(claimSearches()).toHaveLength(0);
     expect(mockOystehrClient.z3.uploadFile).not.toHaveBeenCalled();
