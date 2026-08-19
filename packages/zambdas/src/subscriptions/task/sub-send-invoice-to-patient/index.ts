@@ -21,7 +21,7 @@ import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { sendSmsForPatient } from '../../../shared/communication';
 import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
-import { ensureStripeCustomerId, getStripeClient } from '../../../shared/stripeIntegration';
+import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -207,10 +207,10 @@ async function createInvoice(
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
       description: filledMemo,
-      metadata: {
-        oystehr_patient_id: oystehrPatientId,
-        oystehr_encounter_id: oystehrEncounterId,
-      },
+      metadata: stripeEncounterMetadata({
+        encounterId: oystehrEncounterId,
+        patientId: oystehrPatientId,
+      }),
       currency: 'USD',
       due_date: DateTime.fromISO(dueDate, { zone: timezone }).toUnixInteger(),
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice

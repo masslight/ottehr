@@ -97,7 +97,6 @@ function useProviderSearch(
         })
         .catch(() => undefined);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, known, oystehrZambda, providerRole]);
 
   return { options, known, search };

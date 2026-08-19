@@ -1069,12 +1069,61 @@
       "src": "src/ehr/schedules/update-schedule/index",
       "zip": ".dist/zips/update-schedule.zip"
     },
+    "CREATE-LOCATION": {
+      "name": "create-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/create-location/index",
+      "zip": ".dist/zips/create-location.zip"
+    },
+    "GET-LOCATION": {
+      "name": "get-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/get-location/index",
+      "zip": ".dist/zips/get-location.zip"
+    },
+    "UPDATE-LOCATION": {
+      "name": "update-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/update-location/index",
+      "zip": ".dist/zips/update-location.zip"
+    },
+    "TOGGLE-LOCATION-ACTIVE": {
+      "name": "toggle-location-active",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/toggle-location-active/index",
+      "zip": ".dist/zips/toggle-location-active.zip"
+    },
+    "DELETE-LOCATION": {
+      "name": "delete-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/delete-location/index",
+      "zip": ".dist/zips/delete-location.zip"
+    },
     "LIST-SCHEDULE-OWNERS": {
       "name": "list-schedule-owners",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/list-schedule-owners/index",
       "zip": ".dist/zips/list-schedule-owners.zip"
+    },
+    "LIST-PROVIDER-GROUPS": {
+      "name": "list-provider-groups",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/schedules/list-provider-groups/index",
+      "zip": ".dist/zips/list-provider-groups.zip"
+    },
+    "TOGGLE-SCHEDULE-ACTIVE": {
+      "name": "toggle-schedule-active",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/schedules/toggle-schedule-active/index",
+      "zip": ".dist/zips/toggle-schedule-active.zip"
     },
     "CREATE-SCHEDULE": {
       "name": "create-schedule",
@@ -1146,26 +1195,20 @@
       "src": "src/ehr/infer-adhoc-report-layers/index",
       "zip": ".dist/zips/infer-adhoc-report-layers.zip"
     },
-    "ADHOC-ENCOUNTERS": {
-      "name": "adhoc-encounters",
+    "ADHOC-REPORT": {
+      "name": "adhoc-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/adhoc-encounters/index",
-      "zip": ".dist/zips/adhoc-encounters.zip"
+      "src": "src/ehr/adhoc-report/index",
+      "zip": ".dist/zips/adhoc-report.zip"
     },
-    "ADHOC-PATIENTS": {
-      "name": "adhoc-patients",
-      "type": "http_auth",
+    "SUB-ADHOC-REPORT": {
+      "name": "sub-adhoc-report",
+      "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/adhoc-patients/index",
-      "zip": ".dist/zips/adhoc-patients.zip"
-    },
-    "ADHOC-BILLING": {
-      "name": "adhoc-billing",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/adhoc-billing/index",
-      "zip": ".dist/zips/adhoc-billing.zip"
+      "timeout": "900",
+      "src": "src/subscriptions/sub-adhoc-report/index",
+      "zip": ".dist/zips/sub-adhoc-report.zip"
     },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
@@ -2171,19 +2214,26 @@
       "src": "src/ehr/admin-set-practitioner-role-active/index",
       "zip": ".dist/zips/admin-set-practitioner-role-active.zip"
     },
-    "ADMIN_SET_SCHEDULE_OWNER_ACTIVE": {
-      "name": "admin-set-schedule-owner-active",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-set-schedule-owner-active/index",
-      "zip": ".dist/zips/admin-set-schedule-owner-active.zip"
-    },
     "ADMIN_UPDATE_GROUP": {
       "name": "admin-update-group",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-group/index",
       "zip": ".dist/zips/admin-update-group.zip"
+    },
+    "TOGGLE-GROUP-ACTIVE": {
+      "name": "toggle-group-active",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/toggle-group-active/index",
+      "zip": ".dist/zips/toggle-group-active.zip"
+    },
+    "ADMIN-CREATE-GROUP": {
+      "name": "admin-create-group",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-group/index",
+      "zip": ".dist/zips/admin-create-group.zip"
     },
     "GET_SERVICE_CATEGORIES": {
       "name": "get-service-categories",
@@ -2265,13 +2315,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
       "zip": ".dist/zips/admin-update-progress-note-config.zip"
-    },
-    "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
-      "name": "admin-update-location-support-phones",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/support-dialog/admin-update-location-support-phones/index",
-      "zip": ".dist/zips/admin-update-location-support-phones.zip"
     },
     "GET-PUBLIC-SUPPORT-DIALOG": {
       "name": "get-public-support-dialog",
@@ -2384,6 +2427,34 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
+    },
+    "PAPERWORK_FLOW_LIST": {
+      "name": "paperwork-flow-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/list/index",
+      "zip": ".dist/zips/paperwork-flow-list.zip"
+    },
+    "PAPERWORK_FLOW_CREATE": {
+      "name": "paperwork-flow-create",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/create/index",
+      "zip": ".dist/zips/paperwork-flow-create.zip"
+    },
+    "PAPERWORK_FLOW_UPDATE": {
+      "name": "paperwork-flow-update",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/update/index",
+      "zip": ".dist/zips/paperwork-flow-update.zip"
+    },
+    "PAPERWORK_FLOW_DELETE": {
+      "name": "paperwork-flow-delete",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/delete/index",
+      "zip": ".dist/zips/paperwork-flow-delete.zip"
     }
   },
   "fhirResources": {
@@ -2690,6 +2761,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-INVOICES-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "ADHOC_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate ad-hoc report data asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/adhoc-report-task|adhoc-report&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ADHOC-REPORT/id}"
         },
         "extension": [
           {

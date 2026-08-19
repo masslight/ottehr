@@ -1,0 +1,9 @@
+{
+  "name": "Amoxicillin 500 mg PO",
+  "medicationId": "76344072-8db7-42cb-8c21-a2aa83a12f41",
+  "medicationName": "Amoxicillin",
+  "dose": 500,
+  "units": "mg",
+  "route": "26643006",
+  "instructions": "In-office observed dose for first-line coverage (otitis, strep, sinusitis). Outpatient course follows."
+}

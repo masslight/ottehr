@@ -261,6 +261,9 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
+  const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms.
+  const allCustomForms = [...(standAloneForms ?? []), ...(intakePaperworkFlowForms ?? [])];
 
   const {
     imagesLoading,
@@ -1179,8 +1182,8 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
-                    {standAloneForms && standAloneForms.length > 0 ? (
-                      standAloneForms.map((form, idx) => (
+                    {allCustomForms.length > 0 ? (
+                      allCustomForms.map((form, idx) => (
                         <Grid item key={`${form.questionnaireId}-${idx}`}>
                           <Paper sx={{ mt: 2, p: 3 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>

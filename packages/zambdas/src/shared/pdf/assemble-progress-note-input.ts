@@ -24,7 +24,10 @@ import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
 export async function assembleProgressNoteInput(
   oystehr: Oystehr,
   token: string,
-  visitResources: FullAppointmentResourcePackage
+  visitResources: FullAppointmentResourcePackage,
+  options?: {
+    signed?: boolean;
+  }
 ): Promise<ProgressNoteInput> {
   const { encounter, patient, appointment } = visitResources;
   if (!patient) throw new Error(`No patient found for encounter ${encounter?.id}`);
@@ -68,5 +71,6 @@ export async function assembleProgressNoteInput(
     upcomingFollowUps,
     erxPharmacies,
     signatures,
+    signed: options?.signed,
   };
 }

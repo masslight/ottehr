@@ -27,6 +27,7 @@ export enum APIErrorCode {
   RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
   ALREADY_EXISTS = 4023,
   CONCURRENT_UPDATE = 4024,
+  RESOURCE_HAS_DEPENDENTS = 4025,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -63,12 +64,14 @@ export enum APIErrorCode {
   RADIOLOGY_GENERAL = 4406,
   MANAGED_QUESTIONNAIRE_GENERAL = 4407,
   INSURANCE_CARD_IMAGE_GENERAL = 4408,
+  PAPERWORK_FLOW_GENERAL = 4409,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
   ERA_IMPORT_FAILED = 4502,
   MANUAL_PAYMENT_CONFLICT = 4503,
+  STATEMENT_BILLING_CLAIM_NOT_FOUND = 4504,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -130,6 +133,31 @@ export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
   message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
   statusCode: 413,
 });
+
+/**
+ * Returned by a guarded hard-delete when the target still has dependents and the
+ * caller didn't pass `force`. The message enumerates what's attached so the UI can
+ * show a specific destructive-action warning; a follow-up call with `force: true`
+ * proceeds.
+ */
+export const RESOURCE_HAS_DEPENDENTS_ERROR = (dependents: {
+  schedules: number;
+  practitionerRoles: number;
+  appointments: number;
+}): APIError => {
+  const parts: string[] = [];
+  const plural = (n: number, singular: string): string => `${n} ${singular}${n === 1 ? '' : 's'}`;
+  if (dependents.schedules) parts.push(plural(dependents.schedules, 'schedule'));
+  if (dependents.practitionerRoles) parts.push(plural(dependents.practitionerRoles, 'provider role'));
+  if (dependents.appointments) parts.push(plural(dependents.appointments, 'appointment'));
+  return {
+    code: APIErrorCode.RESOURCE_HAS_DEPENDENTS,
+    message:
+      `This location has ${parts.join(', ')} associated with it. Deleting it will also delete its ` +
+      `schedules and provider roles. Appointments will be kept but will reference a deleted location.`,
+    statusCode: 409,
+  };
+};
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,
@@ -379,6 +407,12 @@ export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError 
   statusCode: 409,
   message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
 });
+// Raised when a statement is requested for a visit that was never billed through Ottehr billing.
+export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({
+  code: APIErrorCode.STATEMENT_BILLING_CLAIM_NOT_FOUND,
+  statusCode: 404,
+  message: `No billing claim found for Encounter/${encounterId}, so a statement cannot be generated.`,
+});
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
@@ -548,5 +582,12 @@ export const INSURANCE_CARD_IMAGE_ERROR = (message: string): APIError => {
     code: APIErrorCode.INSURANCE_CARD_IMAGE_GENERAL,
     message,
     statusCode: 500,
+  };
+};
+
+export const PAPERWORK_FLOW_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.PAPERWORK_FLOW_GENERAL,
+    message,
   };
 };

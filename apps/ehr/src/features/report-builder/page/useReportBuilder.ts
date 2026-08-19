@@ -1,18 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useSnackbar } from 'notistack';
+import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import useEvolveUser from '../../../hooks/useEvolveUser';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
-import { getBatchWindowFailures } from '../query/batching';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // The iframe run over the real rows IS the validation pass (the zambda never executes code), so
@@ -62,16 +64,10 @@ function defaultOptionsFor(datasetId: string): Record<string, boolean> {
   return out;
 }
 
-// Some (not all) batched date windows failed — data is usable but incomplete. Null when all loaded.
-function partialWarningFor(rows: AdHocRow[]): string | null {
-  const f = getBatchWindowFailures(rows);
-  return f && f.failedWindows > 0
-    ? `${f.failedWindows} of ${f.totalWindows} date windows failed to load — results are partial.`
-    : null;
-}
-
 type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
+  canView: boolean;
+  canCreate: boolean;
   datasetId: string;
   dateRange: AdHocDateRangeFilter;
   customDate: string;
@@ -81,7 +77,6 @@ type UseReportBuilder = {
   schema: LlmDatasetSchema | null;
   loading: boolean;
   error: string | null;
-  partialWarning: string | null;
   request: string;
   generating: boolean;
   generatedCode: string | null;
@@ -122,7 +117,9 @@ export function useReportBuilder(): UseReportBuilder {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const { enqueueSnackbar } = useSnackbar();
+  const user = useEvolveUser();
+  const canView = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
+  const canCreate = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
 
   const initialDatasetId = AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive';
   const [datasetId, setDatasetId] = useState<string>(initialDatasetId);
@@ -140,8 +137,6 @@ export function useReportBuilder(): UseReportBuilder {
   const [schema, setSchema] = useState<LlmDatasetSchema | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Soft warning: some batched date windows failed but the rest loaded. Kept separate from `error`.
-  const [partialWarning, setPartialWarning] = useState<string | null>(null);
 
   const [request, setRequest] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -186,7 +181,6 @@ export function useReportBuilder(): UseReportBuilder {
       if (!dataset) return null;
       setLoading(true);
       setError(null);
-      setPartialWarning(null);
       try {
         const range = getDateRangeIso(dateRange);
         const fetched = await dataset.fetch({ oystehrZambda, queryClient, dateRange: range, options: opts });
@@ -199,14 +193,13 @@ export function useReportBuilder(): UseReportBuilder {
           options: opts,
           fields: builtSchema.fields.length,
         });
-        setPartialWarning(partialWarningFor(fetched));
         setRows(fetched);
         setSchema(builtSchema);
         setDatasetOptions(opts);
         return { rows: fetched, schema: builtSchema };
       } catch (e) {
         showAdHocDebugLog('fetch', 'FAILED', e);
-        setError(e instanceof Error ? e.message : 'Failed to fetch data');
+        setError(getApiError({ error: e, defaultError: 'Failed to fetch data' }));
         return null;
       } finally {
         setLoading(false);
@@ -319,13 +312,14 @@ export function useReportBuilder(): UseReportBuilder {
         }
       } catch (e) {
         showAdHocDebugLog('generate', 'orchestrate FAILED', e);
-        setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
+        setGenerateError(getApiError({ error: e, defaultError: 'Failed to generate report' }));
       } finally {
         setGenerating(false);
       }
     },
     [oystehrZambda, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
   );
+
   orchestrateRef.current = orchestrate;
 
   // Consume a deferred regeneration on the render AFTER the saved-report loader committed the saved
@@ -340,12 +334,12 @@ export function useReportBuilder(): UseReportBuilder {
 
   // Editing the request and generating again IS the refinement flow — there is no separate one.
   const handleGenerate = useCallback((): void => {
-    if (!request.trim()) return;
+    if (!request.trim() || !canCreate) return;
     autoRetryRef.current = 0;
     autoFixedRef.current = false;
     setGeneratedCode(null);
     void orchestrate(request, true);
-  }, [request, orchestrate]);
+  }, [request, canCreate, orchestrate]);
 
   // When the generated code throws at runtime in the iframe, transparently regenerate once with the
   // failing code + error attached. After the budget is spent, surface the error. A watchdog
@@ -355,6 +349,7 @@ export function useReportBuilder(): UseReportBuilder {
     (message: string): void => {
       if (
         message !== SANDBOX_TIMEOUT_MESSAGE &&
+        canCreate &&
         autoRetryRef.current < MAX_AUTO_RETRIES &&
         !generating &&
         activeRequestRef.current
@@ -374,7 +369,7 @@ export function useReportBuilder(): UseReportBuilder {
       }
       setRenderError(message);
     },
-    [generating, generatedCode]
+    [canCreate, generating, generatedCode]
   );
 
   // Clear the generated report to start fresh. Keeps the fetched rows/schema and request text, so
@@ -396,7 +391,7 @@ export function useReportBuilder(): UseReportBuilder {
   useEffect(() => {
     const savedId = searchParams.get('saved');
 
-    if (!savedId || !oystehrZambda || loadAttemptedRef.current) return;
+    if (!savedId || !oystehrZambda || !canView || loadAttemptedRef.current) return;
 
     loadAttemptedRef.current = true;
 
@@ -445,22 +440,26 @@ export function useReportBuilder(): UseReportBuilder {
         autoRetryRef.current = 0;
 
         if ((saved.runtimeVersion ?? 0) !== ADHOC_RUNTIME_VERSION) {
-          showAdHocDebugLog('saved', 'runtime version mismatch — regenerating from prompt', {
+          showAdHocDebugLog('saved', 'runtime version mismatch', {
             saved: saved.runtimeVersion,
             current: ADHOC_RUNTIME_VERSION,
           });
 
-          enqueueSnackbar('This report was rebuilt for an updated report engine.', {
-            variant: 'info',
-          });
-          autoFixedRef.current = true;
-          setPendingRegenerate(saved.request);
+          if (!canCreate) {
+            setError('This report was built for an older report engine and needs an administrator to rebuild it.');
+          } else {
+            enqueueSnackbar('This report was rebuilt for an updated report engine.', {
+              variant: 'info',
+            });
+            autoFixedRef.current = true;
+            setPendingRegenerate(saved.request);
+          }
         } else {
           setGeneratedCode(saved.code);
           setGeneratedTitle(saved.title);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load saved report');
+        setError(getApiError({ error: e, defaultError: 'Failed to load saved report' }));
       } finally {
         setLoading(false);
       }
@@ -500,12 +499,12 @@ export function useReportBuilder(): UseReportBuilder {
   const handleRendered = useCallback((): void => {
     if (!autoFixedRef.current) return;
     autoFixedRef.current = false;
-    if (!oystehrZambda || !loadedSavedId || !generatedCode) return;
+    if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode) return;
     void saveAdHocReport(oystehrZambda, {
       reportId: loadedSavedId,
       definition: buildDefinition(savedName || generatedTitle || 'Report', generatedCode),
     }).catch((e) => console.warn('Could not persist auto-fixed report', e));
-  }, [oystehrZambda, loadedSavedId, generatedCode, buildDefinition, savedName, generatedTitle]);
+  }, [canCreate, oystehrZambda, loadedSavedId, generatedCode, buildDefinition, savedName, generatedTitle]);
 
   const handleSave = useCallback(
     async (mode: 'update' | 'new'): Promise<void> => {
@@ -526,7 +525,7 @@ export function useReportBuilder(): UseReportBuilder {
         setSaving(false);
       }
     },
-    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition, enqueueSnackbar]
+    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition]
   );
 
   const openSaveDialog = useCallback((): void => {
@@ -536,6 +535,8 @@ export function useReportBuilder(): UseReportBuilder {
 
   return {
     oystehrZambda,
+    canView,
+    canCreate,
     datasetId,
     dateRange,
     customDate,
@@ -545,7 +546,6 @@ export function useReportBuilder(): UseReportBuilder {
     schema,
     loading,
     error,
-    partialWarning,
     request,
     generating,
     generatedCode,

@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Linda Foster — 61yo right eye conjunctivitis (Medicare Advantage, T2DM)",
+
+  "patient": {
+    "firstName": "Linda",
+    "lastName": "Foster",
+    "dateOfBirth": "1964-11-02",
+    "sex": "female",
+    "email": "linda.foster@example.com",
+    "phoneNumber": "+19735550356",
+    "address": {
+      "line1": "23 Sunset Road",
+      "city": "Maplewood",
+      "state": "NJ",
+      "postalCode": "07040"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "Thomas",
+      "lastName": "Foster",
+      "phone": "+19735550358",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET887766554",
+        "groupNumber": "GRP-AET-447",
+        "planName": "Aetna Medicare Advantage PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Eye concern - right eye 2 days red, watery, mucoid discharge with morning crusting, recent URI",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "ready"
+  },
+
+  "template": {
+    "name": "Conjunctivitis Right Eye",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [
+      { "name": "Amlodipine 10mg Oral Tablet", "status": "active", "dose": "10 mg", "frequency": "once daily", "route": "PO" },
+      { "name": "Metformin 500mg Oral Tablet", "status": "active", "dose": "500 mg", "frequency": "twice daily", "route": "PO" },
+      { "name": "Atorvastatin 20mg Oral Tablet", "status": "active", "dose": "20 mg", "frequency": "once daily", "route": "PO" }
+    ],
+    "conditions": [
+      { "code": "E11.9", "display": "Type 2 diabetes mellitus without complications", "current": true },
+      { "code": "I10", "display": "Essential hypertension", "current": true },
+      { "code": "E78.5", "display": "Hyperlipidemia, unspecified", "current": true }
+    ],
+    "surgicalHistory": [
+      { "code": "27447", "display": "Total knee replacement, right (age 58)" }
+    ],
+    "hospitalizations": [],
+    "screening": [
+      { "field": "tobacco-use", "value": false }
+    ],
+    "screenNotes": [
+      { "code": "internal", "text": "61yo female with 2-day right-eye redness, watery + mucoid discharge, morning lid crusting. Recent URI. No vision changes, no pain, no contacts. Visual acuity preserved. No left-eye involvement. Likely viral with possible bacterial component — empiric topical antibiotic." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 36.9, "unit": "C" },
+    "heartRate": { "value": 76 },
+    "bloodPressure": { "systolic": 130, "diastolic": 78 },
+    "respirationRate": { "value": 14 },
+    "oxygenSaturation": { "value": 98 },
+    "weight": { "value": 76, "unit": "kg" },
+    "height": { "value": 162, "unit": "cm" }
+  },
+
+  "eligibility": {
+    "plan": "Aetna Medicare Advantage PPO",
+    "coverageActive": true,
+    "deductible": { "individual": 250, "family": 500, "met": 100 },
+    "outOfPocketMax": { "individual": 5500, "family": 11000 },
+    "copays": { "officeVisit": 15, "urgentCare": 35, "specialist": 45, "emergencyRoom": 100 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 35,
+        "insuranceResponsibility": 60
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Aetna Medicare Advantage",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "conjunctivitis", "title": "Caring for Pink Eye" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Erythromycin 0.5% ophthalmic ointment to right eye QID × 7 days. Cold compresses for comfort. Strict hand hygiene. Stay home from public spaces if heavy discharge. Return for vision changes, severe pain, or worsening symptoms.",
+    "followUpIn": 7
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

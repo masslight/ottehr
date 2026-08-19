@@ -16,8 +16,8 @@
  * Without --apply it reports what it would do and changes nothing.
  * --check exits non-zero if any barrel import remains, for CI (see `npm run lint:barrels`).
  */
-import { relative, resolve } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import ts from 'typescript';
 
 const REPO = resolve(__dirname, '..');

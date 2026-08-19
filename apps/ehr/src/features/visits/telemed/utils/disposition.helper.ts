@@ -58,7 +58,7 @@ export type DispositionFormValues = Pick<
 export const mapFormToDisposition = (values: DispositionFormValues): DispositionDTO => {
   const disposition: DispositionDTO = { type: values.type, note: values.note.trim() || 'N/A' };
 
-  const fields = dispositionFieldsPerType[disposition.type];
+  const fields = dispositionFieldsPerType[disposition.type] ?? [];
 
   if (fields.includes('labService')) {
     disposition.labService = values.labService || [];
@@ -119,7 +119,7 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
   values.type = disposition.type;
   values.note = disposition.note === 'N/A' ? '' : disposition.note;
 
-  const fields = dispositionFieldsPerType[disposition.type];
+  const fields = dispositionFieldsPerType[disposition.type] ?? [];
 
   if (fields.includes('labService')) {
     values.labService = disposition.labService || [];

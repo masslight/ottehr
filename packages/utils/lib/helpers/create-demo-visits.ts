@@ -670,7 +670,10 @@ export async function makeSequentialPaperworkPatches(
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to patch paperwork with linkId: ${answer.linkId}`);
+      const body = await response.text().catch(() => '<unreadable body>');
+      throw new Error(
+        `Failed to patch paperwork with linkId: ${answer.linkId} — ${response.status} ${response.statusText}: ${body}`
+      );
     }
   }, Promise.resolve() as Promise<void>);
 }

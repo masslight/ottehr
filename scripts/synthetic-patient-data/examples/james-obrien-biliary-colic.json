@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "1.0",
+  "label": "James O'Brien — 52yo RUQ pain / biliary colic — refer for ultrasound + surgery consult",
+
+  "patient": {
+    "firstName": "James",
+    "lastName": "O'Brien",
+    "dateOfBirth": "1973-04-17",
+    "sex": "male",
+    "email": "james.obrien@example.com",
+    "phoneNumber": "+19735550334",
+    "address": {
+      "line1": "89 Beechwood Lane",
+      "city": "Morristown",
+      "state": "NJ",
+      "postalCode": "07960"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "Mary",
+      "lastName": "O'Brien",
+      "phone": "+19735550337",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Humana",
+        "memberId": "HUM334455667",
+        "groupNumber": "GRP-HUM-661",
+        "planName": "Humana Choice POS",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Abdominal (belly) pain - 6h worsening RUQ + epigastric, sharp, post-fatty meal, prior similar episodes",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "discharged"
+  },
+
+  "template": {
+    "name": "Abdominal pain (focus on constipation)",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99214", "display": "Office visit, established, moderate complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [
+      { "name": "Lisinopril 20mg Oral Tablet", "status": "active", "dose": "20 mg", "frequency": "once daily", "route": "PO" },
+      { "name": "Atorvastatin 40mg Oral Tablet", "status": "active", "dose": "40 mg", "frequency": "once daily at bedtime", "route": "PO" },
+      { "name": "Aspirin 81mg Oral Tablet", "status": "active", "dose": "81 mg", "frequency": "once daily", "route": "PO" }
+    ],
+    "conditions": [
+      { "code": "I10", "display": "Essential hypertension", "current": true },
+      { "code": "E78.5", "display": "Hyperlipidemia, unspecified", "current": true },
+      { "code": "E66.9", "display": "Obesity (BMI 31, class I)", "current": true }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [
+      { "field": "tobacco-use", "value": false }
+    ],
+    "screenNotes": [
+      { "code": "internal", "text": "52yo male with 6h worsening RUQ + epigastric pain, post-fatty meal. Prior similar but milder episodes × 3 months. Murphy's positive. Sclerae anicteric. Working dx: biliary colic, likely cholelithiasis (K80.20). Symptomatic Tx in clinic; lab + RUQ ultrasound referred out, surgery consult recommended within 1 week." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.3, "unit": "C" },
+    "heartRate": { "value": 92 },
+    "bloodPressure": { "systolic": 142, "diastolic": 88 },
+    "respirationRate": { "value": 18 },
+    "oxygenSaturation": { "value": 98 },
+    "weight": { "value": 95, "unit": "kg" },
+    "height": { "value": 175, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseMedications": [
+      { "medicationName": "Ondansetron 4mg ODT", "dose": "4", "units": "mg", "route": "PO", "administered": true, "effectiveDateTime": "2026-04-25T14:00:00Z" },
+      { "medicationName": "Ketorolac 30mg/mL Injection", "dose": "30", "units": "mg", "route": "IM", "administered": true, "effectiveDateTime": "2026-04-25T14:05:00Z" }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Humana Choice POS",
+    "coverageActive": true,
+    "deductible": { "individual": 2500, "family": 5000, "met": 1300 },
+    "outOfPocketMax": { "individual": 7000, "family": 14000 },
+    "copays": { "officeVisit": 35, "urgentCare": 60, "specialist": 70, "emergencyRoom": 350 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99214",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 145,
+        "patientResponsibility": 60,
+        "insuranceResponsibility": 85
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Humana Choice POS",
+    "cptPrices": [
+      { "cpt": "99214", "chargedAmount": 220, "allowedAmount": 145 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "biliary colic", "title": "Gallbladder Pain — What to Watch For" }
+    ]
+  },
+
+  "disposition": {
+    "type": "specialty",
+    "specialty": "General Surgery",
+    "note": "Symptomatic relief in clinic. Lab studies ordered (CBC, CMP, lipase, UA) at outside lab. RUQ ultrasound referred. Strong recommendation to follow up with PCP and surgery within 1 week. Bland diet, avoid fatty foods. Return immediately for worsening pain, fever, jaundice, persistent vomiting, or signs of cholangitis.",
+    "followUpIn": 7
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

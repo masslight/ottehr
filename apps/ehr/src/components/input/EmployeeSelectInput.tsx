@@ -19,10 +19,10 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
   // Source from the broader assignable-staff pool (currently named
   // `nonProviders` — a misnomer; it's "all non-customer-support employees"
   // and includes providers). Callers that want only providers narrow via
-  // the `filter` prop (PROVIDERS_FILTER). Sourcing from `employees.providers`
-  // here would make the filter unable to broaden, so no-filter callers like
-  // task assignment dialogs lose the ability to assign to non-provider
-  // staff (intake, nurses).
+  // the `filter` prop (PROVIDERS_FILTER, which reads `roles`). Sourcing from
+  // `employees.providers` here would make the filter unable to broaden, so
+  // no-filter callers like task assignment dialogs lose the ability to assign
+  // to non-provider staff (intake, clinicians).
   // While loading, pass `undefined` (not `[]`) so AutocompleteInput's skeleton
   // guard fires instead of rendering the field with the value's stale stored label.
   const options = isLoading

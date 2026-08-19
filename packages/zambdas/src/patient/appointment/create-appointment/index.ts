@@ -28,6 +28,7 @@ import {
   EXAM_MIGRATION_VERSION_URL,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
+  INTAKE_PAPERWORK_QR_TAG,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
@@ -38,6 +39,7 @@ import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { makePrepopulatedItemsForPatient } from 'utils/lib/helpers/paperwork/prePopulation';
 import { Secrets } from 'utils/lib/secrets';
@@ -263,7 +265,12 @@ export async function createAppointment(
 
   console.log('getting questionnaire ID to create blank questionnaire response');
 
-  const currentQuestionnaire = await getCanonicalQuestionnaire(questionnaireUrl, oystehr);
+  // If the resolved questionnaire is a paperwork flow, assemble its constituent forms into a concrete
+  // item[] so pre-fill runs against the flattened pages; a non-flow questionnaire is returned as-is.
+  const currentQuestionnaire = await resolveEffectiveQuestionnaire(
+    await getCanonicalQuestionnaire(questionnaireUrl, oystehr),
+    oystehr
+  );
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {
@@ -830,6 +837,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'in-progress',
+    // Marks this as the intake paperwork QR so readers recognize it even when it points at a
+    // paperwork flow (whose canonical is the flow url, not an intake-paperwork url).
+    meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
     subject: { reference: patientRef },
     encounter: { reference: encUrl },
     item, // contains the pre-populated answers for the Patient

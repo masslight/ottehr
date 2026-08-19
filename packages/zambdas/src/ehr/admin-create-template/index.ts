@@ -19,6 +19,7 @@ import {
   makeOptimisticLockIfMatchHeader,
   resourceHasTagSystem,
   transactionWasSuccessful,
+  withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
 import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
@@ -520,38 +521,63 @@ const performEffect = async (
   // Add the new template to the global templates holder list so it's discoverable and create the template itself. No orphaned templates
   console.log('Creating template with', listToCreate.contained!.length, 'contained resources');
   const listToCreateFullUrl = `urn:uuid:${uuidV4()}`;
-  const holderList = await findHolderList(oystehr);
-  if (!holderList) throw new Error('No global templates holder list found — cannot link template');
 
-  const transactionResponse = await oystehr.fhir.transaction<List>({
-    requests: [
-      {
-        method: 'POST',
-        url: '/List',
-        resource: listToCreate,
-        fullUrl: listToCreateFullUrl,
-      },
-      {
-        method: 'PATCH',
-        url: `List/${holderList.id}`,
-        operations: [
+  let holderId: string | undefined;
+
+  const createdList = await withVersionConflictRetries(
+    async () => {
+      const holderList = holderId
+        ? await oystehr.fhir.get<List>({ resourceType: 'List', id: holderId })
+        : await findHolderList(oystehr);
+      if (!holderList?.id) throw new Error('No global templates holder list found — cannot link template');
+      holderId = holderList.id;
+
+      const transactionResponse = await oystehr.fhir.transaction<List>({
+        requests: [
           {
-            op: 'add',
-            path: holderList.entry ? '/entry/-' : '/entry',
-            value: { item: { reference: listToCreateFullUrl } },
+            method: 'POST',
+            url: '/List',
+            resource: listToCreate,
+            fullUrl: listToCreateFullUrl,
+          },
+          {
+            method: 'PATCH',
+            url: `List/${holderList.id}`,
+            operations: [
+              {
+                op: 'add',
+                path: holderList.entry ? '/entry/-' : '/entry',
+                value: { item: { reference: listToCreateFullUrl } },
+              },
+            ],
+            ifMatch: makeOptimisticLockIfMatchHeader(holderList),
           },
         ],
-        ifMatch: makeOptimisticLockIfMatchHeader(holderList),
-      },
-    ],
-  });
+      });
 
-  if (!transactionWasSuccessful(transactionResponse)) {
-    console.error(`This was failed transactionResponse: `, JSON.stringify(transactionResponse));
+      if (!transactionWasSuccessful(transactionResponse)) {
+        // Some failure surfaces put the per-entry status in the bundle instead of throwing;
+        // classify an embedded 412 as a retryable conflict like a thrown one.
+        if (transactionResponse.entry?.some((entry) => entry.response?.status?.startsWith('412'))) {
+          throw new Error('Holder list version conflict (412) while linking template');
+        }
+        console.error(`This was failed transactionResponse: `, JSON.stringify(transactionResponse));
+        throw new Error('Unable to create template or add it to template holder');
+      }
+
+      return transactionResponse.unbundle().find((list) => list.id !== holderList.id);
+    },
+    {
+      onConflict: (attempt) =>
+        console.log(
+          `Holder list version conflict while linking template (attempt ${attempt}), re-reading and retrying`
+        ),
+    }
+  );
+
+  if (!createdList) {
     throw new Error('Unable to create template or add it to template holder');
   }
-
-  const createdList = transactionResponse.unbundle().find((list) => list.id !== holderList.id)!;
 
   console.log('Created template:', createdList.id, createdList.title);
   console.log('Added template to holder list');

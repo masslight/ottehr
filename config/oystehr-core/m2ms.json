@@ -67,7 +67,8 @@
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
             "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
-            "Z3:#{var/PROJECT_ID}-medical-record-exports/*"
+            "Z3:#{var/PROJECT_ID}-medical-record-exports/*",
+            "Z3:#{var/PROJECT_ID}-billing-claim-exports/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
@@ -79,12 +80,12 @@
         },
         {
           "resource": ["Z3:#{var/PROJECT_ID}-faxes/*"],
-          "action": ["Z3:PutObject", "Z3:GetObject"],
+          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject"],
           "effect": "Allow"
         },
         {
           "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
-          "action": ["Z3:GetObject"],
+          "action": ["Z3:GetObject", "Z3:DeleteObject"],
           "effect": "Allow"
         },
         {

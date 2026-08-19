@@ -13,6 +13,7 @@ import {
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
 } from 'utils/lib/fhir/helpers';
+import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import {
   getQuestionnaireAndValueSets,
   isNonPaperworkQuestionnaireResponse,
@@ -207,10 +208,9 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
   );
   console.timeEnd('get-booking-questionnaire');
 
-  if (!questionnaire.item) {
-    questionnaire.item = [];
-  }
-  const allItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item, valueSets);
+  const effectiveQuestionnaire = await resolveEffectiveQuestionnaire(questionnaire, oystehr);
+
+  const allItems = mapQuestionnaireAndValueSetsToItemsList(effectiveQuestionnaire.item ?? [], valueSets);
 
   console.log('checking user access to patient');
   console.time('check-user-access');

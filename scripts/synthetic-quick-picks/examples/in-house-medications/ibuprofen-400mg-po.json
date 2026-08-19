@@ -1,0 +1,9 @@
+{
+  "name": "Ibuprofen 400 mg PO",
+  "medicationId": "831cb867-1038-40cd-8ad6-9b1bce907709",
+  "medicationName": "Ibuprofen 400mg Tablet PO",
+  "dose": 400,
+  "units": "mg",
+  "route": "26643006",
+  "instructions": "400 mg PO once for pain or fever. Avoid in CKD, peptic ulcer, pregnancy."
+}
