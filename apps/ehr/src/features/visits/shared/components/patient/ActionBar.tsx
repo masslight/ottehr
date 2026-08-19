@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, useTheme } from '@mui/material';
+import { Box, Button, Tooltip, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 
@@ -10,6 +10,11 @@ type ActionBarProps = {
   hidden?: boolean;
   submitDisabled?: boolean;
   backButtonHidden?: boolean;
+  /**
+   * When set, saving is blocked by something outside the form itself: the save button is disabled
+   * and this text explains why on hover.
+   */
+  submitBlockedReason?: string;
 };
 
 export const ActionBar: FC<ActionBarProps> = ({
@@ -19,8 +24,27 @@ export const ActionBar: FC<ActionBarProps> = ({
   hidden,
   submitDisabled,
   backButtonHidden,
+  submitBlockedReason,
 }) => {
   const theme = useTheme();
+
+  const saveButton = (
+    <LoadingButton
+      data-testid={dataTestIds.patientInformationPage.saveChangesButton}
+      variant="contained"
+      color="primary"
+      loading={loading}
+      sx={{
+        borderRadius: 25,
+        textTransform: 'none',
+        fontWeight: 'bold',
+      }}
+      disabled={submitDisabled || Boolean(submitBlockedReason)}
+      onClick={handleSave}
+    >
+      Save All
+    </LoadingButton>
+  );
 
   return (
     <Box
@@ -50,21 +74,14 @@ export const ActionBar: FC<ActionBarProps> = ({
         Back
       </Button>
       {backButtonHidden && <span />} {/* Placeholder to keep Save changes button on the right */}
-      <LoadingButton
-        data-testid={dataTestIds.patientInformationPage.saveChangesButton}
-        variant="contained"
-        color="primary"
-        loading={loading}
-        sx={{
-          borderRadius: 25,
-          textTransform: 'none',
-          fontWeight: 'bold',
-        }}
-        disabled={submitDisabled}
-        onClick={handleSave}
-      >
-        Save All
-      </LoadingButton>
+      {submitBlockedReason ? (
+        // A disabled button emits no pointer events, so the tooltip needs an enabled wrapper to hang off.
+        <Tooltip title={submitBlockedReason}>
+          <span>{saveButton}</span>
+        </Tooltip>
+      ) : (
+        saveButton
+      )}
     </Box>
   );
 };
