@@ -62,6 +62,7 @@ export const SearchErasInputSchema = z.object({
   eraStatus: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
+  matchingStatus: nonEmptyString.optional(),
   // Claim-level filters (only ERAs with matched claims satisfying these)
   claimStatus: nonEmptyString.optional(),
   dosFrom: nonEmptyString.optional(),

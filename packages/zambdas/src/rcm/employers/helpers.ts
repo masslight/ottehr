@@ -1,10 +1,10 @@
 import { Address, ContactPoint, Extension, Identifier, Organization } from 'fhir/r4b';
+import { EMPLOYER_NOTES_EXTENSION_URL } from 'utils/lib/fhir/organization';
 
 export const EMPLOYER_ORG_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organization-type';
 export const EMPLOYER_ORG_TYPE_CODE = 'occupational-medicine-employer';
 export const CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/non-insurance-payers/v1/response/non_insurance_payer_id';
-export const EMPLOYER_NOTES_EXTENSION_URL = 'https://extensions.ottehr.com/fhir/StructureDefinition/employer-notes';
 /** Fixed description sent to Candid for every employer non-insurance payer. */
 export const CANDID_EMPLOYER_DESCRIPTION = 'Employer';
 

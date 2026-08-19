@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
-import { EmployeeDetails } from 'utils/lib/types/api/get-employees/get-employees.types';
+import { EmployeeDetails, isCustomerSupport, isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
@@ -67,13 +67,11 @@ export const useGetEmployeesWithDetails = (options?: {
       const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
 
       const formattedProviders: EmployeeDetails[] = activeEmployees
-        .filter((employee) => employee.isProvider && !employee.isCustomerSupport)
+        .filter((employee) => isProvider(employee) && !isCustomerSupport(employee))
         .filter((employee) => Boolean(`${employee.firstName} ${employee.lastName}`.trim() || employee.name));
 
-      // TODO: remove this once we have nurses role
-      // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
       const formattedNonProviders: EmployeeDetails[] = activeEmployees
-        .filter((employee) => !employee.isCustomerSupport)
+        .filter((employee) => !isCustomerSupport(employee))
         .filter((employee) => Boolean(`${employee.firstName} ${employee.lastName}`.trim() || employee.name));
 
       return {

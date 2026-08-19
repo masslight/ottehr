@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-"version": "1.40.18",
+  "version": "1.41.3",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -72,7 +72,8 @@
     "update-locations-for-lab-accounts": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/update-locations-for-lab-accounts.ts",
     "sync-lab-specimen-dates": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/sync-specimen-dates.ts",
     "reset-lab-order": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/reset-lab-order.ts",
-    "setup-default-locations": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/setup-default-locations.ts",
+    "seed-runtime-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/seed-runtime-resources.ts",
+    "dedupe-scheduling-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/dedupe-scheduling-resources.ts",
     "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts",
     "lint:barrels": "tsx scripts/debarrel.ts src --check && tsx scripts/debarrel.ts test --check"
   },
