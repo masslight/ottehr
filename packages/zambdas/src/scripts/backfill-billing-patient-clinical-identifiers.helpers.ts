@@ -142,6 +142,7 @@ export async function backfillBillingPatientClinicalIdentifiers({
     await Promise.all(
       batch.map(async (patient) => {
         const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+          oystehr,
           patient,
           fetchBillingPatient,
         });

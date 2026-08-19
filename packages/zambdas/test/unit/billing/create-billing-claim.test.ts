@@ -46,7 +46,11 @@ function mainBillingPatient(clinicalId: string, friendlyId?: string): Patient {
   };
 }
 
-function mockOystehr(): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn> } {
+function mockOystehr(): {
+  oystehr: Oystehr;
+  transaction: ReturnType<typeof vi.fn>;
+  search: ReturnType<typeof vi.fn>;
+} {
   const transaction = vi.fn().mockResolvedValue({
     entry: [
       {
@@ -57,13 +61,16 @@ function mockOystehr(): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn
       },
     ],
   });
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
   return {
     oystehr: {
       fhir: {
         transaction,
+        search,
       },
     } as unknown as Oystehr,
     transaction,
+    search,
   };
 }
 
@@ -120,5 +127,24 @@ describe('createWorkingCopies', () => {
     });
 
     expect(postedPatient(transaction).identifier).toBeUndefined();
+  });
+
+  // Claim creation must survive a source patient whose own copy parent has been deleted: there is no
+  // clinical patient left to index, which is not a reason to refuse the claim.
+  it('still builds the working copy when the source patient is a copy of a deleted patient', async () => {
+    const { oystehr, transaction } = mockOystehr();
+
+    await createWorkingCopies(oystehr, {
+      patient: {
+        ...mainBillingPatient('billing-gone'),
+        identifier: undefined,
+        meta: {
+          tag: [BILLING_WORKING_COPY_TAG],
+        },
+      },
+    });
+
+    expect(postedPatient(transaction).identifier).toBeUndefined();
+    expect(postedPatient(transaction).meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
   });
 });

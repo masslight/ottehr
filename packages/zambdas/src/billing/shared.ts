@@ -362,11 +362,13 @@ export interface ClinicalPatientIds {
 }
 
 export async function resolveClinicalPatientIds({
+  oystehr,
   patient,
-  fetchBillingPatient,
+  fetchBillingPatient = (id) => findById<Patient>(oystehr, 'Patient', id),
 }: {
+  oystehr: Oystehr;
   patient: Patient;
-  fetchBillingPatient: (id: string) => Promise<Patient | undefined>;
+  fetchBillingPatient?: (id: string) => Promise<Patient | undefined>;
 }): Promise<ClinicalPatientIds> {
   const sourceId = copySourceId(patient);
   if (!isWorkingCopy(patient)) {
@@ -378,7 +380,7 @@ export async function resolveClinicalPatientIds({
   const parent = sourceId ? await fetchBillingPatient(sourceId) : undefined;
   return {
     clinicalId: parent ? copySourceId(parent) : undefined,
-    clinicalFriendlyId: parent ? clinicalFriendlyIdOfCopy(parent) : clinicalFriendlyIdOfCopy(patient),
+    clinicalFriendlyId: (parent ? clinicalFriendlyIdOfCopy(parent) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
     workingCopyParentId: sourceId,
   };
 }
@@ -587,13 +589,29 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
   });
 }
 
+export async function findById<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string
+): Promise<T | undefined> {
+  const result = await oystehr.fhir.search<T>({
+    resourceType,
+    params: [
+      {
+        name: '_id',
+        value: id,
+      },
+    ],
+  });
+  return result.unbundle()[0];
+}
+
 export async function fetchById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   id: string
 ): Promise<T> {
-  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
-  const resource = result.unbundle()[0];
+  const resource = await findById<T>(oystehr, resourceType, id);
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
 }
@@ -926,8 +944,8 @@ export async function copyBillingPatientWithClinicalIds({
   workingCopy?: boolean;
 }): Promise<Patient> {
   const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+    oystehr,
     patient,
-    fetchBillingPatient: (id) => fetchById<Patient>(oystehr, 'Patient', id),
   });
   return copyBillingPatient({
     patient,

@@ -48,8 +48,8 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     clinicalFriendlyId,
     workingCopyParentId: workingCopyReferenceResourceId,
   } = await resolveClinicalPatientIds({
+    oystehr,
     patient,
-    fetchBillingPatient: (id) => fetchById<Patient>(oystehr, 'Patient', id),
   });
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
