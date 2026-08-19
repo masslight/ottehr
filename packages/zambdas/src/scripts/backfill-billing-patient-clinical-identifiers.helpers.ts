@@ -27,7 +27,7 @@ function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
   return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
 }
 
-export function missingClinicalPatientIdentifiers({
+function missingClinicalPatientIdentifiers({
   patient,
   clinicalId,
   clinicalFriendlyId,
@@ -47,7 +47,7 @@ function isStaleClinicalPatientIdentifier(identifier: Identifier, clinicalId: st
   return identifier.system === SOURCE_IDENTIFIER_SYSTEM && identifier.value !== clinicalId;
 }
 
-export function staleClinicalPatientIdentifiers({
+function staleClinicalPatientIdentifiers({
   patient,
   clinicalId,
 }: {
