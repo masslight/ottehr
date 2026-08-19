@@ -470,6 +470,10 @@ export interface ClaimDetailResponse {
   }[];
   tags: string[];
   pcn: string;
+  billType: string;
+  patientDischargeStatusCode: string;
+  admissionType: string;
+  admissionSource: string;
 }
 
 interface Paginated {

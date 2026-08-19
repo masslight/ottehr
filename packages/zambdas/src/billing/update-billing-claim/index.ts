@@ -43,6 +43,10 @@ import {
   claimHasRealCoverage,
   createBillingClient,
   ensureClaimInsurance,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
   getClaimTypeCoding,
   payerDisplay,
@@ -359,6 +363,46 @@ async function attachClaimResources(
         ...claimResourceChangeRequests({ resource: coverage, before: coverageBefore, agent, claimReference })
       );
     }
+  }
+
+  if (fields.billType) {
+    claim.extension = [
+      ...(claim.extension ?? []),
+      {
+        url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+        valueString: fields.billType.substring(1, 3),
+      },
+    ];
+  }
+
+  if (fields.admissionType) {
+    claim.extension = [
+      ...(claim.extension ?? []),
+      {
+        url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+        valueString: fields.admissionType,
+      },
+    ];
+  }
+
+  if (fields.admissionSource) {
+    claim.extension = [
+      ...(claim.extension ?? []),
+      {
+        url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+        valueString: fields.admissionSource,
+      },
+    ];
+  }
+
+  if (fields.patientDischargeStatusCode) {
+    claim.extension = [
+      ...(claim.extension ?? []),
+      {
+        url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+        valueString: fields.patientDischargeStatusCode,
+      },
+    ];
   }
 
   return commitClaimResourceChange(oystehr, {

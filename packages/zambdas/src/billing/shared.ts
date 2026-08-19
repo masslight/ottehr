@@ -254,6 +254,12 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
+export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
+export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
+  'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
+export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,

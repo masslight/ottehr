@@ -4,7 +4,7 @@ import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } fr
 import { DateTime } from 'luxon';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
-import { getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import { getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -29,6 +29,10 @@ import {
   createBillingClient,
   createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchClaimGraph,
   fhirName,
   formatAddress,
@@ -148,6 +152,7 @@ export async function performEffect(
     });
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
+  const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
 
   return {
     id: claim.id ?? '',
@@ -244,6 +249,10 @@ export async function performEffect(
       .map((t) => t.code ?? '')
       .filter(Boolean),
     pcn: getClaimPcn(claim),
+    billType: facilityTypeCode ? `0${facilityTypeCode}1` : '',
+    patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
+    admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
+    admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
   };
 }
 

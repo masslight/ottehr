@@ -91,6 +91,10 @@ import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { DateInput } from '../components/DateInput';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
+import {
+  InstitutionalClaimAdditionalFields,
+  InstitutionalClaimAdditionalFieldsData,
+} from '../components/InstitutionalClaimAdditionalFields';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -547,6 +551,9 @@ export default function ClaimDetail(): ReactElement {
             <RenderingProviderSection claim={claim} updateResource={updateResource} />
             <FacilitySection claim={claim} updateResource={updateResource} />
             <BillingProviderSection claim={claim} updateResource={updateResource} />
+            {claim.type === 'institutional' && (
+              <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
+            )}
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
@@ -1062,6 +1069,53 @@ function BillingProviderSection({
       }}
       showSourceLink
     />
+  );
+}
+
+function InstitutionalClaimAdditionalFieldsSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+
+  const handleSave = async (data: InstitutionalClaimAdditionalFieldsData): Promise<string | null> => {
+    if (!oystehrZambda) return null;
+    try {
+      const error = await updateResource('Claim', claim.id, {
+        billType: data.billType,
+        patientDischargeStatusCode: data.patientDischargeStatusCode,
+        admissionType: data.admissionType,
+        admissionSource: data.admissionSource,
+      });
+      if (error) return error;
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+  };
+
+  const defaultValues = {
+    billType: claim.billType,
+    patientDischargeStatusCode: claim.patientDischargeStatusCode,
+    admissionType: claim.admissionType,
+    admissionSource: claim.admissionSource,
+  };
+
+  return (
+    <EditableSection
+      title="Additional Fields for Institutional Claims"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<InstitutionalClaimAdditionalFields />}
+    >
+      <Row label="Bill Type" value={claim.billType} />
+      <Row label="Patient Discharge Status Code" value={claim.patientDischargeStatusCode} />
+      <Row label="Admission Type" value={claim.admissionType} />
+      <Row label="Point of Origin / Admission Source" value={claim.admissionSource} />
+    </EditableSection>
   );
 }
 

@@ -555,6 +555,10 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
+      billType: nonEmptyString.min(4).max(4).optional(),
+      patientDischargeStatusCode: nonEmptyString.max(2).optional(),
+      admissionType: nonEmptyString.max(1).optional(),
+      admissionSource: nonEmptyString.max(1).optional(),
     }),
   }),
 ]);
