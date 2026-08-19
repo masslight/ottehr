@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  BILLING_WORKING_COPY_TAG,
   clinicalFriendlyIdIdentifier,
   clinicalPatientIdentifier,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
@@ -16,6 +17,18 @@ function billingPatient(patient: Partial<Patient> & Pick<Patient, 'id'>): Patien
       versionId: '1',
     },
     ...patient,
+  };
+}
+
+// A claim working copy's source-resource extension points at its billing main Patient, not at the
+// clinical Patient, so its clinical ids resolve one hop up the chain.
+function workingCopyOf(patient: Partial<Patient> & Pick<Patient, 'id'>): Patient {
+  return {
+    ...billingPatient(patient),
+    meta: {
+      versionId: '1',
+      tag: [BILLING_WORKING_COPY_TAG],
+    },
   };
 }
 
@@ -128,7 +141,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
     );
   });
 
-  it('excludes working copies from the scan', async () => {
+  it('scans working copies alongside main billing patients', async () => {
     const { oystehr, search } = mockOystehr([]);
 
     await backfillBillingPatientClinicalIdentifiers(oystehr, false);
@@ -150,6 +163,80 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
         },
       ],
     });
+  });
+
+  it('indexes a working copy against the clinical ids of the main patient it was stamped from', async () => {
+    const { oystehr, patch } = mockOystehr([
+      billingPatient({
+        id: 'billing-main',
+        extension: copyOf('clinical-1', '1015'),
+        identifier: [clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')],
+      }),
+      workingCopyOf({
+        id: 'billing-copy',
+        extension: copyOf('billing-main'),
+      }),
+    ]);
+
+    const stats = await backfillBillingPatientClinicalIdentifiers(oystehr, false);
+
+    expect(stats).toEqual({
+      examined: 2,
+      patched: 1,
+      alreadyIndexed: 1,
+      skipped: 0,
+      failed: 0,
+    });
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'billing-copy',
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')],
+          },
+        ],
+      }),
+      expect.anything()
+    );
+  });
+
+  it('leaves a working copy that already carries the clinical ids alone', async () => {
+    const { oystehr, patch } = mockOystehr([
+      billingPatient({
+        id: 'billing-main',
+        extension: copyOf('clinical-1', '1015'),
+        identifier: [clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')],
+      }),
+      workingCopyOf({
+        id: 'billing-copy',
+        extension: copyOf('billing-main', '1015'),
+        identifier: [clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')],
+      }),
+    ]);
+
+    const stats = await backfillBillingPatientClinicalIdentifiers(oystehr, false);
+
+    expect(stats.alreadyIndexed).toBe(2);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('skips a working copy whose main patient has no clinical source', async () => {
+    const { oystehr, patch } = mockOystehr([
+      billingPatient({
+        id: 'billing-manual',
+      }),
+      workingCopyOf({
+        id: 'billing-copy',
+        extension: copyOf('billing-manual'),
+      }),
+    ]);
+
+    const stats = await backfillBillingPatientClinicalIdentifiers(oystehr, false);
+
+    expect(stats.skipped).toBe(2);
+    expect(patch).not.toHaveBeenCalled();
   });
 
   it('leaves already indexed copies and manually created patients alone', async () => {

@@ -2,10 +2,12 @@ import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  BILLING_WORKING_COPY_TAG,
   clinicalFriendlyIdIdentifier,
   clinicalPatientIdentifier,
   EXCLUDE_WORKING_COPIES_PARAMS,
   identifierSearchToken,
+  resolveClinicalPatientIds,
   searchOnClinicalIDs,
   searchPatientsByClinicalIds,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
@@ -37,6 +39,17 @@ function billingPatient(id: string, clinicalPatientId?: string, friendlyId?: str
     resourceType: 'Patient',
     id,
     extension: extension.length ? extension : undefined,
+  };
+}
+
+// A working copy's source-resource extension references the billing Patient it was cloned from,
+// which is one hop away from the clinical Patient the identifiers index.
+function workingCopy(id: string, sourceBillingPatientId?: string, friendlyId?: string): Patient {
+  return {
+    ...billingPatient(id, sourceBillingPatientId, friendlyId),
+    meta: {
+      tag: [BILLING_WORKING_COPY_TAG],
+    },
   };
 }
 
@@ -146,6 +159,73 @@ describe('searchOnClinicalIDs', () => {
 
     expect(result.total).toBe(3);
     expect(result.results.map((p) => p.id)).toEqual(['billing-1']);
+  });
+});
+
+describe('resolveClinicalPatientIds', () => {
+  const fetchBillingPatient = (patients: Patient[]) => {
+    const byId = new Map(patients.map((patient) => [patient.id!, patient]));
+    return async (id: string): Promise<Patient | undefined> => byId.get(id);
+  };
+
+  it('reads a main billing patient straight off its own extensions', async () => {
+    const patient = billingPatient('billing-main', 'clinical-1', '1015');
+
+    const ids = await resolveClinicalPatientIds({
+      patient,
+      fetchBillingPatient: fetchBillingPatient([patient]),
+    });
+
+    expect(ids).toEqual({
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+    });
+  });
+
+  it('hops through the main patient for a working copy, whose extension points at the copy source', async () => {
+    const main = billingPatient('billing-main', 'clinical-1', '1015');
+    const copy = workingCopy('billing-copy', 'billing-main');
+
+    const ids = await resolveClinicalPatientIds({
+      patient: copy,
+      fetchBillingPatient: fetchBillingPatient([main, copy]),
+    });
+
+    expect(ids).toEqual({
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+      workingCopyParentId: 'billing-main',
+    });
+  });
+
+  it('resolves no clinical id for a working copy of a manually created billing patient', async () => {
+    const main = billingPatient('billing-manual');
+    const copy = workingCopy('billing-copy', 'billing-manual');
+
+    const ids = await resolveClinicalPatientIds({
+      patient: copy,
+      fetchBillingPatient: fetchBillingPatient([main, copy]),
+    });
+
+    expect(ids).toEqual({
+      clinicalId: undefined,
+      clinicalFriendlyId: undefined,
+      workingCopyParentId: 'billing-manual',
+    });
+  });
+
+  it('resolves nothing for a manually created billing patient', async () => {
+    const patient = billingPatient('billing-manual');
+
+    const ids = await resolveClinicalPatientIds({
+      patient,
+      fetchBillingPatient: fetchBillingPatient([patient]),
+    });
+
+    expect(ids).toEqual({
+      clinicalId: undefined,
+      clinicalFriendlyId: undefined,
+    });
   });
 });
 

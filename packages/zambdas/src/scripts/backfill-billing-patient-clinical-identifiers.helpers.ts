@@ -3,8 +3,8 @@ import { Patient } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   addClinicalPatientIdentifiers,
-  clinicalPatientIdOfCopy,
   missingClinicalPatientIdentifiers,
+  resolveClinicalPatientIds,
 } from '../billing/shared';
 
 const BACKFILL_PAGE_SIZE = 200;
@@ -41,17 +41,27 @@ export async function backfillBillingPatientClinicalIdentifiers(
   stats.examined = patients.length;
   console.log(`Examining ${patients.length} billing Patients`);
 
+  const scanned = new Map(patients.filter((patient) => patient.id).map((patient) => [patient.id!, patient]));
+  const fetchBillingPatient = async (id: string): Promise<Patient | undefined> => scanned.get(id);
+
   for (let index = 0; index < patients.length; index += BACKFILL_PATCH_CONCURRENCY) {
     const batch = patients.slice(index, index + BACKFILL_PATCH_CONCURRENCY);
     await Promise.all(
       batch.map(async (patient) => {
-        const clinicalPatientId = clinicalPatientIdOfCopy(patient);
-        if (!patient.id || !clinicalPatientId) {
+        const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+          patient,
+          fetchBillingPatient,
+        });
+        if (!patient.id || !clinicalId) {
           stats.skipped++;
           return;
         }
 
-        const missing = missingClinicalPatientIdentifiers(patient, clinicalPatientId);
+        const missing = missingClinicalPatientIdentifiers({
+          patient,
+          clinicalId,
+          clinicalFriendlyId,
+        });
         if (!missing.length) {
           stats.alreadyIndexed++;
           return;
@@ -68,7 +78,8 @@ export async function backfillBillingPatientClinicalIdentifiers(
           await addClinicalPatientIdentifiers({
             oystehr,
             patient,
-            clinicalPatientId,
+            clinicalId,
+            clinicalFriendlyId,
           });
           stats.patched++;
           console.log(`Patient/${patient.id} gained identifiers: ${missingSystems}`);

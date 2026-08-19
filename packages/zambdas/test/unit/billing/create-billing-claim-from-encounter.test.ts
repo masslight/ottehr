@@ -3871,14 +3871,9 @@ describe('create-billing-claim-from-encounter', () => {
             patch,
           },
         } as unknown as Oystehr,
-        patient: {
-          ...billingResources.patient,
-          extension: [
-            ...(billingResources.patient.extension ?? []),
-            { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '1015' },
-          ],
-        },
-        clinicalPatientId: 'patient-123',
+        patient: billingResources.patient,
+        clinicalId: 'patient-123',
+        clinicalFriendlyId: '1015',
       });
 
       expect(patch).toHaveBeenCalledWith(
@@ -3906,12 +3901,9 @@ describe('create-billing-claim-from-encounter', () => {
         patient: {
           ...billingResources.patient,
           identifier: [clinicalPatientIdentifier('patient-123')],
-          extension: [
-            ...(billingResources.patient.extension ?? []),
-            { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '1015' },
-          ],
         },
-        clinicalPatientId: 'patient-123',
+        clinicalId: 'patient-123',
+        clinicalFriendlyId: '1015',
       });
 
       expect(patch).toHaveBeenCalledWith(
@@ -3937,7 +3929,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
         } as unknown as Oystehr,
         patient: billingResources.patient,
-        clinicalPatientId: 'patient-123',
+        clinicalId: 'patient-123',
       });
 
       expect(patch).toHaveBeenCalledWith(
@@ -3975,7 +3967,7 @@ describe('create-billing-claim-from-encounter', () => {
             },
           ],
         },
-        clinicalPatientId: 'patient-123',
+        clinicalId: 'patient-123',
       });
 
       expect(patch).toHaveBeenCalledWith(
@@ -4006,7 +3998,7 @@ describe('create-billing-claim-from-encounter', () => {
           ...billingResources.patient,
           identifier: [clinicalPatientIdentifier('patient-123')],
         },
-        clinicalPatientId: 'patient-123',
+        clinicalId: 'patient-123',
       });
 
       expect(patch).not.toHaveBeenCalled();
@@ -4026,7 +4018,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
         } as unknown as Oystehr,
         patient: billingResources.patient,
-        clinicalPatientId: 'patient-123',
+        clinicalId: 'patient-123',
       });
 
       expect(patch).toHaveBeenCalledTimes(1);
