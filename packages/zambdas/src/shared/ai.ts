@@ -401,9 +401,9 @@ export async function createResourcesFromAiInterview(
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
   const requests: BatchInputRequest<DocumentReference | Observation | Condition>[] = [];
-  // Updating an existing DocumentReference in place needs no transaction-local urn:uuid — it already has a
-  // real id other entries in this same bundle (the Observations below) can reference directly.
-  const documentReferenceCreateUrl = `urn:uuid:${uuid()}`;
+  const documentReferenceCreateUrl = existingDocumentReference?.id
+    ? `DocumentReference/${existingDocumentReference.id}`
+    : `urn:uuid:${uuid()}`;
   requests.push(
     existingDocumentReference
       ? updateDocumentReference(existingDocumentReference, chatTranscript)
