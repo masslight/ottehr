@@ -497,7 +497,10 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       const { oystehr, patch } = mockOystehr(misindexedCopy());
 
       const stats = await backfillBillingPatientClinicalIdentifiers(
-        runOptions(oystehr, { dryRun: true, pruneStale: true })
+        runOptions(oystehr, {
+          dryRun: true,
+          pruneStale: true,
+        })
       );
 
       expect(stats.identifiersDropped).toBe(1);

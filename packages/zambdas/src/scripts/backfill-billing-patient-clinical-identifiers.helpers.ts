@@ -70,40 +70,52 @@ export async function syncClinicalPatientIdentifiers({
   clinicalFriendlyId?: string;
   pruneStale?: boolean;
 }): Promise<void> {
-  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = missingClinicalPatientIdentifiers({
-      patient: current,
-      clinicalId,
-      clinicalFriendlyId,
-    });
-    const stale = pruneStale ? staleClinicalPatientIdentifiers({ patient: current, clinicalId }) : [];
-    if (missing.length === 0 && stale.length === 0) return [];
-    if (stale.length > 0) {
-      const kept = (current.identifier ?? []).filter(
-        (identifier) => !isStaleClinicalPatientIdentifier(identifier, clinicalId)
-      );
-      return [
-        {
-          op: 'replace' as const,
-          path: '/identifier',
-          value: [...kept, ...missing],
-        },
-      ];
-    }
-    return current.identifier?.length
-      ? missing.map((identifier) => ({
-          op: 'add' as const,
-          path: '/identifier/-',
-          value: identifier,
-        }))
-      : [
+  await patchWithOptimisticLock(
+    oystehr,
+    {
+      ...patient,
+      id: patient.id!,
+    },
+    (current) => {
+      const missing = missingClinicalPatientIdentifiers({
+        patient: current,
+        clinicalId,
+        clinicalFriendlyId,
+      });
+      const stale = pruneStale
+        ? staleClinicalPatientIdentifiers({
+            patient: current,
+            clinicalId,
+          })
+        : [];
+      if (missing.length === 0 && stale.length === 0) return [];
+      if (stale.length > 0) {
+        const kept = (current.identifier ?? []).filter(
+          (identifier) => !isStaleClinicalPatientIdentifier(identifier, clinicalId)
+        );
+        return [
           {
-            op: 'add' as const,
+            op: 'replace' as const,
             path: '/identifier',
-            value: missing,
+            value: [...kept, ...missing],
           },
         ];
-  });
+      }
+      return current.identifier?.length
+        ? missing.map((identifier) => ({
+            op: 'add' as const,
+            path: '/identifier/-',
+            value: identifier,
+          }))
+        : [
+            {
+              op: 'add' as const,
+              path: '/identifier',
+              value: missing,
+            },
+          ];
+    }
+  );
 }
 
 export async function backfillBillingPatientClinicalIdentifiers({
@@ -158,7 +170,12 @@ export async function backfillBillingPatientClinicalIdentifiers({
           clinicalId,
           clinicalFriendlyId,
         });
-        const stale = pruneStale ? staleClinicalPatientIdentifiers({ patient, clinicalId }) : [];
+        const stale = pruneStale
+          ? staleClinicalPatientIdentifiers({
+              patient,
+              clinicalId,
+            })
+          : [];
         if (!missing.length && !stale.length) {
           stats.alreadyIndexed++;
           return;
