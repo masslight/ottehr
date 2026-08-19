@@ -1,4 +1,4 @@
-import { Appointment, Communication, Patient, Task } from 'fhir/r4b';
+import { Appointment, Communication, Organization, Patient, Task } from 'fhir/r4b';
 import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getOutboundDeliveryAttemptStatus, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
 import { ACTION_LOGS_PAGE_SIZE } from 'utils/lib/types/api/action-logs.types';
@@ -86,6 +86,58 @@ describe('get-action-logs', () => {
     const result = await performEffect({ channel: 'email', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
 
     expect(result.logs[0]).toHaveProperty('documentReferenceId', undefined);
+    // Email records no sending address, so neither Communications nor sender organizations are fetched.
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the sender fax number of the organization the attempt was sent from', async () => {
+    const taskWithSender: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: '+12125551234',
+        communicationReference: 'Communication/comm-1',
+        senderOrganizationReference: 'Organization/org-1',
+      }),
+      id: 'attempt-sender',
+    };
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [taskWithSender, patient, appointment], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [] })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0, entry: [] })
+      .mockResolvedValueOnce({
+        unbundle: () => [
+          {
+            resourceType: 'Organization',
+            id: 'org-1',
+            telecom: [
+              { system: 'phone', value: '+12125550001' },
+              { system: 'fax', value: '+12125559999' },
+            ],
+          } as Organization,
+        ],
+      });
+
+    const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(search.mock.calls[3][0]).toMatchObject({ resourceType: 'Organization' });
+    expect(search.mock.calls[3][0].params).toContainEqual({ name: '_id', value: 'org-1' });
+    expect(result.logs[0].senderAddress).toBe('+12125559999');
+  });
+
+  it('leaves the sender fax number out when the attempt names no sending organization', async () => {
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [task, patient, appointment], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [] })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0, entry: [] });
+
+    const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0].senderAddress).toBeUndefined();
+    expect(search).toHaveBeenCalledTimes(3);
   });
 
   it('disables retry after a failed attempt already has a child', async () => {

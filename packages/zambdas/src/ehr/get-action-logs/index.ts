@@ -1,13 +1,15 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, Patient, Task } from 'fhir/r4b';
+import { Appointment, Communication, Organization, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_TASK_CODES, OUTBOUND_DELIVERY_TASK_SYSTEM } from 'utils/lib/fhir/constants';
+import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
   getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
+  getOutboundDeliverySenderOrganizationId,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
 import { removePrefix } from 'utils/lib/helpers/helpers';
@@ -100,13 +102,48 @@ export async function performEffect(
       .filter((resource): resource is Appointment => resource.resourceType === 'Appointment')
       .map((appointment) => [appointment.id, appointment])
   );
-  const [communications, retriedAttemptIds] = await Promise.all([
+  const [communications, retriedAttemptIds, senderFaxNumbers] = await Promise.all([
     channel === 'fax' ? getFaxCommunications(tasks, oystehr) : Promise.resolve(new Map<string, Communication>()),
     getRetriedAttemptIds(tasks, oystehr),
+    channel === 'fax' ? getSenderFaxNumbers(tasks, oystehr) : Promise.resolve(new Map<string, string>()),
   ]);
 
-  const logs = tasks.map((task) => composeEntry(task, patients, appointments, communications, retriedAttemptIds));
+  const logs = tasks.map((task) =>
+    composeEntry(task, patients, appointments, communications, retriedAttemptIds, senderFaxNumbers)
+  );
   return { logs, totalCount: bundle.total ?? 0 };
+}
+
+/**
+ * Fax number per sending organization, keyed by organization id. An attempt records which organization it
+ * was sent from rather than the number itself, so the number is resolved from that organization here —
+ * which also fills the column in for attempts recorded before it was displayed.
+ */
+async function getSenderFaxNumbers(tasks: Task[], oystehr: Oystehr): Promise<Map<string, string>> {
+  const ids = [
+    ...new Set(
+      tasks.flatMap((task) => {
+        const organizationId = getOutboundDeliverySenderOrganizationId(task);
+        return organizationId ? [organizationId] : [];
+      })
+    ),
+  ];
+  if (!ids.length) return new Map();
+  const organizations = (
+    await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        { name: '_id', value: ids.join(',') },
+        { name: '_count', value: String(ids.length) },
+      ],
+    })
+  ).unbundle();
+  return new Map(
+    organizations.flatMap((organization) => {
+      const faxNumber = getOrganizationFaxNumber(organization);
+      return organization.id && faxNumber ? [[organization.id, faxNumber] as [string, string]] : [];
+    })
+  );
 }
 
 async function getFaxCommunications(tasks: Task[], oystehr: Oystehr): Promise<Map<string, Communication>> {
@@ -160,7 +197,8 @@ function composeEntry(
   patients: Map<string | undefined, Patient>,
   appointments: Map<string | undefined, Appointment>,
   communications: Map<string, Communication>,
-  retriedAttemptIds: Set<string>
+  retriedAttemptIds: Set<string>,
+  senderFaxNumbers: Map<string, string>
 ): ActionLogEntry {
   const channel = getOutboundDeliveryChannel(task)!;
   const patientId = removePrefix('Patient/', task.for?.reference ?? '');
@@ -169,6 +207,7 @@ function composeEntry(
   const appointment = appointments.get(appointmentId);
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
   const faxPacket = getOutboundDeliveryFaxPacketSnapshot(task);
+  const senderOrganizationId = getOutboundDeliverySenderOrganizationId(task);
   const status = getOutboundDeliveryAttemptStatus(
     task,
     recipient.communicationId ? communications.get(recipient.communicationId) : undefined
@@ -179,6 +218,7 @@ function composeEntry(
     status,
     recipientAddress: recipient.address ?? '',
     recipientName: recipient.name,
+    senderAddress: senderOrganizationId ? senderFaxNumbers.get(senderOrganizationId) : undefined,
     patientName: patient ? getFormattedPatientFullName(patient, { skipNickname: true }) : undefined,
     appointmentId,
     visitDate: appointment?.start,

@@ -42,7 +42,7 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
     />
     <PhoneInput
       name={`recipients.${index}.faxNumber`}
-      label="Fax number"
+      label="Recipient Fax"
       required
       dataTestId={`${dataTestIds.faxDialog.faxNumber}-${index}`}
     />

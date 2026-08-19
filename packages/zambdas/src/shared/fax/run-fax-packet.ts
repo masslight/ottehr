@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { getAddressString, getCoding, getNPI } from 'utils/lib/fhir/helpers';
+import { getAddressString, getCoding, getNPI, getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
@@ -132,7 +132,7 @@ export const buildSenderCoverSheetFields = (args: {
   const { organization, senderPractitioner, location, timezone } = args;
 
   const addressText = getAddressString(location?.address) || getAddressString(organization.address?.[0]);
-  const organizationFax = organization.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+  const organizationFax = getOrganizationFaxNumber(organization);
   const organizationPhone = organization.telecom?.find((telecom) => telecom.system === 'phone')?.value;
 
   return {
