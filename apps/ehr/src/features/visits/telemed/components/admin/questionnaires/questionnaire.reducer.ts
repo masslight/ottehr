@@ -1,5 +1,8 @@
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { generatePracticeManagedQuestionnaireItemKey as generateKey } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { QuestionnaireItem, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import {
+  fhirQuestionnaireItemToManaged,
+  generatePracticeManagedQuestionnaireItemKey as generateKey,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
   PracticeManagedQuestionnaireItem,
   QuestionnaireItemType,
@@ -8,6 +11,7 @@ import {
 export type ItemAction =
   | { type: 'ADD_PAGE' }
   | { type: 'ADD_CHILD_ITEM'; key: string }
+  | { type: 'ADD_DEVELOPED_FIELD'; key: string; items: QuestionnaireItem[] }
   | { type: 'UPDATE_ITEM'; key: string; field: string; value: unknown }
   | { type: 'REMOVE_ITEM'; key: string }
   | { type: 'MOVE_ITEM_UP'; key: string }
@@ -94,12 +98,26 @@ export function itemsReducer(
         ],
       }));
 
+    case 'ADD_DEVELOPED_FIELD':
+      // Convert the raw template subtree(s) to managed items (fresh _keys, typed fields) and append.
+      return updateItemInTree(state, action.key, (item) => ({
+        ...item,
+        item: [
+          ...(item.item || []),
+          ...action.items.map((templateItem) => fhirQuestionnaireItemToManaged(templateItem)),
+        ],
+      }));
+
     case 'UPDATE_ITEM':
       return updateItemInTree(state, action.key, (item) => {
-        const isChoiceType = action.field === 'type' && (action.value === 'choice' || action.value === 'open-choice');
+        const isTypeChange = action.field === 'type';
+        const isChoiceType = isTypeChange && (action.value === 'choice' || action.value === 'open-choice');
         const needsAnswerOptionStub = isChoiceType && (!item.answerOption || item.answerOption.length === 0);
         return {
           ...item,
+          // dataType and preferredElement are only valid for specific item types; clear them on a
+          // type change so we never emit an uncertified (type, dataType, preferredElement) combo.
+          ...(isTypeChange ? { dataType: undefined, preferredElement: undefined } : {}),
           [action.field]: action.value,
           ...(needsAnswerOptionStub ? { answerOption: [{ valueString: '' }] } : {}),
         };

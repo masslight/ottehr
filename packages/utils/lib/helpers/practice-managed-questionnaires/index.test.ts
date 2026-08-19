@@ -303,6 +303,111 @@ describe('fhirQuestionnaireItemToManaged', () => {
   });
 });
 
+describe('managed item extension round-trip (WS1.1 fields)', () => {
+  const URLS = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS;
+
+  it('emits the new simple fields as Ottehr extensions and strips the managed-only keys', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [
+        managedItem({
+          type: 'text',
+          infoText: 'why we ask',
+          secondaryInfoText: 'more detail',
+          preferredElement: 'Radio',
+          attachmentText: 'upload the front',
+          minRows: 4,
+        }),
+      ],
+    });
+
+    const item = practiceManagedQuestionnaireToFhir(questionnaire).item?.[0];
+
+    expect(item).not.toHaveProperty('infoText');
+    expect(item).not.toHaveProperty('secondaryInfoText');
+    expect(item).not.toHaveProperty('preferredElement');
+    expect(item).not.toHaveProperty('attachmentText');
+    expect(item).not.toHaveProperty('minRows');
+    expect(item?.extension).toEqual(
+      expect.arrayContaining([
+        { url: URLS.infoText, valueString: 'why we ask' },
+        { url: URLS.secondaryInfoText, valueString: 'more detail' },
+        { url: URLS.preferredElement, valueString: 'Radio' },
+        { url: URLS.attachmentText, valueString: 'upload the front' },
+        { url: URLS.minRows, valuePositiveInt: 4 },
+      ])
+    );
+  });
+
+  it('parses the new simple extensions back into typed managed fields', () => {
+    const item = fhirQuestionnaireItemToManaged({
+      linkId: 'item-1',
+      type: 'text',
+      extension: [
+        { url: URLS.infoText, valueString: 'why we ask' },
+        { url: URLS.secondaryInfoText, valueString: 'more detail' },
+        { url: URLS.preferredElement, valueString: 'Radio List' },
+        { url: URLS.attachmentText, valueString: 'front of card' },
+        { url: URLS.minRows, valuePositiveInt: 3 },
+      ],
+    });
+
+    expect(item.infoText).toBe('why we ask');
+    expect(item.secondaryInfoText).toBe('more detail');
+    expect(item.preferredElement).toBe('Radio List');
+    expect(item.attachmentText).toBe('front of card');
+    expect(item.minRows).toBe(3);
+    expect(item.extension).toBeUndefined();
+  });
+
+  it('keeps an unrecognized preferred-element value as a raw extension', () => {
+    const ext = { url: URLS.preferredElement, valueString: 'NotAnElement' };
+    const item = fhirQuestionnaireItemToManaged({ linkId: 'i', type: 'choice', extension: [ext] });
+
+    expect(item.preferredElement).toBeUndefined();
+    expect(item.extension).toEqual([ext]);
+  });
+
+  it('round-trips native enableWhen / enableBehavior untouched (passthrough)', () => {
+    const enableWhen = [{ question: 'has-address', operator: '=' as const, answerBoolean: true }];
+    const managed = fhirQuestionnaireItemToManaged({
+      linkId: 'child-city',
+      type: 'string',
+      enableWhen,
+      enableBehavior: 'all',
+    });
+
+    expect(managed.enableWhen).toEqual(enableWhen);
+    expect(managed.enableBehavior).toBe('all');
+
+    const back = practiceManagedQuestionnaireToFhir(baseManagedQuestionnaire({ item: [managed] })).item?.[0];
+    expect(back?.enableWhen).toEqual(enableWhen);
+    expect(back?.enableBehavior).toBe('all');
+  });
+
+  it('round-trips an attachment item with an Image data type and attachment text', () => {
+    const managed = managedItem({
+      linkId: 'photo-id-front',
+      type: 'attachment',
+      dataType: 'Image',
+      attachmentText: 'Take a picture of the front',
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(baseManagedQuestionnaire({ item: [managed] })).item?.[0];
+    expect(fhir?.type).toBe('attachment');
+    expect(fhir?.extension).toEqual(
+      expect.arrayContaining([
+        { url: URLS.dataType, valueString: 'Image' },
+        { url: URLS.attachmentText, valueString: 'Take a picture of the front' },
+      ])
+    );
+
+    const roundTripped = fhirQuestionnaireItemToManaged(fhir!);
+    expect(roundTripped.type).toBe('attachment');
+    expect(roundTripped.dataType).toBe('Image');
+    expect(roundTripped.attachmentText).toBe('Take a picture of the front');
+  });
+});
+
 describe('isPracticeManagedQ', () => {
   it('returns false for undefined', () => {
     expect(isPracticeManagedQ(undefined)).toBe(false);

@@ -1,5 +1,4 @@
 import AbcIcon from '@mui/icons-material/Abc';
-import AddIcon from '@mui/icons-material/Add';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
@@ -32,15 +31,28 @@ import { FC, useState } from 'react';
 import {
   DATA_TYPES_BY_ITEM_TYPE,
   OTTEHR_INPUT_WIDTHS,
+  type OttehrInputWidth,
   PracticeManagedQuestionnaireItem,
+  PREFERRED_ELEMENTS_BY_ITEM_TYPE,
   QUESTIONNAIRE_ITEM_TYPES,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { ItemAction } from '../questionnaire.reducer';
+import { AddFieldControl } from './AddFieldControl';
 import { AnswerOptionEditor } from './AnswerOptionEditor';
+import { AvailableQuestion, EnableWhenEditor } from './EnableWhenEditor';
+
+const WIDTH_LABELS: Record<OttehrInputWidth, string> = {
+  s: 'Small (1/3)',
+  m: 'Medium (1/2)',
+  l: 'Large (7/12)',
+  max: 'Max',
+};
 
 interface QuestionnaireItemEditorProps {
   item: PracticeManagedQuestionnaireItem;
   dispatch: React.Dispatch<ItemAction>;
+  availableQuestions: AvailableQuestion[];
+  usedLinkIds: ReadonlySet<string>;
   depth?: number;
 }
 
@@ -86,15 +98,19 @@ const ItemActions: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.
   </Box>
 );
 
-const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
-  item,
-  dispatch,
-}) => {
+const ItemFields: FC<{
+  item: PracticeManagedQuestionnaireItem;
+  dispatch: React.Dispatch<ItemAction>;
+  availableQuestions: AvailableQuestion[];
+}> = ({ item, dispatch, availableQuestions }) => {
   const isChoice = item.type === 'choice' || item.type === 'open-choice';
   const isGroup = item.type === 'group';
   const showMaxLength = item.type === 'string' || item.type === 'text';
   const isDisplay = item.type === 'display';
   const availableDataTypes = DATA_TYPES_BY_ITEM_TYPE[item.type] || [];
+  const preferredElementOptions = PREFERRED_ELEMENTS_BY_ITEM_TYPE[item.type] || [];
+  const isAttachment = item.type === 'attachment';
+  const isMultilineText = item.type === 'text';
 
   return (
     <Grid container spacing={1.5}>
@@ -123,6 +139,32 @@ const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.D
           fullWidth
         />
       </Grid>
+
+      {preferredElementOptions.length > 0 && (
+        <Grid item xs={4}>
+          <Select
+            size="small"
+            value={item.preferredElement || ''}
+            onChange={(e) =>
+              dispatch({
+                type: 'UPDATE_ITEM',
+                key: item._key,
+                field: 'preferredElement',
+                value: e.target.value || undefined,
+              })
+            }
+            displayEmpty
+            fullWidth
+          >
+            <MenuItem value="">Default display</MenuItem>
+            {preferredElementOptions.map((el) => (
+              <MenuItem key={el} value={el}>
+                {el}
+              </MenuItem>
+            ))}
+          </Select>
+        </Grid>
+      )}
 
       {!isDisplay && !isGroup && (
         <>
@@ -234,10 +276,84 @@ const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.D
               <MenuItem value="">Full width</MenuItem>
               {OTTEHR_INPUT_WIDTHS.map((w) => (
                 <MenuItem key={w} value={w}>
-                  {w === 's' ? 'Small (1/3)' : w === 'm' ? 'Medium (1/2)' : 'Large (7/12)'}
+                  {WIDTH_LABELS[w]}
                 </MenuItem>
               ))}
             </Select>
+          </Grid>
+
+          {isMultilineText && (
+            <Grid item xs={4}>
+              <TextField
+                size="small"
+                label="Min rows (multiline)"
+                type="number"
+                value={item.minRows ?? ''}
+                inputProps={{ min: 1 }}
+                onKeyDown={(e) => {
+                  if (['-', '+', 'e', 'E', '.'].includes(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={(e) => {
+                  const parsed = e.target.value ? parseInt(e.target.value) : undefined;
+                  if (parsed !== undefined && parsed < 1) {
+                    return;
+                  }
+                  dispatch({ type: 'UPDATE_ITEM', key: item._key, field: 'minRows', value: parsed });
+                }}
+                fullWidth
+              />
+            </Grid>
+          )}
+
+          {isAttachment && (
+            <Grid item xs={12}>
+              <TextField
+                size="small"
+                label="Upload instructions"
+                value={item.attachmentText || ''}
+                onChange={(e) =>
+                  dispatch({
+                    type: 'UPDATE_ITEM',
+                    key: item._key,
+                    field: 'attachmentText',
+                    value: e.target.value || undefined,
+                  })
+                }
+                multiline
+                minRows={2}
+                fullWidth
+              />
+            </Grid>
+          )}
+
+          <Grid item xs={12}>
+            <TextField
+              size="small"
+              label="Info text (tooltip beside the label)"
+              value={item.infoText || ''}
+              onChange={(e) =>
+                dispatch({ type: 'UPDATE_ITEM', key: item._key, field: 'infoText', value: e.target.value || undefined })
+              }
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              size="small"
+              label={'Secondary info text ("Why do we ask?")'}
+              value={item.secondaryInfoText || ''}
+              onChange={(e) =>
+                dispatch({
+                  type: 'UPDATE_ITEM',
+                  key: item._key,
+                  field: 'secondaryInfoText',
+                  value: e.target.value || undefined,
+                })
+              }
+              fullWidth
+            />
           </Grid>
         </>
       )}
@@ -247,11 +363,23 @@ const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.D
           <AnswerOptionEditor itemKey={item._key} options={item.answerOption || []} dispatch={dispatch} />
         </Grid>
       )}
+
+      {!isGroup && (
+        <Grid item xs={12}>
+          <EnableWhenEditor item={item} dispatch={dispatch} availableQuestions={availableQuestions} />
+        </Grid>
+      )}
     </Grid>
   );
 };
 
-export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item, dispatch, depth = 0 }) => {
+export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({
+  item,
+  dispatch,
+  availableQuestions,
+  usedLinkIds,
+  depth = 0,
+}) => {
   const isGroup = item.type === 'group';
   const [expanded, setExpanded] = useState(false);
 
@@ -262,7 +390,7 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 0.5 }}>
           <ItemActions item={item} dispatch={dispatch} />
         </Box>
-        <ItemFields item={item} dispatch={dispatch} />
+        <ItemFields item={item} dispatch={dispatch} availableQuestions={availableQuestions} />
       </Box>
     );
   }
@@ -325,21 +453,22 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0 }}>
-        <ItemFields item={item} dispatch={dispatch} />
+        <ItemFields item={item} dispatch={dispatch} availableQuestions={availableQuestions} />
         {isGroup && (
           <Box sx={{ mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="subtitle2">Page Content</Typography>
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => dispatch({ type: 'ADD_CHILD_ITEM', key: item._key })}
-              >
-                <AddIcon fontSize="small" />
-              </IconButton>
+              <AddFieldControl pageKey={item._key} dispatch={dispatch} usedLinkIds={usedLinkIds} />
             </Box>
             {(item.item || []).map((child) => (
-              <QuestionnaireItemEditor key={child._key} item={child} dispatch={dispatch} depth={1} />
+              <QuestionnaireItemEditor
+                key={child._key}
+                item={child}
+                dispatch={dispatch}
+                availableQuestions={availableQuestions}
+                usedLinkIds={usedLinkIds}
+                depth={1}
+              />
             ))}
             {(!item.item || item.item.length === 0) && (
               <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>

@@ -842,6 +842,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
+  documentType: `${PRIVATE_EXTENSION_BASE_URL}/document-type`,
   groupType: `${PRIVATE_EXTENSION_BASE_URL}/group-type`,
   hideControlLabel: `${PRIVATE_EXTENSION_BASE_URL}/hide-control-label`,
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,

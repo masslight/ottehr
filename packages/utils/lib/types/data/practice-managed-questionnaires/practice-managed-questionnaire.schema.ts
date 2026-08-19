@@ -3,11 +3,13 @@ import z from 'zod';
 import {
   OTTEHR_DATA_TYPES,
   OTTEHR_INPUT_WIDTHS,
+  OTTEHR_PREFERRED_ELEMENTS,
   QUESTIONNAIRE_ITEM_TYPES,
 } from './practice-managed-questionnaire.types';
 
 export const DataTypeSchema = z.enum(OTTEHR_DATA_TYPES);
 export const InputWidthSchema = z.enum(OTTEHR_INPUT_WIDTHS);
+export const PreferredElementSchema = z.enum(OTTEHR_PREFERRED_ELEMENTS);
 
 export const PracticeManagedQuestionnaireItemSchema = z
   .object({
@@ -16,6 +18,12 @@ export const PracticeManagedQuestionnaireItemSchema = z
     // these are custom fields that will be mapped to questionnaire extension when converted to fhir format
     dataType: DataTypeSchema.optional(),
     inputWidth: InputWidthSchema.optional(),
+    // additional custom fields mapped to Ottehr item extensions (see practice-managed-questionnaires/index.ts)
+    infoText: z.string().optional(),
+    secondaryInfoText: z.string().optional(),
+    preferredElement: PreferredElementSchema.optional(),
+    attachmentText: z.string().optional(),
+    minRows: z.number().int().positive().optional(),
     // custom field needed for react stability
     _key: z.string().length(8),
   })

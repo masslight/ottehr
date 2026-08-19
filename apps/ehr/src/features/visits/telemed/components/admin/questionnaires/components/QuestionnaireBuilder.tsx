@@ -17,7 +17,9 @@ import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { RESERVED_DEVELOPED_FIELD_LINK_IDS } from '../developedFieldTemplates';
 import { itemsReducer } from '../questionnaire.reducer';
+import { AvailableQuestion } from './EnableWhenEditor';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
 import { QuestionnairePreview } from './QuestionnairePreview';
 import { QuestionnaireTestDialog } from './QuestionnaireTestDialog';
@@ -55,6 +57,14 @@ function ensureUniqueLinkIds(
   pageSlug?: string
 ): PracticeManagedQuestionnaireItem[] {
   return items.map((item) => {
+    // Developed-field linkIds are load-bearing; keep them verbatim (never derive or dedupe-rename).
+    if (item.linkId && RESERVED_DEVELOPED_FIELD_LINK_IDS.has(item.linkId)) {
+      seen.add(item.linkId);
+      return {
+        ...item,
+        item: item.item ? ensureUniqueLinkIds(item.item, seen, undefined) : undefined,
+      };
+    }
     let base = item.linkId;
     if (!base && item.text) {
       const textSlug = toSlug(item.text);
@@ -85,6 +95,30 @@ function ensureUniqueLinkIds(
   });
 }
 
+// Flattens the linkId-resolved items into the answerable questions an enableWhen condition can target.
+// Uses the derived linkIds (post-ensureUniqueLinkIds) so a stored condition references a real linkId.
+function collectAvailableQuestions(items: PracticeManagedQuestionnaireItem[]): AvailableQuestion[] {
+  const out: AvailableQuestion[] = [];
+  const walk = (list: PracticeManagedQuestionnaireItem[]): void => {
+    for (const it of list) {
+      if (it.type !== 'group' && it.type !== 'display') {
+        out.push({
+          key: it._key,
+          linkId: it.linkId,
+          text: it.text ?? '',
+          type: it.type,
+          options: (it.answerOption ?? [])
+            .map((o) => o.valueCoding?.code ?? o.valueString ?? '')
+            .filter((v): v is string => Boolean(v)),
+        });
+      }
+      if (it.item) walk(it.item);
+    }
+  };
+  walk(items);
+  return out;
+}
+
 export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, onSave, isSaving }) => {
   const [title, setTitle] = useState(initial?.title || '');
   const [description, setDescription] = useState(initial?.description || '');
@@ -98,7 +132,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
   const navigate = useNavigate();
 
-  const { questionnaire, fhirQuestionnaire, jsonPreview } = useMemo(() => {
+  const { questionnaire, fhirQuestionnaire, jsonPreview, availableQuestions, usedLinkIds } = useMemo(() => {
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
     const version = initial?.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
@@ -118,8 +152,18 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
     const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(structuredClone(questionnaire), true);
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
+    const availableQuestions = collectAvailableQuestions(questionnaire.item);
 
-    return { questionnaire, fhirQuestionnaire, jsonPreview };
+    const usedLinkIds = new Set<string>();
+    const gatherLinkIds = (list: PracticeManagedQuestionnaireItem[]): void => {
+      for (const it of list) {
+        if (it.linkId) usedLinkIds.add(it.linkId);
+        if (it.item) gatherLinkIds(it.item);
+      }
+    };
+    gatherLinkIds(questionnaire.item);
+
+    return { questionnaire, fhirQuestionnaire, jsonPreview, availableQuestions, usedLinkIds };
   }, [initial, title, description, items]);
 
   const handleCopyJson = useCallback(() => {
@@ -211,7 +255,13 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
             )}
 
             {items.map((item: PracticeManagedQuestionnaireItem) => (
-              <QuestionnaireItemEditor key={item._key} item={item} dispatch={dispatch} />
+              <QuestionnaireItemEditor
+                key={item._key}
+                item={item}
+                dispatch={dispatch}
+                availableQuestions={availableQuestions}
+                usedLinkIds={usedLinkIds}
+              />
             ))}
           </Paper>
           {pagesError && (

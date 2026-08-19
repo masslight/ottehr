@@ -11,7 +11,7 @@ import {
 
 export type QuestionnaireItemType = Exclude<
   QuestionnaireItem['type'],
-  'question' | 'time' | 'dateTime' | 'quantity' | 'reference' | 'url' | 'attachment' | 'integer'
+  'question' | 'time' | 'dateTime' | 'quantity' | 'reference' | 'url' | 'integer'
 >;
 
 export const QUESTIONNAIRE_ITEM_TYPES = [
@@ -24,7 +24,7 @@ export const QUESTIONNAIRE_ITEM_TYPES = [
   'open-choice',
   'date',
   'group',
-  // 'attachment',
+  'attachment',
   // 'integer',
 ] as const satisfies readonly QuestionnaireItemType[];
 
@@ -38,11 +38,37 @@ export type OttehrDataType = (typeof OTTEHR_DATA_TYPES)[number];
 export const DATA_TYPES_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, OttehrDataType[]>> = {
   string: ['Phone Number', 'Email', 'ZIP', 'SSN', 'Signature'],
   date: ['DOB'],
-  // attachment: ['Image', 'PDF'],
+  attachment: ['Image', 'PDF'],
   display: ['Call Out'],
 };
-export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l'] as const;
+export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l', 'max'] as const;
 export type OttehrInputWidth = (typeof OTTEHR_INPUT_WIDTHS)[number];
+
+// preferred-element values understood by the paperwork engine (packages/ui-components .../paperwork/utils.ts).
+// These unlock the non-default renderers: Radio / Radio List (choice), Button / Link (boolean),
+// Header 4 / Description (display). 'h3'/'Select'/'Free Select' are the defaults for their item types.
+export const OTTEHR_PREFERRED_ELEMENTS = [
+  'p',
+  'h3',
+  'h4',
+  'h5',
+  'Radio',
+  'Radio List',
+  'Select',
+  'Free Select',
+  'Button',
+  'Link',
+] as const;
+export type OttehrPreferredElement = (typeof OTTEHR_PREFERRED_ELEMENTS)[number];
+
+// Which preferred-element renderers are valid to author per item type. This is the authoring-time
+// subset of the paperwork engine's certified dispatch matrix (see ui-components certifiedItemCatalog.ts)
+// that the builder exposes: choosing one of these produces a certified (type, preferredElement) shape.
+export const PREFERRED_ELEMENTS_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, OttehrPreferredElement[]>> = {
+  choice: ['Select', 'Radio', 'Radio List'],
+  boolean: ['Button', 'Link'],
+  display: ['h3', 'h4', 'p'],
+};
 
 export type PracticeManagedQuestionnaireItem = Omit<QuestionnaireItem, 'item'> &
   z.infer<typeof PracticeManagedQuestionnaireItemSchema> & {
