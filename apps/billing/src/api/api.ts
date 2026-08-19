@@ -16,6 +16,7 @@ import {
   ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
+  GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
@@ -60,6 +61,7 @@ import {
   DeletedResponse,
   EraDetailResponse,
   ExportClaimX12Response,
+  GetBillingCoverageResponse,
   GetBillingPatientBalanceResponse,
   GetPatientCoveragesResponse,
   OkResponse,
@@ -263,6 +265,11 @@ export const updateBillingCoverage = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateBillingCoverageInputSchema>
 ): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-coverage', parameters);
+
+export const getBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingCoverageInputSchema>
+): Promise<GetBillingCoverageResponse> => executeBillingZambda(oystehr, 'get-billing-coverage', parameters);
 
 export const deleteBillingCoverage = (
   oystehr: Oystehr,
