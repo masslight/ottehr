@@ -20,6 +20,20 @@ interface TabContentProps {
   children: React.ReactNode;
 }
 
+export type ImmunizationTab = 'mar' | 'vaccine-details';
+
+interface ImmunizationProps {
+  /**
+   * 'inline' drops the page title, drives the active tab from props instead of the URL,
+   * and replaces navigations with callbacks — used by the Review & Sign inline edit flow
+   */
+  variant?: 'page' | 'inline';
+  tab?: ImmunizationTab;
+  onTabChange?: (tab: ImmunizationTab) => void;
+  onCreateOrder?: () => void;
+  onEditOrder?: (orderId: string) => void;
+}
+
 const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
   <Box
     sx={{
@@ -30,40 +44,88 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
   </Box>
 );
 
-export const Immunization: React.FC = () => {
+export const Immunization: React.FC<ImmunizationProps> = ({
+  variant = 'page',
+  tab,
+  onTabChange,
+  onCreateOrder,
+  onEditOrder,
+}) => {
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { tabName } = useParams();
+  const { tabName: tabNameFromUrl } = useParams();
+  const tabName = variant === 'inline' ? tab ?? 'mar' : tabNameFromUrl;
 
   const tabContentRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const isTabTransitionRef = useRef(false);
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
+  // Which order card the details tab should scroll to when reached inline (the page variant
+  // carries this through the URL's scrollTo search param instead)
+  const [inlineScrollTo, setInlineScrollTo] = useState<string | undefined>(undefined);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const {
     resources: { patient },
   } = useAppointmentData(appointmentId);
 
   const onNewOrderClick = (): void => {
+    if (variant === 'inline') {
+      onCreateOrder?.();
+      return;
+    }
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
   };
 
   const onTabChanged = useCallback(() => {
     isTabTransitionRef.current = true;
     requestAnimationFrame(() => {
+      if (variant === 'inline') {
+        setInlineScrollTo(undefined);
+        onTabChange?.(tabName === 'mar' ? 'vaccine-details' : 'mar');
+        return;
+      }
       if (tabName === 'mar') {
         navigate(getImmunizationVaccineDetailsUrl(appointmentId!));
       } else {
         navigate(getImmunizationMARUrl(appointmentId!));
       }
     });
-  }, [appointmentId, navigate, tabName]);
+  }, [appointmentId, navigate, tabName, variant, onTabChange]);
+
+  // Inline replacement for the MAR row's navigation to the details tab with ?scrollTo=<orderId>
+  const onShowOrderDetails = useCallback(
+    (orderId: string) => {
+      setInlineScrollTo(orderId);
+      onTabChange?.('vaccine-details');
+    },
+    [onTabChange]
+  );
+
+  // Inline replacement for the details card's navigation back to the MAR after administer/delete
+  const onOrderFinished = useCallback(() => {
+    setInlineScrollTo(undefined);
+    onTabChange?.('mar');
+  }, [onTabChange]);
 
   useEffect(() => {
-    setContent({ mar: <OrderHistoryTable showActions={!isReadOnly} />, details: <VaccineDetailsCardList /> });
-  }, [isReadOnly]);
+    setContent({
+      mar: (
+        <OrderHistoryTable
+          showActions={!isReadOnly}
+          onEditOrder={variant === 'inline' ? onEditOrder : undefined}
+          onShowDetails={variant === 'inline' ? onShowOrderDetails : undefined}
+        />
+      ),
+      details: (
+        <VaccineDetailsCardList
+          onOrderFinished={variant === 'inline' ? onOrderFinished : undefined}
+          scrollToOrderId={variant === 'inline' ? inlineScrollTo : undefined}
+        />
+      ),
+    });
+  }, [isReadOnly, variant, onEditOrder, onShowOrderDetails, onOrderFinished, inlineScrollTo]);
 
   if (!content) {
     return <Loader />;
@@ -71,12 +133,14 @@ export const Immunization: React.FC = () => {
 
   return (
     <Stack>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <PageTitle
-          label="Immunizations"
-          showIntakeNotesButton={false}
-          dataTestId={dataTestIds.immunizationPage.title}
-        />
+      <Stack direction="row" justifyContent={variant === 'inline' ? 'flex-end' : 'space-between'} alignItems="center">
+        {variant === 'page' && (
+          <PageTitle
+            label="Immunizations"
+            showIntakeNotesButton={false}
+            dataTestId={dataTestIds.immunizationPage.title}
+          />
+        )}
         {!isReadOnly && (
           <RoundedButton variant="contained" onClick={onNewOrderClick} startIcon={<AddIcon />}>
             Order

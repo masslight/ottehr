@@ -57,6 +57,9 @@ import { OrderStatusChip } from './OrderStatusChip';
 
 interface Props {
   order: ImmunizationOrder;
+  // Called after administer/delete instead of navigating back to the MAR — used by the
+  // Review & Sign inline edit flow
+  onFinished?: () => void;
 }
 
 const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map(([_, value]) => ({
@@ -64,7 +67,7 @@ const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map
   label: value.display,
 }));
 
-export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
+export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const methods = useForm();
   useEffect(() => {
     methods.reset({
@@ -112,7 +115,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const handleDeleteOrder = async (): Promise<void> => {
     try {
       await cancelOrder({ orderId: order.id });
-      navigate(getImmunizationMARUrl(appointmentId!));
+      if (onFinished) {
+        onFinished();
+      } else {
+        navigate(getImmunizationMARUrl(appointmentId!));
+      }
     } catch {
       enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
         variant: 'error',
@@ -132,7 +139,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         type: administrationTypeRef.current.type,
         ...(await cleanupProperties(data)),
       });
-      navigate(getImmunizationMARUrl(appointmentId!));
+      if (onFinished) {
+        onFinished();
+      } else {
+        navigate(getImmunizationMARUrl(appointmentId!));
+      }
     } catch (error) {
       enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred. Please try again.' }), {
         variant: 'error',
