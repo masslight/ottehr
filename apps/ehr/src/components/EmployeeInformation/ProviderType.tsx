@@ -37,10 +37,10 @@ export function ProviderTypeField({
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Provider Type"
-                data-testid={dataTestIds.employeesPage.providerDetailsProviderTypeDropdown}
+                label="Credentials"
+                data-testid={dataTestIds.employeesPage.providerDetailsCredentialsDropdown}
                 error={!!error}
-                helperText={error ? 'Please select provider type' : null}
+                helperText={error ? 'Please select credentials' : null}
                 FormHelperTextProps={{
                   sx: { ml: 0, mt: 1 },
                 }}
@@ -65,7 +65,7 @@ export function ProviderTypeField({
           rules={{
             validate: (value, formValues) => {
               if (formValues.providerType === 'other' && !value) {
-                return 'Please specify provider type';
+                return 'Please specify credentials';
               }
               return true;
             },
@@ -75,11 +75,11 @@ export function ProviderTypeField({
               {...field}
               fullWidth
               margin="normal"
-              label="Specify Provider Type"
+              label="Specify credentials"
               required
               error={error?.message !== undefined}
               helperText={error?.message ?? ''}
-              data-testid={dataTestIds.employeesPage.providerDetailsProviderTypeOtherText}
+              data-testid={dataTestIds.employeesPage.providerDetailsCredentialsOtherText}
             />
           )}
         />

@@ -12,24 +12,41 @@ import {
   useTheme,
 } from '@mui/material';
 import type { ExamCardComponent, ExamItemConfig } from 'config-types';
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ControlledCheckboxSelect } from './ControlledCheckboxSelect';
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown';
+import { collectExamCheckboxFields } from './exam-selection-helpers';
 import { ExamCheckboxWithModal } from './ExamCheckboxWithModal';
 import { ExamCommentField } from './ExamCommentField';
 import { ExamForm } from './ExamForm';
+import { ExamSelectAllCheckbox } from './ExamSelectAllCheckbox';
 
 type ExamTableProps = {
   examConfig: ExamItemConfig;
 };
+
+/** Indent of the items sitting under a section's "Select all", roughly one checkbox wide. */
+const NESTED_ITEMS_INDENT = 3;
 
 export const ExamTable: FC<ExamTableProps> = ({ examConfig }) => {
   const theme = useTheme();
 
   const border = '1px solid rgba(224, 224, 224, 1)';
   const cards: (keyof typeof examConfig)[] = Object.keys(examConfig) as (keyof typeof examConfig)[];
+
+  // Normal checkboxes per section, i.e. what that section's "Select all" toggles.
+  const selectAllFields: Record<string, string[]> = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(examConfig).map(([card, section]) => [
+          card,
+          collectExamCheckboxFields(section.components.normal),
+        ])
+      ),
+    [examConfig]
+  );
 
   return (
     <TableContainer
@@ -75,7 +92,18 @@ export const ExamTable: FC<ExamTableProps> = ({ examConfig }) => {
             <TableRow key={card}>
               <TableCell>{examConfig[card].label}</TableCell>
               <TableCell>
-                <ExamTableCellComponent elements={examConfig[card].components.normal} />
+                {selectAllFields[card].length > 0 && (
+                  <ExamSelectAllCheckbox sectionKey={String(card)} fields={selectAllFields[card]} />
+                )}
+                {/* The findings always sit in their own container, so a reader of this column — the
+                    e2e helpers read it positionally — can tell them apart from the "Select all",
+                    which is a control over the section rather than a finding of it. */}
+                <Box
+                  data-testid={dataTestIds.examPage.normalFindings}
+                  sx={{ pl: selectAllFields[card].length > 0 ? NESTED_ITEMS_INDENT : 0 }}
+                >
+                  <ExamTableCellComponent elements={examConfig[card].components.normal} />
+                </Box>
               </TableCell>
               <TableCell>
                 <ExamTableCellComponent elements={examConfig[card].components.abnormal} abnormal />

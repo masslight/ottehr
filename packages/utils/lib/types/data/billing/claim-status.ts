@@ -249,10 +249,22 @@ export function emptyClaimStatusValues(): ClaimStatusValues {
   }, {} as ClaimStatusValues);
 }
 
+export function hasReachedPatientAr(claim: Pick<Claim, 'meta'> | undefined): boolean {
+  return getClaimStatusValues(claim).arStage === AR_STAGE.patient;
+}
+
 // Human-readable label for a field value code (empty/unknown -> '').
 export function formatClaimStatusValue(field: ClaimStatusFieldDef, code: string | undefined): string {
   if (!code) return '';
   return field.options.find((o) => o.code === code)?.label ?? code;
+}
+
+export function formatAntCaseString(value?: string): string {
+  if (!value) return '';
+  return value
+    .split('-')
+    .map((substr) => substr.charAt(0).toUpperCase() + substr.slice(1))
+    .join(' ');
 }
 
 // Whether `code` is a valid selection for the field. Empty/null (clear back to default) is allowed.

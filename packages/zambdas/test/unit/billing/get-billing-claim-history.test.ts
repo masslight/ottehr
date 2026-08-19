@@ -9,6 +9,7 @@ import {
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
+  ClaimHistoryRuleRef,
 } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
@@ -138,6 +139,28 @@ describe('get-billing-claim-history performEffect', () => {
     const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
 
     expect(entries[0].message).toBeUndefined();
+  });
+
+  it('passes a stored rule attribution through to the entry verbatim', async () => {
+    const rule: ClaimHistoryRuleRef = { id: 'rule-1', name: 'Normalize member IDs', engine: 'claim-submission' };
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      agent: [{ type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] }, who: { reference: 'Device/d1' } }],
+      extension: [
+        diffExtension([
+          { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B', rule },
+          { field: 'status', label: 'Status', previousValue: 'draft', newValue: 'active' },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    expect(entries[0].changes).toEqual([
+      { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B', rule },
+      { field: 'status', label: 'Status', previousValue: 'draft', newValue: 'active' },
+    ]);
   });
 
   it('attributes a Device agent as a system actor and sorts newest first', async () => {

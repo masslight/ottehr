@@ -21,6 +21,7 @@ import {
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
+import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetResourceRefs,
@@ -35,6 +36,7 @@ import {
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
+  diffResources,
   recordedNow,
   resolveClaimActor,
 } from '../../../billing/provenance';
@@ -110,7 +112,8 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
       // claim looking ready to proceed.
       console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
       const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
-      await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent);
+      const failedRule = error instanceof RuleFailureError ? error.rule : undefined;
+      await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent, failedRule);
       await ensureClaimHeld(oystehr, claim, agent);
     } catch (handleErrorError) {
       console.error(
@@ -242,12 +245,51 @@ async function loadPatientCoverageContext(
   return context;
 }
 
+// Resource url (as persistModel keys them) → change field → the last rule that changed it.
+export type RuleAttributionMap = Map<string, Map<string, ClaimHistoryRuleRef>>;
+
+function toRuleRef(engine: RulesEngineType, rule: BillingRule): ClaimHistoryRuleRef {
+  return { id: rule.id, name: rule.name, engine };
+}
+
+// Record which fields the just-executed rule changed, diffing the model against the pre-rule
+// snapshot. Later rules overwrite earlier entries, so each field names its last writer.
+function recordRuleAttribution(
+  attribution: RuleAttributionMap,
+  before: Map<string, ModelResource>,
+  model: RulesEngineClaimModel,
+  rule: ClaimHistoryRuleRef
+): void {
+  for (const resource of modelResources(model)) {
+    const url = `${resource.resourceType}/${resource.id}`;
+    const prior = before.get(url);
+    if (prior && JSON.stringify(prior) === JSON.stringify(resource)) continue;
+    for (const change of diffResources(prior, resource)) {
+      const fields = attribution.get(url) ?? new Map<string, ClaimHistoryRuleRef>();
+      fields.set(change.field, rule);
+      attribution.set(url, fields);
+    }
+  }
+}
+
+export class RuleFailureError extends Error {
+  constructor(
+    message: string,
+    readonly rule: ClaimHistoryRuleRef
+  ) {
+    super(message);
+    this.name = 'RuleFailureError';
+  }
+}
+
 export async function performEffect(
   oystehr: Oystehr,
   { engine, claimId, rules, model, skipRules }: ValidatedRulesRun,
   agent: ProvenanceAgent[]
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
+  const attribution: RuleAttributionMap = new Map();
+  let preRule = unchanged;
 
   let heldBy: BillingRule | undefined;
   let failure: { rule: BillingRule; error: string } | undefined;
@@ -263,12 +305,17 @@ export async function performEffect(
         // the wrong data. Hold it and stop the run.
         failure = { rule, error };
         applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
-        break;
       }
+      // A failed action can partially mutate the model with zero applied actions, so attribute on error too.
+      if (error || appliedActions.length > 0) {
+        recordRuleAttribution(attribution, preRule, model, toRuleRef(engine, rule));
+      }
+      if (error) break;
       if (held) {
         heldBy = rule;
         break;
       }
+      if (appliedActions.length > 0) preRule = snapshotModel(model);
     }
   }
 
@@ -278,10 +325,12 @@ export async function performEffect(
   const unwritable = failure || heldBy ? [] : findUnwritableChanges(model, unchanged);
   if (unwritable.length > 0) {
     applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+    // This Hold is the engine's own, so no rule should be blamed for the combined tags change.
+    attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
   }
 
   // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
-  const written = await persistModel(oystehr, model, unchanged, agent);
+  const written = await persistModel(oystehr, model, unchanged, agent, attribution);
   console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
 
   if (unwritable.length > 0) {
@@ -296,7 +345,10 @@ export async function performEffect(
 
   if (failure) {
     console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
-    throw new Error(`Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`);
+    throw new RuleFailureError(
+      `Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`,
+      toRuleRef(engine, failure.rule)
+    );
   }
 
   if (heldBy) {
@@ -420,7 +472,8 @@ export async function persistModel(
   oystehr: Oystehr,
   model: RulesEngineClaimModel,
   snapshot: Map<string, ModelResource>,
-  agent: ProvenanceAgent[]
+  agent: ProvenanceAgent[],
+  attribution?: RuleAttributionMap
 ): Promise<number> {
   const claimReference = `Claim/${model.claim.id}`;
   const requests: BatchInputRequest<FhirResource>[] = [];
@@ -429,6 +482,7 @@ export async function persistModel(
     const url = `${resource.resourceType}/${resource.id}`;
     const before = snapshot.get(url);
     if (before && JSON.stringify(before) === JSON.stringify(resource)) continue;
+    const ruleAttribution = attribution?.get(url);
     if (resource.id && model.createdCopyIds?.has(resource.id)) {
       // A copy minted by this run's writers: POST it under its urn fullUrl so the claim's temporary
       // urn references and the create-Provenance's target resolve to the created id inside the
@@ -445,6 +499,7 @@ export async function persistModel(
         agent,
         activity: 'create',
         recorded: recordedNow(),
+        ruleAttribution,
       });
       if (provenance) requests.push(provenance as BatchInputRequest<FhirResource>);
       written += 1;
@@ -466,6 +521,7 @@ export async function persistModel(
         before,
         agent,
         claimReference,
+        ruleAttribution,
         ifMatch: makeOptimisticLockIfMatchHeader(resource),
       })
     );
