@@ -51,12 +51,15 @@ export type PatientDocumentAttachment = {
   fileNameFromUrl?: string;
   z3Url?: string;
   presignedUrl?: string;
+  /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
+  contentType?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
 // "date": "2024-09-02T10:22:53.870Z",
 export type PatientDocumentInfo = {
   id: string;
+  typeCodes?: string[];
   //TODO: probably be DocumentReference's [parent DomainResource.text] value to have ability to use _text search modifier
   docName: string;
   //TODO: remove
@@ -725,6 +728,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         title,
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
+        contentType: docRefAttachment.contentType,
       } as PatientDocumentAttachment;
     });
 };
@@ -920,6 +924,7 @@ export interface UploadPatientDocumentResponse {
 const createDocumentInfo = (documentReference: DocumentReference): PatientDocumentInfo => {
   return {
     id: documentReference.id!,
+    typeCodes: documentReference.type?.coding?.flatMap((coding) => (coding.code ? [coding.code] : [])),
     docName: debug__createDisplayedDocumentName(documentReference),
     whenAddedDate: documentReference.date,
     attachments: extractDocumentAttachments(documentReference),

@@ -42,6 +42,7 @@ const sentLog: ActionLogEntry = {
   recipientName: 'Dr. Green',
   appointmentId: 'e2e6b8f0-0000-0000-0000-000000000001',
   visitDate: '2024-07-29T14:30:00.000Z',
+  documentTitle: 'Fax packet (2 documents)',
   canRetry: false,
 };
 const failedLog: ActionLogEntry = {
@@ -65,6 +66,7 @@ describe('ActionLogsTable', () => {
     expect(screen.getAllByText('(111) 222-3333')).toHaveLength(2);
     expect(screen.getByText('sent')).toBeVisible();
     expect(screen.getByText('failed')).toBeVisible();
+    expect(screen.getAllByText('Fax packet (2 documents)')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
   });
 
@@ -135,7 +137,15 @@ describe('ActionLogsTable', () => {
 
   it('renders email addresses without phone formatting and dashes out unknown recipients', async () => {
     mockGetActionLogs.mockResolvedValue({
-      logs: [{ ...sentLog, channel: 'email', recipientAddress: 'patient@example.com', recipientName: undefined }],
+      logs: [
+        {
+          ...sentLog,
+          channel: 'email',
+          recipientAddress: 'patient@example.com',
+          recipientName: undefined,
+          documentTitle: undefined,
+        },
+      ],
       totalCount: 1,
     });
     render(<ActionLogsTable channel="email" />, { wrapper: createWrapper() });

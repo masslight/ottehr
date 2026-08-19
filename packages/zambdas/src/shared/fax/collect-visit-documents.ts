@@ -27,12 +27,15 @@ import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
  * the usual case) or it was generated for this packet only (`bytes`, e.g. an unsigned visit note).
  */
 export interface FaxPacketPart {
-  kind: FaxDocumentKind;
+  /** Absent for patient-level documents, which are not one of the visit document kinds. */
+  kind?: FaxDocumentKind;
   /** Human label, used for logging and for the Task.input snapshot of what was faxed. */
   title: string;
   documentReferenceId?: string;
   /** Set when the part comes from an existing DocumentReference. */
   z3Url?: string;
+  /** MIME type of a stored part. Patient-level documents may be PDF, PNG, or JPEG. */
+  contentType?: string;
   /** Set when the part was generated on the fly. */
   bytes?: Uint8Array;
 }
@@ -199,6 +202,7 @@ const partsFromDocRefs = (kind: FaxDocumentKind, docRefs: DocumentReference[]): 
       title: docRef.content?.[0]?.attachment?.title || FAX_DOCUMENT_LABELS[kind],
       documentReferenceId: docRef.id,
       z3Url: docRef.content?.[0]?.attachment?.url,
+      contentType: docRef.content?.[0]?.attachment?.contentType,
     }))
     .filter((part) => !!part.z3Url);
 

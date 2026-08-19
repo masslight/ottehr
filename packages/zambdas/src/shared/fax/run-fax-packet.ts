@@ -1,19 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Organization, Patient, Practitioner } from 'fhir/r4b';
+import { Location, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAddressString, getCoding, getNPI } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
+import { FAX_PACKET_MAX_PAGES, FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { sendFaxAttempt } from '../send-fax-attempt';
-import { buildAndUploadPacketForRecipient, buildFaxPacketBody } from './build-fax-packet';
+import { buildAndUploadPacketForRecipient, faxPacketLimitGuidance, toFaxPacketBody } from './build-fax-packet';
+import { FaxPacketPlan } from './resolve-fax-source';
 
 const DEFAULT_TIMEZONE = 'America/New_York';
 const DEFAULT_VISIT_TYPE_LABEL = 'Visit';
@@ -26,30 +28,42 @@ export const deliverFaxPacket = async (args: {
   oystehr: Oystehr;
   token: string;
   secrets: Secrets | null;
-  visitResources: FullAppointmentResourcePackage;
-  patient: Patient;
+  plan: FaxPacketPlan;
   organization: Organization;
   senderPractitioner: Practitioner;
   senderUserId: string;
   organizationId: string;
   recipients: FaxRecipient[];
 }): Promise<FaxRecipientResult[]> => {
-  const { oystehr, token, secrets, visitResources, patient, organization, senderPractitioner, senderUserId } = args;
+  const { oystehr, token, secrets, plan, organization, senderPractitioner, senderUserId } = args;
   const { organizationId, recipients } = args;
 
-  const appointmentId = visitResources.appointment.id!;
-  const encounterId = visitResources.encounter.id!;
+  const { patient, appointmentId, encounterId } = plan;
   const patientId = patient.id!;
-  const timezone = visitResources.timezone || DEFAULT_TIMEZONE;
+  const timezone = plan.timezone || organizationTimezone(organization) || DEFAULT_TIMEZONE;
 
-  const body = await buildFaxPacketBody({ oystehr, token, secrets, kinds: undefined, visitResources });
-  console.log(`[fax-packet] built body: ${body.parts.length} part(s), ${body.pageCount} page(s)`);
+  if (plan.sections.length === 0) {
+    throw new Error('No documents could be collected for the fax packet. Nothing was sent.');
+  }
+  const body = toFaxPacketBody(plan.sections);
+  // Each section requires at least one cover page. Reject a body that cannot possibly fit before
+  // repeating cover rendering and full-packet merging for every recipient.
+  const projectedPageCount = body.pageCount + body.sections.length;
+  if (projectedPageCount > FAX_PACKET_MAX_PAGES) {
+    throw new Error(
+      `Fax packet is ${projectedPageCount} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit. ` +
+        faxPacketLimitGuidance(plan.sourceType)
+    );
+  }
+  console.log(
+    `[fax-packet] built body: ${body.sections.length} section(s), ${body.parts.length} part(s), ` +
+      `${body.pageCount} page(s)`
+  );
 
-  const coverSheet = buildSharedCoverSheetFields({
-    visitResources,
-    patient,
+  const coverSheet = buildSenderCoverSheetFields({
     organization,
     senderPractitioner,
+    location: plan.location,
     timezone,
   });
 
@@ -73,7 +87,8 @@ export const deliverFaxPacket = async (args: {
         patientId,
         appointmentId,
         encounterId,
-        listResources: visitResources.listResources,
+        sourceType: plan.sourceType,
+        listResources: plan.listResources,
       });
 
       await sendFaxAttempt(
@@ -107,19 +122,14 @@ export const deliverFaxPacket = async (args: {
   return results;
 };
 
-export const buildSharedCoverSheetFields = (args: {
-  visitResources: FullAppointmentResourcePackage;
-  patient: Patient;
+/** The From block and the timestamp: everything on the cover that is the same for every section. */
+export const buildSenderCoverSheetFields = (args: {
   organization: Organization;
   senderPractitioner: Practitioner;
+  location?: Location;
   timezone: string;
-}): Omit<FaxCoverSheetData, 'totalPages' | 'recipient'> => {
-  const { visitResources, patient, organization, senderPractitioner, timezone } = args;
-  const { appointment, location } = visitResources;
-
-  const dateOfService = appointment.start
-    ? DateTime.fromISO(appointment.start).setZone(timezone).toFormat('MM/dd/yyyy')
-    : '';
+}): Omit<FaxCoverSheetData, 'totalPages' | 'recipient' | 'subject'> => {
+  const { organization, senderPractitioner, location, timezone } = args;
 
   const addressText = getAddressString(location?.address) || getAddressString(organization.address?.[0]);
   const organizationFax = organization.telecom?.find((telecom) => telecom.system === 'fax')?.value;
@@ -130,20 +140,42 @@ export const buildSharedCoverSheetFields = (args: {
       practitionerName: getFullestAvailableName(senderPractitioner) ?? '',
       npi: getNPI(senderPractitioner),
       organizationName: organization.name ?? '',
-      addressText,
+      addressText: addressText ?? '',
       faxNumber: standardizePhoneNumber(organizationFax) ?? organizationFax,
       phoneNumber: standardizePhoneNumber(organizationPhone) ?? organizationPhone,
-    },
-    subject: {
-      patientName: getFullestAvailableName(patient, true) ?? '',
-      patientId: resolvePatientDisplayId(patient),
-      visitId: appointment.id ?? '',
-      dateOfService,
-      visitTypeLabel: resolveVisitTypeLabel(visitResources),
     },
     generatedAt: DateTime.now().setZone(timezone).toFormat('MM/dd/yyyy  hh:mm a'),
   };
 };
+
+/** Sender fields plus the subject of a single-visit packet. */
+export const buildSharedCoverSheetFields = (args: {
+  visitResources: FullAppointmentResourcePackage;
+  patient: Patient;
+  organization: Organization;
+  senderPractitioner: Practitioner;
+  timezone: string;
+}): Omit<FaxCoverSheetData, 'totalPages' | 'recipient'> => {
+  const { visitResources, patient, organization, senderPractitioner, timezone } = args;
+  const { appointment, location } = visitResources;
+
+  return {
+    ...buildSenderCoverSheetFields({ organization, senderPractitioner, location, timezone }),
+    subject: {
+      patientName: getFullestAvailableName(patient, true) ?? '',
+      patientId: resolvePatientDisplayId(patient),
+      visitId: appointment.id ?? '',
+      dateOfService: appointment.start
+        ? DateTime.fromISO(appointment.start).setZone(timezone).toFormat('MM/dd/yyyy')
+        : '',
+      visitTypeLabel: resolveVisitTypeLabel(visitResources),
+    },
+  };
+};
+
+/** The practice's own timezone, for packets with no visit whose office timezone could be used. */
+const organizationTimezone = (organization: Organization): string | undefined =>
+  organization.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
 /** "Follow-Up Visit" for annotation follow-ups, otherwise the appointment's service category, else "Visit". */
 export const resolveVisitTypeLabel = (

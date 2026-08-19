@@ -52,6 +52,7 @@ export interface ActionLogEntry {
   appointmentId?: string;
   visitDate?: string;
   documentReferenceId?: string;
+  documentTitle?: string;
   canRetry: boolean;
 }
 
