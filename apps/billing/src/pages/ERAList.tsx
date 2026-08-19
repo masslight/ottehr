@@ -20,12 +20,12 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.types';
 import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
+import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { searchBillingEras, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { ImportEraDialog } from '../components/ImportEraDialog';
-import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -36,6 +36,7 @@ interface Filters {
   eraDateTo?: string;
   eraStatus?: string;
   payerId?: string;
+  matchingStatus?: string;
   // Claim-level
   searchText?: string;
   claimStatus?: string;
@@ -93,6 +94,7 @@ export default function ERAList(): ReactElement {
   const [eraStatus, setEraStatus] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const [matchingStatus, setMatchingStatus] = useState('');
 
   // Claim-level filters
   const [searchText, setSearchText] = useState('');
@@ -118,6 +120,7 @@ export default function ERAList(): ReactElement {
         if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
         if (filters.eraStatus) params.eraStatus = filters.eraStatus;
         if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.matchingStatus) params.matchingStatus = filters.matchingStatus;
         if (filters.searchText) params.searchText = filters.searchText;
         if (filters.claimStatus) params.claimStatus = filters.claimStatus;
         if (filters.dosFrom) params.dosFrom = filters.dosFrom;
@@ -164,6 +167,7 @@ export default function ERAList(): ReactElement {
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
       eraStatus: overrides?.eraStatus ?? eraStatus,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
+      matchingStatus: overrides?.matchingStatus ?? matchingStatus,
       searchText: overrides?.searchText ?? searchText,
       claimStatus: overrides?.claimStatus ?? claimStatus,
       dosFrom: overrides?.dosFrom ?? dosFrom,
@@ -176,6 +180,7 @@ export default function ERAList(): ReactElement {
       eraDateTo,
       eraStatus,
       selectedPayer,
+      matchingStatus,
       searchText,
       claimStatus,
       dosFrom,
@@ -226,6 +231,7 @@ export default function ERAList(): ReactElement {
     eraDateTo ||
     eraStatus ||
     selectedPayer ||
+    matchingStatus ||
     searchText ||
     claimStatus ||
     dosFrom ||
@@ -305,6 +311,20 @@ export default function ERAList(): ReactElement {
           isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Matching Status</InputLabel>
+          <Select
+            value={matchingStatus}
+            label="Matching Status"
+            onChange={(e) => {
+              setMatchingStatus(e.target.value);
+              applyFilters({ matchingStatus: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="anyUnmatched">Any Unmatched</MenuItem>
+          </Select>
+        </FormControl>
         <DateRangeInput
           label="ERA Date"
           valueFrom={eraDateFrom}

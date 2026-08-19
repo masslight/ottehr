@@ -13,8 +13,10 @@ import {
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
   DeleteServiceFacilityInputSchema,
+  ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   GetBillingCardsOnFileReportInputSchema,
+  GetBillingClaimsExportStatusInputSchema,
   GetBillingInvoiceReportInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPatientPaymentsReportInputSchema,
@@ -53,6 +55,8 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingChargeItemDefinition,
+  BillingClaimsExportKickOffResponse,
+  BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
   ClaimDetailResponse,
@@ -158,6 +162,16 @@ export const searchBillingClaims = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
+
+export const exportBillingClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportBillingClaimsInputSchema>
+): Promise<BillingClaimsExportKickOffResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
+
+export const getBillingClaimsExportStatus = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingClaimsExportStatusInputSchema>
+): Promise<BillingClaimsExportStatusResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
 
 export const searchBillingPatientARClaims = (
   oystehr: Oystehr,

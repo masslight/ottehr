@@ -76,6 +76,13 @@ async function performEffect(
     });
   }
 
+  if (params.matchingStatus === 'anyUnmatched') {
+    searchParams.push({
+      name: '_has:Provenance:target:target:ClaimResponse.request',
+      value: '#claim',
+    });
+  }
+
   const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: searchParams,

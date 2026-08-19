@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 /**
  * LOADING PATTERNS FOR EXAM COMPONENTS
@@ -74,6 +75,18 @@ export interface ComponentTestResult {
 }
 
 /**
+ * The normal column's findings, i.e. everything in it except the section's "Select all".
+ *
+ * "Select all" is a control over the section, not a finding of it: it never reaches the progress
+ * note, and clicking it toggles every checkbox of the section rather than one. Both would break a
+ * caller that walked the column positionally, so nothing outside this file should index the normal
+ * cell directly.
+ */
+export function normalFindingCheckboxes(normalCell: Locator): Locator {
+  return normalCell.getByTestId(dataTestIds.examPage.normalFindings).getByRole('checkbox');
+}
+
+/**
  * Helper function to wait for loading indicator to appear and disappear on a textbox
  */
 export async function waitForFieldSave(textbox: Locator): Promise<void> {
@@ -137,7 +150,7 @@ export async function captureAllCheckboxStates(examTable: Locator): Promise<{
 
     // Normal checkboxes are in column 1 (index 1)
     const normalCell = cells.nth(1);
-    const normalCheckboxes = normalCell.getByRole('checkbox');
+    const normalCheckboxes = normalFindingCheckboxes(normalCell);
     const normalCount = await normalCheckboxes.count();
 
     for (let i = 0; i < normalCount; i++) {
@@ -210,7 +223,7 @@ export async function testCheckboxComponent(page: Page, examTable: Locator): Pro
     initialAbnormalCheckboxStates.push(isChecked);
   }
 
-  const normalCheckboxes = normalCell.getByRole('checkbox');
+  const normalCheckboxes = normalFindingCheckboxes(normalCell);
   const normalCheckboxCount = await normalCheckboxes.count();
   const initialNormalCheckboxStates: boolean[] = [];
   for (let i = 0; i < normalCheckboxCount; i++) {

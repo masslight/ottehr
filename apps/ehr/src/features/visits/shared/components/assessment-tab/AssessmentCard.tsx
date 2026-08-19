@@ -1,9 +1,12 @@
-import { Box, Stack } from '@mui/material';
+import { Alert, Box, Stack } from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
+import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
+import { LabPaymentMethod } from 'utils';
 import { useBillingSuggestions } from '../../hooks/useBillingSuggestions';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AiPotentialDiagnosesCard } from '../AiPotentialDiagnosesCard';
 import { BillingCodesContainer } from './BillingCodesContainer';
 import { DiagnosesContainer } from './DiagnosesContainer';
@@ -11,10 +14,21 @@ import { MedicalDecisionContainer } from './MedicalDecisionContainer';
 
 export const AssessmentCard: FC = () => {
   const billingSuggestions = useBillingSuggestions();
+  const { encounter } = useAppointmentData();
+  const { labOrders } = usePatientLabOrders({ searchBy: { field: 'encounterId', value: encounter.id ?? '' } });
+  const hasClientBillOrdersWithoutCptCodes = labOrders.some(
+    (o) => !o.hasCptCodes && o.billingType === LabPaymentMethod.ClientBill
+  );
 
   return (
     <Stack spacing={1}>
       <PageTitle label="Assessment" showIntakeNotesButton={false} />
+      {hasClientBillOrdersWithoutCptCodes && (
+        <Alert severity="warning">
+          One or more client billed external lab orders on this visit do not have known CPT codes. Staff may need to
+          manually add the appropriate CPT code(s) to bill correctly.
+        </Alert>
+      )}
       <AiPotentialDiagnosesCard suggestions={billingSuggestions} />
       <AccordionCard>
         <DoubleColumnContainer

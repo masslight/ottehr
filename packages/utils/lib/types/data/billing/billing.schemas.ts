@@ -62,6 +62,7 @@ export const SearchErasInputSchema = z.object({
   eraStatus: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
+  matchingStatus: nonEmptyString.optional(),
   // Claim-level filters (only ERAs with matched claims satisfying these)
   claimStatus: nonEmptyString.optional(),
   dosFrom: nonEmptyString.optional(),
@@ -137,6 +138,8 @@ export const GetBillingProviderInputSchema = z.object({
 
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
+  // Limit search to patient names and claim IDs.
+  patientNameOnly: z.boolean().optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   arStage: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
@@ -151,6 +154,16 @@ export const SearchBillingClaimsInputSchema = z.object({
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
+});
+
+export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
+  patientNameOnly: true,
+  offset: true,
+  pageSize: true,
+});
+
+export const GetBillingClaimsExportStatusInputSchema = z.object({
+  taskId: nonEmptyString,
 });
 
 export const SearchBillingPatientARClaimsInputSchema = z.object({
@@ -711,6 +724,8 @@ export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingP
 export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
 export type GetBillingCardsOnFileReportInput = z.output<typeof GetBillingCardsOnFileReportInputSchema>;
 export type GetBillingInvoiceReportInput = z.output<typeof GetBillingInvoiceReportInputSchema>;
+export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
+export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;

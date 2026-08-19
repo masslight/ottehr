@@ -326,7 +326,8 @@
             "Zambda:Function:import-era",
             "Zambda:Function:record-billing-manual-payment",
             "Zambda:Function:search-billing-patient-ar-claims",
-            "Zambda:Function:get-billing-patient-balance"
+            "Zambda:Function:get-billing-patient-balance",
+            "Zambda:Function:export-billing-claims"
           ]
         }
       ]

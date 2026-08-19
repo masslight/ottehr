@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
@@ -14,7 +15,6 @@ import useEvolveUser from '../../../hooks/useEvolveUser';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
-import { getBatchWindowFailures } from '../query/batching';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // The iframe run over the real rows IS the validation pass (the zambda never executes code), so
@@ -64,14 +64,6 @@ function defaultOptionsFor(datasetId: string): Record<string, boolean> {
   return out;
 }
 
-// Some (not all) batched date windows failed — data is usable but incomplete. Null when all loaded.
-function partialWarningFor(rows: AdHocRow[]): string | null {
-  const f = getBatchWindowFailures(rows);
-  return f && f.failedWindows > 0
-    ? `${f.failedWindows} of ${f.totalWindows} date windows failed to load — results are partial.`
-    : null;
-}
-
 type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
   canView: boolean;
@@ -85,7 +77,6 @@ type UseReportBuilder = {
   schema: LlmDatasetSchema | null;
   loading: boolean;
   error: string | null;
-  partialWarning: string | null;
   request: string;
   generating: boolean;
   generatedCode: string | null;
@@ -146,8 +137,6 @@ export function useReportBuilder(): UseReportBuilder {
   const [schema, setSchema] = useState<LlmDatasetSchema | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Soft warning: some batched date windows failed but the rest loaded. Kept separate from `error`.
-  const [partialWarning, setPartialWarning] = useState<string | null>(null);
 
   const [request, setRequest] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -192,7 +181,6 @@ export function useReportBuilder(): UseReportBuilder {
       if (!dataset) return null;
       setLoading(true);
       setError(null);
-      setPartialWarning(null);
       try {
         const range = getDateRangeIso(dateRange);
         const fetched = await dataset.fetch({ oystehrZambda, queryClient, dateRange: range, options: opts });
@@ -205,14 +193,13 @@ export function useReportBuilder(): UseReportBuilder {
           options: opts,
           fields: builtSchema.fields.length,
         });
-        setPartialWarning(partialWarningFor(fetched));
         setRows(fetched);
         setSchema(builtSchema);
         setDatasetOptions(opts);
         return { rows: fetched, schema: builtSchema };
       } catch (e) {
         showAdHocDebugLog('fetch', 'FAILED', e);
-        setError(e instanceof Error ? e.message : 'Failed to fetch data');
+        setError(getApiError({ error: e, defaultError: 'Failed to fetch data' }));
         return null;
       } finally {
         setLoading(false);
@@ -325,7 +312,7 @@ export function useReportBuilder(): UseReportBuilder {
         }
       } catch (e) {
         showAdHocDebugLog('generate', 'orchestrate FAILED', e);
-        setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
+        setGenerateError(getApiError({ error: e, defaultError: 'Failed to generate report' }));
       } finally {
         setGenerating(false);
       }
@@ -472,7 +459,7 @@ export function useReportBuilder(): UseReportBuilder {
           setGeneratedTitle(saved.title);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load saved report');
+        setError(getApiError({ error: e, defaultError: 'Failed to load saved report' }));
       } finally {
         setLoading(false);
       }
@@ -559,7 +546,6 @@ export function useReportBuilder(): UseReportBuilder {
     schema,
     loading,
     error,
-    partialWarning,
     request,
     generating,
     generatedCode,

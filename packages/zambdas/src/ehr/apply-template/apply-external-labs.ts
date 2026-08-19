@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Encounter, FhirResource, List, Location, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { Encounter, FhirResource, List, Location, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
+import { chartDataTagSystem, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isPSCOrder, locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
@@ -12,7 +12,12 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { CreateLabPaymentMethod, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import {
+  CreateLabPaymentMethod,
+  LabPaymentMethod,
+  OrderableItemSearchResult,
+} from 'utils/lib/types/data/labs/labs.types';
+import { fillMeta } from '../../shared/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { buildExternalLabOrderRequests } from '../lab/external/create-lab-order/build-order';
 import { getOrderableItems } from '../lab/shared/orderable-items';
@@ -117,14 +122,14 @@ export const getOrderingLocationFromEncounter = (
 };
 
 interface ApplyExternalLabPlansInput {
-  templateList: List;
+  parsedPlans: ParsedExternalLabPlan[];
+  itemsByLabGuid: Map<string, OrderableItemSearchResult[] | 'fetch-failed'>;
   encounter: Encounter;
   encounterResources: TemplateEncounterResource[];
   userToken: string;
   secrets: Secrets | null;
   oystehr: Oystehr;
   m2mToken: string;
-  action: TemplateSectionAction;
   // The payment method the user confirmed in the preview dialog (defaulted
   // there from the visit's payment details). Templates don't carry a payment
   // method, so this is required to create any orders - without it the section
@@ -153,20 +158,17 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
   const externalLabsSectionName = 'externalLabs';
   try {
     const {
-      templateList,
+      parsedPlans,
+      itemsByLabGuid,
       encounter,
       encounterResources,
       userToken,
       secrets,
       oystehr,
-      m2mToken,
-      action,
       selectedPaymentMethod,
     } = input;
-    if (action === 'skip') return { warnings: [] };
 
-    const plans = findExternalLabPlans(templateList);
-    if (plans.length === 0) return { warnings: [] };
+    if (parsedPlans.length === 0) return { warnings: [] };
 
     // The EHR preview dialog always sends a payment method when this section
     // is appended; without one we can't create orders at all.
@@ -177,22 +179,6 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
       });
       return { warnings };
     }
-
-    const parsedPlans: ParsedExternalLabPlan[] = [];
-    for (const plan of plans) {
-      const parsed = parseExternalLabPlan(plan);
-      if (!parsed) {
-        warnings.push({
-          section: externalLabsSectionName,
-          message: `Skipped "${labelForExternalLabPlan(
-            plan
-          )}" — the template entry is missing its lab or test identity.`,
-        });
-        continue;
-      }
-      parsedPlans.push(parsed);
-    }
-    if (parsedPlans.length === 0) return { warnings };
 
     // Ordering office is automatically selected from the encounter the
     // template is applied to.
@@ -240,10 +226,6 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
     });
 
     const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
-
-    // Re-resolve each plan's lab + test combo against the lab's current
-    // compendium, one search per lab.
-    const itemsByLabGuid = await fetchPlanItemsByLabGuid(parsedPlans, m2mToken);
 
     // enabledLabs isn't needed by the create flow - it re-validates the
     // location ↔ lab-org pairing against the live Location identifiers and
@@ -323,6 +305,87 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
   }
   return { warnings };
 }
+
+export interface ExternalLabCptResult {
+  procedures: Procedure[];
+  cptCodesToSkip: Set<string>;
+  /** Parsed plans that were valid (malformed plans already filtered out). */
+  parsedPlans: ParsedExternalLabPlan[];
+  /** Live compendium items keyed by lab guid — reusable by applyExternalLabPlans. */
+  itemsByLabGuid: Map<string, OrderableItemSearchResult[] | 'fetch-failed'>;
+  /** Warnings for malformed plans — surfaced to the user at apply time. */
+  warnings: TemplateWarning[];
+}
+
+/**
+ * Fetches live compendium data for each external lab plan on the template and
+ * builds one CPT Procedure resource per CPT code per plan. Returns the Procedure
+ * list (for inclusion in the apply transaction), the set of CPT codes contributed
+ * (for dedup against the template's standalone CPT Codes section), the
+ * intermediate parsed plans + item map so applyExternalLabPlans can reuse them
+ * without re-fetching, and warnings for any malformed plan entries.
+ * Short-circuits to empty when the external labs section is 'skip'.
+ * CPT Procedures are only created when the selected payment method is ClientBill,
+ * matching the create-order flow which only saves CPT codes for client bill orders.
+ */
+export const collectExternalLabCptProcedures = async (
+  templateList: List,
+  encounter: Encounter,
+  action: TemplateSectionAction,
+  m2mToken: string,
+  selectedPaymentMethod: CreateLabPaymentMethod | undefined
+): Promise<ExternalLabCptResult> => {
+  const empty: ExternalLabCptResult = {
+    procedures: [],
+    cptCodesToSkip: new Set(),
+    parsedPlans: [],
+    itemsByLabGuid: new Map(),
+    warnings: [],
+  };
+  if (action === 'skip') return empty;
+
+  const rawPlans = findExternalLabPlans(templateList);
+  const warnings: TemplateWarning[] = [];
+  const parsedPlans: ParsedExternalLabPlan[] = [];
+  for (const plan of rawPlans) {
+    const parsed = parseExternalLabPlan(plan);
+    if (!parsed) {
+      warnings.push({
+        section: 'externalLabs',
+        message: `Skipped "${labelForExternalLabPlan(plan)}" — the template entry is missing its lab or test identity.`,
+      });
+      continue;
+    }
+    parsedPlans.push(parsed);
+  }
+  if (parsedPlans.length === 0) return { ...empty, warnings };
+
+  const itemsByLabGuid = await fetchPlanItemsByLabGuid(parsedPlans, m2mToken);
+
+  const cptCodesToSkip = new Set<string>();
+  const procedures: Procedure[] = [];
+  // CPT codes only apply to client bill orders — skip procedure creation for other payment types
+  if (selectedPaymentMethod === LabPaymentMethod.ClientBill) {
+    for (const plan of parsedPlans) {
+      const items = itemsByLabGuid.get(plan.labGuid);
+      if (!items || items === 'fetch-failed') continue;
+      const matched = matchOrderableItemForPlan(plan, items);
+      if (!matched || !encounter.subject) continue;
+      for (const cpt of matched.item.cptCodes) {
+        cptCodesToSkip.add(cpt.cptCode);
+        procedures.push({
+          resourceType: 'Procedure',
+          subject: encounter.subject,
+          encounter: { reference: `Encounter/${encounter.id}` },
+          status: 'completed',
+          meta: fillMeta('cpt-code', 'cpt-code'),
+          code: { coding: [{ system: CPT_CODE_SYSTEM, code: cpt.cptCode, display: plan.testName }] },
+        });
+      }
+    }
+  }
+  return { procedures, cptCodesToSkip, parsedPlans, itemsByLabGuid, warnings };
+};
 
 export const fetchPlanItemsByLabGuid = async (
   parsedPlans: ParsedExternalLabPlan[],

@@ -134,6 +134,13 @@
       "src": "src/billing/search-billing-claims/index",
       "zip": ".dist/zips/search-billing-claims.zip"
     },
+    "EXPORT-BILLING-CLAIMS": {
+      "name": "export-billing-claims",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/export-billing-claims/index",
+      "zip": ".dist/zips/export-billing-claims.zip"
+    },
     "SEARCH-BILLING-PATIENT-AR-CLAIMS": {
       "name": "search-billing-patient-ar-claims",
       "type": "http_auth",
@@ -426,6 +433,24 @@
       "src": "src/subscriptions/payment-reconciliation/sub-tag-era-resources/index",
       "zip": ".dist/zips/sub-tag-era-resources.zip"
     },
+    "SUB-EXPORT-BILLING-CLAIMS-CSV": {
+      "name": "sub-export-billing-claims-csv",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-export-billing-claims-csv/index",
+      "zip": ".dist/zips/sub-export-billing-claims-csv.zip"
+    },
+    "CLEANUP-BILLING-CLAIM-EXPORTS": {
+      "name": "cleanup-billing-claim-exports",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/cleanup-billing-claim-exports/index",
+      "zip": ".dist/zips/cleanup-billing-claim-exports.zip",
+      "schedule": {
+        "expression": "cron(*/30 * * * ? *)"
+      }
+    },
     "SUB-CLAIM-RESPONSE-ADJUST-STATUS": {
       "name": "sub-claim-response-adjust-status",
       "type": "subscription",
@@ -435,6 +460,24 @@
     }
   },
   "fhirResources": {
+    "SUB_EXPORT_BILLING_CLAIMS_CSV_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Export every claim matching a claims list search as CSV",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|export-billing-claims-csv&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-BILLING-CLAIMS-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "SUB_PRESUBMISSION_RULES_ENGINE_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
