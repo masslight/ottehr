@@ -18,6 +18,7 @@ describe('sign-appointment integration — happy path', () => {
   let oystehrZambdas: Oystehr;
   let base: InsertFullAppointmentDataBaseResult;
   let processId: string;
+  let testUserM2MProfile: string;
   let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
@@ -26,6 +27,7 @@ describe('sign-appointment integration — happy path', () => {
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     processId = setup.processId;
+    testUserM2MProfile = setup.testUserM2MProfile;
     const practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     await oystehrAdmin.fhir.patch({
@@ -87,5 +89,43 @@ describe('sign-appointment integration — happy path', () => {
 
     if (!caught) throw new Error('expected sign-appointment to refuse a visit with no provider assigned');
     expect((caught as { message?: string }).message).toBe(NO_PROVIDER_ASSIGNED_MESSAGE);
+  }, 60_000);
+  // A supervisor co-signing a visit its attender already signed must go through even though the
+  // provider guard would otherwise run: the attender was valid at signing time, and blocking here
+  // would strand the visit with no remedy the supervisor can apply. Approval is the one sign path
+  // the guard skips, so it needs its own coverage.
+  it('approves a visit awaiting supervisor approval', async () => {
+    const awaiting = await insertInPersonAppointmentBase(oystehrAdmin, processId);
+    await oystehrAdmin.fhir.patch({
+      resourceType: 'Encounter',
+      id: awaiting.encounter.id!,
+      operations: [
+        {
+          op: 'add',
+          path: '/participant',
+          value: [
+            {
+              type: [{ coding: [PRACTITIONER_CODINGS.Attender[0]] }],
+              individual: { reference: testUserM2MProfile },
+            },
+          ],
+        },
+        { op: 'replace', path: '/status', value: 'finished' },
+        {
+          op: 'add',
+          path: '/extension',
+          value: [{ url: 'awaiting-supervisor-approval', valueBoolean: true }],
+        },
+      ],
+    });
+
+    const response = await oystehrZambdas.zambda.execute({
+      id: 'sign-appointment',
+      appointmentId: awaiting.appointment.id,
+      encounterId: awaiting.encounter.id,
+      timezone: 'America/New_York',
+      supervisorApprovalEnabled: true,
+    });
+    expect(response.output).toBeDefined();
   }, 60_000);
 });
