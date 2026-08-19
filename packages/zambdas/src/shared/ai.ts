@@ -1,7 +1,7 @@
 import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -22,7 +22,7 @@ import { MIME_TYPES } from 'utils/lib/utils/file';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
-import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
+import { parseCreatedResourcesBundle, saveResourceRequest, updateResourceRequest } from './resources.helpers';
 import { createPresignedUrl } from './z3Utils';
 
 export const TRANSCRIPT_PROMPT =
@@ -248,7 +248,13 @@ export async function invokeChatbotVertexAI(
 export async function transcribeAndCreateResourcesFromZ3Audio(
   oystehr: Oystehr,
   m2mToken: string,
-  args: { encounterID: string; z3URL: string; duration?: number; providerUserProfile: string | null },
+  args: {
+    encounterID: string;
+    z3URL: string;
+    duration?: number;
+    providerUserProfile: string | null;
+    existingDocumentReference?: DocumentReference;
+  },
   secrets: Secrets | null
 ): Promise<string> {
   const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, args.z3URL, 'download');
@@ -285,6 +291,7 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     args.duration,
     mimeType,
     args.providerUserProfile,
+    args.existingDocumentReference,
     secrets
   );
 }
@@ -312,6 +319,7 @@ export async function createResourcesFromAiInterview(
   duration: number | undefined,
   mimeType: string | null,
   providerUserProfile: string | null,
+  existingDocumentReference: DocumentReference | undefined,
   secrets: Secrets | null
 ): Promise<string> {
   let fields =
@@ -392,19 +400,23 @@ export async function createResourcesFromAiInterview(
 
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
-  const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
+  const requests: BatchInputRequest<DocumentReference | Observation | Condition>[] = [];
+  // Updating an existing DocumentReference in place needs no transaction-local urn:uuid — it already has a
+  // real id other entries in this same bundle (the Observations below) can reference directly.
   const documentReferenceCreateUrl = `urn:uuid:${uuid()}`;
   requests.push(
-    createDocumentReference(
-      encounterID,
-      patientId,
-      providerUserProfile,
-      documentReferenceCreateUrl,
-      z3URL,
-      chatTranscript,
-      duration,
-      mimeType
-    )
+    existingDocumentReference
+      ? updateDocumentReference(existingDocumentReference, chatTranscript)
+      : createDocumentReference(
+          encounterID,
+          patientId,
+          providerUserProfile,
+          documentReferenceCreateUrl,
+          z3URL,
+          chatTranscript,
+          duration,
+          mimeType
+        )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
   console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
@@ -489,6 +501,32 @@ function createDocumentReference(
       : [],
   };
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
+}
+
+function updateDocumentReference(
+  existingDocumentReference: DocumentReference,
+  transcript: string
+): BatchInputPutRequest<DocumentReference> {
+  const existingAttachment = existingDocumentReference.content?.[0]?.attachment;
+  const documentReference: DocumentReference = {
+    ...existingDocumentReference,
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+    content: [
+      ...(existingAttachment
+        ? [{ attachment: { ...existingAttachment, contentType: existingAttachment.contentType } }]
+        : []),
+      {
+        attachment: {
+          contentType: MIME_TYPES.TXT,
+          title: 'Transcript',
+          data: btoa(unescape(encodeURIComponent(transcript))),
+        },
+      },
+    ],
+  };
+  return updateResourceRequest(documentReference);
 }
 
 const FIELDS_WITH_ITEMS = new Set([
