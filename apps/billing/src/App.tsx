@@ -22,6 +22,7 @@ import CreateClaim from './pages/CreateClaim';
 import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
+import InvoiceReport from './pages/InvoiceReport';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import PaymentsReport from './pages/PaymentsReport';
@@ -99,6 +100,7 @@ export default function App(): ReactElement {
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />
+              <Route path="/reports/invoices" element={<InvoiceReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

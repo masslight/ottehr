@@ -660,6 +660,49 @@ export interface GetBillingCardsOnFileReportResponse {
   fromCache: boolean;
 }
 
+export type InvoiceReportCategory = 'upcoming' | 'past-due-no-card' | 'past-due-failed';
+
+export interface InvoiceReportRow {
+  stripeInvoiceId: string;
+  invoiceNumber: string;
+  // connected account the invoice lives on ('' = platform account)
+  stripeAccountId: string;
+  livemode: boolean;
+  stripeCustomerId: string;
+  customerName: string;
+  patientId: string;
+  patientName: string;
+  amountDue: number;
+  createdDate: string;
+  // '' when the invoice has no due date
+  dueDate: string;
+  // visit the invoice was issued for, resolved from invoice metadata
+  visitDate: string;
+  appointmentId: string;
+  category: InvoiceReportCategory;
+  attemptCount: number;
+  lastPaymentError: string;
+  hostedInvoiceUrl: string;
+  cardBrand: string;
+  cardLast4: string;
+}
+
+export interface InvoiceAgingTrendPoint {
+  snapshotDate: string;
+  label: string;
+  // keyed by aging bucket: 'not-yet-due', '0-30', '30-60', '60-90', '90-120', '120-150', '150+'
+  buckets: Record<string, { count: number; amountDue: number }>;
+}
+
+export interface GetBillingInvoiceReportResponse {
+  rows: InvoiceReportRow[];
+  totals: Record<InvoiceReportCategory, { count: number; amountDue: number }>;
+  // month-end snapshots reconstructed from all Stripe invoices via status_transitions
+  agingTrend: InvoiceAgingTrendPoint[];
+  generatedAt: string;
+  fromCache: boolean;
+}
+
 export interface GetPatientCoveragesResponse {
   coverages: BillingCoverageOption[];
 }

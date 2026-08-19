@@ -673,6 +673,11 @@ export const GetBillingCardsOnFileReportInputSchema = z.object({
   refresh: z.boolean().optional(),
 });
 
+export const GetBillingInvoiceReportInputSchema = z.object({
+  // recompute instead of returning the latest saved report
+  refresh: z.boolean().optional(),
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -705,6 +710,7 @@ export type GetBillingPaymentsReportInput = z.output<typeof GetBillingPaymentsRe
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
 export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
 export type GetBillingCardsOnFileReportInput = z.output<typeof GetBillingCardsOnFileReportInputSchema>;
+export type GetBillingInvoiceReportInput = z.output<typeof GetBillingInvoiceReportInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;

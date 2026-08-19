@@ -15,6 +15,7 @@ import {
   DeleteServiceFacilityInputSchema,
   ExportClaimX12InputSchema,
   GetBillingCardsOnFileReportInputSchema,
+  GetBillingInvoiceReportInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPatientPaymentsReportInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
@@ -61,6 +62,7 @@ import {
   EraDetailResponse,
   ExportClaimX12Response,
   GetBillingCardsOnFileReportResponse,
+  GetBillingInvoiceReportResponse,
   GetBillingPatientBalanceResponse,
   GetBillingPatientPaymentsReportResponse,
   GetBillingPaymentsReportDrilldownResponse,
@@ -376,6 +378,11 @@ export const getBillingCardsOnFileReport = (
   parameters: z.input<typeof GetBillingCardsOnFileReportInputSchema> = {}
 ): Promise<GetBillingCardsOnFileReportResponse> =>
   executeBillingZambda(oystehr, 'get-billing-cards-on-file-report', parameters);
+
+export const getBillingInvoiceReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceReportInputSchema> = {}
+): Promise<GetBillingInvoiceReportResponse> => executeBillingZambda(oystehr, 'get-billing-invoice-report', parameters);
 
 export const saveBillingTag = (
   oystehr: Oystehr,

@@ -49,6 +49,7 @@
     "@mui/x-date-pickers-pro": "^6.3.0",
     "csv-parse": "^6.2.1",
     "notistack": "^3.0.1",
+    "react-google-charts": "^5.2.1",
     "tsconfig": "*",
     "ui-components": "*",
     "utils": "*"
