@@ -1,5 +1,5 @@
 import { Jimp, JimpMime } from 'jimp';
-import { PageSizes, PDFDocument } from 'pdf-lib';
+import { PageSizes, PDFDocument, PDFFont, rgb, StandardFonts } from 'pdf-lib';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 import { getImageOrientation } from 'utils/lib/utils/image-orientation';
 import { createPresignedUrl } from '../z3Utils';
@@ -8,6 +8,8 @@ import { createPresignedUrl } from '../z3Utils';
 const [PAGE_WIDTH, PAGE_HEIGHT] = PageSizes.A4;
 const IMAGE_MARGIN = 24;
 const FAX_JPEG_QUALITY = 85;
+const PLACEHOLDER_MARGIN = 48;
+const PLACEHOLDER_TITLE_MAX_LENGTH = 160;
 
 /**
  * Downloads a file stored at the given z3 url, presigning it for download first.
@@ -61,17 +63,102 @@ export async function normalizeFileToPdf(bytes: Uint8Array, contentType?: string
   return pdf.save();
 }
 
+/**
+ * Creates an explicit replacement page for an attachment that was present in the patient record but
+ * could not be converted to a fax-compatible page. This lets the fax continue without silently
+ * omitting content.
+ */
+export async function createFaxAttachmentPlaceholderPdf(documentTitle: string): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const [pageWidth, pageHeight] = PageSizes.A4;
+  const page = pdf.addPage([pageWidth, pageHeight]);
+  const contentWidth = pageWidth - PLACEHOLDER_MARGIN * 2;
+
+  let y = pageHeight - PLACEHOLDER_MARGIN;
+  page.drawText('Attachment could not be rendered', {
+    x: PLACEHOLDER_MARGIN,
+    y,
+    size: 18,
+    font: bold,
+    color: rgb(0.08, 0.2, 0.45),
+  });
+
+  y -= 42;
+  const printableTitle = toPrintablePdfText(documentTitle);
+  for (const line of wrapPdfText(`Document: ${printableTitle}`, bold, 12, contentWidth)) {
+    page.drawText(line, { x: PLACEHOLDER_MARGIN, y, size: 12, font: bold });
+    y -= 18;
+  }
+
+  y -= 14;
+  const notice =
+    'This document was present in the patient record but could not be converted into a fax-compatible page. ' +
+    'It was not included in this transmission. Please contact the sender if you need a copy.';
+  for (const line of wrapPdfText(notice, regular, 11, contentWidth)) {
+    page.drawText(line, { x: PLACEHOLDER_MARGIN, y, size: 11, font: regular, color: rgb(0.2, 0.2, 0.2) });
+    y -= 17;
+  }
+
+  return pdf.save();
+}
+
+/** Standard PDF fonts only support WinAnsi; retain a readable, bounded identifier without risking another render error. */
+const toPrintablePdfText = (value: string): string => {
+  const ascii = value.replace(/[^\x20-\x7e]/g, '?').trim() || 'Untitled document';
+  return ascii.length > PLACEHOLDER_TITLE_MAX_LENGTH ? `${ascii.slice(0, PLACEHOLDER_TITLE_MAX_LENGTH - 3)}...` : ascii;
+};
+
+/** Prefer whole words, while still breaking long filenames that have no spaces. */
+const wrapPdfText = (value: string, font: PDFFont, fontSize: number, maxWidth: number): string[] => {
+  const lines: string[] = [];
+  let line = '';
+
+  for (const word of value.split(/\s+/)) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, fontSize) <= maxWidth) {
+      line = candidate;
+      continue;
+    }
+
+    if (line) {
+      lines.push(line);
+      line = '';
+    }
+
+    for (const character of word) {
+      const chunk = line + character;
+      if (line && font.widthOfTextAtSize(chunk, fontSize) > maxWidth) {
+        lines.push(line);
+        line = character;
+      } else {
+        line = chunk;
+      }
+    }
+  }
+
+  if (line) lines.push(line);
+  return lines;
+};
+
 /** Jimp applies EXIF orientation while decoding. Only tagged JPEGs are re-encoded, avoiding needless
  * quality loss and CPU work for the common already-upright path. */
 const normalizeJpegOrientation = async (bytes: Uint8Array): Promise<Uint8Array> => {
-  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-  const orientation = getImageOrientation(arrayBuffer);
-  if (orientation < 2 || orientation > 8) return bytes;
+  try {
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const orientation = getImageOrientation(arrayBuffer);
+    if (orientation < 2 || orientation > 8) return bytes;
 
-  const image = await Jimp.read(Buffer.from(bytes));
-  // cast: jimp's Buffer type resolves against a second @types/node copy in this workspace
-  const encoded = (await image.getBuffer(JimpMime.jpeg, { quality: FAX_JPEG_QUALITY })) as unknown as Uint8Array;
-  return Uint8Array.from(encoded);
+    const image = await Jimp.read(Buffer.from(bytes));
+    // cast: jimp's Buffer type resolves against a second @types/node copy in this workspace
+    const encoded = (await image.getBuffer(JimpMime.jpeg, { quality: FAX_JPEG_QUALITY })) as unknown as Uint8Array;
+    return Uint8Array.from(encoded);
+  } catch {
+    // EXIF correction is best-effort. Let pdf-lib validate and embed the original JPEG so malformed
+    // metadata or a Jimp decoding failure cannot reject an otherwise faxable image.
+    return bytes;
+  }
 };
 
 const detectFileType = (bytes: Uint8Array): string | undefined => {
