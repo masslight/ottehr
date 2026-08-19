@@ -111,7 +111,7 @@ const invoiceInput = (): TaskInput[] =>
         },
       ],
     },
-    valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2026-08-01' : 'pay your invoice',
+    valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2099-12-31' : 'pay your invoice',
   }));
 
 const task = (overrides: Partial<Task> = {}): Task =>
@@ -279,5 +279,31 @@ describe('sub-send-invoice-to-patient source guard', () => {
         }),
       ])
     );
+  });
+
+  it('rejects a task whose dueDate is in the past without calling Stripe', async () => {
+    const pastTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2000-01-01' : 'pay your invoice',
+      })),
+    });
+
+    await expect(runHandler(pastTask)).rejects.toThrow('Due date should be in the future');
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a task whose dueDate has an invalid format without calling Stripe', async () => {
+    const badFormatTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? 'not-a-date' : 'pay your invoice',
+      })),
+    });
+
+    await expect(runHandler(badFormatTask)).rejects.toThrow();
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
   });
 });

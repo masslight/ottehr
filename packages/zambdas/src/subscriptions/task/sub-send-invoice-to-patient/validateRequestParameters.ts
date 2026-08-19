@@ -1,4 +1,5 @@
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   SubSendInvoiceToPatientTaskInput,
@@ -24,11 +25,15 @@ export function validateRequestParameters(
 
   const task = inputRes as Task;
 
+  const encounterId = task.encounter?.reference?.split('/')[1];
+  if (!encounterId) throw new Error('Encounter id is not found');
+
   const invoiceTaskInput = parseInvoiceTaskInput(task);
   const invoiceTaskInputParsed = SubSendInvoiceToPatientTaskInputSchema.parse(invoiceTaskInput);
 
-  const encounterId = task.encounter?.reference?.split('/')[1];
-  if (!encounterId) throw new Error('Encounter id is not found');
+  const dueDate = invoiceTaskInputParsed.dueDate;
+  if (DateTime.fromISO(dueDate).toUnixInteger() < DateTime.now().toUnixInteger())
+    throw new Error('Due date should be in the future');
 
   return {
     task: task as Task,
