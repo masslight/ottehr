@@ -8,7 +8,7 @@ import {
   describeClaimSearchClause,
   fetchClaimsPageByIds,
   searchClaimsBySearchText,
-} from '../../../src/billing/search-billing-claims';
+} from '../../../src/billing/claim-search';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const CLAIM_ID = '3f2b9c1a-7d4e-4a8b-9c6d-0e1f2a3b4c5d';
@@ -116,6 +116,30 @@ describe('buildClaimSearchTextQueries', () => {
     ]);
     expect(buildClaimSearchTextQueries({ searchText: '   ' })).toEqual([]);
     expect(buildClaimSearchTextQueries({ searchText: '' })).toEqual([]);
+  });
+
+  describe('patientNameOnly', () => {
+    const scopedClauseNames = (searchText: string): string[] =>
+      buildClaimSearchTextQueries({ searchText, patientNameOnly: true }).flatMap((params) => params.map((p) => p.name));
+
+    it('searches only the patient name for plain text', () => {
+      expect(scopedClauseNames('Smith')).toEqual(['patient.name']);
+    });
+
+    it('adds an exact claim id lookup for UUIDs', () => {
+      expect(scopedClauseNames(CLAIM_ID)).toEqual(['patient.name', '_id']);
+      expect(scopedClauseNames(MINIFIED_CLAIM_ID)).toEqual(['patient.name', '_id']);
+      expect(
+        buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID, patientNameOnly: true })
+          .flat()
+          .filter((p) => p.name === '_id')
+      ).toEqual([
+        {
+          name: '_id',
+          value: CLAIM_ID,
+        },
+      ]);
+    });
   });
 });
 
@@ -260,6 +284,23 @@ describe('searchClaimsBySearchText', () => {
       // Includes are what the page hydration is for; carrying them here would blow the response budget.
       expect(paramNamed(params, '_include')).toBeUndefined();
     });
+  });
+
+  it('searches only patient names under patientNameOnly', async () => {
+    const { oystehr, search } = stubClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: false,
+      patientNameOnly: true,
+    });
+
+    expect(claimSearchCalls(search)).toHaveLength(1);
+    const [params] = claimSearchCalls(search);
+    expect(params).toContainEqual(AR_STAGE_FILTER);
+    expect(paramNamed(params, 'patient.name')?.value).toBe('Smith');
   });
 
   it('asks for the fields the in-memory service date filter needs when a range is active', async () => {

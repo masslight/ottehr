@@ -14,6 +14,7 @@ import { DateTime } from 'luxon';
 import { BUCKET_NAMES, PATIENT_BILLING_ACCOUNT_TYPE, RCM_TASK_SYSTEM, RcmTaskCode } from 'utils/lib/fhir/constants';
 import { getPatientReferenceFromAccount, getResponsiblePartyFromAccount } from 'utils/lib/fhir/helpers';
 import { getFullName } from 'utils/lib/fhir/patient';
+import { toCsv } from 'utils/lib/helpers/csv';
 import {
   getLatestTaskOutput,
   invoiceTaskSourceSearchParam,
@@ -216,17 +217,11 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
   });
 }
 
-function escapeCsvField(field: string): string {
-  if (field.includes(',') || field.includes('"') || field.includes('\n') || field.includes('\r')) {
-    return `"${field.replace(/"/g, '""')}"`;
-  }
-  return field;
-}
-
 function buildCsv(rows: CsvRow[]): string {
-  const headerLine = CSV_HEADERS.map((h) => escapeCsvField(CSV_HEADER_LABELS[h])).join(',');
-  const dataLines = rows.map((row) => CSV_HEADERS.map((h) => escapeCsvField(row[h])).join(','));
-  return [headerLine, ...dataLines].join('\n');
+  return toCsv(
+    CSV_HEADERS.map((header) => CSV_HEADER_LABELS[header]),
+    rows.map((row) => CSV_HEADERS.map((header) => row[header]))
+  );
 }
 
 async function getFhirResourcesPage(
