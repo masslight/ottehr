@@ -35,6 +35,9 @@ interface LabsTableProps {
   bundleRow?: ReactElement;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
   followUpAppointmentLookup?: FollowUpAppointmentLookup;
+  // overrides the default navigation to the order details page for service-request driven
+  // orders — used by the Review & Sign inline flow to open details in place
+  onRowClick?: (labOrderData: LabOrderListPageDTO) => void;
 }
 
 export const LabsTable = ({
@@ -46,6 +49,7 @@ export const LabsTable = ({
   bundleRow,
   handleRejectedAbn,
   followUpAppointmentLookup,
+  onRowClick: onRowClickOverride,
 }: LabsTableProps): ReactElement => {
   const navigateTo = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
@@ -67,6 +71,10 @@ export const LabsTable = ({
   };
 
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
+    if (onRowClickOverride) {
+      onRowClickOverride(labOrderData);
+      return;
+    }
     navigateTo(
       buildOrderUrl(labOrderData.appointmentId, (apptId) =>
         getExternalLabOrderEditUrl(apptId, labOrderData.serviceRequestId)

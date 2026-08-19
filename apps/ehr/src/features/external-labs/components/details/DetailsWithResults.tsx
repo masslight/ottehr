@@ -16,11 +16,17 @@ export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   loading: boolean;
-}> = ({ labOrder, markTaskAsReviewed, loading }) => {
+  // overrides the default back navigation — used by the Review & Sign inline edit flow
+  onBack?: () => void;
+}> = ({ labOrder, markTaskAsReviewed, loading, onBack }) => {
   const navigate = useNavigate();
 
   const handleBack = (): void => {
-    navigate(-1);
+    if (onBack) {
+      onBack();
+    } else {
+      navigate(-1);
+    }
   };
 
   const drCentricResult = 'drCentricResultType' in labOrder || 'isUnsolicited' in labOrder;

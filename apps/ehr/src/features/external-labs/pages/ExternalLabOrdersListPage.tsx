@@ -13,7 +13,7 @@ import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
 import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { LabsTablePatientChart } from '../components/labs-orders/LabsTablePatientChart';
 
-const externalLabsColumns: LabsTableColumn[] = [
+export const externalLabsColumns: LabsTableColumn[] = [
   'testType',
   'dx',
   'ordered',

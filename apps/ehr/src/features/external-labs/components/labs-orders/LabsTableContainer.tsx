@@ -38,6 +38,9 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
   requisitionNumber?: string; // optional because the result table is not grouped by requisition
   orderBundleNote?: string; // right now with the way results are organized this will not be viewable once results come in. not sure if thats a problem.
+  // overrides the default navigation to the order details page for service-request driven
+  // orders — used by the Review & Sign inline flow to open details in place
+  onRowClick?: (labOrderData: LabOrderListPageDTO) => void;
 };
 
 export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
@@ -54,6 +57,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   handleRejectedAbn,
   requisitionNumber,
   orderBundleNote,
+  onRowClick,
 }: LabsTableContainerProps<SearchBy>): ReactElement => {
   const { oystehrZambda: oystehr } = useApiClients();
 
@@ -177,6 +181,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
               allowDelete={allowDelete}
               showDeleteLabOrderDialog={showDeleteLabOrderDialog}
               handleRejectedAbn={handleRejectedAbn}
+              onRowClick={onRowClick}
             />
           </>
         </Box>

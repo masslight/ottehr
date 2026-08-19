@@ -21,6 +21,9 @@ interface SampleCollectionProps {
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
+  // overrides the default navigation back to the external labs list (both the Back button
+  // and the post-submit redirect) — used by the Review & Sign inline edit flow
+  onBack?: () => void;
 }
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
@@ -28,6 +31,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   showActionButtons = true,
   showOrderInfo = true,
   isAOECollapsed = false,
+  onBack,
 }) => {
   const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
@@ -106,7 +110,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           userTimezone,
         });
       }
-      navigate(`/in-person/${appointmentID}/external-lab-orders`);
+      if (onBack) {
+        onBack();
+      } else {
+        navigate(`/in-person/${appointmentID}/external-lab-orders`);
+      }
     } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
       console.log('error updating collection data and marking as ready', sdkError.code, sdkError.message);
@@ -186,11 +194,21 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
         {showActionButtons && (
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
-              <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
+            {onBack ? (
+              <Button
+                variant="outlined"
+                sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                onClick={onBack}
+              >
                 Back
               </Button>
-            </Link>
+            ) : (
+              <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
+                <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
+                  Back
+                </Button>
+              </Link>
+            )}
             {orderStatus === 'pending' && (
               <Stack>
                 <LoadingButton

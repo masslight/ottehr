@@ -1,6 +1,6 @@
 import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { GetLabOrdersParameters, LabsTableColumn } from 'utils/lib/types/data/labs/labs.types';
+import { GetLabOrdersParameters, LabOrderListPageDTO, LabsTableColumn } from 'utils/lib/types/data/labs/labs.types';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableContainer } from './LabsTableContainer';
 import { usePatientLabOrders } from './usePatientLabOrders';
@@ -11,6 +11,9 @@ type LabsTablePatientChartProps<SearchBy extends GetLabOrdersParameters> = {
   allowDelete: boolean;
   allowSubmit: boolean;
   onCreateOrder?: () => void;
+  // overrides the default navigation to the order details page for service-request driven
+  // orders — used by the Review & Sign inline flow to open details in place
+  onRowClick?: (labOrderData: LabOrderListPageDTO) => void;
 };
 
 export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
@@ -19,6 +22,7 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
   allowDelete,
   allowSubmit,
   onCreateOrder,
+  onRowClick,
 }: LabsTablePatientChartProps<SearchBy>): ReactElement => {
   const {
     groupedLabOrdersForChartTable, // includes reflex
@@ -96,6 +100,7 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
                   fetchLabOrders={fetchLabOrders}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                   handleRejectedAbn={handleRejectedAbn}
+                  onRowClick={onRowClick}
                 />
               )
             )}
@@ -112,6 +117,7 @@ export const LabsTablePatientChart = <SearchBy extends GetLabOrdersParameters>({
                 allowSubmit={false}
                 fetchLabOrders={fetchLabOrders}
                 showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+                onRowClick={onRowClick}
               />
             )}
             {showPagination && totalPages > 1 && (
