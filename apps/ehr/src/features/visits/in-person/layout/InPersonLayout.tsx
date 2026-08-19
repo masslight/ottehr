@@ -68,7 +68,7 @@ export const InPersonLayout: React.FC = () => {
   // drops off the provider roster, so "select a provider" alone reads as though nothing happened.
   const staleProviderLabel = assignedProviderName || 'The assigned provider';
   const selectProviderText = isAssignedProviderStale
-    ? `${staleProviderLabel} is no longer a provider. Select a provider in order to begin charting.`
+    ? `${staleProviderLabel} is no longer available as a provider. Select a provider in order to begin charting.`
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);

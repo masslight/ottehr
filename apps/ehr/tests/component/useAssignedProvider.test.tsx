@@ -101,11 +101,21 @@ describe('useAssignedProvider', () => {
     expect(result.current.assignedProviderName).toBe('Sam Clinician');
   });
 
-  it('keeps a deactivated provider eligible — deactivation is a status, not a lost role', async () => {
+  // Deactivation keeps the Provider role (user-activation only *adds* Inactive) but drops the
+  // employee from the assignment roster, so the picker goes blank exactly as it does after a role
+  // change. Same symptom, same treatment — otherwise the reported bug is still reachable this way.
+  it('rejects an assignment whose employee has been deactivated', async () => {
     const result = await renderWithEmployees([employee({ status: 'Deactivated' })]);
 
-    await waitFor(() => expect(result.current.isAssignedProviderEligible).toBe(true));
-    expect(result.current.isAssignedProviderStale).toBe(false);
+    await waitFor(() => expect(result.current.isAssignedProviderStale).toBe(true));
+    expect(result.current.isAssignedProviderEligible).toBe(false);
+  });
+
+  it('rejects an assignment whose employee became customer support', async () => {
+    const result = await renderWithEmployees([employee({ roles: [RoleType.Provider, RoleType.CustomerSupport] })]);
+
+    await waitFor(() => expect(result.current.isAssignedProviderStale).toBe(true));
+    expect(result.current.isAssignedProviderEligible).toBe(false);
   });
 
   it('reports no eligible provider when the encounter has no attender', async () => {

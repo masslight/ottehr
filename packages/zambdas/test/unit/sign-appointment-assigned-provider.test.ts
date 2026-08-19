@@ -60,6 +60,25 @@ describe('assertAssignedProviderCanSign', () => {
     });
   });
 
+  // Deactivation only *adds* the Inactive role, so a Provider check alone would wave a departed
+  // employee through — while the EHR's assignment dropdown has already dropped them.
+  it('rejects when the assigned provider has been deactivated but kept the Provider role', async () => {
+    const oystehr = oystehrResolving([{ name: RoleType.Provider }, { name: RoleType.Inactive }]);
+
+    await expect(assertAssignedProviderCanSign(oystehr, encounterWithAttender(PRACTITIONER_ID))).rejects.toMatchObject({
+      code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+      message: ASSIGNED_PROVIDER_NOT_A_PROVIDER_MESSAGE,
+    });
+  });
+
+  it('rejects when the assigned provider is customer support', async () => {
+    const oystehr = oystehrResolving([{ name: RoleType.Provider }, { name: RoleType.CustomerSupport }]);
+
+    await expect(assertAssignedProviderCanSign(oystehr, encounterWithAttender(PRACTITIONER_ID))).rejects.toMatchObject({
+      message: ASSIGNED_PROVIDER_NOT_A_PROVIDER_MESSAGE,
+    });
+  });
+
   it('rejects when the assigned provider holds no roles at all', async () => {
     const oystehr = oystehrResolving([]);
 
