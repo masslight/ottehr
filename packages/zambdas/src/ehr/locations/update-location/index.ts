@@ -72,14 +72,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
 
-  const before = stripeExtValue(location);
   const candidate = applyLocationFields(location, params);
 
   if (editsPaymentFields) {
-    // The write is a full resource replacement, so the second value is what will be persisted — if
-    // it doesn't match what was submitted, the fault is in `applyLocationFields`, not the caller.
+    // `candidate` is the resource about to be written, so the second value is what will be
+    // persisted — if it doesn't match what was submitted, the fault is in `applyLocationFields`
+    // rather than in the caller.
     console.log(
-      `Stripe account on Location ${params.locationId}: ${JSON.stringify(before)} -> ` +
+      `Stripe account on Location ${params.locationId}: ${JSON.stringify(stripeExtValue(location))} -> ` +
         `${JSON.stringify(stripeExtValue(candidate))}`
     );
   }

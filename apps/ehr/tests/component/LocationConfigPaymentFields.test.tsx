@@ -99,8 +99,11 @@ describe('LocationConfigPage payment fields', () => {
   });
 
   it('sends the unchanged Stripe account ID rather than dropping it', async () => {
-    // The payload is a full replacement, so omitting an untouched field is what silently reverted
-    // edits before — the key has to be present on every save, not only when it changed.
+    // Not a correctness requirement: the zambda leaves an absent key untouched, so omitting an
+    // unchanged value would persist the same thing. This pins payload shape instead — the field is
+    // sent on every authorized save, exactly as advapacs is. That's the property the bug violated
+    // (the key was absent even when edited), and keeping it unconditional means a save can't depend
+    // on change-detection the form doesn't actually do.
     render(<LocationConfigPage />, { wrapper });
     await waitFor(() => expect(stripeInput()).toHaveValue(EXISTING_STRIPE));
 
