@@ -78,8 +78,7 @@ import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../prove
 import {
   billingCopyMatches,
   BillingFhirResource,
-  clinicalFriendlyIdIdentifier,
-  clinicalPatientIdentifier,
+  copyBillingPatient,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -97,7 +96,6 @@ import {
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   searchPatientsByClinicalIds,
-  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
@@ -192,7 +190,7 @@ export async function performEffect(
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
   if (!mainPatient) {
-    mainPatient = copyPatient({
+    mainPatient = copyBillingPatient({
       patient: clinicalResources.patient,
       clinicalId: clinicalResources.patient.id!,
       clinicalFriendlyId: getPatientFriendlyId(clinicalResources.patient),
@@ -201,7 +199,7 @@ export async function performEffect(
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
-    const updatedMainPatient = copyPatient({
+    const updatedMainPatient = copyBillingPatient({
       patient: clinicalResources.patient,
       clinicalId: clinicalResources.patient.id!,
       clinicalFriendlyId: getPatientFriendlyId(clinicalResources.patient),
@@ -215,7 +213,7 @@ export async function performEffect(
   }
 
   // Create working copy from main patient
-  const claimPatient = copyPatient({
+  const claimPatient = copyBillingPatient({
     patient: mainPatient,
     workingCopy: true,
     clinicalId: clinicalResources.patient.id!,
@@ -613,34 +611,6 @@ export function getClaimCoveragesForEncounter(
       return [];
     }
   }
-}
-
-function copyPatient({
-  patient,
-  workingCopy,
-  clinicalId,
-  clinicalFriendlyId,
-}: {
-  patient: Patient;
-  workingCopy?: boolean;
-  clinicalId?: string;
-  clinicalFriendlyId?: string;
-}): Patient {
-  const copy = workingCopy
-    ? prepareWorkingCopy<Patient>(patient, patient.id!)
-    : prepareCopy<Patient>(patient, patient.id!);
-  if (!clinicalId && !clinicalFriendlyId) return copy;
-  copy.extension ??= [];
-  copy.identifier ??= [];
-  if (clinicalId) {
-    // Source reference in extension is managed by prepareCopy
-    copy.identifier.push(clinicalPatientIdentifier(clinicalId));
-  }
-  if (clinicalFriendlyId) {
-    copy.extension.push({ url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: clinicalFriendlyId });
-    copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
-  }
-  return copy;
 }
 
 export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {

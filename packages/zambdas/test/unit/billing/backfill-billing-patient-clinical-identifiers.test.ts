@@ -165,7 +165,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
     });
   });
 
-  it('indexes a working copy against the clinical ids of the main patient it was stamped from', async () => {
+  it('indexes a working copy against the clinical ids of the main patient it was copied from', async () => {
     const { oystehr, patch } = mockOystehr([
       billingPatient({
         id: 'billing-main',

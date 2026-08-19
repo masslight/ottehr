@@ -936,6 +936,58 @@ export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: 
   return copy;
 }
 
+export function copyBillingPatient({
+  patient,
+  workingCopy,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  patient: Patient;
+  workingCopy?: boolean;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+}): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  if (!clinicalId && !clinicalFriendlyId) return copy;
+  copy.extension ??= [];
+  copy.identifier ??= [];
+  if (clinicalId) {
+    // Source reference in extension is managed by prepareCopy
+    copy.identifier.push(clinicalPatientIdentifier(clinicalId));
+  }
+  if (clinicalFriendlyId) {
+    copy.extension.push({
+      url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+      valueString: clinicalFriendlyId,
+    });
+    copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
+  }
+  return copy;
+}
+
+export async function copyBillingPatientWithClinicalIds({
+  oystehr,
+  patient,
+  workingCopy,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  workingCopy?: boolean;
+}): Promise<Patient> {
+  const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+    patient,
+    fetchBillingPatient: (id) => fetchById<Patient>(oystehr, 'Patient', id),
+  });
+  return copyBillingPatient({
+    patient,
+    workingCopy,
+    clinicalId,
+    clinicalFriendlyId,
+  });
+}
+
 /**
  * Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
  */

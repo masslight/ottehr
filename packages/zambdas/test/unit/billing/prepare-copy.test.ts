@@ -12,9 +12,13 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   BILLING_WORKING_COPY_TAG,
+  clinicalFriendlyIdIdentifier,
+  clinicalPatientIdentifier,
   CopyableBillingResource,
+  copyBillingPatient,
   prepareCopy,
   prepareWorkingCopy,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
 
@@ -246,5 +250,87 @@ describe('prepareCopy', () => {
       prepareCopy<typeof resource>(resource, ORIGINAL_ID);
       expect(resource).toEqual(before);
     });
+  });
+});
+
+// CopyableProperties.Patient omits identifier, so a plain copy drops the clinical ids a Patient
+// carries. copyBillingPatient is how every billing Patient copy gets them back.
+describe('copyBillingPatient', () => {
+  const patient: Patient = {
+    resourceType: 'Patient',
+    id: ORIGINAL_ID,
+    name: [
+      {
+        family: 'Doe',
+        given: ['Jane'],
+      },
+    ],
+    identifier: [clinicalPatientIdentifier('stale-clinical')],
+  };
+
+  it('indexes both clinical ids and records the friendly id as an extension', () => {
+    const copy = copyBillingPatient({
+      patient,
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+    });
+
+    expect(copy.identifier).toEqual([clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')]);
+    expect(extensionsOf(copy)).toContainEqual({
+      url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+      valueString: '1015',
+    });
+  });
+
+  it('indexes the clinical patient id alone when there is no friendly id', () => {
+    expect(
+      copyBillingPatient({
+        patient,
+        clinicalId: 'clinical-1',
+      }).identifier
+    ).toEqual([clinicalPatientIdentifier('clinical-1')]);
+  });
+
+  it('tags a working copy and still indexes the clinical ids', () => {
+    const copy = copyBillingPatient({
+      patient,
+      workingCopy: true,
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+    });
+
+    expect(copy.meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
+    expect(copy.identifier).toEqual([clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')]);
+  });
+
+  it('points the source extension at the resource it was copied from, not the clinical patient', () => {
+    expect(
+      extensionsOf(
+        copyBillingPatient({
+          patient,
+          workingCopy: true,
+          clinicalId: 'clinical-1',
+        })
+      )
+    ).toContainEqual({
+      url: SOURCE_IDENTIFIER_SYSTEM,
+      valueReference: {
+        reference: `Patient/${ORIGINAL_ID}`,
+      },
+    });
+  });
+
+  it('adds no identifiers when there are no clinical ids to index', () => {
+    expect(copyBillingPatient({ patient }).identifier).toBeUndefined();
+  });
+
+  it('does not mutate the original', () => {
+    const before = structuredClone(patient);
+    copyBillingPatient({
+      patient,
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+    });
+    expect(patient).toEqual(before);
   });
 });
