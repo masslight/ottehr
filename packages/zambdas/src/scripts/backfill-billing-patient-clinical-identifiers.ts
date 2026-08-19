@@ -15,12 +15,11 @@ async function backfill(config: Secrets): Promise<void> {
     dryRun,
     pruneStale,
   });
-  const patchedLabel = dryRun ? 'would be patched' : 'patched';
-  const prunedLabel = dryRun ? 'would be pruned' : 'pruned';
   console.log(
     `Billing patient clinical identifier backfill ${dryRun ? 'dry run ' : ''}complete: ${stats.examined} examined, ` +
-      `${stats.patched} ${patchedLabel}, ${stats.pruned} ${prunedLabel}, ${stats.alreadyIndexed} already indexed, ` +
-      `${stats.skipped} skipped, ${stats.failed} failed`
+      `${stats.changed} ${dryRun ? 'would change' : 'changed'}, ${stats.alreadyIndexed} already indexed, ` +
+      `${stats.skipped} skipped, ${stats.failed} failed ` +
+      `(${stats.identifiersAdded} gaining identifiers, ${stats.identifiersDropped} dropping stale identifiers)`
   );
   if (stats.failed) throw new Error(`Billing patient clinical identifier backfill failed for ${stats.failed} Patients`);
 }

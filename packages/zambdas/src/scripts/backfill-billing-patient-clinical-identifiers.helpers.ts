@@ -15,8 +15,9 @@ const BACKFILL_PATCH_CONCURRENCY = 5;
 
 export interface BillingPatientClinicalIdentifierBackfillStats {
   examined: number;
-  patched: number;
-  pruned: number;
+  changed: number;
+  identifiersAdded: number;
+  identifiersDropped: number;
   alreadyIndexed: number;
   skipped: number;
   failed: number;
@@ -116,8 +117,9 @@ export async function backfillBillingPatientClinicalIdentifiers({
 }): Promise<BillingPatientClinicalIdentifierBackfillStats> {
   const stats: BillingPatientClinicalIdentifierBackfillStats = {
     examined: 0,
-    patched: 0,
-    pruned: 0,
+    changed: 0,
+    identifiersAdded: 0,
+    identifiersDropped: 0,
     alreadyIndexed: 0,
     skipped: 0,
     failed: 0,
@@ -162,38 +164,36 @@ export async function backfillBillingPatientClinicalIdentifiers({
           return;
         }
 
-        const logChanges = (gained: string, dropped: string): void => {
-          if (missing.length) {
-            console.log(`Patient/${patient.id} ${gained} identifiers: ${missing.map((i) => i.system).join(', ')}`);
+        if (!dryRun) {
+          try {
+            await syncClinicalPatientIdentifiers({
+              oystehr,
+              patient,
+              clinicalId,
+              clinicalFriendlyId,
+              pruneStale,
+            });
+          } catch (error) {
+            stats.failed++;
+            console.error(`Failed to sync clinical identifiers on billing Patient/${patient.id}`, error);
+            return;
           }
-          if (stale.length) {
-            console.log(
-              `Patient/${patient.id} ${dropped} stale identifiers: ${stale.map(identifierSearchToken).join(', ')}`
-            );
-          }
-        };
-
-        if (dryRun) {
-          logChanges('would gain', 'would drop');
-          if (missing.length) stats.patched++;
-          if (stale.length) stats.pruned++;
-          return;
         }
 
-        try {
-          await syncClinicalPatientIdentifiers({
-            oystehr,
-            patient,
-            clinicalId,
-            clinicalFriendlyId,
-            pruneStale,
-          });
-          if (missing.length) stats.patched++;
-          if (stale.length) stats.pruned++;
-          logChanges('gained', 'dropped');
-        } catch (error) {
-          stats.failed++;
-          console.error(`Failed to sync clinical identifiers on billing Patient/${patient.id}`, error);
+        stats.changed++;
+        if (missing.length) {
+          stats.identifiersAdded++;
+          console.log(
+            `Patient/${patient.id} ${dryRun ? 'would gain' : 'gained'} identifiers: ` +
+              `${missing.map((identifier) => identifier.system).join(', ')}`
+          );
+        }
+        if (stale.length) {
+          stats.identifiersDropped++;
+          console.log(
+            `Patient/${patient.id} ${dryRun ? 'would drop' : 'dropped'} stale identifiers: ` +
+              `${stale.map(identifierSearchToken).join(', ')}`
+          );
         }
       })
     );

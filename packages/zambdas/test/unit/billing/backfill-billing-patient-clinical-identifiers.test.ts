@@ -107,8 +107,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
     expect(stats).toEqual({
       examined: 1,
-      patched: 1,
-      pruned: 0,
+      changed: 1,
+      identifiersAdded: 1,
+      identifiersDropped: 0,
       alreadyIndexed: 0,
       skipped: 0,
       failed: 0,
@@ -142,7 +143,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
     const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
 
-    expect(stats.patched).toBe(1);
+    expect(stats.identifiersAdded).toBe(1);
     expect(patch).toHaveBeenCalledWith(
       expect.objectContaining({
         operations: [
@@ -198,8 +199,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
     expect(stats).toEqual({
       examined: 2,
-      patched: 1,
-      pruned: 0,
+      changed: 1,
+      identifiersAdded: 1,
+      identifiersDropped: 0,
       alreadyIndexed: 1,
       skipped: 0,
       failed: 0,
@@ -272,13 +274,55 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
     expect(stats).toEqual({
       examined: 2,
-      patched: 0,
-      pruned: 0,
+      changed: 0,
+      identifiersAdded: 0,
+      identifiersDropped: 0,
       alreadyIndexed: 1,
       skipped: 1,
       failed: 0,
     });
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  // changed / alreadyIndexed / skipped / failed partition examined; identifiersAdded and
+  // identifiersDropped are per-identifier detail and overlap on a Patient that both gains and loses one.
+  it('partitions every examined patient into exactly one outcome', async () => {
+    const { oystehr, patch } = mockOystehr([
+      billingPatient({
+        id: 'billing-gains',
+        extension: copyOf('clinical-1', '1015'),
+        identifier: [clinicalPatientIdentifier('stale-clinical')],
+      }),
+      billingPatient({
+        id: 'billing-indexed',
+        extension: copyOf('clinical-2'),
+        identifier: [clinicalPatientIdentifier('clinical-2')],
+      }),
+      billingPatient({
+        id: 'billing-manual',
+      }),
+      billingPatient({
+        id: 'billing-fails',
+        extension: copyOf('clinical-3'),
+      }),
+    ]);
+    patch.mockImplementation(({ id }: { id: string }) =>
+      id === 'billing-fails' ? Promise.reject(new Error('boom')) : Promise.resolve(undefined)
+    );
+
+    const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr, { pruneStale: true }));
+
+    expect(stats).toEqual({
+      examined: 4,
+      changed: 1,
+      identifiersAdded: 1,
+      identifiersDropped: 1,
+      alreadyIndexed: 1,
+      skipped: 1,
+      failed: 1,
+    });
+    expect(stats.changed + stats.alreadyIndexed + stats.skipped + stats.failed).toBe(stats.examined);
+    expect(stats.identifiersAdded + stats.identifiersDropped).toBeGreaterThan(stats.changed);
   });
 
   it('reports what it would patch without writing during a dry run', async () => {
@@ -291,7 +335,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
     const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr, { dryRun: true }));
 
-    expect(stats.patched).toBe(1);
+    expect(stats.identifiersAdded).toBe(1);
     expect(patch).not.toHaveBeenCalled();
   });
 
@@ -310,7 +354,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
     const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
 
-    expect(stats.patched).toBe(1);
+    expect(stats.identifiersAdded).toBe(1);
     expect(stats.failed).toBe(1);
     expect(patch).toHaveBeenCalledTimes(2);
   });
@@ -339,8 +383,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
       expect(stats).toEqual({
         examined: 2,
-        patched: 1,
-        pruned: 1,
+        changed: 1,
+        identifiersAdded: 1,
+        identifiersDropped: 1,
         alreadyIndexed: 1,
         skipped: 0,
         failed: 0,
@@ -365,7 +410,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
       const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
 
-      expect(stats.pruned).toBe(0);
+      expect(stats.identifiersDropped).toBe(0);
       expect(patch).toHaveBeenCalledWith(
         expect.objectContaining({
           operations: [
@@ -427,8 +472,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
       expect(stats).toEqual({
         examined: 1,
-        patched: 0,
-        pruned: 1,
+        changed: 1,
+        identifiersAdded: 0,
+        identifiersDropped: 1,
         alreadyIndexed: 0,
         skipped: 0,
         failed: 0,
@@ -454,7 +500,7 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
         runOptions(oystehr, { dryRun: true, pruneStale: true })
       );
 
-      expect(stats.pruned).toBe(1);
+      expect(stats.identifiersDropped).toBe(1);
       expect(patch).not.toHaveBeenCalled();
     });
   });
