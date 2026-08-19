@@ -212,10 +212,24 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
   };
 }
 
-export default function ProceduresNew(): ReactElement {
+interface ProceduresNewProps {
+  // 'inline' renders the bare form (no page title) and finishes via onFinished instead of
+  // navigating — used by the Review & Sign inline edit flow
+  variant?: 'page' | 'inline';
+  // Takes precedence over the :procedureId route param when provided (inline edit)
+  procedureId?: string;
+  onFinished?: () => void;
+}
+
+export default function ProceduresNew({
+  variant = 'page',
+  procedureId: procedureIdProp,
+  onFinished,
+}: ProceduresNewProps = {}): ReactElement {
   const navigate = useNavigate();
   const theme = useTheme();
-  const { id: appointmentId, procedureId } = useParams();
+  const { id: appointmentId, procedureId: procedureIdFromUrl } = useParams();
+  const procedureId = procedureIdProp ?? procedureIdFromUrl;
   const { oystehr, oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
@@ -421,7 +435,11 @@ export default function ProceduresNew(): ReactElement {
 
   const onCancel = (): void => {
     if (!procedureId && encounter.id) clearDraft(encounter.id);
-    navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+    if (variant === 'inline') {
+      onFinished?.();
+    } else {
+      navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+    }
   };
 
   const onSave = async (): Promise<void> => {
@@ -514,7 +532,11 @@ export default function ProceduresNew(): ReactElement {
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       if (!procedureId && encounter.id) clearDraft(encounter.id);
-      navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+      if (variant === 'inline') {
+        onFinished?.();
+      } else {
+        navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+      }
     } catch {
       setSaveInProgress(false);
       enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
@@ -1031,11 +1053,13 @@ export default function ProceduresNew(): ReactElement {
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
-        <PageTitle
-          label="Document Procedure"
-          showIntakeNotesButton={false}
-          dataTestId={dataTestIds.documentProcedurePage.title}
-        />
+        {variant === 'page' && (
+          <PageTitle
+            label="Document Procedure"
+            showIntakeNotesButton={false}
+            dataTestId={dataTestIds.documentProcedurePage.title}
+          />
+        )}
         {!procedureId && hasDraft(encounter.id ?? '') && (
           <UnsavedDraftWarning
             message={
