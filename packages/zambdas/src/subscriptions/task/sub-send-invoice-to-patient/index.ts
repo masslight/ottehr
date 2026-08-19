@@ -383,6 +383,9 @@ function addErrorToTaskOutput(task: Task, error: string): Task {
 }
 
 function isInvalidEmailError(error: unknown): boolean {
+  if (error instanceof Error && error.message.includes('must have a valid email')) {
+    return true;
+  }
   const stripeError = error as any;
   return stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email';
 }
