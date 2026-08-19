@@ -138,6 +138,8 @@ export const GetBillingProviderInputSchema = z.object({
 
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
+  // Limit search to patient names and claim IDs.
+  patientNameOnly: z.boolean().optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   arStage: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
@@ -155,6 +157,7 @@ export const SearchBillingClaimsInputSchema = z.object({
 });
 
 export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
+  patientNameOnly: true,
   offset: true,
   pageSize: true,
 });

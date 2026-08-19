@@ -57,6 +57,7 @@ async function performEffect(
       searchText: params.searchText,
       filterParams,
       withServiceDateElements: filteringByServiceDate,
+      patientNameOnly: params.patientNameOnly,
     });
     incomplete = matched.incomplete;
     const matching = filteringByServiceDate
