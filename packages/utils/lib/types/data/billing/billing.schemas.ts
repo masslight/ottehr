@@ -157,6 +157,7 @@ export const SearchBillingClaimsInputSchema = z.object({
 });
 
 export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
+  patientNameOnly: true,
   offset: true,
   pageSize: true,
 });
