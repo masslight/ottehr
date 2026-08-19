@@ -23,7 +23,34 @@ export const EncounterBaseRowSchema = z.object({
   visitType: z.enum(['In-Person', 'Telemed', 'Unknown']).describe('Visit modality.'),
   appointmentType: z.string().describe('Walk-in, pre-booked, or post-telemed.'),
   serviceCategory: z.string().describe('Service line (e.g. "Urgent Care").'),
-  visitStatus: z.string().describe('completed / arrived / cancelled / no-show …'),
+  visitStatus: z
+    .string()
+    .describe(
+      'CURRENT visit status only (completed / arrived / cancelled / no-show …). It carries NO history — ' +
+        'for the order of statuses use statusHistory.'
+    ),
+  statusHistory: z
+    .array(
+      z.object({
+        status: z.string().describe('Visit status at this step.'),
+        start: z
+          .string()
+          .nullable()
+          .describe(
+            "Full ISO instant this status began (null when unknown). Format in the user's LOCAL " +
+              'timezone via new Date(start); do NOT slice the ISO string (shows UTC).'
+          ),
+        end: z
+          .string()
+          .nullable()
+          .describe('Full ISO instant this status ended; null while it is still the current status.'),
+      })
+    )
+    .describe(
+      'Visit status transitions, oldest first. [0] = first status, last = current. This is the ONLY ' +
+        'source for anything about the ORDER of statuses (e.g. a status moving backward through the ' +
+        'workflow) or how long a status lasted. Empty when no history was recorded.'
+    ),
   encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
   reason: z.string().describe('Reason for visit (free text).'),
   scheduledSlotMinutes: z.number().nullable().describe('Booked slot length in minutes.'),
@@ -98,7 +125,7 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'aiType',
   'labOrders',
   'imagingOrders',
-  'immunizations',
+  // Vaccine names sit inside `vaccines` records; value sampling only covers flat row fields.
   'nursingOrders',
   'resultNames',
   'medicationIngredients',
@@ -163,15 +190,72 @@ export const ENCOUNTER_LAYERS = {
     label: 'Vital signs',
     description: 'Temperature, heart rate, blood pressure, SpO₂, respiration, weight, height, and BMI.',
     schema: z.object({
-      temperatureF: z.number().nullable().describe('Temperature °F (most recent). Null if not taken.'),
-      heartRate: z.number().nullable().describe('Heart rate bpm (most recent). Null if not taken.'),
-      respirationRate: z.number().nullable().describe('Respiration /min (most recent). Null if not taken.'),
-      oxygenSaturation: z.number().nullable().describe('SpO₂ % (most recent). Null if not taken.'),
-      systolicBP: z.number().nullable().describe('Systolic BP mmHg (most recent). Null if not taken.'),
-      diastolicBP: z.number().nullable().describe('Diastolic BP mmHg (most recent). Null if not taken.'),
+      temperatureF: z
+        .number()
+        .nullable()
+        .describe('Temperature °F, MOST RECENT reading only — for the initial one use temperatureFReadings[0].'),
+      heartRate: z
+        .number()
+        .nullable()
+        .describe('Heart rate bpm, MOST RECENT reading only — for the initial one use heartRateReadings[0].'),
+      respirationRate: z
+        .number()
+        .nullable()
+        .describe('Respiration /min, MOST RECENT only — for the initial one use respirationRateReadings[0].'),
+      oxygenSaturation: z
+        .number()
+        .nullable()
+        .describe('SpO₂ %, MOST RECENT only — for the initial one use oxygenSaturationReadings[0].'),
+      systolicBP: z
+        .number()
+        .nullable()
+        .describe('Systolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].systolic.'),
+      diastolicBP: z
+        .number()
+        .nullable()
+        .describe('Diastolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].diastolic.'),
       weightKg: z.number().nullable().describe('Weight kg (most recent, normalized). Null if not taken.'),
       heightCm: z.number().nullable().describe('Height cm (most recent, normalized). Null if not taken.'),
       bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
+      temperatureFReadings: z
+        .array(z.number())
+        .describe(
+          'Temperature readings in °F, oldest first (charted in °C, converted here). ' +
+            '[0] = initial screening. Empty if not taken.'
+        ),
+      heartRateReadings: z
+        .array(z.number())
+        .describe('Heart rate bpm readings, oldest first. [0] = initial screening. Empty if not taken.'),
+      respirationRateReadings: z
+        .array(z.number())
+        .describe('Respiration /min readings, oldest first. [0] = initial screening. Empty if not taken.'),
+      oxygenSaturationReadings: z
+        .array(z.number())
+        .describe('SpO₂ % readings, oldest first. [0] = initial screening. Empty if not taken.'),
+      systolicBPReadings: z
+        .array(z.number())
+        .describe(
+          'Systolic BP mmHg readings, oldest first. [0] = initial screening. The same index in ' +
+            'diastolicBPReadings is the SAME reading. Empty if not taken.'
+        ),
+      diastolicBPReadings: z
+        .array(z.number())
+        .describe(
+          'Diastolic BP mmHg readings, oldest first. [0] = initial screening. The same index in ' +
+            'systolicBPReadings is the SAME reading. Empty if not taken.'
+        ),
+      abnormalVitals: z
+        .array(z.string())
+        .describe(
+          'Vitals that were out of range on ANY reading of the visit, by the age-banded thresholds the ' +
+            'practice has configured. Applied at charting time, so the age band is the age on the visit ' +
+            'date. Includes the critical ones. Values: temperatureF, heartRate, respirationRate, ' +
+            'oxygenSaturation, bloodPressure, weightKg, heightCm. Empty if all readings were in range. ' +
+            'USE THIS instead of comparing readings to thresholds of your own.'
+        ),
+      criticalVitals: z
+        .array(z.string())
+        .describe('The subset of abnormalVitals that reached the CRITICAL level, not merely abnormal. Same values.'),
     }),
   },
   labs: {
@@ -192,10 +276,31 @@ export const ENCOUNTER_LAYERS = {
   },
   immunizations: {
     label: 'Immunizations',
-    description: 'Vaccines given/recorded on the visit (names + counts).',
+    description: 'Vaccines given or recorded on the visit, with VIS status.',
     schema: z.object({
-      immunizations: z.array(z.string()).describe('Vaccines given/recorded on the visit.'),
-      immunizationCount: z.number().describe('Number of vaccines on the visit. 0 when none.'),
+      vaccines: z
+        .array(
+          z.object({
+            name: z.string().describe('Vaccine name.'),
+            status: z
+              .enum(['administered', 'partially-administered', 'recorded'])
+              .describe(
+                'administered / partially-administered = given on THIS visit; ' +
+                  'recorded = charted history, not given here.'
+              ),
+            visDate: z
+              .string()
+              .nullable()
+              .describe(
+                'VIS date (yyyy-MM-dd). A date means the VIS was given for this vaccine; null means it ' +
+                  'was not. Always null for "recorded" history.'
+              ),
+          })
+        )
+        .describe(
+          'One record per vaccine on the visit. Count vaccines GIVEN with status !== "recorded"; ' +
+            'the VIS gap is status !== "recorded" && visDate === null. Empty when none.'
+        ),
     }),
   },
   disposition: {

@@ -38,25 +38,15 @@ export async function uploadAdHocReportDataToZ3(
   return createPresignedUrl(token, z3Url, 'download');
 }
 
-// Total time budget for one report's fetch, kept under the zambda's 900s (15 min) limit so the run
-// aborts with a clear error instead of being hard-killed mid-request. Headroom is left for the Z3
-// upload and the response.
 const REPORT_BUDGET_MS = 13 * 60 * 1000;
 
-// Per-job poll timeout used only when no budget was started (e.g. unit tests calling the fetch
-// directly). A real invocation uses the shared deadline below instead.
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000;
 
-// Set at the start of each zambda invocation (module-level, like m2mToken) so every async job in the
-// run shares one deadline.
 let reportDeadlineMs = 0;
 export function beginReportBudget(): void {
   reportDeadlineMs = Date.now() + REPORT_BUDGET_MS;
 }
 
-// Poll settings for one async job, bounded by the time left in the report budget — so the sum of all
-// jobs (main + scoped searches, across pages) can never exceed it. Throws a clear error when the
-// budget is spent, rather than letting the zambda be hard-killed.
 function jobWait(): { pollIntervalMs: number; timeoutMs: number } {
   if (reportDeadlineMs === 0) return { pollIntervalMs: 2000, timeoutMs: DEFAULT_JOB_TIMEOUT_MS };
   const remaining = reportDeadlineMs - Date.now();
@@ -66,21 +56,26 @@ function jobWait(): { pollIntervalMs: number; timeoutMs: number } {
 
 const ASYNC_PAGE_SIZE = 1000;
 
-function readSearchsets<T extends FhirResource>(completion: Bundle): { resources: T[]; matchedIds: string[] } {
+function readSearchsets<T extends FhirResource>(
+  completion: Bundle
+): { resources: T[]; matchedIds: string[]; hasNext: boolean } {
   const resources: T[] = [];
   const matchedIds: string[] = [];
+  let hasNext = false;
   for (const outer of completion.entry ?? []) {
     const searchset = outer.resource as Bundle | undefined;
     if (!searchset || searchset.resourceType !== 'Bundle' || searchset.type !== 'searchset') continue;
+    if (searchset.link?.some((link) => link.relation === 'next')) hasNext = true;
     for (const entry of searchset.entry ?? []) {
       const resource = entry.resource;
       const mode = entry.search?.mode ?? 'match';
       if (!resource || mode === 'outcome') continue;
       resources.push(resource as T);
+      // Only matched resources advance the offset; _include ones ride along outside the page count.
       if (mode === 'match' && resource.id) matchedIds.push(resource.id);
     }
   }
-  return { resources, matchedIds };
+  return { resources, matchedIds, hasNext };
 }
 
 async function searchAllAsync<T extends FhirResource>(
@@ -97,18 +92,19 @@ async function searchAllAsync<T extends FhirResource>(
       ...params,
       { name: '_count', value: String(ASYNC_PAGE_SIZE) },
       { name: '_offset', value: String(offset) },
+      { name: '_sort', value: '_id' },
     ];
     const handle = await oystehr.fhir.search<T>({ resourceType, params: pageParams }, { mode: 'async-bundle' });
     const status = await oystehr.fhir.waitForAsyncJob<T>(handle.jobId, jobWait());
     if (status.status !== 200 || !('mode' in status) || status.mode !== 'bundle') {
       throw new Error(`Async search for ${resourceType} did not complete in bundle mode`);
     }
-    const { resources, matchedIds } = readSearchsets<T>(status.bundle as Bundle);
+    const { resources, matchedIds, hasNext } = readSearchsets<T>(status.bundle as Bundle);
     out.push(...resources);
     const newMatched = matchedIds.filter((id) => !seen.has(id));
     newMatched.forEach((id) => seen.add(id));
     offset += matchedIds.length;
-    progressed = newMatched.length > 0;
+    progressed = hasNext && newMatched.length > 0;
   }
   return out;
 }
@@ -135,9 +131,13 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
     { name: '_revinclude', value: 'Encounter:appointment' },
     { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
     ...(opts.extraParams ?? []),
-    { name: '_sort', value: 'date' },
   ]);
 }
+
+// One search per batch of scoping values. Measured: a single comma list of encounter references
+// comes back as an EMPTY searchset with no error, while batches of 100 return the data.
+const SCOPED_BATCH_SIZE = 100;
+const SCOPED_BATCH_CONCURRENCY = 4;
 
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,
@@ -147,23 +147,41 @@ export async function fetchScopedResources<T extends FhirResource>(
   extraParams: { name: string; value: string }[] = []
 ): Promise<T[]> {
   if (values.length === 0) return [];
-  try {
-    return await searchAllAsync<T>(oystehr, resourceType, [
-      { name: paramName, value: values.join(',') },
-      ...extraParams,
-    ]);
-  } catch (error) {
-    console.warn(
-      `fetchScopedResources: ${resourceType} async search failed; continuing with partial layer data`,
-      error
-    );
-    captureException(error, { extra: { resourceType, paramName, valueCount: values.length } });
-    return [];
+
+  const batches: string[][] = [];
+
+  for (let i = 0; i < values.length; i += SCOPED_BATCH_SIZE) {
+    batches.push(values.slice(i, i + SCOPED_BATCH_SIZE));
   }
+
+  const searchBatch = async (batch: string[]): Promise<T[]> => {
+    try {
+      return await searchAllAsync<T>(oystehr, resourceType, [
+        { name: paramName, value: batch.join(',') },
+        ...extraParams,
+      ]);
+    } catch (error) {
+      console.warn(
+        `fetchScopedResources: ${resourceType} async search failed; continuing with partial layer data`,
+        error
+      );
+      captureException(error, { extra: { resourceType, paramName, valueCount: batch.length } });
+      return [];
+    }
+  };
+
+  const out: T[] = [];
+  for (let i = 0; i < batches.length; i += SCOPED_BATCH_CONCURRENCY) {
+    const group = await Promise.all(batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map(searchBatch));
+    for (const resources of group) out.push(...resources);
+  }
+  console.log(
+    `[adhoc-scoped] ${resourceType} by ${paramName}: values=${values.length} batches=${batches.length} ` +
+      `returned=${out.length}`
+  );
+  return out;
 }
 
-// A follow-up encounter may carry no appointment reference of its own — resolve through its partOf
-// parent encounter in that case. Shared by the ad-hoc Encounters/Billing/incomplete-encounters reports.
 export function resolveEncounterAppointment(
   encounter: Encounter,
   appointmentMap: Map<string, Appointment>,
@@ -177,9 +195,6 @@ export function resolveEncounterAppointment(
   return parentRef ? appointmentMap.get(parentRef) : undefined;
 }
 
-// The per-encounter "visit row" prelude shared verbatim by the ad-hoc Encounters and Billing
-// datasets: follow-up/parent resolution, patient, location, attending provider name, visit
-// type/status, service category, patient address, and the row's start timestamp.
 export interface EncounterRowContext {
   encounterType: 'main' | 'follow-up' | 'scheduled-follow-up';
   isFollowUpRow: boolean;
@@ -209,10 +224,11 @@ export function buildEncounterRowContext(
 
   const encounterType = getEncounterVisitType(encounter) ?? 'main';
   const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
-  // Some follow-up encounters carry no subject of their own — fall back to the parent's.
+
   const parentEncounter = encounter.partOf?.reference
     ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
     : undefined;
+
   const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
   const patient = patientRef ? patientMap.get(patientRef) : undefined;
 
@@ -232,8 +248,6 @@ export function buildEncounterRowContext(
     ? 'In-Person'
     : 'Unknown';
 
-  // Follow-up rows report their own encounter status — the parent appointment's visit-status
-  // machinery doesn't apply to them.
   const visitStatus = isFollowUpRow
     ? encounter.status === 'finished'
       ? 'completed'
@@ -246,7 +260,6 @@ export function buildEncounterRowContext(
   const serviceCategory = svcCoding?.display || svcCoding?.code || '';
 
   const address = patient ? getAddressForIndividual(patient) : undefined;
-  // Follow-up rows carry their OWN dates (the follow-up happened later than the parent visit).
   const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
 
   return {
