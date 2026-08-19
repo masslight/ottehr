@@ -26,6 +26,8 @@ import InvoiceReport from './pages/InvoiceReport';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import PaymentsReport from './pages/PaymentsReport';
+import PipelineReport from './pages/PipelineReport';
+import ProductivityReport from './pages/ProductivityReport';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
 import Reports from './pages/Reports';
 import RuleDetail from './pages/RuleDetail';
@@ -101,6 +103,8 @@ export default function App(): ReactElement {
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />
               <Route path="/reports/invoices" element={<InvoiceReport />} />
+              <Route path="/reports/pipeline" element={<PipelineReport />} />
+              <Route path="/reports/productivity" element={<ProductivityReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

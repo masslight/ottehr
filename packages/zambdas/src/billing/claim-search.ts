@@ -7,7 +7,12 @@ import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
-import { CLAIM_STATUS_TAG_SYSTEMS, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import {
+  AR_STAGE,
+  AR_STAGE_NONE,
+  CLAIM_STATUS_TAG_SYSTEMS,
+  getClaimStatusValues,
+} from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
@@ -103,7 +108,15 @@ export async function buildClaimFilterParams({
       value: `${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus}|${params.status}`,
     });
   }
-  if (params.arStage)
+  if (params.arStage === AR_STAGE_NONE)
+    // "no AR stage" = no stage tag at all; :not params AND together
+    Object.values(AR_STAGE).forEach((code) =>
+      filterParams.push({
+        name: '_tag:not',
+        value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${code}`,
+      })
+    );
+  else if (params.arStage)
     filterParams.push({
       name: '_tag',
       value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}`,

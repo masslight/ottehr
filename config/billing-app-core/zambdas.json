@@ -302,6 +302,20 @@
       "src": "src/billing/reports/get-billing-invoice-report/index",
       "zip": ".dist/zips/get-billing-invoice-report.zip"
     },
+    "GET-BILLING-PIPELINE-REPORT": {
+      "name": "get-billing-pipeline-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/reports/get-billing-pipeline-report/index",
+      "zip": ".dist/zips/get-billing-pipeline-report.zip"
+    },
+    "GET-BILLING-PRODUCTIVITY-REPORT": {
+      "name": "get-billing-productivity-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/reports/get-billing-productivity-report/index",
+      "zip": ".dist/zips/get-billing-productivity-report.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",

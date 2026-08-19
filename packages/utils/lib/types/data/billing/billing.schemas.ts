@@ -691,6 +691,20 @@ export const GetBillingInvoiceReportInputSchema = z.object({
   refresh: z.boolean().optional(),
 });
 
+export const GetBillingPipelineReportInputSchema = z.object({
+  // recompute instead of returning the latest saved report
+  refresh: z.boolean().optional(),
+  // claim created-date window, ISO dates; snapshots/deltas only apply to the unfiltered report
+  dateFrom: nonEmptyString.optional(),
+  dateTo: nonEmptyString.optional(),
+});
+
+export const GetBillingProductivityReportInputSchema = z.object({
+  // action (recorded) date window, ISO dates
+  dateFrom: nonEmptyString.optional(),
+  dateTo: nonEmptyString.optional(),
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -724,6 +738,8 @@ export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingP
 export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
 export type GetBillingCardsOnFileReportInput = z.output<typeof GetBillingCardsOnFileReportInputSchema>;
 export type GetBillingInvoiceReportInput = z.output<typeof GetBillingInvoiceReportInputSchema>;
+export type GetBillingPipelineReportInput = z.output<typeof GetBillingPipelineReportInputSchema>;
+export type GetBillingProductivityReportInput = z.output<typeof GetBillingProductivityReportInputSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;

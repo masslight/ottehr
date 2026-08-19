@@ -22,6 +22,8 @@ import {
   GetBillingPatientPaymentsReportInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingPaymentsReportInputSchema,
+  GetBillingPipelineReportInputSchema,
+  GetBillingProductivityReportInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
@@ -71,6 +73,8 @@ import {
   GetBillingPatientPaymentsReportResponse,
   GetBillingPaymentsReportDrilldownResponse,
   GetBillingPaymentsReportResponse,
+  GetBillingPipelineReportResponse,
+  GetBillingProductivityReportResponse,
   GetPatientCoveragesResponse,
   OkResponse,
   PatientDetailResponse,
@@ -397,6 +401,18 @@ export const getBillingInvoiceReport = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetBillingInvoiceReportInputSchema> = {}
 ): Promise<GetBillingInvoiceReportResponse> => executeBillingZambda(oystehr, 'get-billing-invoice-report', parameters);
+
+export const getBillingPipelineReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPipelineReportInputSchema> = {}
+): Promise<GetBillingPipelineReportResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-pipeline-report', parameters);
+
+export const getBillingProductivityReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingProductivityReportInputSchema> = {}
+): Promise<GetBillingProductivityReportResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-productivity-report', parameters);
 
 export const saveBillingTag = (
   oystehr: Oystehr,

@@ -60,6 +60,7 @@ type DateRangePreset =
   | 'previous-quarter'
   | 'this-quarter'
   | 'year-to-date'
+  | 'trailing-30-days'
   | 'trailing-12-months'
   | 'custom';
 
@@ -69,6 +70,7 @@ const DATE_RANGE_PRESETS: { value: DateRangePreset; label: string }[] = [
   { value: 'previous-quarter', label: 'Previous Quarter' },
   { value: 'this-quarter', label: 'This Quarter' },
   { value: 'year-to-date', label: 'Year-to-Date' },
+  { value: 'trailing-30-days', label: 'Trailing 30 Days' },
   { value: 'trailing-12-months', label: 'Trailing 12 Months' },
   { value: 'custom', label: 'Custom Range' },
 ];
@@ -90,6 +92,8 @@ const presetRange = (preset: DateRangePreset): { from: string; to: string } => {
       return { from: now.startOf('quarter').toISODate() ?? '', to: now.toISODate() ?? '' };
     case 'year-to-date':
       return { from: now.startOf('year').toISODate() ?? '', to: now.toISODate() ?? '' };
+    case 'trailing-30-days':
+      return { from: now.minus({ days: 30 }).toISODate() ?? '', to: now.toISODate() ?? '' };
     case 'trailing-12-months':
       return { from: now.minus({ months: 12 }).toISODate() ?? '', to: now.toISODate() ?? '' };
     case 'custom':
@@ -97,7 +101,7 @@ const presetRange = (preset: DateRangePreset): { from: string; to: string } => {
   }
 };
 
-const DEFAULT_PRESET: DateRangePreset = 'current-month';
+const DEFAULT_PRESET: DateRangePreset = 'trailing-30-days';
 
 const currencyCol = (field: string, headerName: string, width = 130): GridColDef => ({
   field,

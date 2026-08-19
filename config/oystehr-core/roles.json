@@ -306,6 +306,8 @@
             "Zambda:Function:get-billing-patient-payments-report",
             "Zambda:Function:get-billing-cards-on-file-report",
             "Zambda:Function:get-billing-invoice-report",
+            "Zambda:Function:get-billing-pipeline-report",
+            "Zambda:Function:get-billing-productivity-report",
             "Zambda:Function:get-patient-coverages",
             "Zambda:Function:search-billing-locations",
             "Zambda:Function:create-billing-patient",

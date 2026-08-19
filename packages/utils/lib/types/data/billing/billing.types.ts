@@ -720,6 +720,45 @@ export interface GetBillingInvoiceReportResponse {
   fromCache: boolean;
 }
 
+// One cell of the pipeline overview: claims sharing an AR stage and active-group status.
+export interface PipelineReportRow {
+  // AR stage tag code ('' = no stage set)
+  arStage: string;
+  // active status-group primary field value for that stage ('' = no status set)
+  status: string;
+  claimCount: number;
+  totalBilled: number;
+}
+
+export interface GetBillingPipelineReportResponse {
+  rows: PipelineReportRow[];
+  totals: { claims: number; totalBilled: number };
+  // closest daily snapshot from ~a week ago, for week-over-week deltas (absent until history accrues)
+  previous?: { snapshotDate: string; rows: PipelineReportRow[] };
+  generatedAt: string;
+  fromCache: boolean;
+}
+
+// One actor's claim-action tallies over the report window, from claim-history Provenances.
+export interface ProductivityReportRow {
+  // Practitioner/... (human) or Device/... (system) reference
+  actorRef: string;
+  actorName: string;
+  actorType: 'human' | 'system';
+  // counts keyed by CLAIM_PROVENANCE_ACTIVITY_CODES values (CREATE, UPDATE, ...)
+  actionsByActivity: Record<string, number>;
+  totalActions: number;
+  // distinct claims acted on
+  claimsTouched: number;
+  lastActionAt: string;
+}
+
+export interface GetBillingProductivityReportResponse {
+  rows: ProductivityReportRow[];
+  totals: { actions: number; claimsTouched: number; actors: number };
+  generatedAt: string;
+}
+
 export interface GetPatientCoveragesResponse {
   coverages: BillingCoverageOption[];
 }
