@@ -15,10 +15,30 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { InHouseLabResults } from '../components/details/InHouseLabResults';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
+import { InHouseLabOrderPrefill } from './InHouseLabOrderCreatePage';
 
-export const InHouseLabTestDetailsPage: React.FC = () => {
+interface InHouseLabTestDetailsPageProps {
+  /**
+   * 'inline' renders without page container/breadcrumbs, takes the order id from props
+   * instead of the URL, and Back calls onBack — used by the Review & Sign inline edit flow
+   */
+  variant?: 'page' | 'inline';
+  serviceRequestId?: string;
+  onBack?: () => void;
+  // overrides the repeat/reflex buttons' navigation to the create page — the inline flow
+  // uses it to open the create view in place with the prefill data
+  onOrderTest?: (prefill: InHouseLabOrderPrefill) => void;
+}
+
+export const InHouseLabTestDetailsPage: React.FC<InHouseLabTestDetailsPageProps> = ({
+  variant = 'page',
+  serviceRequestId: serviceRequestIdProp,
+  onBack,
+  onOrderTest,
+}) => {
   const navigate = useNavigate();
-  const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
+  const urlParams = useParams<{ testId: string; serviceRequestID: string }>();
+  const serviceRequestID = serviceRequestIdProp ?? urlParams.serviceRequestID;
   const { encounter } = useAppointmentData();
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageItemDTO | null>(null);
@@ -57,7 +77,11 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   }, [oystehrZambda, encounter.id, serviceRequestID, loadingState]);
 
   const handleBack = (): void => {
-    navigate(-1);
+    if (variant === 'inline') {
+      onBack?.();
+    } else {
+      navigate(-1);
+    }
   };
 
   const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
@@ -111,44 +135,50 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   const pageName = `${testDetails.testItemName}${apartOfRepeatTestSet ? ' + Repeat' : ''}`;
 
+  const content = (() => {
+    switch (testDetails.status) {
+      case 'ORDERED':
+        return (
+          <CollectSampleView
+            testDetails={testDetails}
+            onBack={handleBack}
+            onSubmit={handleCollectSampleSubmit}
+            setLoadingState={setLoadingState}
+          />
+        );
+      case 'COLLECTED':
+        return (
+          <InHouseLabResults
+            testDetails={[testDetails]}
+            onBack={handleBack}
+            setLoadingState={setLoadingState}
+            entryMode={EntryMode.Initial}
+            onOrderTest={onOrderTest}
+          />
+        );
+      case 'FINAL':
+        return (
+          <InHouseLabResults
+            testDetails={allTestDetails}
+            onBack={handleBack}
+            setLoadingState={setLoadingState}
+            entryMode={EntryMode.Edit}
+            onOrderTest={onOrderTest}
+          />
+        );
+      default:
+        // temp for debugging
+        return <p>Status could not be parsed: {testDetails.status}</p>;
+    }
+  })();
+
+  if (variant === 'inline') {
+    return content;
+  }
+
   return (
     <DetailPageContainer>
-      <InHouseLabsBreadcrumbs pageName={pageName}>
-        {(() => {
-          switch (testDetails.status) {
-            case 'ORDERED':
-              return (
-                <CollectSampleView
-                  testDetails={testDetails}
-                  onBack={handleBack}
-                  onSubmit={handleCollectSampleSubmit}
-                  setLoadingState={setLoadingState}
-                />
-              );
-            case 'COLLECTED':
-              return (
-                <InHouseLabResults
-                  testDetails={[testDetails]}
-                  onBack={handleBack}
-                  setLoadingState={setLoadingState}
-                  entryMode={EntryMode.Initial}
-                />
-              );
-            case 'FINAL':
-              return (
-                <InHouseLabResults
-                  testDetails={allTestDetails}
-                  onBack={handleBack}
-                  setLoadingState={setLoadingState}
-                  entryMode={EntryMode.Edit}
-                />
-              );
-            default:
-              // temp for debugging
-              return <p>Status could not be parsed: {testDetails.status}</p>;
-          }
-        })()}
-      </InHouseLabsBreadcrumbs>
+      <InHouseLabsBreadcrumbs pageName={pageName}>{content}</InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };

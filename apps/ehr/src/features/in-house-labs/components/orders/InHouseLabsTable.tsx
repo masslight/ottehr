@@ -55,6 +55,9 @@ type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   titleText?: string;
   onCreateOrder?: () => void;
   followUpAppointmentLookup?: FollowUpAppointmentLookup;
+  // overrides the default navigation to the order details page — used by the
+  // Review & Sign inline flow to open details in place
+  onRowClick?: (order: InHouseOrderListPageItemDTO) => void;
 };
 
 export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -65,6 +68,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   titleText,
   onCreateOrder,
   followUpAppointmentLookup,
+  onRowClick: onRowClickOverride,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
@@ -102,6 +106,10 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const onRowClick = (labOrderData: InHouseOrderListPageItemDTO): void => {
+    if (onRowClickOverride) {
+      onRowClickOverride(labOrderData);
+      return;
+    }
     if (followUpAppointmentLookup) {
       const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
         labOrderData.appointmentId,
