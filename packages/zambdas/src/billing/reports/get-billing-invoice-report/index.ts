@@ -234,7 +234,8 @@ async function loadCachedReport(oystehr: Oystehr): Promise<GetBillingInvoiceRepo
     const document = await findCacheDocument(oystehr);
     const data = document?.content?.[0]?.attachment?.data;
     if (!data) return undefined;
-    return JSON.parse(gunzipSync(Buffer.from(data, 'base64')).toString('utf8'));
+    // plain Uint8Array keeps zlib typings happy across @types/node versions
+    return JSON.parse(gunzipSync(new Uint8Array(Buffer.from(data, 'base64'))).toString('utf8'));
   } catch (err) {
     console.warn('Failed to load saved invoice report:', (err as Error)?.message);
     return undefined;
@@ -244,7 +245,7 @@ async function loadCachedReport(oystehr: Oystehr): Promise<GetBillingInvoiceRepo
 // gzipped JSON in a DocumentReference attachment, same pattern as the cards-on-file report
 async function saveCachedReport(oystehr: Oystehr, response: GetBillingInvoiceReportResponse): Promise<void> {
   try {
-    const data = gzipSync(Buffer.from(JSON.stringify(response), 'utf8')).toString('base64');
+    const data = gzipSync(new Uint8Array(Buffer.from(JSON.stringify(response), 'utf8'))).toString('base64');
     if (data.length > MAX_CACHE_BYTES) {
       console.warn(`Invoice report too large to cache (${data.length} bytes); skipping save`);
       return;
