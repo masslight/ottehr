@@ -71,12 +71,15 @@ describe('InlineEditSection', () => {
 
     await user.click(screen.getByTestId('summary-content'));
     expect(screen.getByTestId('edit-content')).toBeVisible();
-    // summary stays visible while editing so saves are reflected live
-    expect(screen.getByTestId('summary-content')).toBeVisible();
+    // the editor shows the same information in more detail, so the read-only summary
+    // is replaced while editing; the edit label stands in as the section heading
+    expect(screen.queryByTestId('summary-content')).toBeNull();
+    expect(screen.getByText('Edit allergies')).toBeVisible();
     expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
 
     await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
     expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
     expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
   });
 

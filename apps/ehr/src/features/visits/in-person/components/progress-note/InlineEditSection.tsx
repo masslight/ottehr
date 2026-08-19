@@ -1,5 +1,5 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Box, IconButton } from '@mui/material';
+import { Box, IconButton, Typography } from '@mui/material';
 import { FC, ReactNode, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -32,41 +32,17 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
 
   if (!canEdit) return <>{children}</>;
 
-  return (
-    <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
-      <Box
-        onClick={isEditing ? undefined : () => setIsEditing(true)}
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1,
-          ...(!isEditing && {
-            cursor: 'pointer',
-            borderRadius: 1,
-            mx: -1,
-            px: 1,
-            '&:hover': { backgroundColor: 'action.hover' },
-            '&:hover .inline-edit-icon': { opacity: 1 },
-          }),
-        }}
-      >
-        <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
-        {!isEditing && (
-          <IconButton
-            className="inline-edit-icon"
-            size="small"
-            aria-label={editLabel}
-            data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
-            sx={{ opacity: 0.5, transition: 'opacity 0.15s', color: 'primary.main' }}
-          >
-            <EditOutlinedIcon fontSize="small" />
-          </IconButton>
-        )}
-      </Box>
-      {isEditing && (
+  // The editor shows the same information in more detail, so the read-only summary is
+  // replaced while editing rather than duplicated above it; the edit label stands in as
+  // the section heading so the section keeps its identity.
+  if (isEditing) {
+    return (
+      <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
+        <Typography variant="h5" color="primary.dark" sx={{ mb: 1 }}>
+          {editLabel}
+        </Typography>
         <Box
           sx={{
-            mt: 1,
             p: 2,
             borderRadius: 2,
             border: '1px solid',
@@ -84,7 +60,37 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
             </RoundedButton>
           </Box>
         </Box>
-      )}
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
+      <Box
+        onClick={() => setIsEditing(true)}
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1,
+          cursor: 'pointer',
+          borderRadius: 1,
+          mx: -1,
+          px: 1,
+          '&:hover': { backgroundColor: 'action.hover' },
+          '&:hover .inline-edit-icon': { opacity: 1 },
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
+        <IconButton
+          className="inline-edit-icon"
+          size="small"
+          aria-label={editLabel}
+          data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
+          sx={{ opacity: 0.5, transition: 'opacity 0.15s', color: 'primary.main' }}
+        >
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Box>
     </Box>
   );
 };
