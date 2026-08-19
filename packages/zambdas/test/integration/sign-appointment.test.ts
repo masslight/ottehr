@@ -16,6 +16,7 @@ describe('sign-appointment integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let base: InsertFullAppointmentDataBaseResult;
+  let processId: string;
   let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
@@ -23,6 +24,7 @@ describe('sign-appointment integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
+    processId = setup.processId;
     const practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     await oystehrAdmin.fhir.patch({
@@ -57,4 +59,20 @@ describe('sign-appointment integration — happy path', () => {
     });
     expect(response.output).toBeDefined();
   });
+
+  // The assigned provider is the note's rendering provider, so a visit with an empty Provider slot
+  // must not sign. Its own appointment graph, since `base`'s encounter is given an attender above.
+  it('refuses to sign a visit with no provider assigned', async () => {
+    const unassigned = await insertInPersonAppointmentBase(oystehrAdmin, processId);
+
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'sign-appointment',
+        appointmentId: unassigned.appointment.id,
+        encounterId: unassigned.encounter.id,
+        timezone: 'America/New_York',
+        supervisorApprovalEnabled: false,
+      })
+    ).rejects.toThrow();
+  }, 60_000);
 });

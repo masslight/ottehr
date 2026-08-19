@@ -28,7 +28,7 @@ import {
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { checkOrCreateM2MClientToken, practitionerHasRole, requirePractitionerNPI } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getPractitionerRoles, requirePractitionerNPI } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -105,7 +105,12 @@ export const performEffect = async (
   if (!attendingPractitionerId) {
     throw new Error(`No provider is assigned to encounter ${encounter.id}`);
   }
-  if (!(await practitionerHasRole(oystehr, attendingPractitionerId, RoleType.Provider))) {
+  // Undefined roles means no Oystehr user owns that Practitioner (it may be an M2M client's
+  // profile), which is not the same as holding no roles — only a resolved non-Provider is a stale
+  // assignment. Same stance as the EHR's useAssignedProvider: block on a known-bad role, never on
+  // an unresolved identity.
+  const attendingPractitionerRoles = await getPractitionerRoles(oystehr, attendingPractitionerId);
+  if (attendingPractitionerRoles && !attendingPractitionerRoles.includes(RoleType.Provider)) {
     throw new Error(
       `Practitioner ${attendingPractitionerId} assigned to encounter ${encounter.id} no longer holds the Provider role`
     );
