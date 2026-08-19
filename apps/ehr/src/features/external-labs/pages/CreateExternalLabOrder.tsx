@@ -321,9 +321,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             display: item.item.itemName,
           }));
         });
-        console.log('cptCodesForLabs is: ', cptCodesForLabs);
 
-        if (cptCodesForLabs.length) {
+        if (cptCodesForLabs.length && selectedPaymentMethod === LabPaymentMethod.ClientBill) {
           try {
             await saveCptsForLabs(cptCodesForLabs);
           } catch (e) {

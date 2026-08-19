@@ -159,6 +159,7 @@ export type LabOrderListPageDTO = {
   orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
   clinicalInfoNoteByUser: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
   hasCptCodes: boolean; // true when the contained ActivityDefinition has at least one CPT code in its code.coding
+  billingType: LabPaymentMethod | undefined; // unsolicited results will be undefined. Labs todo: We should be able to derive it for reflex but not necessary at the moment
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -202,6 +203,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'clinicalInfoNoteByUser'
   | 'isGenericOrder'
   | 'hasCptCodes'
+  | 'billingType'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
