@@ -10,6 +10,7 @@ const mockClinicalClient = {
   fhir: {
     search: vi.fn(),
     patch: vi.fn(),
+    create: vi.fn(),
   },
 };
 const mockStripe = {
@@ -193,6 +194,7 @@ describe('sub-send-invoice-to-patient source guard', () => {
       unbundle: () => [encounter, patient, account, appointment],
     });
     mockClinicalClient.fhir.patch.mockResolvedValue({});
+    mockClinicalClient.fhir.create.mockResolvedValue({});
     mockStripe.customers.retrieve.mockResolvedValue({
       deleted: false,
       email: 'Katie@example.com',
@@ -230,6 +232,34 @@ describe('sub-send-invoice-to-patient source guard', () => {
     expect(JSON.parse(result.body).message).toContain('sent successfully');
     expect(mockStripe.invoices.sendInvoice).toHaveBeenCalledWith('inv_1', { stripeAccount: undefined });
     expect(mockSendSmsForPatient).toHaveBeenCalled();
+  });
+
+  it('creates a generate-statement task for Patient and Appointment after sending invoice', async () => {
+    const billingTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+    });
+
+    await runHandler(billingTask);
+
+    expect(mockClinicalClient.fhir.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        status: 'requested',
+        for: { reference: 'Patient/pat-1' },
+        focus: expect.objectContaining({
+          type: 'Appointment',
+          reference: 'Appointment/appt-1',
+        }),
+        code: {
+          coding: [
+            expect.objectContaining({
+              system: 'https://fhir.ottehr.com/CodeSystem/generate-patient-statement',
+              code: 'generate-statement',
+            }),
+          ],
+        },
+      })
+    );
   });
 
   it('still rejects candid and legacy untagged tasks without a Candid encounter id', async () => {

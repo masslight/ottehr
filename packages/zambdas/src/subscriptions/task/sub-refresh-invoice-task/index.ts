@@ -153,9 +153,9 @@ function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskI
 
   // A send that finished after this event was queued has already written its output and status, and
   // deriving the status from the stale payload would roll that back to "ready".
-  // Only include the status op when it actually changes the value — a no-op patch (e.g. completed →
-  // completed) still fires a FHIR update event, which re-triggers
-  // SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE and generates a duplicate statement.
+  // Only include the status op when it actually changes the value to avoid redundant /status writes
+  // (a no-op patch can still emit a FHIR update event).
+  // This prevents unnecessary downstream triggers and reduces write noise.
   const getLastTaskOutput = getLatestTaskOutput(currentTask);
   const newStatus =
     getLastTaskOutput?.type === 'success'
