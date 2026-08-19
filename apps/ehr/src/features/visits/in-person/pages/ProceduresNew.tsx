@@ -351,7 +351,7 @@ export default function ProceduresNew(): ReactElement {
     return { postInstructions: values, otherPostInstructions: other };
   };
 
-  // Deterministic coding engine (client-side, synchronous) — separate from the AI call below.
+  // Deterministic coding engine (client-side, synchronous).
   const procedureFacts = useMemo<ProcedureFactsInput>(() => {
     // Instructions collapse to the same combined string the save path stores.
     const combinedPostInstructions = combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions);

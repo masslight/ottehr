@@ -4,13 +4,11 @@
 //
 // vi.mock calls must come before any component imports (Vitest hoists them).
 
-const { recommendBillingCodesMock, aiSuggestionNotesMock, saveChartDataMock, createProcedureQuickPickMock } =
-  vi.hoisted(() => ({
-    recommendBillingCodesMock: vi.fn(),
-    aiSuggestionNotesMock: vi.fn(),
-    saveChartDataMock: vi.fn(),
-    createProcedureQuickPickMock: vi.fn(),
-  }));
+const { aiSuggestionNotesMock, saveChartDataMock, createProcedureQuickPickMock } = vi.hoisted(() => ({
+  aiSuggestionNotesMock: vi.fn(),
+  saveChartDataMock: vi.fn(),
+  createProcedureQuickPickMock: vi.fn(),
+}));
 
 // Quick picks store procedureType as the code slug (see buildQuickPickFromCurrentState);
 // family detection accepts the slugs, so the conditional inputs appear after apply.
@@ -84,7 +82,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
-  useRecommendBillingCodes: () => ({ mutateAsync: recommendBillingCodesMock }),
   useAiSuggestionNotes: () => ({ mutateAsync: aiSuggestionNotesMock }),
 }));
 
@@ -173,7 +170,6 @@ const renderComponent = (): ReturnType<typeof render> => render(<ProceduresNew /
 describe('ProceduresNew — quick picks and the structured fields', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    recommendBillingCodesMock.mockResolvedValue([]);
     aiSuggestionNotesMock.mockResolvedValue(undefined);
     saveChartDataMock.mockResolvedValue({});
     createProcedureQuickPickMock.mockResolvedValue({});

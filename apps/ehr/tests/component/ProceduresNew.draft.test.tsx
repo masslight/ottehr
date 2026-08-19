@@ -51,7 +51,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
-  useRecommendBillingCodes: () => ({ mutateAsync: vi.fn() }),
   useAiSuggestionNotes: () => ({ mutateAsync: vi.fn() }),
 }));
 

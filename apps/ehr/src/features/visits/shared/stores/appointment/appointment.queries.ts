@@ -51,7 +51,6 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MeetingData,
-  ProcedureDetail,
   PromiseReturnType,
   UpdateMedicationOrderInput,
 } from 'utils';
@@ -561,20 +560,6 @@ export const useRecommendBillingSuggestions = () => {
       return apiClient.recommendBillingSuggestions(props);
     },
     retry: 0,
-  });
-};
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useRecommendBillingCodes = () => {
-  const apiClient = useOystehrAPIClient();
-  return useMutation({
-    mutationFn: (props: ProcedureDetail) => {
-      if (!apiClient) {
-        throw new Error('api client is not defined');
-      }
-      return apiClient.recommendBillingCodes(props);
-    },
-    retry: 2,
   });
 };
 

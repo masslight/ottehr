@@ -5,8 +5,7 @@
 //
 // vi.mock calls must come before any component imports (Vitest hoists them).
 
-const { recommendBillingCodesMock, saveChartDataMock } = vi.hoisted(() => ({
-  recommendBillingCodesMock: vi.fn(),
+const { saveChartDataMock } = vi.hoisted(() => ({
   saveChartDataMock: vi.fn(),
 }));
 
@@ -61,9 +60,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
-  // The page no longer uses this hook (the legacy AI list is removed); the mock stays so the
-  // tests can assert the zambda is never called from anywhere on this page.
-  useRecommendBillingCodes: () => ({ mutateAsync: recommendBillingCodesMock }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -151,7 +147,6 @@ const renderComponent = (): ReturnType<typeof render> => render(<ProceduresNew /
 describe('ProceduresNew — deterministic coding assist', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    recommendBillingCodesMock.mockResolvedValue([]);
     saveChartDataMock.mockResolvedValue({});
     useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
     // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
@@ -178,21 +173,17 @@ describe('ProceduresNew — deterministic coding assist', () => {
     expect(bestMatch).toHaveTextContent(/3\.2 cm/);
   });
 
-  it('makes no recommend-billing-codes call and renders no AI list for an engine-covered family', async () => {
-    recommendBillingCodesMock.mockResolvedValue([{ code: '99213', description: 'Office visit', useWhen: 'when' }]);
+  it('renders no legacy AI list for an engine-covered family', async () => {
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, DETERMINED_DRAFT);
     renderComponent();
     await screen.findByText(/best match — from your documentation/i, undefined, { timeout: 3000 });
     // The deterministic engine is the sole suggestion source for covered families.
-    expect(recommendBillingCodesMock).not.toHaveBeenCalled();
     expect(screen.queryByTestId('recommended-cpt-code-99213')).not.toBeInTheDocument();
     expect(screen.getAllByTestId('recommended-cpt-code-12042')).toHaveLength(1);
   });
 
-  // The legacy AI list is removed (§III): the deterministic engine is the sole suggestion
-  // source, and no procedure type triggers the recommend-billing-codes call anymore.
-  it('renders no AI list and makes no recommend-billing-codes call for an uncovered type (X-Ray)', async () => {
-    recommendBillingCodesMock.mockResolvedValue([{ code: '73562', description: 'X-ray of knee', useWhen: 'when' }]);
+  // The legacy AI list is removed (§III): the deterministic engine is the sole suggestion source.
+  it('renders no legacy AI list for an uncovered type (X-Ray)', async () => {
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
       procedureType: 'X-Ray',
       cptCodes: [{ code: '73562', display: 'X-ray of knee, 3 views' }],
@@ -208,7 +199,6 @@ describe('ProceduresNew — deterministic coding assist', () => {
       },
       { timeout: 1500 }
     );
-    expect(recommendBillingCodesMock).not.toHaveBeenCalled();
   });
 
   it('renders the fixed-code suggestion and supported state for a fixed-code type (nebulizer)', async () => {
@@ -224,7 +214,6 @@ describe('ProceduresNew — deterministic coding assist', () => {
     expect(bestMatch).toHaveTextContent(/bills a single code/i);
     const supported = await screen.findByTestId('coding-defense-supported', undefined, { timeout: 3000 });
     expect(supported).toHaveTextContent('Documentation supports 94640');
-    expect(recommendBillingCodesMock).not.toHaveBeenCalled();
   });
 
   it('renders the compact open-set line when class and site are known but length is missing', async () => {

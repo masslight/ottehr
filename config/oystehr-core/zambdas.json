@@ -1083,13 +1083,6 @@
       "src": "src/ehr/recommend-billing-suggestions/index",
       "zip": ".dist/zips/recommend-billing-suggestions.zip"
     },
-    "RECOMMEND-BILLING-CODES": {
-      "name": "recommend-billing-codes",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/recommend-billing-codes/index",
-      "zip": ".dist/zips/recommend-billing-codes.zip"
-    },
     "GENERATE-PATIENT-EDUCATION": {
       "name": "generate-patient-education",
       "type": "http_auth",
