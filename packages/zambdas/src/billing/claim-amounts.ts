@@ -167,8 +167,10 @@ export function summarizeClaimPayments(
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
-  // fallback for adjudications without CAS data, wont go negative
-  const patientResp = latestPatientResp ?? Math.max(allowed - insurancePaid, 0);
+  // no CAS data on the latest adjudication falls back to what the payer allowed but didn't pay.
+  // Floored either way: a reversal reports what it took back as negative PR, and the patient owes
+  // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
+  const patientResp = Math.max(latestPatientResp ?? allowed - insurancePaid, 0);
 
   return {
     allowed,
@@ -180,15 +182,20 @@ export function summarizeClaimPayments(
   };
 }
 
-// only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
-// amount is pending insurance, not patient-owed
-export function summarizePatientBalance(summaries: ClaimPaymentSummary[]): {
+// claims count toward the patient's balance when receiving a remit or reaching patient AR. an
+// un-adjudicated claim's billed amount is pending insurance, not patient-owed
+export function summarizePatientBalance(
+  entries: {
+    payments: ClaimPaymentSummary;
+    reachedPatientAr: boolean;
+  }[]
+): {
   claimsWithPatientBalance: number;
   pendingPayments: number;
   currentBalance: number;
 } {
-  const claimBalances = summaries.map((summary) =>
-    roundNumberToDecimalPlaces(summary.adjudicated ? summary.balance : -summary.patientPaid, 2)
+  const claimBalances = entries.map(({ payments, reachedPatientAr }) =>
+    roundNumberToDecimalPlaces(payments.adjudicated || reachedPatientAr ? payments.balance : -payments.patientPaid, 2)
   );
   return {
     claimsWithPatientBalance: claimBalances.filter((balance) => balance > 0).length,

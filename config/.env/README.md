@@ -93,7 +93,8 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `STRIPE_PUBLIC_KEY` | Stripe publishable (public) API key. Used client-side to initialize Stripe.js for payment UIs. |
 | `STRIPE_SECRET_KEY` | Stripe secret API key. Used server-side to create payment intents, charge invoices, and manage customers. **Keep this confidential.** |
 | `STRIPE_PAYMENT_METHOD_TYPES` | Comma-separated list of payment method types accepted by your Stripe account (e.g., `card`). |
-| `STRIPE_WEBHOOK_SECRET` | Signing secret of the Stripe webhook endpoint (`whsec_...`). Used by the billing app webhook to verify incoming Stripe events. **Keep this confidential.** |
+| `STRIPE_WEBHOOK_SECRET` | Optional signing secret of the Stripe connected-accounts webhook destination (`whsec_...`). Used by the billing app webhook to verify incoming Stripe events. **Keep this confidential.** |
+| `STRIPE_PLATFORM_WEBHOOK_SECRET` | Optional signing secret of the Stripe platform-account webhook destination (`whsec_...`). Configure this when the environment accepts payments on the platform account as well as connected accounts. **Keep this confidential.** |
 
 ### Radiology / PACS -- Advapacs
 

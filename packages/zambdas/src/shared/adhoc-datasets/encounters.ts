@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
   Condition,
@@ -33,12 +32,7 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
-import {
-  AdHocEncounterRow,
-  AdHocEncountersInput,
-  AdHocEncountersOutputSchema,
-} from 'utils/lib/types/adhoc/datasets/encounters';
-import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -52,22 +46,13 @@ import {
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
-} from '../../shared/adhoc-report';
-import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
-import { followUpTypeFromPerformerType } from '../../shared/chart-data';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { wrapHandler } from '../../shared/sentry';
-import { ZambdaInput } from '../../shared/types/common';
-import { validateOutputWithSchema } from '../../shared/validate-zod';
-import { validateRequestParameters } from './validateRequestParameters';
+} from '../adhoc-report';
+import { followUpTypeFromPerformerType } from '../chart-data';
 
-let m2mToken: string;
 // Registrar full names, keyed by lowercase staff login email. Built once per warm container from the
 // IAM user list (email -> Practitioner profile -> name) — the same mapping the admin Employees page
 // uses. Cached because it's stable and the lookup (user.list + Practitioner names) is not free.
 let staffNameByEmail: Map<string, string> | undefined;
-
-const ZAMBDA_NAME = 'adhoc-encounters';
 
 async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string>> {
   if (staffNameByEmail) return staffNameByEmail;
@@ -149,22 +134,6 @@ const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.so
 const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, ...params } = validateRequestParameters(input);
-
-  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-
-  const rows = await fetchAdHocEncounterRows(oystehr, params);
-
-  // The endpoint's Zod schema is its contract: what leaves the zambda MUST match what the LLM was
-  // told about the rows. Fail loud at the source instead of as a client-side parse error.
-  const output = validateOutputWithSchema(AdHocEncountersOutputSchema, { encounters: rows }, ZAMBDA_NAME);
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
-
 // The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
 // stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
 // schema the runtime output validation uses.
@@ -191,10 +160,11 @@ export async function fetchAdHocEncounterRows(
   } = params;
 
   // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
-  // encounter, practitioner) ride along, so a page never approaches the FHIR response-size cap
-  // (~6MB). Every opt-in layer's heavier resources (Observations above all) are pulled afterward in
-  // separate, chunked queries keyed by encounter id (fetchScoped below). The Encounters dataset also
-  // walks Encounter:part-of so a follow-up encounter resolves to its parent's appointment.
+  // encounter, practitioner) ride along; every opt-in layer's heavier resources (Observations above
+  // all) are pulled afterward in separate queries keyed by encounter id (fetchScoped below). Both the
+  // main search and the layer searches run as async-bulk FHIR jobs, so neither is bounded by the
+  // response-size cap. The Encounters dataset also walks Encounter:part-of so a follow-up encounter
+  // resolves to its parent's appointment.
   type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
   const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
     dateRange,
@@ -238,12 +208,12 @@ export async function fetchAdHocEncounterRows(
     }
   }
 
-  // ---- Secondary, chunked fetches for the opt-in layers --------------------------------------
+  // ---- Secondary fetches for the opt-in layers -----------------------------------------------
   // Each enabled layer's resources are pulled here (NOT as includes on the main search), scoped to
-  // the encounter ids from the main pass and chunked so no single response approaches the size cap.
+  // the encounter ids from the main pass, each as its own async-bulk job (no response-size cap).
   const encIds = Array.from(encounterById.keys());
   const encRefs = encIds.map((id) => `Encounter/${id}`);
-  // Per-encounter layer resources are fetched via the shared scoped/paginated/chunked helper.
+  // Per-encounter layer resources are fetched via the shared async-bulk scoped helper.
   const fetchScoped = <T extends FhirResource>(
     resourceType: T['resourceType'],
     paramName: string,
