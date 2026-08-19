@@ -599,6 +599,30 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
     expect(createdCpts).toHaveLength(0);
   });
 
+  test('external lab CPT codes in cptCodesFromLabsToSkip suppress the matching template CPT Procedure', () => {
+    // Simulates the dedup path for external labs: collectExternalLabCptProcedures
+    // returns { cptCodesToSkip: Set{'36415'} }. The caller merges this into
+    // cptCodesFromLabsToSkip before calling makeCreateRequests, so the template's
+    // standalone CPT Procedure for 36415 is dropped.
+    const cptProc = makeCptProcedure('cpt-ext', '36415');
+    const templateList = makeCptTemplateList([cptProc]);
+    const actions = makeActions({ cptCodes: 'append' });
+
+    const externalLabCptCodesToSkip = new Set(['36415']);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      externalLabCptCodesToSkip,
+      new Set(),
+      []
+    );
+
+    const createdCpts = getCptPostRequests(requests);
+    expect(createdCpts.map((c) => c.code)).not.toContain('36415');
+  });
+
   test('append both: a CPT code NOT on any lab plan is still created normally', () => {
     // The template has two CPT codes: 87880 (on the lab plan) and 99213 (standalone).
     // After dedup, 87880 is suppressed but 99213 must still go through.

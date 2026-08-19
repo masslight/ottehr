@@ -482,6 +482,17 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                         {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
                       </Typography>
                     ) : null}
+                    {plan.cptCodes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>CPT codes:</strong>{' '}
+                        {plan.cptCodes
+                          .map((c) => {
+                            const label = formatCptCodeAndModifiersForDisplay(c);
+                            return c.display ? `${label} — ${c.display}` : label;
+                          })
+                          .join('; ')}
+                      </Typography>
+                    ) : null}
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
                       <strong>PSC Hold:</strong> {plan.psc ? 'Yes' : 'No'}
                     </Typography>
