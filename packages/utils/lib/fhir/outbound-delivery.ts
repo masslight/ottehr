@@ -134,6 +134,14 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
   };
 }
 
+/** The organization the attempt was sent from, recorded on the attempt when it was created. */
+export function getOutboundDeliverySenderOrganizationId(task: Task): string | undefined {
+  return removePrefix(
+    'Organization/',
+    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference ?? ''
+  );
+}
+
 export interface OutboundDeliveryFaxPacketSnapshot {
   pageCount?: number;
   parts: string[];

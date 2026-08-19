@@ -63,6 +63,7 @@ export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Sen
         {showForm && (
           <SendFaxForm
             preview={preview}
+            senderFaxNumber={controller.senderFaxNumber}
             visits={visits}
             isSending={controller.isSending}
             onSubmit={controller.send}

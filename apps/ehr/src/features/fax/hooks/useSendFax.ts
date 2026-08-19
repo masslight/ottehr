@@ -12,6 +12,7 @@ import { toSendFaxPacketInput } from '../model/faxRecipients';
 import { FaxFormValues } from '../model/types';
 import { useFaxPacketPreview } from './useFaxPacketPreview';
 import { useFaxPacketStatuses } from './useFaxPacketStatus';
+import { useFaxSenderFaxNumber } from './useFaxSender';
 import { useSendFaxPacket } from './useSendFaxPacket';
 
 export interface UseSendFaxResult {
@@ -22,6 +23,8 @@ export interface UseSendFaxResult {
   isLoadingPreview: boolean;
   previewError: boolean;
   preview?: GetFaxPacketPreviewOutput;
+  /** The number the packet is sent from, so the user can see which number the recipient will call back. */
+  senderFaxNumber?: string;
 
   /** True while the currently open dialog's submission is still in flight. */
   isSending: boolean;
@@ -52,6 +55,9 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
 
   const queryClient = useQueryClient();
   const preview = useFaxPacketPreview(previewAppointmentId, isOpen);
+  // Only for the preview-less sources: a visit preview already carries the sender's number, so asking
+  // for it separately would be a second request for a value this dialog is about to receive anyway.
+  const sender = useFaxSenderFaxNumber(isOpen && !previewAppointmentId);
   const sendMutation = useSendFaxPacket();
   const statuses = useFaxPacketStatuses(activeTaskIds);
 
@@ -136,6 +142,7 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
     isLoadingPreview: Boolean(previewAppointmentId) && preview.isLoading,
     previewError: Boolean(previewAppointmentId) && preview.isError,
     preview: preview.data,
+    senderFaxNumber: preview.data?.senderFaxNumber ?? sender.data ?? undefined,
     isSending: sendMutation.isPending || Boolean(pendingTaskId),
     send,
     failures,

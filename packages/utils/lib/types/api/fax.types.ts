@@ -148,7 +148,12 @@ export interface GetFaxPacketStatusOutput {
 }
 
 export const GetFaxPacketPreviewInputSchema = z.object({
-  appointmentId: z.string().uuid(),
+  /**
+   * The visit whose document checklist and PCP prefill the dialog needs. Omitted by the patient-level
+   * dialogs, which send a fixed set of documents: the response then carries only the parts of the
+   * preview that are not visit-specific, i.e. the sender's fax number.
+   */
+  appointmentId: z.string().uuid().optional(),
 });
 
 export type GetFaxPacketPreviewInput = z.infer<typeof GetFaxPacketPreviewInputSchema>;
@@ -163,11 +168,15 @@ export interface FaxDocumentAvailability {
 }
 
 export interface GetFaxPacketPreviewOutput {
+  /** Empty when the request named no visit — only a single-visit packet has a document checklist. */
   documents: FaxDocumentAvailability[];
   /** Prefill for the first recipient, taken from the patient's PCP when one is on file. */
   pcp?: FaxRecipient;
   /** Drives the default state of the "Save as patient's PCP" checkbox. */
   hasSavedPcp: boolean;
+  /** The number the packet is transmitted from, i.e. the sending organization's fax telecom. Shown to the
+   * user so they know which number the recipient will call back. Absent when none is configured. */
+  senderFaxNumber?: string;
 }
 
 export const FAX_DOCUMENT_UNAVAILABLE_REASONS: Record<FaxDocumentKind, string> = {
