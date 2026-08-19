@@ -801,6 +801,15 @@ export const dataTestIds = {
     rosTable: 'review-of-systems-table',
     deniesCheckboxCell: 'ros-denies-checkbox-cell',
     reportsCheckboxCell: 'ros-reports-checkbox-cell',
+    selectAllDeniesCell: 'ros-select-all-denies-cell',
+    clearRosButton: 'clear-ros-button',
+  },
+
+  examPage: {
+    selectAllNormalCheckbox: (sectionKey: string): string => `exam-select-all-normal-${sectionKey}`,
+    /** Container of a section's normal findings, i.e. its normal column minus the "Select all". */
+    normalFindings: 'exam-normal-findings',
+    clearExamButton: 'clear-exam-button',
   },
 
   externalLabs: {

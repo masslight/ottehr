@@ -2,6 +2,7 @@ import { alpha, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, u
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { RosCard, RosItemConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { RosSelectAllRow } from './RosSelectAllRow';
 import { RosTableRow } from './RosTableRow';
 
 interface RosTableProps {
@@ -61,6 +62,7 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
           </TableRow>
         </TableHead>
         <TableBody>
+          <RosSelectAllRow items={system.items} />
           {Object.entries(system.items).map(([baseKey, item]) => (
             <RosTableRow key={baseKey} baseKey={baseKey} item={item} />
           ))}
