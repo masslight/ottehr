@@ -14,7 +14,6 @@ import {
   getTaskResource,
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
@@ -25,10 +24,9 @@ import {
   SignAppointmentInput,
   SignAppointmentResponse,
 } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { checkOrCreateM2MClientToken, getPractitionerRoles, requirePractitionerNPI } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -36,6 +34,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { assertAssignedProviderCanSign } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -97,24 +96,7 @@ export const performEffect = async (
     throw new Error(`No patient found for encounter ${encounter.id}`);
   }
 
-  // The assigned provider (the encounter's Attender) is the note's — and the claim's — rendering
-  // provider, so the visit can only be signed while that person still holds the Provider role.
-  // Nothing removes the participant when an employee's role is downgraded, so the stale assignment
-  // survives on the encounter and has to be rejected here rather than assumed valid.
-  const attendingPractitionerId = getAttendingPractitionerId(encounter);
-  if (!attendingPractitionerId) {
-    throw new Error(`No provider is assigned to encounter ${encounter.id}`);
-  }
-  // Undefined roles means no Oystehr user owns that Practitioner (it may be an M2M client's
-  // profile), which is not the same as holding no roles — only a resolved non-Provider is a stale
-  // assignment. Same stance as the EHR's useAssignedProvider: block on a known-bad role, never on
-  // an unresolved identity.
-  const attendingPractitionerRoles = await getPractitionerRoles(oystehr, attendingPractitionerId);
-  if (attendingPractitionerRoles && !attendingPractitionerRoles.includes(RoleType.Provider)) {
-    throw new Error(
-      `Practitioner ${attendingPractitionerId} assigned to encounter ${encounter.id} no longer holds the Provider role`
-    );
-  }
+  await assertAssignedProviderCanSign(oystehr, encounter);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getInPersonVisitStatus(appointment, encounter);
