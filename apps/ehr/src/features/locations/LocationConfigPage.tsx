@@ -156,8 +156,17 @@ export default function LocationConfigPage(): ReactElement {
       supportPhone: supportPhone.trim() || null,
       reviewLink: reviewLink.trim() || null,
       rooms: rooms.map((r) => r.value.trim()).filter((r) => r !== ''),
-      // Stripe is managed on Payment Locations; only advapacs is edited here.
-      ...(canEditPaymentFields ? { advapacsLocationId: advapacsLocationId.trim() || null } : {}),
+      // Stripe belongs in this payload: its field moved here when the Payment Locations page was
+      // retired, but this payload was never updated, so edits to it were silently dropped.
+      // Still omitted wholesale for callers who can't edit payment fields — the zambda rejects the
+      // request outright if either key is present, so sending them would break every save by a
+      // non-Customer-Support user.
+      ...(canEditPaymentFields
+        ? {
+            stripeAccountId: stripeAccountId.trim() || null,
+            advapacsLocationId: advapacsLocationId.trim() || null,
+          }
+        : {}),
     };
     updateMutation.mutate(fields);
   };
