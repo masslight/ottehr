@@ -406,7 +406,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             sent: DateTime.utc().toISO()!,
             status: status,
             basedOn: [{ reference: `Task/${task.id}` }],
-            about: notificationAboutForTask(task),
+            about: buildTaskNotificationAbout(task),
             recipient: [{ reference: `Practitioner/${practitioner.id}` }],
             payload: [{ contentString: message }],
           },
@@ -487,7 +487,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             sent: DateTime.utc().toISO()!,
             status: status,
             basedOn: [{ reference: `Task/${task.id}` }],
-            about: notificationAboutForTask(task),
+            about: buildTaskNotificationAbout(task),
             recipient: [{ reference: `Practitioner/${recipient.id}` }],
             payload: [{ contentString: title }],
           },
@@ -952,7 +952,7 @@ export function buildCategoryNotificationMessage(uiCategory: UiTaskCategoryId, t
  * means the client can resolve a destination straight from the notification — the alternative was
  * fetching every notification's Task on every poll of a 10-second bell.
  */
-export function notificationAboutForTask(task: Task): Reference[] | undefined {
+export function buildTaskNotificationAbout(task: Task): Reference[] | undefined {
   if (task.groupIdentifier?.value !== FAX_TASK.category) return undefined;
   const faxCommunicationId = getTaskInputValue(task, FAX_TASK.input.communicationId);
   return faxCommunicationId ? [{ reference: `Communication/${faxCommunicationId}` }] : undefined;

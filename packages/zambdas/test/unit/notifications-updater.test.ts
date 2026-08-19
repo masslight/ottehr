@@ -12,12 +12,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCategoryNotificationMessage,
   buildSMSSendList,
+  buildTaskNotificationAbout,
   categoryNotifiedKey,
   communicationStatusForMethod,
   getCommunicationStatus,
   hasCategoryNotifiedTag,
   isTaskNewlyCreated,
-  notificationAboutForTask,
   READY_OR_UNSIGNED_ENCOUNTER_STATUSES,
   resolveAssignmentDelivery,
   rowMatchesFilters,
@@ -269,18 +269,18 @@ describe('inbound fax notifications', () => {
     });
   });
 
-  describe('notificationAboutForTask', () => {
+  describe('buildTaskNotificationAbout', () => {
     it('points the notification at the fax Communication, which is what the match page is keyed by', () => {
-      expect(notificationAboutForTask(faxTask(faxInputs))).toEqual([{ reference: 'Communication/comm-456' }]);
+      expect(buildTaskNotificationAbout(faxTask(faxInputs))).toEqual([{ reference: 'Communication/comm-456' }]);
     });
 
     it('points nowhere when the fax Task is missing its Communication id', () => {
-      expect(notificationAboutForTask(faxTask([]))).toBeUndefined();
+      expect(buildTaskNotificationAbout(faxTask([]))).toBeUndefined();
     });
 
     it('points nowhere for other task categories', () => {
       expect(
-        notificationAboutForTask(faxTask(faxInputs, { groupIdentifier: { value: MANUAL_TASK.category.coding } }))
+        buildTaskNotificationAbout(faxTask(faxInputs, { groupIdentifier: { value: MANUAL_TASK.category.coding } }))
       ).toBeUndefined();
     });
   });

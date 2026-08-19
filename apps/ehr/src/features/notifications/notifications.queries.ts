@@ -5,7 +5,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { isPhoneNumberValid, removePrefix } from 'utils/lib/helpers/helpers';
 import {
   AppointmentProviderNotificationTypes,
   PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
@@ -41,7 +41,7 @@ export type ProviderNotification = {
  * alone — no follow-up query on a 10-second poll, and nothing for a role without Task read to trip over.
  *
  * Inbound faxes are the case that needs it: the cron stamps the notification with its UI category and an
- * `about` reference to the fax Communication (see `notificationAboutForTask` in the notifications-updater),
+ * `about` reference to the fax Communication (see `buildTaskNotificationAbout` in the notifications-updater),
  * which is exactly what the match page is keyed by. Notifications written before that producer change
  * carry no `about` and simply have no link; the bell shows the last 10, so they age out.
  */
@@ -55,12 +55,11 @@ export const getNotificationLink = (communication: Communication): string | unde
   if (categoryCode !== inboundFaxCategory) return undefined;
 
   // Only a relative `Communication/<id>` reference names a fax we can route to. Checked with an explicit
-  // prefix test so nothing else in `about` — a Task, or an absolute URL to some other server — can be
+  // prefix strip so nothing else in `about` — a Task, or an absolute URL to some other server — can be
   // mangled into a match-page id.
   const faxCommunicationID = communication.about
-    ?.map((about) => about.reference)
-    .find((reference): reference is string => !!reference?.startsWith(COMMUNICATION_REFERENCE_PREFIX))
-    ?.slice(COMMUNICATION_REFERENCE_PREFIX.length);
+    ?.map((about) => removePrefix(COMMUNICATION_REFERENCE_PREFIX, about.reference ?? ''))
+    .find((id): id is string => !!id);
   return faxCommunicationID ? inboundFaxMatchPath(faxCommunicationID) : undefined;
 };
 
