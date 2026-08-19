@@ -13,7 +13,10 @@ import {
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
   DeleteServiceFacilityInputSchema,
+  ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
+  GetBillingClaimsExportStatusInputSchema,
+  GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
@@ -48,6 +51,8 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingChargeItemDefinition,
+  BillingClaimsExportKickOffResponse,
+  BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
   ClaimDetailResponse,
@@ -56,6 +61,7 @@ import {
   DeletedResponse,
   EraDetailResponse,
   ExportClaimX12Response,
+  GetBillingCoverageResponse,
   GetBillingPatientBalanceResponse,
   GetPatientCoveragesResponse,
   OkResponse,
@@ -148,6 +154,16 @@ export const searchBillingClaims = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
+
+export const exportBillingClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportBillingClaimsInputSchema>
+): Promise<BillingClaimsExportKickOffResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
+
+export const getBillingClaimsExportStatus = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingClaimsExportStatusInputSchema>
+): Promise<BillingClaimsExportStatusResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
 
 export const searchBillingPatientARClaims = (
   oystehr: Oystehr,
@@ -249,6 +265,11 @@ export const updateBillingCoverage = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateBillingCoverageInputSchema>
 ): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-coverage', parameters);
+
+export const getBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingCoverageInputSchema>
+): Promise<GetBillingCoverageResponse> => executeBillingZambda(oystehr, 'get-billing-coverage', parameters);
 
 export const deleteBillingCoverage = (
   oystehr: Oystehr,

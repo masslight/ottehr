@@ -5,6 +5,7 @@ import {
   useAppointmentData,
   useAppTelemedLocalStore,
 } from '../stores/appointment/appointment.store';
+import { resetPendingObservationFields } from '../stores/appointment/pending-observation-fields.store';
 import { resetExamObservationsStore } from '../stores/appointment/reset-exam-observations';
 import { resetRosObservationsStore } from '../stores/appointment/reset-ros-observations';
 
@@ -21,6 +22,7 @@ export const useResetAppointmentStore = (): void => {
     if (appointmentId && lastResetForAppointmentId !== appointmentId) {
       resetExamObservationsStore();
       resetRosObservationsStore();
+      resetPendingObservationFields();
       useVideoCallStore.setState({ meetingData: null, endedCallCount: 0 });
       useAppTelemedLocalStore.setState(APP_TELEMED_LOCAL_INITIAL);
       lastResetForAppointmentId = appointmentId;

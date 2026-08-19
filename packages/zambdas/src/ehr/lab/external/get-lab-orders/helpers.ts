@@ -7,6 +7,7 @@ import {
   BundleEntry,
   Coding,
   Communication,
+  Coverage,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -35,7 +36,9 @@ import {
   getAdditionalPlacerId,
   getOrderNumber,
   getOrderNumberFromDr,
+  labOrderHasCptCodes,
   parseLabInfoFromServiceRequest,
+  paymentMethodFromCoverage,
 } from 'utils/lib/helpers/labs/helpers';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -70,6 +73,7 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
+  LabPaymentMethod,
   LabType,
   PatientLabItem,
   QuestionnaireData,
@@ -117,6 +121,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
   communications: ExternalLabCommunications | undefined,
+  coverages: Coverage[],
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -150,6 +155,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           specimens,
           appointmentScheduleMap,
           communications,
+          coverages,
           cache,
         })
       );
@@ -203,6 +209,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   specimens,
   appointmentScheduleMap,
   communications,
+  coverages,
   cache,
 }: {
   searchBy: SearchBy;
@@ -220,6 +227,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
   communications: ExternalLabCommunications | undefined;
+  coverages: Coverage[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -249,6 +257,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     serviceRequest
   );
 
+  const coveragesForServiceRequest = parseCoveragesForServiceRequest(coverages, serviceRequest);
+
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem: testName,
@@ -272,6 +282,10 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     location: parseLocation(serviceRequest, locations),
     orderLevelNoteByUser,
     clinicalInfoNoteByUser,
+    hasCptCodes: labOrderHasCptCodes(serviceRequest),
+    billingType: coveragesForServiceRequest.length
+      ? paymentMethodFromCoverage(coveragesForServiceRequest[0]) // doesn't matter which Coverage we pick, should all be the same type on an SR
+      : LabPaymentMethod.SelfPay, // only insurance and client bill actually put Coverage on the SR
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -529,6 +543,7 @@ export const getLabResources = async (
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
   communications: ExternalLabCommunications | undefined;
+  coverages: Coverage[];
 }> => {
   // does not include the location on the SR
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
@@ -574,7 +589,8 @@ export const getLabResources = async (
           | Schedule
           | Slot
           | Specimen
-          | Communication => Boolean(res)
+          | Communication
+          | Coverage => Boolean(res)
       ) || [];
 
   const {
@@ -592,6 +608,7 @@ export const getLabResources = async (
     appointments,
     appointmentScheduleMap,
     communications,
+    coverages,
   } = extractLabResources(labResources);
 
   // todo labs team
@@ -678,6 +695,7 @@ export const getLabResources = async (
     patientLabItems,
     appointmentScheduleMap,
     communications,
+    coverages,
   };
 };
 
@@ -722,6 +740,16 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     {
       name: '_revinclude',
       value: 'DiagnosticReport:based-on',
+    },
+
+    // grab the coverage via patient
+    {
+      name: '_include',
+      value: 'ServiceRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Coverage:patient',
     },
 
     // include Observations
@@ -866,6 +894,7 @@ export const extractLabResources = (
     | Schedule
     | Slot
     | Communication
+    | Coverage
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -882,6 +911,7 @@ export const extractLabResources = (
   appointments: Appointment[];
   appointmentScheduleMap: Record<string, Schedule>;
   communications: ExternalLabCommunications | undefined;
+  coverages: Coverage[];
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -903,6 +933,7 @@ export const extractLabResources = (
   const appointmentScheduleMap: Record<string, Schedule> = {};
   const orderLevelNotesByUser: Communication[] = [];
   const clinicalInfoNotesByUser: Communication[] = [];
+  const coverages: Coverage[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -946,6 +977,8 @@ export const extractLabResources = (
       const labCommType = labOrderCommunicationType(resource);
       if (labCommType === 'order-level-note') orderLevelNotesByUser.push(resource);
       if (labCommType === 'clinical-info-note') clinicalInfoNotesByUser.push(resource);
+    } else if (resource.resourceType === 'Coverage') {
+      coverages.push(resource);
     }
   }
 
@@ -986,6 +1019,7 @@ export const extractLabResources = (
     appointments,
     appointmentScheduleMap,
     communications,
+    coverages,
   };
 };
 
@@ -2685,4 +2719,12 @@ const isGenericOrder = (serviceRequest: ServiceRequest): boolean => {
     ) ?? false;
   console.log(`ServiceRequest/${serviceRequest.id} isGeneric: ${isGeneric}`);
   return isGeneric;
+};
+
+const parseCoveragesForServiceRequest = (coverages: Coverage[], serviceRequest: ServiceRequest): Coverage[] => {
+  const srCoverageSet = new Set(
+    serviceRequest.insurance?.map((covRef) => covRef.reference).filter((ref) => ref !== undefined) ?? []
+  );
+
+  return coverages.filter((cov) => srCoverageSet.has(`Coverage/${cov.id}`));
 };

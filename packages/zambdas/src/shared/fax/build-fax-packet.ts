@@ -14,7 +14,12 @@ import { getMimeType } from 'utils/lib/utils/file';
 import { mapWithConcurrency } from '../concurrency';
 import { createFaxCoverSheetPdfBytes } from '../pdf/fax-cover-sheet-pdf';
 import { makeFaxPacketDocumentReference } from '../pdf/make-fax-packet-document-reference';
-import { downloadFileBytes, mergePdfDocuments, normalizeFileToPdf } from '../pdf/merge-pdfs';
+import {
+  createFaxAttachmentPlaceholderPdf,
+  downloadFileBytes,
+  mergePdfDocuments,
+  normalizeFileToPdf,
+} from '../pdf/merge-pdfs';
 import { PdfInfo } from '../pdf/pdf-utils';
 import { FaxCoverSheetData, FaxCoverSheetSubject } from '../pdf/types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
@@ -91,15 +96,33 @@ export async function buildFaxPacketSection(args: {
   const budget = args.budget ?? createFaxPacketByteBudget('visit');
 
   const partBytes = await mapWithConcurrency(parts, PART_DOWNLOAD_CONCURRENCY, async (part) => {
+    let raw: Uint8Array;
     try {
-      const raw = part.bytes ?? (await downloadPart(part, token));
-      // Counted before rendering so an oversized selection stops downloading the rest.
-      budget.consume(raw.length);
-      return await normalizeFileToPdf(raw, part.contentType ?? (part.z3Url ? getMimeType(part.z3Url) : undefined));
+      raw = part.bytes ?? (await downloadPart(part, token));
     } catch (error) {
       if (error instanceof FaxPacketError) throw error;
-      const reason = error instanceof Error ? error.message : 'could not be rendered';
+      const reason = error instanceof Error ? error.message : 'could not be retrieved';
       throw new FaxPacketError(`Fax packet part "${part.title}" ${reason}. The entire fax was not sent.`, error);
+    }
+
+    // Counted before rendering so an oversized selection stops downloading the rest.
+    budget.consume(raw.length);
+
+    try {
+      return await normalizeFileToPdf(raw, part.contentType ?? (part.z3Url ? getMimeType(part.z3Url) : undefined));
+    } catch (error) {
+      // The recipient must be told when content is omitted. Preserve the packet order with a notice
+      // page instead of silently dropping the attachment or rejecting the remaining documents.
+      console.error(`[fax-packet] could not render "${part.title}"; inserting a replacement notice`, error);
+      try {
+        return await createFaxAttachmentPlaceholderPdf(part.title);
+      } catch (placeholderError) {
+        throw new FaxPacketError(
+          `Fax packet part "${part.title}" could not be rendered and its replacement notice could not be created. ` +
+            'The entire fax was not sent.',
+          placeholderError
+        );
+      }
     }
   });
 

@@ -26,6 +26,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
+import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { isFaxableAttachment } from 'utils/lib/utils/file';
 
@@ -56,6 +57,10 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
   const [renameLoading, setRenameLoading] = useState<boolean>(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+
+  const hasMenuActions =
+    isActionAllowed(docInfo.id, DocumentTableActionType.ActionRename) ||
+    isActionAllowed(docInfo.id, DocumentTableActionType.ActionDelete);
 
   const openMenu = (event: React.MouseEvent<HTMLElement>): void => {
     setAnchorEl(event.currentTarget);
@@ -152,9 +157,12 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
             <DownloadIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: lineColor }} />
           </IconButton>
         )} */}
-        <IconButton aria-label="More actions" onClick={openMenu}>
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
+        {/* Both menu entries are gated, so hide the trigger rather than open an empty menu. */}
+        {hasMenuActions && (
+          <IconButton aria-label="More actions" onClick={openMenu}>
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+        )}
       </Box>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={closeMenu}>
         {isActionAllowed(docInfo.id, DocumentTableActionType.ActionRename) && (
@@ -257,7 +265,35 @@ const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean => {
   );
 };
 
-const configureTableColumns = (actions: DocumentTableActions): GridColDef<PatientDocumentInfo>[] => {
+/**
+ * The visit a document was filed against: appointment date/time on top, visit id below. Documents
+ * uploaded before visit association existed (and patient-level uploads) have no visit, so they
+ * render a dash.
+ */
+const VisitCell: FC<{ visit?: PatientVisitOption }> = ({ visit }) => {
+  const theme = useTheme();
+
+  if (!visit) return <>-</>;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden' }}>
+      <Typography variant="body2">{visit.dateTime ? formatISOStringToDateAndTime(visit.dateTime) : '-'}</Typography>
+      {visit.appointmentId && (
+        <Typography
+          variant="caption"
+          sx={{ color: theme.palette.text.secondary, overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {visit.appointmentId}
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
+const configureTableColumns = (
+  actions: DocumentTableActions,
+  visitsByEncounterId: Map<string, PatientVisitOption>
+): GridColDef<PatientDocumentInfo>[] => {
   return [
     {
       sortable: false,
@@ -265,6 +301,17 @@ const configureTableColumns = (actions: DocumentTableActions): GridColDef<Patien
       headerName: 'Doc Name',
       width: 400,
       renderCell: ({ row: { docName } }) => docName,
+    },
+    {
+      sortable: true,
+      field: 'encounterId',
+      headerName: 'Visit',
+      width: 200,
+      // Sort by the visit's date/time rather than the raw encounter id, which is meaningless to order.
+      valueGetter: ({ row: { encounterId } }) => (encounterId && visitsByEncounterId.get(encounterId)?.dateTime) ?? '',
+      renderCell: ({ row: { encounterId } }) => (
+        <VisitCell visit={encounterId ? visitsByEncounterId.get(encounterId) : undefined} />
+      ),
     },
     {
       sortComparator: (a, b) => {
@@ -300,16 +347,20 @@ export type PatientDocumentsExplorerTableProps = {
   isLoadingDocs: boolean;
   documents?: PatientDocumentInfo[];
   documentTableActions: DocumentTableActions;
+  /** Used to resolve each document's visit into a date/time + visit id for the "Visit" column. */
+  patientId: string;
 };
 
 export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProps> = (props) => {
-  const { isLoadingDocs, documents, documentTableActions } = props;
+  const { isLoadingDocs, documents, documentTableActions, patientId } = props;
+
+  const { visitsByEncounterId } = usePatientVisitOptions(patientId);
 
   const filteredDocs = documents ?? [];
 
   const tableColumns = useMemo(() => {
-    return configureTableColumns(documentTableActions);
-  }, [documentTableActions]);
+    return configureTableColumns(documentTableActions, visitsByEncounterId);
+  }, [documentTableActions, visitsByEncounterId]);
 
   return (
     <DataGridPro

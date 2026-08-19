@@ -39,6 +39,9 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
     },
   }),
 }));
+vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
+  usePatientVisitOptions: () => ({ visitOptions: [], isLoading: false, visitsByEncounterId: new Map() }),
+}));
 vi.mock('../../src/state/patient.store', () => ({ usePatientStore: { setState: vi.fn() } }));
 vi.mock('src/features/visits/shared/components/patient/Header', () => ({ Header: () => <div /> }));
 vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentFoldersColumn', () => ({

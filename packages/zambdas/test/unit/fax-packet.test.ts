@@ -356,23 +356,36 @@ describe('interleaveFaxPacketSections', () => {
 });
 
 describe('buildFaxPacketSection', () => {
-  it('fails the whole fax explicitly when declared metadata hides unsupported bytes', async () => {
+  it('replaces an unrenderable image with a notice page instead of silently omitting it', async () => {
+    const section = await buildFaxPacketSection({
+      token: 'token',
+      subject,
+      parts: [
+        {
+          title: 'scan.jpg',
+          contentType: 'image/jpeg',
+          bytes: new Uint8Array([0xff, 0xd8, 0xff]),
+        },
+      ],
+    });
+
+    const pdf = await PDFDocument.load(section.bytes);
+    expect(pdf.getPageCount()).toBe(1);
+    expect(section.pageCount).toBe(1);
+    expect(section.parts.map((part) => part.title)).toEqual(['scan.jpg']);
+  });
+
+  it('still fails the whole fax when a source document cannot be downloaded', async () => {
+    mockCreatePresignedUrl.mockResolvedValue('https://z3.example/missing.pdf');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' }));
+
     await expect(
       buildFaxPacketSection({
         token: 'token',
         subject,
-        parts: [
-          {
-            kind: 'progress-note',
-            title: 'Visit/Progress Note',
-            contentType: 'application/pdf',
-            bytes: new Uint8Array([0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]),
-          },
-        ],
+        parts: [{ title: 'missing.pdf', z3Url: 'https://z3.example/missing.pdf' }],
       })
-    ).rejects.toThrow(
-      'Fax packet part "Visit/Progress Note" Unsupported fax attachment type: application/pdf. The entire fax was not sent.'
-    );
+    ).rejects.toThrow(/Fax packet part "missing\.pdf" Failed to download file.*The entire fax was not sent/);
   });
 
   it('downloads a section with bounded concurrency instead of all at once', async () => {

@@ -1,5 +1,5 @@
 // Grants the Provider IAM role to the synth provider employees in a target env,
-// so they count as providers (get-employees isProvider=true) and the census can
+// so they count as providers (get-employees reports the Provider role) and the census can
 // attribute visits to them. Created employees default to Staff only; this is the
 // follow-up that the EHR's edit-employee form does via the `update-user` zambda.
 //
@@ -13,6 +13,7 @@
 //
 // Matches synth: providers carry the Provider role only (credential → providerType).
 
+import { isProvider } from 'utils';
 import { arg } from './shared/cli';
 import { mintAccessToken, need } from './shared/oystehr-client';
 import { type ZambdaCtx, zambdaPost } from './shared/zambda';
@@ -67,7 +68,7 @@ async function getEmployees(ctx: ZambdaCtx): Promise<any[]> {
       missing++;
       continue;
     }
-    if (emp.isProvider) {
+    if (isProvider(emp)) {
       console.log(`  • ${first} ${last}: already a provider`);
       already++;
       continue;
@@ -90,11 +91,14 @@ async function getEmployees(ctx: ZambdaCtx): Promise<any[]> {
   // Verify by re-reading.
   const after = await getEmployees(ctx);
   const afterByName = new Map(after.map((e: any) => [`${norm(e.firstName)} ${norm(e.lastName)}`, e]));
-  const confirmed = PROVIDERS.filter(([f, l]) => afterByName.get(`${norm(f)} ${norm(l)}`)?.isProvider).length;
-  const providerTotal = after.filter((e: any) => e.isProvider).length;
+  const confirmed = PROVIDERS.filter(([f, l]) => {
+    const emp = afterByName.get(`${norm(f)} ${norm(l)}`);
+    return emp && isProvider(emp);
+  }).length;
+  const providerTotal = after.filter((e: any) => isProvider(e)).length;
   console.log(`\nDone — updated ${updated}, already-provider ${already}, missing ${missing}.`);
   console.log(
-    `Verified ${confirmed}/${PROVIDERS.length} synth providers now isProvider; env has ${providerTotal} providers total.`
+    `Verified ${confirmed}/${PROVIDERS.length} synth providers now hold the Provider role; env has ${providerTotal} providers total.`
   );
   if (confirmed < PROVIDERS.length - missing) process.exit(1);
 })().catch((e) => {

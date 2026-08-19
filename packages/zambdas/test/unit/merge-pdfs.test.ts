@@ -1,8 +1,14 @@
 import { Jimp, JimpMime } from 'jimp';
 import { PageSizes, PDFDocument } from 'pdf-lib';
-import { describe, expect, test } from 'vitest';
+import { getImageOrientation } from 'utils/lib/utils/image-orientation';
+import { describe, expect, test, vi } from 'vitest';
 import { makeOrientedSceneJpeg } from '../../src/ehr/extract-insurance-card/test/image-fixtures';
-import { countPdfPages, mergePdfDocuments, normalizeFileToPdf } from '../../src/shared/pdf/merge-pdfs';
+import {
+  countPdfPages,
+  createFaxAttachmentPlaceholderPdf,
+  mergePdfDocuments,
+  normalizeFileToPdf,
+} from '../../src/shared/pdf/merge-pdfs';
 
 const makePdf = async (pageCount: number): Promise<Uint8Array> => {
   const pdf = await PDFDocument.create();
@@ -40,6 +46,15 @@ describe('countPdfPages', () => {
   test('returns the page count of a PDF', async () => {
     expect(await countPdfPages(await makePdf(1))).toBe(1);
     expect(await countPdfPages(await makePdf(7))).toBe(7);
+  });
+});
+
+describe('createFaxAttachmentPlaceholderPdf', () => {
+  test('creates one readable notice page even for a long title outside the standard font character set', async () => {
+    const bytes = await createFaxAttachmentPlaceholderPdf(`患者-${'scan'.repeat(100)}.jpg`);
+
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBe(1);
   });
 });
 
@@ -85,6 +100,54 @@ describe('normalizeFileToPdf', () => {
     expect(pdf.getPageCount()).toBe(1);
     expect(pdf.getPage(0).getWidth()).toBeCloseTo(PageSizes.A4[1]);
     expect(pdf.getPage(0).getHeight()).toBeCloseTo(PageSizes.A4[0]);
+  });
+
+  test('falls back to the original JPEG when its EXIF metadata is malformed', async () => {
+    const image = new Jimp({ width: 2, height: 1, color: 0xffffffff });
+    const jpeg = Buffer.from((await image.getBuffer(JimpMime.jpeg)) as unknown as Uint8Array);
+    const malformedExif = Buffer.from([
+      0xff,
+      0xe1, // APP1 marker
+      0x00,
+      0x14, // segment length
+      0x45,
+      0x78,
+      0x69,
+      0x66,
+      0x00,
+      0x00, // "Exif\0\0"
+      0x49,
+      0x49,
+      0x2a,
+      0x00, // little-endian TIFF header
+      0xff,
+      0xff,
+      0xff,
+      0x7f, // invalid IFD offset outside the file
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
+    const bytes = Uint8Array.from(
+      Buffer.concat([jpeg.subarray(0, 2), malformedExif, jpeg.subarray(2)] as unknown as Uint8Array[])
+    );
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+
+    expect(() => getImageOrientation(arrayBuffer)).toThrow(RangeError);
+
+    const pdf = await normalizeFileToPdf(bytes, 'image/jpeg');
+
+    expect(await countPdfPages(pdf)).toBe(1);
+  });
+
+  test('falls back to the original JPEG when Jimp cannot apply its EXIF orientation', async () => {
+    const jpeg = Uint8Array.from(await makeOrientedSceneJpeg(6, 32, 16));
+    vi.spyOn(Jimp, 'read').mockRejectedValueOnce(new Error('Unable to decode JPEG'));
+
+    const pdf = await normalizeFileToPdf(jpeg, 'image/jpeg');
+
+    expect(await countPdfPages(pdf)).toBe(1);
   });
 
   test('rejects an unsupported attachment instead of passing invalid bytes to the PDF merger', async () => {

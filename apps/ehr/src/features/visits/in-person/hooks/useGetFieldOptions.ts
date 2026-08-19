@@ -23,6 +23,7 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
     '37839007', // Sublingual route
     '447694001', // Respiratory tract route (inhaled)
     '47625008', // Intravenous route (IV)
+    '445214009', // Infusion route (IV infusion)
     '78421000', // Intramuscular route (IM)
     '6064005', // Topical route
     '10547007', // Otic route

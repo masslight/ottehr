@@ -1,11 +1,17 @@
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
 import {
   useExamObservationsInitializationStore,
   useExamObservationsStore,
 } from '../../shared/stores/appointment/exam-observations.store';
+import {
+  holdPendingObservationFields,
+  trackPendingObservationFields,
+  usePendingObservationFields,
+} from '../../shared/stores/appointment/pending-observation-fields.store';
+import { rollbackObservations } from '../../shared/stores/appointment/rollback-observations';
 
 type ExamRecord = { [field: string]: ExamObservationDTO };
 export type Update = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
@@ -18,6 +24,10 @@ const arrayToObject: (array: ExamObservationDTO[]) => ExamRecord = (array) =>
   }, {} as ExamRecord);
 
 const objectToArray: (object: ExamRecord) => ExamObservationDTO[] = (object) => Object.values(object);
+
+/** Whether an observation holds anything a "Clear Exam" would remove. */
+const isSet = (observation: ExamObservationDTO): boolean =>
+  observation.value === true || !!observation.note?.trim() || !!observation.components?.length;
 
 /**
  * @typedef {Function} UpdateExamObservations
@@ -82,10 +92,29 @@ export function useExamObservations(param?: string | string[]): {
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
 } {
   const state = useExamObservationsStore();
-  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  // mutateAsync, not mutate: the pending-field bookkeeping has to run off the request promise
+  // rather than off react-query's per-call callbacks, which are dropped on unmount.
+  const { mutateAsync: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const { isFieldPending, hasPendingFields } = usePendingObservationFields();
   const hasPendingApiRequestsRef = useRef(false);
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const queuedNoteReleaseRef = useRef<() => void>();
+
+  // A write fired by any other component counts too: while a bulk write ("Select all",
+  // "Clear Exam") is rewriting these fields, the components rendering them must not accept edits
+  // that the bulk response would silently overwrite.
+  const hasPendingRequests = param
+    ? typeof param === 'string'
+      ? isFieldPending(param)
+      : param.some(isFieldPending)
+    : hasPendingFields;
+
+  // The requeue timer below outlives the component, so it is what normally releases the hold on a
+  // queued note. Release it on unmount as well: routing the release through that timer alone would
+  // leave the field reading as busy for the rest of the session if it ever stopped firing. The
+  // timeout itself is deliberately left running, so the queued note still saves.
+  useEffect(() => () => queuedNoteReleaseRef.current?.(), []);
 
   const getPrevStateAndValues = useCallback(
     (
@@ -131,8 +160,20 @@ export function useExamObservations(param?: string | string[]): {
       if (hasPendingApiRequestsRef.current || shouldAwaitResourceId) {
         clearTimeout(updateTimeoutRef.current);
 
+        // The write is only queued, but it is still going to land, so the field reads as busy until
+        // it does: a "Clear Exam" fired in this window would delete the note's Observation and then
+        // watch the requeued save write it straight back — against the id it has just deleted.
+        // The hold replaces the one the timer being cancelled was carrying.
+        queuedNoteReleaseRef.current?.();
+        queuedNoteReleaseRef.current = holdPendingObservationFields([(options as ExamObservationDTO).field]);
+
         // delay next update until we have resourceId from the first update
         updateTimeoutRef.current = setTimeout(() => {
+          // Released only after the requeued update has taken its own hold, so the field never
+          // reads as free in between.
+          const release = queuedNoteReleaseRef.current;
+          queuedNoteReleaseRef.current = undefined;
+
           const resourceId = useExamObservationsStore.getState()[(options as ExamObservationDTO).field]?.resourceId;
           update(
             {
@@ -141,6 +182,8 @@ export function useExamObservations(param?: string | string[]): {
             } as ExamObservationDTO,
             noFetch
           );
+
+          release?.();
         }, 1000);
 
         return;
@@ -164,37 +207,57 @@ export function useExamObservations(param?: string | string[]): {
       return;
     }
 
-    saveChartData(
-      {
-        examObservations: Array.isArray(options)
-          ? options
-          : Object.prototype.hasOwnProperty.call(options, 'field')
-          ? [options as ExamObservationDTO]
-          : objectToArray(options as ExamRecord),
-      },
-      {
-        onSuccess: (data) => {
-          const newState = data.chartData.examObservations?.filter(
-            (observation) => !observation.field.endsWith('-comment') || !prevValues[observation.field]?.resourceId
+    const examObservations = Array.isArray(options)
+      ? options
+      : Object.prototype.hasOwnProperty.call(options, 'field')
+      ? [options as ExamObservationDTO]
+      : objectToArray(options as ExamRecord);
+    const pendingFields = examObservations.map((observation) => observation.field);
+    const savedAsSet = new Set(examObservations.filter(isSet).map((observation) => observation.field));
+
+    trackPendingObservationFields(
+      pendingFields,
+      saveChartData({ examObservations }).then(
+        (data) => {
+          const returned = data.chartData.examObservations ?? [];
+          const currentState = useExamObservationsStore.getState();
+
+          // A "Clear Exam" that landed while this save was in flight could only clear the store
+          // copy of these fields: with no resourceId yet, there was nothing to delete. Now that the
+          // server has handed us one, delete the resource instead of merging the value back in.
+          const clearedMeanwhile = returned.filter((observation) => {
+            const current = currentState[observation.field];
+            return !!observation.resourceId && savedAsSet.has(observation.field) && !!current && !isSet(current);
+          });
+          const clearedFields = new Set(clearedMeanwhile.map((observation) => observation.field));
+
+          const newState = returned.filter(
+            (observation) =>
+              !clearedFields.has(observation.field) &&
+              (!observation.field.endsWith('-comment') || !prevValues[observation.field]?.resourceId)
           );
 
-          if (newState) {
+          if (newState.length > 0) {
             useExamObservationsStore.setState(arrayToObject(newState));
           }
 
-          if (isNoteUpdate) {
-            hasPendingApiRequestsRef.current = false;
+          if (clearedMeanwhile.length > 0) {
+            trackPendingObservationFields([...clearedFields], deleteChartData({ examObservations: clearedMeanwhile }));
           }
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while saving exam data. Please try again.', { variant: 'error' });
-          useExamObservationsStore.setState(prevValues);
 
           if (isNoteUpdate) {
             hasPendingApiRequestsRef.current = false;
           }
         },
-      }
+        () => {
+          enqueueSnackbar('An error has occurred while saving exam data. Please try again.', { variant: 'error' });
+          rollbackObservations(useExamObservationsStore, prevValues);
+
+          if (isNoteUpdate) {
+            hasPendingApiRequestsRef.current = false;
+          }
+        }
+      )
     );
   };
 
@@ -203,50 +266,40 @@ export function useExamObservations(param?: string | string[]): {
       return;
     }
 
-    const { prevState } = getPrevStateAndValues(param);
+    const examObservations = Array.isArray(param)
+      ? param
+      : Object.prototype.hasOwnProperty.call(param, 'field')
+      ? [param as ExamObservationDTO]
+      : objectToArray(param as ExamRecord);
 
-    useExamObservationsStore.setState(() => {
-      // If param is an array, convert to object
-      if (Array.isArray(param)) {
-        const newObject = arrayToObject(param);
-        // Remove fields from prevState that are in newObject
-        const filteredState = { ...prevState };
-        Object.keys(newObject).forEach((key) => {
-          delete filteredState[key];
-        });
-        return { ...filteredState, ...newObject };
-      }
-
-      // If param is a single observation
-      if (Object.prototype.hasOwnProperty.call(param, 'field')) {
-        const field = (param as ExamObservationDTO).field;
-        // Create a new state without the field
-        const { [field]: _removed, ...rest } = prevState;
-
-        return { [field]: { field: _removed.field, note: '' }, ...rest };
-      }
-
-      // If param is an ExamRecord
-      const examRecord = param as ExamRecord;
-      // Remove all fields from prevState that are in examRecord
-      const filteredState = { ...prevState };
-      Object.keys(examRecord).forEach((key) => {
-        delete filteredState[key];
-      });
-      return { ...filteredState, ...examRecord };
-    });
+    // Every deleted field is left as a blank entry with no resourceId, whether it was deleted one
+    // checkbox at a time or in bulk: the Observation is gone, so the next save on that field has to
+    // create a new one. Merging the caller's DTOs in verbatim would keep the id of the resource
+    // that was just deleted, and re-checking the box would then PUT to a resource the server
+    // answers 410 for.
+    useExamObservationsStore.setState(
+      examObservations.reduce((cleared, observation) => {
+        cleared[observation.field] = { field: observation.field, value: false, note: '' };
+        return cleared;
+      }, {} as ExamRecord)
+    );
 
     if (noFetch) {
       return;
     }
 
-    deleteChartData({
-      examObservations: Array.isArray(param)
-        ? param
-        : Object.prototype.hasOwnProperty.call(param, 'field')
-        ? [param as ExamObservationDTO]
-        : objectToArray(param as ExamRecord),
-    });
+    // Fields whose save never landed have nothing to delete; asking for them would send
+    // `/Observation/undefined`.
+    const persisted = examObservations.filter((observation) => observation.resourceId);
+
+    if (persisted.length === 0) {
+      return;
+    }
+
+    trackPendingObservationFields(
+      persisted.map((observation) => observation.field),
+      deleteChartData({ examObservations: persisted })
+    );
   };
 
   return {
@@ -257,7 +310,7 @@ export function useExamObservations(param?: string | string[]): {
       : objectToArray(state),
     update,
     delete: deleteExamObservations,
-    isLoading: isDeleteLoading || isSaveLoading,
+    isLoading: isDeleteLoading || isSaveLoading || hasPendingRequests,
     hasPendingApiRequests: hasPendingApiRequestsRef.current,
   };
 }

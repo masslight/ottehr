@@ -18,6 +18,7 @@ export interface EditEmployeeInformationProps {
   existingUser: User;
   isActive: boolean | undefined;
   licenses: PractitionerLicense[];
+  seenPatientRecently: boolean;
   getUserAndUpdatePage: () => Promise<void>;
 }
 
@@ -48,12 +49,16 @@ export interface ProviderDetailsProps {
   setValue: UseFormSetValue<any>;
   photoSrc: string;
   roles: string[];
+  seenPatientRecently: boolean;
 }
 
 export interface RoleSelectionProps {
   control: Control<any>;
   errors: FormErrors;
   isActive: boolean;
+  /** Whether the signed-in user is looking at their own record, which only changes how the
+   *  role-permission hint is worded. */
+  isOwnRecord: boolean;
   getValues: UseFormGetValues<any>;
   setValue: UseFormSetValue<any>;
 }

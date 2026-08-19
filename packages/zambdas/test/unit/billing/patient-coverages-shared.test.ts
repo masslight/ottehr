@@ -133,7 +133,7 @@ describe('fetchPatientCoverages', () => {
     );
   });
 
-  it('reports a coverage an account references without a canonical placement as having no slot', async () => {
+  it('reports a tertiary coverage on an account correctly', async () => {
     const { oystehr, search } = makeOystehrMock();
     search.mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [primaryCoverage] });
@@ -155,7 +155,7 @@ describe('fetchPatientCoverages', () => {
 
     // Still returned (the claim detail picker lists it), but it occupies no slot the rules can name.
     expect(records).toHaveLength(1);
-    expect(records[0].insuranceType).toBeUndefined();
+    expect(records[0].insuranceType).toBe('tertiary');
   });
 });
 

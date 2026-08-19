@@ -18,6 +18,9 @@ vi.mock('@mui/x-data-grid-pro', () => ({
     </div>
   ),
 }));
+vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
+  usePatientVisitOptions: () => ({ visitsByEncounterId: new Map() }),
+}));
 
 import {
   DocumentTableActions,
@@ -48,7 +51,14 @@ const makeActions = (overrides: Partial<DocumentTableActions> = {}): DocumentTab
 });
 
 const renderTable = (documents: PatientDocumentInfo[], actions: DocumentTableActions): void => {
-  render(<PatientDocumentsExplorerTable isLoadingDocs={false} documents={documents} documentTableActions={actions} />);
+  render(
+    <PatientDocumentsExplorerTable
+      isLoadingDocs={false}
+      documents={documents}
+      documentTableActions={actions}
+      patientId="patient-1"
+    />
+  );
 };
 
 describe('PatientDocumentsExplorerTable', () => {

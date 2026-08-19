@@ -17,13 +17,13 @@ export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = (
   isCollapsed = false,
   orderHistory = [],
   timezone,
-  label = 'Procedure History',
+  label = 'Order History',
 }) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
 
   const formatDate = (datetime: string | undefined): string => {
     if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
+    return DateTime.fromISO(datetime).setZone(timezone).toFormat("MM/dd/yyyy 'at' h:mm a");
   };
 
   return (

@@ -1,4 +1,5 @@
 import {
+  Add as AddIcon,
   ArrowBack as ArrowBackIcon,
   DeleteOutline as DeleteOutlineIcon,
   Edit as EditIcon,
@@ -60,6 +61,7 @@ import {
   AR_STAGE,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusFieldKey,
+  formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
 import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -96,7 +98,7 @@ import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
-import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
@@ -105,6 +107,7 @@ import {
 } from '../constants/coverage';
 import { ERA_STATUS_LABELS, formatAdjustment } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
+import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
@@ -149,6 +152,12 @@ export default function ClaimDetail(): ReactElement {
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
   const [skipRules, setSkipRules] = useState(false);
+  const [showCoverageMap, setShowCoverageMap] = useState<Record<string, boolean>>({
+    primary: true,
+    secondary: !!claim?.secondaryCoverageFhirId,
+    tertiary: !!claim?.tertiaryCoverageFhirId,
+    quaternary: !!claim?.quaternaryCoverageFhirId,
+  });
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -167,6 +176,15 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  useEffect(() => {
+    setShowCoverageMap({
+      primary: true,
+      secondary: !!claim?.secondaryCoverageFhirId,
+      tertiary: !!claim?.tertiaryCoverageFhirId,
+      quaternary: !!claim?.quaternaryCoverageFhirId,
+    });
+  }, [claim]);
 
   const updateResource = useCallback(
     async (
@@ -536,13 +554,70 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
             <PatientSection claim={claim} />
-            <InsuranceSection claim={claim} updateResource={updateResource} />
-            {claim.secondaryPayerName && (
-              <ReadOnlySection title="Secondary Insurance">
-                <Row label="Payer" value={claim.secondaryPayerName} />
-                <Row label="Payer ID" value={claim.secondaryPayerId} />
-                <Row label="Member ID" value={claim.secondaryMemberId} />
-              </ReadOnlySection>
+            <InsuranceSection
+              coverageType="primary"
+              claim={claim}
+              updateResource={updateResource}
+              getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.coverageFhirId}
+              showAddButton={!showCoverageMap.secondary}
+              onAdd={() =>
+                setShowCoverageMap({
+                  primary: true,
+                  secondary: true,
+                  tertiary: !!claim.tertiaryCoverageFhirId,
+                  quaternary: !!claim.quaternaryCoverageFhirId,
+                })
+              }
+            />
+            {showCoverageMap.secondary ? (
+              <InsuranceSection
+                coverageType="secondary"
+                claim={claim}
+                updateResource={updateResource}
+                getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.secondaryCoverageFhirId}
+                showAddButton={!showCoverageMap.tertiary}
+                onAdd={() =>
+                  setShowCoverageMap({
+                    primary: true,
+                    secondary: true,
+                    tertiary: true,
+                    quaternary: !!claim.quaternaryCoverageFhirId,
+                  })
+                }
+              />
+            ) : (
+              <></>
+            )}
+            {showCoverageMap.tertiary ? (
+              <InsuranceSection
+                coverageType="tertiary"
+                claim={claim}
+                updateResource={updateResource}
+                getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.tertiaryCoverageFhirId}
+                showAddButton={!showCoverageMap.quaternary}
+                onAdd={() =>
+                  setShowCoverageMap({
+                    primary: true,
+                    secondary: true,
+                    tertiary: true,
+                    quaternary: true,
+                  })
+                }
+              />
+            ) : (
+              <></>
+            )}
+            {showCoverageMap.quaternary ? (
+              <InsuranceSection
+                coverageType="quaternary"
+                claim={claim}
+                updateResource={updateResource}
+                getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.quaternaryCoverageFhirId}
+                showAddButton={false}
+                onAdd={() => {}}
+              />
+            ) : (
+              <></>
             )}
             <RenderingProviderSection claim={claim} updateResource={updateResource} />
             <FacilitySection claim={claim} updateResource={updateResource} />
@@ -631,14 +706,28 @@ const planTypeLabel = (candidCode: string): string =>
  *  5. claim has insurance but it no longer matches user's coverage list, user can still make edits
  */
 export function InsuranceSection({
+  coverageType,
+  getCoverageIdFromClaim,
   claim,
   updateResource,
+  showAddButton,
+  onAdd,
 }: {
+  coverageType: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  getCoverageIdFromClaim: (claim: ClaimDetailResponse) => string | undefined;
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  showAddButton: boolean;
+  onAdd: () => void;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const hasCoverage = !!claim.coverageFhirId;
+  const setLoading = useCallback(() => {}, []);
+  const setError = useCallback(() => {}, []);
+  const [coverage, refetchCoverage] = useCoverage({
+    id: getCoverageIdFromClaim(claim),
+    onLoading: setLoading,
+    onError: setError,
+  });
 
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
@@ -660,8 +749,8 @@ export function InsuranceSection({
     if (selectedCoverage) {
       return defaultCoverageFormValues(selectedCoverage);
     }
-    return defaultCoverageFormValues(claim);
-  }, [selectedCoverage, claim]);
+    return defaultCoverageFormValues({ ...coverage, insuranceType: 'primary' } as BillingCoverageOption);
+  }, [selectedCoverage, coverage]);
 
   const loadCoverages = useCallback((): void => {
     if (!oystehrZambda || !claim.patientOriginalId) return;
@@ -673,30 +762,41 @@ export function InsuranceSection({
 
   const handleSave = async (data: CoverageForm): Promise<string | null> => {
     if (!oystehrZambda) return null;
-    const claimFields: { payerId?: string; planType?: string } = {};
     try {
       // By default, update existing coverage below
-      let coverageId = claim.coverageFhirId;
+      let coverageId = getCoverageIdFromClaim(claim);
       if (!coverageId) {
         if (selectedCoverage?.id) {
           // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
+          await updateResource('Claim', claim.id, { coverageId: selectedCoverage.id, coverageType });
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
-          coverageId = updatedClaim.coverageFhirId;
+          coverageId = getCoverageIdFromClaim(updatedClaim);
         } else {
           // No base selected, make a new one and attach it
-          const result = await createBillingCoverage(oystehrZambda, coverageToCreateInput(data, claim.patientId));
-          return updateResource('Claim', claim.id, { coverageId: result.id });
+          const result = await createBillingCoverage(
+            oystehrZambda,
+            coverageToCreateInput({ ...data, insuranceType: undefined }, claim.patientId)
+          );
+          return updateResource('Claim', claim.id, { coverageId: result.id, coverageType });
         }
       }
-      if (data.payerId && data.payerId !== claim.payorFhirId) claimFields.payerId = data.payerId;
-      if (data.planType && data.planType !== claim.planType) claimFields.planType = data.planType;
-      if (Object.keys(claimFields).length > 0) {
-        const err = await updateResource('Claim', claim.id, claimFields);
-        if (err) return err;
+      if (coverageType === 'primary') {
+        // Handle updating claim-level payer ID and plan type if editing primary insurance
+        // safe to look at this since it's a claim-level field
+        if (data.payerId && data.payerId !== claim.payorFhirId) {
+          const err = await updateResource('Claim', claim.id, { payerId: data.payerId });
+          if (err) return err;
+        }
       }
-      await updateBillingCoverage(oystehrZambda, { ...coverageToUpdateInput(data, coverageId), claimId: claim.id });
+      if (!coverageId) {
+        throw new Error('Coverage not correctly attached to claim, please try again');
+      }
+      await updateBillingCoverage(oystehrZambda, {
+        ...coverageToUpdateInput({ ...data, insuranceType: undefined }, coverageId),
+        claimId: claim.id,
+      });
       resetFields();
+      await refetchCoverage();
       return null;
     } catch (err) {
       return getApiError({ error: err, defaultError: 'Failed to save changes' });
@@ -706,7 +806,7 @@ export function InsuranceSection({
   const handleRemove = async (): Promise<void> => {
     setRemoving(true);
     setRemoveError(null);
-    const err = await updateResource('Claim', claim.id, { removeCoverage: true });
+    const err = await updateResource('Claim', claim.id, { removeCoverage: coverage?.id });
     setConfirmingRemove(false);
     setRemoving(false);
     if (err) setRemoveError(err);
@@ -714,7 +814,7 @@ export function InsuranceSection({
 
   return (
     <EditableSection
-      title="Primary Insurance"
+      title={`${coverageType[0].toUpperCase()}${coverageType.slice(1)} Insurance`}
       defaultValues={defaultValues}
       onSave={handleSave}
       onCancel={resetFields}
@@ -740,69 +840,78 @@ export function InsuranceSection({
               </Box>
             )}
             renderInput={(p) => (
-              <TextField {...p} size="small" label={claim.payerName ? 'Replace coverage' : 'Choose coverage'} />
+              <TextField {...p} size="small" label={coverage ? 'Replace coverage' : 'Choose coverage'} />
             )}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             sx={{ maxWidth: 480 }}
           />
-          <CoverageFields unavailableTypes={[]} />
+          <CoverageFields unavailableTypes={[]} hideInsuranceType={true} />
         </Box>
       }
     >
-      {hasCoverage ? (
+      {coverage ? (
         <>
-          <Row label="Payer" value={claim.payerName} />
-          <Row label="Payer ID" value={claim.payerId} />
-          <Row label="Member ID" value={claim.memberId} />
-          <Row label="Relationship to insured" value={claim.relationship} />
-          {claim.policyHolder && (
+          <Row label="Payer" value={coverage.payorName} />
+          <Row label="Payer ID" value={coverage.payorId} />
+          <Row label="Member ID" value={coverage.memberId ?? ''} />
+          <Row label="Relationship to insured" value={coverage.relationship ?? ''} />
+          {coverage.policyHolder && (
             <Row
               label="Policy holder"
-              value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()}
+              value={`${coverage.policyHolder.firstName} ${coverage.policyHolder.lastName}`.trim()}
             />
           )}
-          <Row label="Plan type" value={planTypeLabel(claim.planType)} hideBorder />
+          <Row label="Plan type" value={planTypeLabel(coverage.planType ?? '')} hideBorder />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
           No insurance
         </Typography>
       )}
-      {hasCoverage && (
+      {coverage && (
         <Box sx={{ mt: 1.5 }}>
           {removeError && (
             <Alert severity="error" sx={{ mb: 1 }}>
               {removeError}
             </Alert>
           )}
-          {confirmingRemove ? (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                Remove coverage?
-              </Typography>
-              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
-                Cancel
-              </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+            {confirmingRemove ? (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Remove coverage?
+                </Typography>
+                <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  variant="contained"
+                  onClick={() => void handleRemove()}
+                  disabled={removing}
+                >
+                  {removing ? 'Removing...' : 'Confirm'}
+                </Button>
+              </Box>
+            ) : (
               <Button
                 size="small"
                 color="error"
-                variant="contained"
-                onClick={() => void handleRemove()}
-                disabled={removing}
+                startIcon={<DeleteOutlineIcon fontSize="small" />}
+                onClick={() => setConfirmingRemove(true)}
               >
-                {removing ? 'Removing...' : 'Confirm'}
+                Remove coverage
               </Button>
-            </Box>
-          ) : (
-            <Button
-              size="small"
-              color="error"
-              startIcon={<DeleteOutlineIcon fontSize="small" />}
-              onClick={() => setConfirmingRemove(true)}
-            >
-              Remove coverage
-            </Button>
-          )}
+            )}
+            {showAddButton ? (
+              <Button variant="contained" size="small" startIcon={<AddIcon fontSize="small" />} onClick={onAdd}>
+                Add coverage
+              </Button>
+            ) : (
+              <></>
+            )}
+          </Box>
         </Box>
       )}
     </EditableSection>

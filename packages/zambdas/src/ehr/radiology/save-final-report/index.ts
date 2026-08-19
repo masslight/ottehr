@@ -2,14 +2,19 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Location, Patient, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { userMe } from 'utils/lib/auth/user-me.helper';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { encodeRadiologyReport } from 'utils/lib/fhir/radiology';
+import { Secrets } from 'utils/lib/secrets';
 import { SaveRadiologyReportZambdaOutput } from 'utils/lib/types/api/radiology';
-import { User } from 'utils/lib/types/api/user.types';
+import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getMostRecentReport } from '../../../shared/radiology';
+import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
+import {
+  buildPreliminaryReportSnapshot,
+  takeMostRecentPreliminaryReport,
+  takeTheBestFinalDiagnosticReport,
+} from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { configReviewResultTask, parseRadiologyResourcesForTask, validateResourcesAgainstDR } from '../shared';
@@ -25,12 +30,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const secrets = validateSecrets(unsafeInput.secrets);
 
     const validatedInput = await validateInput(unsafeInput);
-    const callerUser = await userMe(validatedInput.callerAccessToken, secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const output = await performEffect(validatedInput, callerUser, oystehr);
+    const output = await performEffect(validatedInput, secrets, oystehr);
 
     return {
       statusCode: 200,
@@ -47,14 +51,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
 async function performEffect(
   validatedInput: ValidatedInput,
-  callerUser: User,
+  secrets: Secrets,
   oystehr: Oystehr
 ): Promise<SaveRadiologyReportZambdaOutput> {
   const { serviceRequestId, report: finalReport } = validatedInput.body;
 
   console.group('Fetching Fhir Resources from Oystehr');
 
-  const [searchResults, callerUserPractitioner] = await Promise.all([
+  const [searchResults, author] = await Promise.all([
     (
       await oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location>({
         resourceType: 'DiagnosticReport',
@@ -62,10 +66,6 @@ async function performEffect(
           {
             name: 'based-on',
             value: `ServiceRequest/${serviceRequestId}`,
-          },
-          {
-            name: 'status',
-            value: 'preliminary',
           },
           {
             name: '_include',
@@ -90,17 +90,21 @@ async function performEffect(
         ],
       })
     ).unbundle(),
-    await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: callerUser.profile.split('/')[1],
-    }),
+    resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr),
   ]);
 
   console.groupEnd();
   console.debug('Resources fetched successfully');
 
   const { diagnosticReports, ...additionalResources } = parseRadiologyResourcesForTask(searchResults);
-  const diagnosticReport = getMostRecentReport(diagnosticReports);
+
+  // The search is no longer filtered to `preliminary`, because finalizing now leaves a preliminary snapshot
+  // behind — so refuse outright if this order already has a final read rather than finalizing that snapshot.
+  if (takeTheBestFinalDiagnosticReport(diagnosticReports)) {
+    throw RADIOLOGY_ERROR('This order already has a final read, please refresh the page.');
+  }
+
+  const diagnosticReport = takeMostRecentPreliminaryReport(diagnosticReports);
 
   if (!diagnosticReport || !diagnosticReport.id) {
     throw Error(
@@ -112,8 +116,7 @@ async function performEffect(
   const reviewTaskBaseConfig = configReviewResultTask(resourcesForTask);
 
   const taskOwner: Task['owner'] = {
-    reference: callerUser.profile,
-    display: (callerUserPractitioner && getFullestAvailableName(callerUserPractitioner)) ?? callerUser.name,
+    ...author,
     extension: [
       {
         url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -121,7 +124,9 @@ async function performEffect(
       },
     ],
   };
-  const reviewTaskConfig: Task = { ...reviewTaskBaseConfig, status: 'completed', owner: taskOwner };
+  // Assigned to the author but left open: writing the read and signing off on it are separate acts, and the
+  // order has to pass through `final` for the read to be correctable before it is locked at `reviewed`.
+  const reviewTaskConfig: Task = { ...reviewTaskBaseConfig, status: 'ready', owner: taskOwner };
 
   const reviewTaskPostRequest: BatchInputPostRequest<Task> = {
     method: 'POST',
@@ -129,7 +134,14 @@ async function performEffect(
     resource: reviewTaskConfig,
   };
 
-  const reportAsBase64 = Buffer.from(finalReport.replace(/\n/g, '<br>')).toString('base64');
+  // Preserve the preliminary read before the patch below overwrites it.
+  const preliminarySnapshotPostRequest: BatchInputPostRequest<DiagnosticReport> = {
+    method: 'POST',
+    url: 'DiagnosticReport/',
+    resource: buildPreliminaryReportSnapshot(diagnosticReport),
+  };
+
+  const reportAsBase64 = encodeRadiologyReport(finalReport);
   const reportAsBase64Size = Buffer.byteLength(reportAsBase64);
 
   const diagnosticReportPatchRequest: BatchInputPatchRequest<DiagnosticReport> = {
@@ -148,6 +160,13 @@ async function performEffect(
         ],
       },
       {
+        // Records that this read was written here rather than by teleradiology, and by whom — only that
+        // practitioner may correct it afterwards.
+        op: diagnosticReport.performer ? 'replace' : 'add',
+        path: '/performer',
+        value: [author],
+      },
+      {
         op: diagnosticReport.issued ? 'replace' : 'add',
         path: '/issued',
         value: DateTime.now().toISO(),
@@ -162,7 +181,9 @@ async function performEffect(
 
   // Update DiagnosticReport in Oystehr with the final report
   console.group('Patching DiagnosticReport & Creating Task in Oystehr');
-  await oystehr.fhir.transaction({ requests: [reviewTaskPostRequest, diagnosticReportPatchRequest] });
+  await oystehr.fhir.transaction({
+    requests: [reviewTaskPostRequest, preliminarySnapshotPostRequest, diagnosticReportPatchRequest],
+  });
   console.groupEnd();
   console.debug('Transaction successfully made');
 

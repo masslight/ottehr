@@ -10,7 +10,7 @@ const createMockZambdaInput = (body: any): ZambdaInput => ({
   secrets: null,
 });
 
-const validEdit = {
+const validOrder = {
   diagnosisCodes: ['W21.89XA'],
   cptCode: '73562',
   lateralityModifier: undefined,
@@ -23,68 +23,98 @@ const validEdit = {
   safetyFlags: ['metal', 'pacemaker'],
 };
 
+const contentUpdate = (order: Record<string, unknown> = validOrder): Record<string, unknown> => ({
+  serviceRequestId: 'sr-1',
+  update: { type: 'content', order },
+});
+
 describe('Radiology update-order - validateInput', () => {
-  test('accepts a consent-only patch (no edit payload)', async () => {
-    const result = await validateInput(createMockZambdaInput({ serviceRequestId: 'sr-1', consentObtained: true }));
+  test('accepts a consent patch', async () => {
+    const result = await validateInput(
+      createMockZambdaInput({ serviceRequestId: 'sr-1', update: { type: 'consent', consentObtained: true } })
+    );
 
     expect(result.body.serviceRequestId).toBe('sr-1');
-    expect(result.body.consentObtained).toBe(true);
-    expect(result.body.edit).toBeUndefined();
+    expect(result.body.update).toEqual({ type: 'consent', consentObtained: true });
     expect(result.callerAccessToken).toBe('test-token');
   });
 
-  test('accepts a full edit payload and returns it typed (no cast)', async () => {
+  test('accepts a performed-by patch', async () => {
     const result = await validateInput(
-      createMockZambdaInput({ serviceRequestId: 'sr-1', consentObtained: true, edit: validEdit })
+      createMockZambdaInput({ serviceRequestId: 'sr-1', update: { type: 'performed-by', performedById: 'prac-1' } })
     );
 
-    expect(result.body.edit?.cptCode).toBe('73562');
-    expect(result.body.edit?.safetyFlags).toEqual(['metal', 'pacemaker']);
+    expect(result.body.update).toEqual({ type: 'performed-by', performedById: 'prac-1' });
+  });
+
+  test('accepts a full content payload and returns it typed (no cast)', async () => {
+    const result = await validateInput(createMockZambdaInput(contentUpdate()));
+
+    if (result.body.update.type !== 'content') throw new Error('expected a content update');
+    expect(result.body.update.order.cptCode).toBe('73562');
+    expect(result.body.update.order.safetyFlags).toEqual(['metal', 'pacemaker']);
   });
 
   test('rejects a missing serviceRequestId', async () => {
-    await expect(validateInput(createMockZambdaInput({ consentObtained: true }))).rejects.toThrow();
+    await expect(
+      validateInput(createMockZambdaInput({ update: { type: 'consent', consentObtained: true } }))
+    ).rejects.toThrow();
   });
 
   test('rejects an empty serviceRequestId', async () => {
     await expect(
-      validateInput(createMockZambdaInput({ serviceRequestId: '', consentObtained: true }))
+      validateInput(createMockZambdaInput({ serviceRequestId: '', update: { type: 'consent', consentObtained: true } }))
+    ).rejects.toThrow();
+  });
+
+  // The union is what buys this: an omitted field can no longer be read as "nothing to change".
+  test('rejects an update with no type', async () => {
+    await expect(
+      validateInput(createMockZambdaInput({ serviceRequestId: 'sr-1', update: { consentObtained: true } }))
+    ).rejects.toThrow();
+  });
+
+  test('rejects an unknown update type', async () => {
+    await expect(
+      validateInput(createMockZambdaInput({ serviceRequestId: 'sr-1', update: { type: 'colour', colour: 'blue' } }))
+    ).rejects.toThrow();
+  });
+
+  test('rejects a consent patch with no consentObtained', async () => {
+    await expect(
+      validateInput(createMockZambdaInput({ serviceRequestId: 'sr-1', update: { type: 'consent' } }))
     ).rejects.toThrow();
   });
 
   test('rejects a non-boolean consentObtained', async () => {
     await expect(
-      validateInput(createMockZambdaInput({ serviceRequestId: 'sr-1', consentObtained: 'yes' }))
+      validateInput(
+        createMockZambdaInput({ serviceRequestId: 'sr-1', update: { type: 'consent', consentObtained: 'yes' } })
+      )
     ).rejects.toThrow();
   });
 
-  test('rejects an edit that is not an object', async () => {
+  test('rejects a performed-by patch with an empty performedById', async () => {
     await expect(
-      validateInput(createMockZambdaInput({ serviceRequestId: 'sr-1', consentObtained: true, edit: [] }))
+      validateInput(
+        createMockZambdaInput({ serviceRequestId: 'sr-1', update: { type: 'performed-by', performedById: '' } })
+      )
     ).rejects.toThrow();
+  });
+
+  test('rejects an order that is not an object', async () => {
+    await expect(validateInput(createMockZambdaInput(contentUpdate([] as any)))).rejects.toThrow();
   });
 
   test('rejects an unknown safety flag', async () => {
     await expect(
-      validateInput(
-        createMockZambdaInput({
-          serviceRequestId: 'sr-1',
-          consentObtained: true,
-          edit: { ...validEdit, safetyFlags: ['wormhole'] },
-        })
-      )
+      validateInput(createMockZambdaInput(contentUpdate({ ...validOrder, safetyFlags: ['wormhole'] })))
     ).rejects.toThrow();
   });
 
   test('rejects a clinical history over 255 characters', async () => {
     await expect(
-      validateInput(
-        createMockZambdaInput({
-          serviceRequestId: 'sr-1',
-          consentObtained: true,
-          edit: { ...validEdit, clinicalHistory: 'x'.repeat(256) },
-        })
-      )
+      validateInput(createMockZambdaInput(contentUpdate({ ...validOrder, clinicalHistory: 'x'.repeat(256) })))
     ).rejects.toThrow();
   });
 });

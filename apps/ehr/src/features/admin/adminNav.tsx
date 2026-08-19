@@ -27,7 +27,6 @@ import { FeeSchedulesIcon } from 'src/features/admin/icons/FeeSchedulesIcon';
 import { InHouseLabsIcon } from 'src/features/admin/icons/InHouseLabsIcon';
 import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
 import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
-import { StethoscopeIcon } from 'src/features/admin/icons/StethoscopeIcon';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import LocationsListPage from 'src/features/locations/LocationsListPage';
@@ -43,7 +42,7 @@ import QuickPicksAdminPage from 'src/features/visits/telemed/components/admin/Qu
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import AdminCustomFoldersPage from 'src/pages/AdminCustomFoldersPage';
 import MedicationsConfigurationPage from 'src/pages/configuration/MedicationsConfiguration';
-import EmployeesPage, { EmployeeTypes } from 'src/pages/Employees';
+import EmployeesPage from 'src/pages/Employees';
 import ProviderGroupsPage from 'src/pages/ProviderGroupsPage';
 import InvoiceablePatients from 'src/pages/reports/InvoiceablePatients';
 import SchedulesPage from 'src/pages/Schedules';
@@ -119,13 +118,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: 'Employees',
         path: '/admin/employees',
         icon: <AccountCircleOutlinedIcon />,
-        render: () => <EmployeesPage employeeType={EmployeeTypes.employees} />,
-      },
-      {
-        label: 'Providers',
-        path: '/admin/providers',
-        icon: <StethoscopeIcon />,
-        render: () => <EmployeesPage employeeType={EmployeeTypes.providers} />,
+        render: () => <EmployeesPage />,
       },
     ],
   },

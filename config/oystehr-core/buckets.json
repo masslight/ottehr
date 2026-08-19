@@ -57,6 +57,10 @@
       "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
       "retainInEnvironments": ["production", "staging", "demo"]
     },
+    "BILLING_CLAIM_EXPORTS": {
+      "name": "#{var/PROJECT_ID}-billing-claim-exports",
+      "retainInEnvironments": ["production", "staging", "demo"]
+    },
     "STATEMENTS": {
       "name": "#{var/PROJECT_ID}-statements",
       "retainInEnvironments": ["production", "staging", "demo"]

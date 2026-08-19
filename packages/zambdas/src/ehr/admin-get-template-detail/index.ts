@@ -440,12 +440,19 @@ const performEffect = async (
         note: null,
         psc: false,
         missing: true,
+        cptCodes: [],
       };
     }
     const items = externalOrderableItemsByLabGuid.get(parsed.labGuid);
     // When the availability check itself failed, don't report a false
     // "missing" - apply-template re-checks and warns at apply time.
-    const missing = items === undefined || items === 'fetch-failed' ? false : !matchOrderableItemForPlan(parsed, items);
+    const matchedItem = items && items !== 'fetch-failed' ? matchOrderableItemForPlan(parsed, items) : undefined;
+    const missing = items === undefined || items === 'fetch-failed' ? false : !matchedItem;
+    const cptCodes: TemplateCptCodeInfo[] = (matchedItem?.item.cptCodes ?? []).map((c) => ({
+      code: c.cptCode,
+      display: parsed.testName,
+      modifiers: [], // the compendium does not provide modifiers
+    }));
     return {
       planId: parsed.planId,
       labGuid: parsed.labGuid,
@@ -456,6 +463,7 @@ const performEffect = async (
       note: parsed.note ?? null,
       psc: parsed.psc,
       missing,
+      cptCodes,
     };
   });
 
