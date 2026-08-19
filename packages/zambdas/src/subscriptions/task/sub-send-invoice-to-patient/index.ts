@@ -9,8 +9,7 @@ import { getPatientReferenceFromAccount, getStripeCustomerIdFromAccount } from '
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
-import { mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
-import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getInvoiceTaskSource, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
@@ -153,6 +152,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('updating task status to failed and output');
     const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    if (isInvalidEmailError(error)) {
+      console.warn('Invoice not sent due to invalid patient email; task updated but error suppressed from Sentry');
+      return { statusCode: 200, body: JSON.stringify({ message: 'Invoice skipped: invalid patient email' }) };
+    }
     throw error;
   }
 
@@ -377,6 +380,14 @@ function addErrorToTaskOutput(task: Task, error: string): Task {
     valueString: error,
   });
   return taskCopy;
+}
+
+function isInvalidEmailError(error: unknown): boolean {
+  if (error instanceof Error && error.message.includes('must have a valid email')) {
+    return true;
+  }
+  const stripeError = error as any;
+  return stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email';
 }
 
 async function sendInvoiceSmsToPatient(
