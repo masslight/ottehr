@@ -28,6 +28,10 @@ export function validateRequestParameters(input: ZambdaInput): ChartReviewReques
     chartedExamFindings: asStringArray(body.chartedExamFindings),
     templateTitles: asStringArray(body.templateTitles),
     encounterId: body.encounterId,
+    // Only meaningful when there is no encounter to read the status from — see CallerPatientStatus.
+    // Dropping it here is what made review re-code every new patient into the established family.
+    patientStatus:
+      body.patientStatus === 'new' || body.patientStatus === 'established' ? body.patientStatus : undefined,
     secrets: input.secrets,
   };
 }

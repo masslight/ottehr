@@ -25,6 +25,12 @@ export interface PlanResult {
   steps: PlanStep[];
   /** resourceId → the step that created it, for the provenance layer. */
   createdBy: Map<string, PlanStep>;
+  /**
+   * The chart as it stands after the run — the initial snapshot advanced by every applied step. A caller
+   * that runs a SECOND plan against the same chart needs it: the review pass reasons about the note the
+   * first pass produced, and starting it from the pre-plan snapshot would hide everything just charted.
+   */
+  chart: ChartSnapshot;
 }
 
 /**
@@ -110,7 +116,7 @@ export async function runPlan(
     options.onStepSettled?.(step);
   }
 
-  return { steps, createdBy };
+  return { steps, createdBy, chart: liveChart };
 }
 
 async function executeStep(action: PlannedAction, context: HandlerContext): Promise<StepOutcome> {

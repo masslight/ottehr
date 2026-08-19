@@ -8,7 +8,7 @@
 // the scorer sees it as not charted — which is the honest reading.
 
 import { buildExamLeafCatalogue } from 'utils/lib/config-helpers/exam-leaves';
-import { findExamLeafMatches, findRosMatches } from 'utils/lib/easy-chart/matchers';
+import { findExamLeafMatches, findRosMatches, RosCatalogueEntry } from 'utils/lib/easy-chart/matchers';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
@@ -22,10 +22,17 @@ const echo = async (query: CatalogueQuery): Promise<CatalogueResult> =>
 
 export function buildEvalContext(): { context: HandlerContext; writer: ChartWriter } {
   const examLeaves = buildExamLeafCatalogue(DefaultExamComponentsConfig);
-  const rosEntries = Object.entries(InPersonRosConfig.components ?? {}).map(([key, value]) => ({
-    key,
-    label: (value as { label?: string })?.label ?? key,
-  }));
+  // Built exactly as the client builds it (see useCatalogue's ROS_ENTRIES). An earlier version of this
+  // harness read a `components` field that does not exist and passed the wrong entry shape, so EVERY ros
+  // action failed to match and the corpus scored 0/14 on ROS — a harness defect that read as a model
+  // failure. If this ever scores a flat zero again, suspect this first.
+  const rosEntries: RosCatalogueEntry[] = Object.values(InPersonRosConfig).flatMap((system) =>
+    Object.entries(system.items).map(([baseField, item]) => ({
+      baseField,
+      label: item.label,
+      systemLabel: system.label,
+    }))
+  );
 
   let nextId = 1;
   const writer: ChartWriter = {

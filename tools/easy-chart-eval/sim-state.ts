@@ -92,16 +92,18 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
         markRemoved(state.cptCodes, display || (asCode(action.code) ?? ''), source);
         break;
       case 'add-exam-finding':
-        // The executor resolved this to a catalogue leaf; its label is what landed on the chart.
-        state.examObservations.push({ field: pickedField(step), label: display, source });
+        // The RESOLVED catalogue field, not the dictated phrase. The scorer compares against gold's own
+        // field keys, so a slug of "no wheezing" could never match `ros-respiratory-wheezing` — that is
+        // what made exam and ROS score a flat zero even once the actions were charting correctly.
+        state.examObservations.push({ field: resolvedId(step), label: display, source });
         break;
       case 'remove-exam-finding':
         markRemovedBy(state.examObservations, display, source);
         break;
       case 'add-ros-finding':
         state.rosObservations.push({
-          baseKey: pickedField(step),
-          field: pickedField(step),
+          baseKey: resolvedId(step),
+          field: resolvedId(step),
           label: display,
           finding: action.finding === 'denies' ? 'denies' : 'reports',
           source,
@@ -164,11 +166,16 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
 const asCode = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value : undefined);
 
 /**
- * What the executor actually resolved this action to. The step label carries the picked catalogue entry
- * when there was one; falling back to the dictated display keeps the row present rather than dropping a
- * finding the plan really did chart.
+ * What the executor actually resolved this action to. `matchedId` is set by the catalogue path, so this
+ * is the chart's OWN field key rather than a guess derived from the provider's wording — the scorer
+ * compares against gold's field keys, and a slug of "no wheezing" could never match
+ * `ros-respiratory-wheezing`. That mismatch is what made exam and ROS score a flat zero even after the
+ * actions were charting correctly. The slug fallback covers an action charted without a catalogue
+ * lookup: it will not match gold, but a missing row would understate what the plan did, which is worse.
  */
-function pickedField(step: PlanStep): string {
+function resolvedId(step: PlanStep): string {
+  const matched = step.outcome?.matchedId;
+  if (matched) return matched;
   const display = (step.action as { display?: string }).display ?? '';
   return display
     .toLowerCase()

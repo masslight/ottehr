@@ -15,7 +15,10 @@ import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
 
 type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObservationDTO>;
-const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({ field }): JSX.Element => {
+const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
+  field,
+  variant = 'card',
+}): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -29,6 +32,58 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({ f
   const { handleKeyDown } = useVitalsSaveOnEnter({
     onSave: field.save,
   });
+
+  // The entry row on its own, so a caller that wants only the inputs can render it without the
+  // accordion and the history beside it.
+  const renderLeftColumn = (): JSX.Element => (
+    <Grid
+      container
+      sx={{
+        height: 'auto',
+        width: 'auto',
+        backgroundColor: '#F7F8F9',
+        borderRadius: 2,
+        my: 2,
+        mx: 2,
+        py: 2,
+        px: 2,
+        border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+        transition: VITALS_FORM_BORDER_TRANSITION,
+      }}
+    >
+      {/* RespirationRate Input Field column */}
+      <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
+        <VitalsTextInputFiled
+          label="RR (/min)"
+          value={localState.value}
+          disabled={field.isSaving}
+          isInputError={localState.validationError}
+          onChange={localState.handleValueChange}
+          onKeyDown={handleKeyDown}
+          data-testid={dataTestIds.vitalsPage.respirationRateInput}
+        />
+      </Grid>
+
+      {/* Add Button column */}
+      <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 2, sm: 2, md: 2, lg: 2 }} sx={{ mt: 0 }}>
+        <RoundedButton
+          size="small"
+          disabled={localState.isDisabled}
+          loading={field.isSaving}
+          onClick={field.save}
+          color="primary"
+          sx={{
+            height: '40px',
+            px: 2,
+            ml: 1,
+          }}
+          data-testid={dataTestIds.vitalsPage.respirationRateAddButton}
+        >
+          Add
+        </RoundedButton>
+      </Grid>
+    </Grid>
+  );
 
   const renderRightColumn = (): JSX.Element => {
     return (
@@ -49,6 +104,10 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({ f
       />
     );
   };
+
+  // `input` is the entry row alone. On a locked visit it renders nothing rather than a disabled
+  // form: the note already states the readings, so an empty greyed-out box would say nothing.
+  if (variant === 'input') return isReadOnly ? <></> : renderLeftColumn();
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -76,59 +135,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({ f
         {isReadOnly ? (
           renderRightColumn()
         ) : (
-          <DoubleColumnContainer
-            divider
-            leftColumn={
-              <Grid
-                container
-                sx={{
-                  height: 'auto',
-                  width: 'auto',
-                  backgroundColor: '#F7F8F9',
-                  borderRadius: 2,
-                  my: 2,
-                  mx: 2,
-                  py: 2,
-                  px: 2,
-                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
-                  transition: VITALS_FORM_BORDER_TRANSITION,
-                }}
-              >
-                {/* RespirationRate Input Field column */}
-                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
-                  <VitalsTextInputFiled
-                    label="RR (/min)"
-                    value={localState.value}
-                    disabled={field.isSaving}
-                    isInputError={localState.validationError}
-                    onChange={localState.handleValueChange}
-                    onKeyDown={handleKeyDown}
-                    data-testid={dataTestIds.vitalsPage.respirationRateInput}
-                  />
-                </Grid>
-
-                {/* Add Button column */}
-                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 2, sm: 2, md: 2, lg: 2 }} sx={{ mt: 0 }}>
-                  <RoundedButton
-                    size="small"
-                    disabled={localState.isDisabled}
-                    loading={field.isSaving}
-                    onClick={field.save}
-                    color="primary"
-                    sx={{
-                      height: '40px',
-                      px: 2,
-                      ml: 1,
-                    }}
-                    data-testid={dataTestIds.vitalsPage.respirationRateAddButton}
-                  >
-                    Add
-                  </RoundedButton>
-                </Grid>
-              </Grid>
-            }
-            rightColumn={renderRightColumn()}
-          />
+          <DoubleColumnContainer divider leftColumn={renderLeftColumn()} rightColumn={renderRightColumn()} />
         )}
       </AccordionCard>
     </Box>

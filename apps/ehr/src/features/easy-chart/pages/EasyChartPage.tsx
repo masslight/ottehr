@@ -37,8 +37,7 @@ import { LoadingScreen } from 'src/components/LoadingScreen';
 import { useGetImmunizationOrders } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { NoteTextField } from 'utils/lib/easy-chart/actions';
-import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
 import { computeSignBlockers } from 'utils/lib/easy-chart/sign-blockers';
 import { ItemCorrection } from '../components/AiChartedItem';
 import { AssistantColumn } from '../components/AssistantColumn';
@@ -262,22 +261,6 @@ export const EasyChartPage: FC = () => {
     [catalogue, writer, refetch, isAppointmentReadOnly]
   );
 
-  const saveNoteText = useCallback(
-    async (field: NoteTextField, text: string): Promise<void> => {
-      try {
-        await writer.save({ [chartKeyForNoteField(field)]: { text } });
-        await refetch();
-      } catch (error) {
-        console.error('[easy-chart] note save failed', error);
-        enqueueSnackbar(
-          `Could not save ${NOTE_FIELD_LABELS[field]}: ${error instanceof Error ? error.message : 'unknown error'}`,
-          { variant: 'error' }
-        );
-      }
-    },
-    [writer, refetch]
-  );
-
   // Before the early returns: the loading screen renders instead of the grid, and a hook skipped on
   // that render would change hook order.
   const viewport = useFillViewportHeight();
@@ -389,30 +372,7 @@ export const EasyChartPage: FC = () => {
                 chartData={chartData}
                 provenance={provenance}
                 readOnly={isAppointmentReadOnly}
-                onSaveNoteText={saveNoteText}
-                onNoteEditStart={() => {
-                  // A hand-edit clears the AI mark for that field's row, so the note reflects who really
-                  // wrote what. The field's own resourceId is the row it owns.
-                  const ids = [chartData?.chiefComplaint?.resourceId, chartData?.medicalDecision?.resourceId].filter(
-                    (id): id is string => Boolean(id)
-                  );
-                  setProvenance((state) => clearAuthorship(state, ids));
-                }}
                 onConfirmItem={(resourceId) => setProvenance((state) => markReviewed(state, [resourceId]))}
-                // A vital typed by hand is provider-entered, so it carries no AI mark. The editor has
-                // already converted to the canonical unit the chart stores.
-                onSaveVital={async (draft) => {
-                  try {
-                    await writer.save({ vitalsObservations: [draft] });
-                    await refetch();
-                  } catch (error) {
-                    console.error('[easy-chart] vital save failed', error);
-                    enqueueSnackbar(
-                      `Could not save that vital: ${error instanceof Error ? error.message : 'unknown error'}`,
-                      { variant: 'error' }
-                    );
-                  }
-                }}
                 // Promoting a diagnosis demotes the current primary in the SAME save, so the note is
                 // never momentarily left with two primaries or none.
                 onMakePrimary={async (diagnosis) => {
@@ -452,9 +412,15 @@ export const EasyChartPage: FC = () => {
                 // A field the provider rewrote by hand is no longer AI-written, so the mark on the row it
                 // owns is dropped as well as the chart being refetched.
                 onNoteFieldSaved={() => {
-                  const ids = [chartData?.chiefComplaint?.resourceId, chartData?.mechanismOfInjury?.resourceId].filter(
-                    (id): id is string => Boolean(id)
-                  );
+                  // Every row a reused field can rewrite. BOTH swapped keys are here: `chiefComplaint`
+                  // stores the HPI and `historyOfPresentIllness` stores the chief complaint, so naming
+                  // only one would leave the other still credited to the assistant.
+                  const ids = [
+                    chartData?.chiefComplaint?.resourceId,
+                    chartData?.historyOfPresentIllness?.resourceId,
+                    chartData?.mechanismOfInjury?.resourceId,
+                    chartData?.medicalDecision?.resourceId,
+                  ].filter((id): id is string => Boolean(id));
                   setProvenance((state) => clearAuthorship(state, ids));
                   void refetch();
                 }}

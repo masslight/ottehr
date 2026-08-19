@@ -22,6 +22,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { applyGuards } from '../easy-chart-shared/guards';
 import { callModelForJson } from '../easy-chart-shared/model';
+import { buildChartStateSummary, buildNoteContext, readVisitContext } from '../easy-chart-shared/visit-context';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-review';
@@ -38,9 +39,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
+  // The SAME patient block the planner gets. Without it the tail renders "PATIENT STATUS: unknown", the
+  // prompt's documented fallback picks the established E&M family, and review overwrites a correct
+  // new-patient code from the plan — measurably, in 7 of 11 harvested cases. The chart wins over the
+  // caller for the same reason it does in the planner.
+  const visit = encounterId ? await readVisitContext(oystehr, encounterId, ZAMBDA_NAME) : undefined;
+
   const tail: PromptTailInput = {
     narrative,
     templateTitles: params.templateTitles,
+    patientLine: visit?.patientLine,
+    patientStatus: visit?.patientStatus ?? params.patientStatus,
     chartStateSummary: buildChartStateSummary(params.chartState, params.chartedExamFindings),
     noteContext: buildNoteContext(params.noteContext),
   };
@@ -95,23 +104,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const response: ChartReviewResponse = { suggestions: guarded, rejected, usage, escalation, triggers };
   return { statusCode: 200, body: JSON.stringify(response) };
 });
-
-function buildNoteContext(noteContext?: Record<string, string | undefined>): string | undefined {
-  if (!noteContext) return undefined;
-  const lines = Object.entries(noteContext)
-    .filter(([, value]) => typeof value === 'string' && value.trim())
-    .map(([field, value]) => `${field}: ${value}`);
-  return lines.length > 0 ? lines.join('\n\n') : undefined;
-}
-
-function buildChartStateSummary(chartState?: string, examFindings?: string[]): string | undefined {
-  const parts: string[] = [];
-  if (chartState?.trim()) parts.push(chartState.trim());
-  if (examFindings?.length) {
-    parts.push(`Exam findings already checked:\n${examFindings.map((f) => `- ${f}`).join('\n')}`);
-  }
-  return parts.length > 0 ? parts.join('\n\n') : undefined;
-}
 
 /** The chart-state summary as individual lines, for the removal guard to match against. */
 function splitChartState(chartState?: string): string[] {

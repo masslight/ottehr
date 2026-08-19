@@ -18,12 +18,14 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ChartPlanRequest, ChartPlanResponse } from 'utils/lib/easy-chart/api';
+import { ChartPlanRequest, ChartPlanResponse, ChartReviewRequest, ChartReviewResponse } from 'utils/lib/easy-chart/api';
 import { runPlan } from '../../apps/ehr/src/features/easy-chart/executor/runPlan';
 import { GoldData } from './gold-types';
 import { buildEvalContext } from './harness';
+import type { SimFinalState } from './score-harvested';
 import { aggregateScores, CaseScore, formatCaseLine, formatSummary, scoreCase } from './score-harvested';
 import { foldStepsIntoState } from './sim-state';
+import { mintToken } from './token';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CASES_DIR = join(HERE, 'harvested-cases');
@@ -41,6 +43,8 @@ interface Options {
   only?: string[];
   limit?: number;
   rescore: boolean;
+  /** Skip the second look — useful for isolating a planner change without paying for review. */
+  skipReview: boolean;
 }
 
 function parseArgs(argv: string[]): Options {
@@ -50,9 +54,6 @@ function parseArgs(argv: string[]): Options {
   };
   const rescore = argv.includes('--rescore');
   const token = get('--token') ?? process.env.EASY_CHART_EVAL_TOKEN ?? '';
-  if (!token && !rescore) {
-    throw new Error('A bearer token is required: pass --token or set EASY_CHART_EVAL_TOKEN');
-  }
   const only = get('--cases')
     ?.split(',')
     .map((id) => id.trim())
@@ -65,6 +66,7 @@ function parseArgs(argv: string[]): Options {
     only,
     limit,
     rescore,
+    skipReview: argv.includes('--no-review'),
   };
 }
 
@@ -80,6 +82,15 @@ function loadCases(options: Options): HarvestedCase[] {
   return files.map((name) => JSON.parse(readFileSync(join(CASES_DIR, name), 'utf8')) as HarvestedCase);
 }
 
+/**
+ * The local zambda server wraps a handler's result as `{ status, output }`; deployed zambdas return the
+ * payload directly. Accept both, so the same runner works against either.
+ */
+function unwrap<T>(body: unknown): T {
+  const wrapper = body as { output?: T };
+  return wrapper && typeof wrapper === 'object' && 'output' in wrapper ? (wrapper.output as T) : (body as T);
+}
+
 async function plan(options: Options, request: ChartPlanRequest): Promise<ChartPlanResponse> {
   const response = await fetch(`${options.url}/local/zambda/easy-chart-plan/execute`, {
     method: 'POST',
@@ -88,17 +99,116 @@ async function plan(options: Options, request: ChartPlanRequest): Promise<ChartP
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`easy-chart-plan returned ${response.status}: ${text.slice(0, 300)}`);
-  return JSON.parse(text) as ChartPlanResponse;
+  return unwrap<ChartPlanResponse>(JSON.parse(text));
 }
 
-async function runOne(options: Options, evalCase: HarvestedCase): Promise<CaseScore> {
+interface RunResult {
+  score: CaseScore;
+  /** How many steps the plan had, for the per-case line. */
+  planSteps: number;
+  /** How many suggestions the review pass returned. */
+  reviewSuggestions: number;
+}
+
+/**
+ * Summarise the post-plan state for the review request, in the same shape the client sends.
+ *
+ * The review pass reads the note AS WRITTEN back against the narrative, so it must be told what the plan
+ * just charted. Built from the folded state rather than from a live chart because the eval's writer is a
+ * fake — nothing was actually persisted to read back.
+ */
+function reviewContextFrom(state: SimFinalState): { chartState?: string; noteContext?: Record<string, string> } {
+  const lines: string[] = [];
+  for (const dx of state.diagnoses.filter((d) => !d.removed)) {
+    lines.push(`- Diagnosis: ${dx.display}${dx.isPrimary ? ' (primary)' : ''}${dx.code ? ` [${dx.code}]` : ''}`);
+  }
+  for (const item of state.allergies.filter((i) => !i.removed)) lines.push(`- Allergy: ${item.display}`);
+  for (const item of state.conditions.filter((i) => !i.removed)) lines.push(`- Past medical history: ${item.display}`);
+  for (const item of state.medications.filter((i) => !i.removed)) lines.push(`- Medication: ${item.display}`);
+  for (const cpt of state.cptCodes.filter((c) => !c.removed)) lines.push(`- CPT: ${cpt.code ?? ''} ${cpt.display}`);
+  const em = [...state.emEvents].reverse().find((e) => e.type === 'set');
+  if (em) lines.push(`- E&M: ${em.code ?? ''} ${em.display ?? ''}`);
+  if (state.disposition?.type) lines.push(`- Disposition: ${state.disposition.type}`);
+  for (const lab of state.labsOrdered) lines.push(`- Lab ordered (${lab.kind}): ${lab.display}`);
+
+  const noteContext: Record<string, string> = {};
+  for (const [field, value] of Object.entries(state.noteText)) {
+    if (value?.text?.trim()) noteContext[field] = value.text;
+  }
+
+  return {
+    chartState: lines.length > 0 ? lines.join('\n') : undefined,
+    noteContext: Object.keys(noteContext).length > 0 ? noteContext : undefined,
+  };
+}
+
+async function review(options: Options, request: ChartReviewRequest): Promise<ChartReviewResponse> {
+  const response = await fetch(`${options.url}/local/zambda/easy-chart-review/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${options.token}` },
+    body: JSON.stringify(request),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`easy-chart-review returned ${response.status}: ${text.slice(0, 300)}`);
+  return unwrap<ChartReviewResponse>(JSON.parse(text));
+}
+
+async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunResult> {
   // The transcript is the ONLY model input, and the case starts from an empty chart: that is what the
   // provider's own first pass had, so anything else would flatter the score.
-  const response = await plan(options, { narrative: evalCase.transcript, incremental: false });
+  // The corpus carries `meta.patientStatus` but NO encounterId (only a hash, deliberately — PHI
+  // posture), so the endpoint has no encounter to read and cannot derive new-vs-established itself.
+  // Passing it explicitly is what makes the E&M family measurable: without it the prompt falls back to
+  // the ESTABLISHED family and every new-patient case mismatches, which reads as a model failure and is
+  // not one. The endpoint still prefers the chart whenever it can look the status up.
+  const meta = (evalCase as { meta?: { patientStatus?: string } }).meta;
+  const patientStatus =
+    meta?.patientStatus === 'new' || meta?.patientStatus === 'established' ? meta.patientStatus : undefined;
+  const response = await plan(options, {
+    narrative: evalCase.transcript,
+    incremental: false,
+    ...(patientStatus ? { patientStatus } : {}),
+  });
 
   const { context } = buildEvalContext();
-  const { steps } = await runPlan(response.actions, context);
-  const state = foldStepsIntoState(steps, 'planner');
+  const planRun = await runPlan(response.actions, context);
+  const state = foldStepsIntoState(planRun.steps, 'planner');
+
+  // THE SECOND LOOK, folded into the SAME state with source 'review'.
+  //
+  // Why it must be here: the provider never sees the plan's output — they see the note AFTER review. A
+  // score over the plan alone measures an intermediate state that nobody signs. The scorer's two scopes
+  // then tell two different things: `planner` is what the first pass got right on its own, `final` is
+  // what the note looks like once review has had its say, and the DELTA between them is the review's
+  // value.
+  //
+  // Caveat worth knowing when reading `final`: in the app review output is a set of PROPOSALS the
+  // provider accepts or ignores, so `final` is the UPPER BOUND — the note if every suggestion were
+  // accepted. It is not a claim about what a given provider would keep.
+  let reviewSuggestions = 0;
+  if (!options.skipReview) {
+    try {
+      const reviewContext = reviewContextFrom(state);
+      // Same status the planner got: without it review renders "PATIENT STATUS: unknown" and re-codes
+      // every new patient into the established E&M family.
+      const reviewResponse = await review(options, {
+        narrative: evalCase.transcript,
+        ...(patientStatus ? { patientStatus } : {}),
+        ...reviewContext,
+      });
+      reviewSuggestions = reviewResponse.suggestions.length;
+      const reviewActions = reviewResponse.suggestions.flatMap((suggestion) => suggestion.actions ?? []);
+      if (reviewActions.length > 0) {
+        // Seeded with the chart AS THE PLAN LEFT IT: a review that corrects a diagnosis has to resolve
+        // its removal against the row the plan charted, not against the empty chart the plan started from.
+        const reviewRun = await runPlan(reviewActions, { ...context, chart: planRun.chart });
+        foldStepsIntoState(reviewRun.steps, 'review', state);
+      }
+    } catch (error) {
+      // A failed review must not lose the plan's score for this case — record and move on.
+      console.error(`  review failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   const usage = response.usage?.[0];
   const score = scoreCase(evalCase.caseId, evalCase.gold, state, {
@@ -117,7 +227,7 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<CaseSc
     JSON.stringify({ actions: response.actions, rejected: response.rejected, state }, null, 2)
   );
   writeFileSync(join(options.outDir, `${evalCase.caseId}.score.json`), JSON.stringify(score, null, 2));
-  return score;
+  return { score, planSteps: planRun.steps.length, reviewSuggestions };
 }
 
 /** Rebuild the summary from score files already on disk — no model calls, so a failed batch can be
@@ -132,6 +242,10 @@ function loadScores(outDir: string): CaseScore[] {
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   mkdirSync(options.outDir, { recursive: true });
+  if (!options.token && !options.rescore) {
+    options.token = await mintToken();
+    console.log('Minted an M2M token from the environment.');
+  }
 
   let scores: CaseScore[];
   if (options.rescore) {
@@ -143,9 +257,9 @@ async function main(): Promise<void> {
     scores = [];
     for (const evalCase of cases) {
       try {
-        const score = await runOne(options, evalCase);
-        scores.push(score);
-        console.log(formatCaseLine(score));
+        const result = await runOne(options, evalCase);
+        scores.push(result.score);
+        console.log(formatCaseLine(result.score, result.planSteps, result.reviewSuggestions));
       } catch (error) {
         // One case must not end a run that costs hours. Report it and continue; re-run it later with
         // --cases, and the summary picks up whatever landed.
