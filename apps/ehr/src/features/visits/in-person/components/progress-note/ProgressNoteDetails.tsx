@@ -11,6 +11,8 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
+import { AssessmentBody } from 'src/features/visits/shared/components/assessment-tab/AssessmentBody';
+import { ExamBody } from 'src/features/visits/shared/components/exam-tab/ExamBody';
 import { ExamMigrationWarning } from 'src/features/visits/shared/components/exam-tab/ExamMigrationWarning';
 import { useExamConfigState } from 'src/features/visits/shared/components/exam-tab/useExamConfigState';
 import { AdditionalQuestionsContainer } from 'src/features/visits/shared/components/review-tab/components/AdditionalQuestionsContainer';
@@ -32,6 +34,7 @@ import { ProceduresContainer } from 'src/features/visits/shared/components/revie
 import { RadiologyOrdersContainer } from 'src/features/visits/shared/components/review-tab/components/RadiologyOrdersContainer';
 import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/review-tab/components/ReviewOfSystemsContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
+import { RosBody } from 'src/features/visits/shared/components/ros-tab/RosBody';
 import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
@@ -52,8 +55,17 @@ import { getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { AllergiesBody } from '../allergies/AllergiesBody';
+import { ChiefComplaintBody } from '../chief-complaint/ChiefComplaintBody';
 import { HospitalizationBody } from '../hospitalization/HospitalizationBody';
+import { HistoryAndTemplatesBody } from '../hpi/HistoryAndTemplatesBody';
+import { MedicalConditionsBody } from '../medical-conditions/MedicalConditionsBody';
+import { MedicationsBody } from '../medications/MedicationsBody';
+import { PlanBody } from '../plan/PlanBody';
 import { ScreeningBody } from '../screening/ScreeningBody';
+import { SurgicalHistoryBody } from '../surgical-history/SurgicalHistoryBody';
+import { PatientVitalsBody } from '../vitals/PatientVitalsBody';
+import { BlankSection } from './BlankSection';
+import { ERXInlineFlow } from './ERXInlineFlow';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { InlineEditSection } from './InlineEditSection';
@@ -170,9 +182,30 @@ export const ProgressNoteDetails: FC = () => {
     >
       <AllergiesContainer notes={allergyNotes} />
     </InlineEditSection>,
-    <MedicationsContainer notes={intakeMedicationNotes} />,
-    <MedicalConditionsContainer notes={medicalConditionNotes} />,
-    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <InlineEditSection
+      sectionName="medications"
+      editLabel="Edit medications"
+      editContent={<MedicationsBody />}
+      disabled={inlineEditDisabled}
+    >
+      <MedicationsContainer notes={intakeMedicationNotes} />
+    </InlineEditSection>,
+    <InlineEditSection
+      sectionName="medical-conditions"
+      editLabel="Edit medical conditions"
+      editContent={<MedicalConditionsBody />}
+      disabled={inlineEditDisabled}
+    >
+      <MedicalConditionsContainer notes={medicalConditionNotes} />
+    </InlineEditSection>,
+    <InlineEditSection
+      sectionName="surgical-history"
+      editLabel="Edit surgical history"
+      editContent={<SurgicalHistoryBody />}
+      disabled={inlineEditDisabled}
+    >
+      <SurgicalHistoryContainer notes={surgicalHistoryNotes} />
+    </InlineEditSection>,
     <InlineEditSection
       sectionName="hospitalization"
       editLabel="Edit hospitalization"
@@ -191,33 +224,97 @@ export const ProgressNoteDetails: FC = () => {
     displayExamMigrationWarning && !hasIncompatibleExamConfig && (
       <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />
     ),
-    showChiefComplaint && <ChiefComplaintContainer />,
-    showHpi && <HistoryOfPresentIllnessContainer />,
-    showMechanismOfInjury && <MechanismOfInjuryContainer />,
+    (showChiefComplaint || inlineEditEnabled) && (
+      <InlineEditSection
+        sectionName="chief-complaint"
+        editLabel="Edit chief complaint"
+        editContent={<ChiefComplaintBody />}
+      >
+        {showChiefComplaint ? (
+          <ChiefComplaintContainer />
+        ) : (
+          <BlankSection title="Additional information" message="No additional information provided" />
+        )}
+      </InlineEditSection>
+    ),
+    (showHpi || inlineEditEnabled) && (
+      <InlineEditSection
+        sectionName="hpi"
+        editLabel="Edit history of present illness"
+        editContent={<HistoryAndTemplatesBody />}
+      >
+        {showHpi ? (
+          <HistoryOfPresentIllnessContainer />
+        ) : (
+          <BlankSection title="History of Present Illness" message="No history of present illness documented" />
+        )}
+      </InlineEditSection>
+    ),
+    // MOI is edited on the HPI screen and only relevant for injury visits — no blank state.
+    showMechanismOfInjury && (
+      <InlineEditSection
+        sectionName="mechanism-of-injury"
+        editLabel="Edit mechanism of injury"
+        editContent={<HistoryAndTemplatesBody />}
+      >
+        <MechanismOfInjuryContainer />
+      </InlineEditSection>
+    ),
     showLegacyReviewOfSystems && <ReviewOfSystemsContainer />,
-    showRosReviewContainer && <RosReviewContainer />,
+    (showRosReviewContainer || inlineEditEnabled) && (
+      <InlineEditSection sectionName="review-of-systems" editLabel="Edit review of systems" editContent={<RosBody />}>
+        <RosReviewContainer />
+      </InlineEditSection>
+    ),
     (showAdditionalQuestions || inlineEditEnabled) && (
       <InlineEditSection sectionName="screening" editLabel="Edit screening questions" editContent={<ScreeningBody />}>
         <AdditionalQuestionsContainer notes={screeningNotes} emptyMessage="No screening information" />
       </InlineEditSection>
     ),
-    showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
+    (showVitalsObservations || inlineEditEnabled) && (
+      <InlineEditSection sectionName="vitals" editLabel="Edit vitals" editContent={<PatientVitalsBody />}>
+        <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />
+      </InlineEditSection>
+    ),
 
-    <Stack spacing={1}>
-      <Typography variant="h5" color="primary.dark">
-        Examination
-      </Typography>
-      {/* If the exam version is flagged as incompatible, we cannot run the migration safely.
+    <InlineEditSection
+      sectionName="examination"
+      editLabel="Edit examination"
+      editContent={<ExamBody />}
+      disabled={displayExamMigrationWarning && hasIncompatibleExamConfig}
+    >
+      <Stack spacing={1}>
+        <Typography variant="h5" color="primary.dark">
+          Examination
+        </Typography>
+        {/* If the exam version is flagged as incompatible, we cannot run the migration safely.
        If it both needs migration and is incompatible, hide the exam and direct the user to the visit PDF. */}
-      {displayExamMigrationWarning && hasIncompatibleExamConfig ? (
-        <Typography color="text.secondary">{INCOMPATIBLE_EXAM_VERSION_MESSAGE}</Typography>
-      ) : (
-        <ExaminationContainer examConfig={examConfigComponents} />
-      )}
-    </Stack>,
+        {displayExamMigrationWarning && hasIncompatibleExamConfig ? (
+          <Typography color="text.secondary">{INCOMPATIBLE_EXAM_VERSION_MESSAGE}</Typography>
+        ) : (
+          <ExaminationContainer examConfig={examConfigComponents} />
+        )}
+      </Stack>
+    </InlineEditSection>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
-    showAssessment && <AssessmentContainer />,
-    showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
+    (showAssessment || inlineEditEnabled) && (
+      <InlineEditSection sectionName="assessment" editLabel="Edit assessment" editContent={<AssessmentBody />}>
+        {showAssessment ? <AssessmentContainer /> : <BlankSection title="Assessment" message="No diagnoses added" />}
+      </InlineEditSection>
+    ),
+    (showMedicalDecisionMaking || inlineEditEnabled) && (
+      <InlineEditSection
+        sectionName="medical-decision-making"
+        editLabel="Edit medical decision making"
+        editContent={<AssessmentBody />}
+      >
+        {showMedicalDecisionMaking ? (
+          <MedicalDecisionMakingContainer />
+        ) : (
+          <BlankSection title="Medical Decision Making" message="No medical decision making documented" />
+        )}
+      </InlineEditSection>
+    ),
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
     showInHouseLabsResultsContainer && (
@@ -242,8 +339,24 @@ export const ProgressNoteDetails: FC = () => {
       </InlineEditSection>
     ),
     showProceduresContainer && <ProceduresContainer />,
-    showPrescribedMedications && <PrescribedMedicationsContainer />,
-    showPatientInstructions && <PatientInstructionsContainer />,
+    (showPrescribedMedications || inlineEditEnabled) && (
+      <InlineEditSection sectionName="prescriptions" editLabel="Edit prescriptions" editContent={<ERXInlineFlow />}>
+        {showPrescribedMedications ? (
+          <PrescribedMedicationsContainer />
+        ) : (
+          <BlankSection title="Prescriptions" message="No prescriptions" />
+        )}
+      </InlineEditSection>
+    ),
+    (showPatientInstructions || inlineEditEnabled) && (
+      <InlineEditSection sectionName="plan" editLabel="Edit plan" editContent={<PlanBody />}>
+        {showPatientInstructions ? (
+          <PatientInstructionsContainer />
+        ) : (
+          <BlankSection title="Plan" message="No patient instructions" />
+        )}
+      </InlineEditSection>
+    ),
     <PrivacyPolicyAcknowledgement />,
   ].filter(Boolean);
 
