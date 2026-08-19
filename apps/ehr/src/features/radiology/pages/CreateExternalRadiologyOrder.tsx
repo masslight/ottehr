@@ -160,8 +160,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
         if (isEditMode && initialOrder) {
           await updateRadiologyOrder(oystehrZambda, {
             serviceRequestId: initialOrder.serviceRequestId,
-            consentObtained,
-            edit: sharedFields,
+            update: { type: 'content', order: sharedFields },
           });
           await printOrderForm(initialOrder.serviceRequestId);
           navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));

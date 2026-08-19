@@ -153,12 +153,6 @@ export default function ReportBuilderPage(): React.ReactElement {
             </Box>
           )}
 
-          {rb.partialWarning && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-              <Typography variant="body2">{rb.partialWarning}</Typography>
-            </Box>
-          )}
-
           {rb.canCreate && (
             <>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>

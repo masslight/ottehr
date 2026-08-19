@@ -1,4 +1,5 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import BadgeIcon from '@mui/icons-material/Badge';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupIcon from '@mui/icons-material/Group';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
@@ -175,7 +176,27 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     label: 'My Profile',
     to: '/profile',
     icon: PersonIcon,
-    keywords: ['account', 'settings', 'my account'],
+    keywords: [
+      'account',
+      'settings',
+      'my account',
+      'my settings',
+      'my details',
+      'my address',
+      'my npi',
+      'my license',
+      'credentials',
+    ],
+  },
+  {
+    // Its own entry rather than a keyword on My Profile: it's a distinct destination now that the
+    // page is tabbed, and "notifications" should land on the tab that holds them.
+    id: 'nav-notification-settings',
+    label: 'Notification Settings',
+    to: '/profile',
+    query: { tab: 'notifications' },
+    icon: BadgeIcon,
+    keywords: ['notifications', 'alerts', 'my notifications'],
   },
 ];
 

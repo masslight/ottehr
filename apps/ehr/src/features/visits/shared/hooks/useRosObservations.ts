@@ -3,6 +3,11 @@ import { useCallback } from 'react';
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import {
+  trackPendingObservationFields,
+  usePendingObservationFields,
+} from '../stores/appointment/pending-observation-fields.store';
+import { rollbackObservations } from '../stores/appointment/rollback-observations';
+import {
   useRosObservationsInitializationStore,
   useRosObservationsStore,
 } from '../stores/appointment/ros-observations.store';
@@ -15,28 +20,24 @@ const arrayToObject = (array: ExamObservationDTO[]): RosRecord =>
     return prev;
   }, {} as RosRecord);
 
-const objectToArray = (object: RosRecord): ExamObservationDTO[] => Object.values(object);
-
 export function useRosObservations(): {
-  value: ExamObservationDTO[];
   update: (observations: ExamObservationDTO[], noFetch?: boolean) => void;
   isLoading: boolean;
-};
-
-export function useRosObservations(field: string): {
-  value: ExamObservationDTO;
-  update: (observations: ExamObservationDTO[], noFetch?: boolean) => void;
-  isLoading: boolean;
-};
-
-export function useRosObservations(field?: string): {
-  value: ExamObservationDTO | ExamObservationDTO[];
-  update: (observations: ExamObservationDTO[], noFetch?: boolean) => void;
-  isLoading: boolean;
+  /**
+   * Whether any component has a save or delete in flight for `field`. The rows read every
+   * observation rather than a single field, so they need to ask per checkbox.
+   */
+  isFieldPending: (field: string) => boolean;
+  /** Every observation keyed by field, which is how the rows look theirs up. */
+  observationMap: Record<string, ExamObservationDTO>;
 } {
   const state = useRosObservationsStore();
-  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  // mutateAsync, not mutate: the pending-field bookkeeping has to run off the request promise
+  // rather than off react-query's per-call callbacks, which are dropped on unmount and whenever a
+  // second mutation is fired from the same hook instance — as the corrective delete below does.
+  const { mutateAsync: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const { isFieldPending } = usePendingObservationFields();
 
   const update = useCallback(
     (observations: ExamObservationDTO[], noFetch?: boolean) => {
@@ -47,22 +48,32 @@ export function useRosObservations(field?: string): {
         return acc;
       }, {} as RosRecord);
 
-      // Merge into store (same pattern as useExamObservations)
-      useRosObservationsStore.setState(arrayToObject(observations));
+      const toSave = observations.filter((o) => o.value === true);
+      const toDelete = noFetch ? [] : observations.filter((o) => !o.value && o.resourceId);
+      const deletedFields = new Set(toDelete.map((o) => o.field));
+
+      // Merge into store (same pattern as useExamObservations). Fields being deleted are stored
+      // without their resourceId: the Observation is about to be gone, so re-checking the box has to
+      // create a new one rather than PUT the id that was just deleted — which a "Clear ROS" or a
+      // "Select all" turned off would otherwise do for a whole system at a time.
+      useRosObservationsStore.setState(
+        arrayToObject(
+          observations.map((o) => (deletedFields.has(o.field) ? { field: o.field, label: o.label, value: false } : o))
+        )
+      );
 
       if (noFetch) {
         useRosObservationsInitializationStore.setState({ hasInitialData: true });
         return;
       }
 
-      const toSave = observations.filter((o) => o.value === true);
-      const toDelete = observations.filter((o) => !o.value && o.resourceId);
-
       if (toSave.length > 0) {
-        saveChartData(
-          { rosObservations: toSave },
-          {
-            onSuccess: (data) => {
+        const pendingFields = toSave.map((o) => o.field);
+
+        trackPendingObservationFields(
+          pendingFields,
+          saveChartData({ rosObservations: toSave }).then(
+            (data) => {
               if (data.chartData.rosObservations) {
                 const returned = data.chartData.rosObservations;
                 // If the user toggled back to false while the save was in-flight, the
@@ -77,29 +88,36 @@ export function useRosObservations(field?: string): {
                   useRosObservationsStore.setState(arrayToObject(stillTrue));
                 }
                 if (needsDelete.length > 0) {
-                  deleteChartData({ rosObservations: needsDelete });
+                  trackPendingObservationFields(
+                    needsDelete.map((obs) => obs.field),
+                    deleteChartData({ rosObservations: needsDelete })
+                  );
                 }
               }
             },
-            onError: () => {
+            () => {
               enqueueSnackbar('An error occurred while saving ROS data. Please try again.', { variant: 'error' });
-              // Restore only the changed fields (merge, not replace)
-              useRosObservationsStore.setState(prevValues);
-            },
-          }
+              // Restore only the fields this write changed, leaving the rest of the store alone
+              rollbackObservations(useRosObservationsStore, prevValues);
+            }
+          )
         );
       }
 
       if (toDelete.length > 0) {
-        deleteChartData({ rosObservations: toDelete });
+        trackPendingObservationFields(
+          toDelete.map((o) => o.field),
+          deleteChartData({ rosObservations: toDelete })
+        );
       }
     },
     [saveChartData, deleteChartData]
   );
 
   return {
-    value: field ? state[field] ?? { field, value: false } : objectToArray(state),
     update,
     isLoading: isDeleteLoading || isSaveLoading,
+    isFieldPending,
+    observationMap: state,
   };
 }

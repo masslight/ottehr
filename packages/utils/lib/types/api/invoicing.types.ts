@@ -7,9 +7,15 @@ export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
 export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
 export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
+export const EXPORT_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
 export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
-export const EXPORT_INVOICES_CSV_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
+export const EXPORT_INVOICES_CSV_TASK_SYSTEM = EXPORT_TASK_SYSTEM;
 export const EXPORT_CSV_OUTPUT_URL_CODE = 'export-csv-output-url';
+
+export const EXPORT_FILE_CLEANED_TAG: Coding = {
+  system: ottehrCodeSystemUrl('export-file-cleaned'),
+  code: 'cleaned',
+};
 
 export const INVOICE_TASK_BUSINESS_STATUS_SYSTEM = ottehrCodeSystemUrl('invoice-task-business-status');
 export const ZERO_BALANCE_BUSINESS_STATUS_CODE = 'zero-balance';

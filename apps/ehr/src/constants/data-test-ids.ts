@@ -1,5 +1,6 @@
 import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { RadiologyReportType } from 'utils/lib/types/api/radiology';
 import { RoleType } from 'utils/lib/types/api/user.types';
 
 export const dataTestIds = {
@@ -9,6 +10,11 @@ export const dataTestIds = {
   deleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
     userName: 'header-user-name',
+    myProfileMenuItem: 'header-my-profile-menu-item',
+  },
+  myProfilePage: {
+    profileTab: 'my-profile-profile-tab',
+    notificationsTab: 'my-profile-notifications-tab',
   },
   inPersonHeader: {
     container: 'in-person-header-container',
@@ -174,10 +180,13 @@ export const dataTestIds = {
     searchResultRow: (patientId: string) => `${dataTestIds.patients.searchResultsRowPrefix}${patientId}`,
   },
   employeesPage: {
-    table: 'employees-providers-content-table',
-    providersTabButton: 'providers-tab-button',
+    table: 'employees-content-table',
     searchByName: 'search-by-name-field',
-    providersStateFilter: 'providers-state-filter',
+    roleFilter: 'employees-role-filter',
+    roleCell: 'employees-role-cell',
+    stateFilter: 'employees-state-filter',
+    gettingAlertsChip: 'employee-getting-alerts-chip',
+    seenPatientRecentlyChip: 'employee-seen-patient-recently-chip',
     informationForm: 'employee-information-form',
     firstName: 'employee-first-name',
     middleName: 'employee-middle-name',
@@ -192,9 +201,10 @@ export const dataTestIds = {
     addressState: 'employee-address-state',
     addressZip: 'employee-address-zip',
     rolesSection: 'employee-roles-section',
+    roleEditPermissionHint: 'employee-role-edit-permission-hint',
     roleRow: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
-    providerDetailsProviderTypeDropdown: 'employees-provider-details-provider-type-dropdown',
-    providerDetailsProviderTypeOtherText: 'employees-provider-details-provider-type',
+    providerDetailsCredentialsDropdown: 'employees-provider-details-credentials-dropdown',
+    providerDetailsCredentialsOtherText: 'employees-provider-details-credentials',
     providerDetailsNPI: 'employees-provider-details-npi',
     submitButton: 'employees-form-submit-button',
     qualificationsTable: 'employee-qualifications-table',
@@ -207,13 +217,10 @@ export const dataTestIds = {
     newQualificationExpDatePicker: 'new-qualification-expiration-date-picker',
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
+    deleteUserButton: 'delete-user-button',
     statusChip: 'employee-status-chip',
     needsReviewChip: 'employee-needs-review-chip',
-    assignRoleButton: 'employee-assign-role-button',
-    assignRoleDialog: 'employee-assign-role-dialog',
-    assignRoleSelect: 'employee-assign-role-select',
-    assignRoleSave: 'employee-assign-role-save',
-    quickDeleteButton: 'employee-quick-delete-button',
+    employeeRow: (userId: string): string => `employee-row-${userId}`,
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
@@ -465,6 +472,8 @@ export const dataTestIds = {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',
     cancelVisitDialogue: 'cancel-visit-dialogue',
+    consentAttestationCheckbox: 'consent-attestation-checkbox',
+    consentAttestationSaveButton: 'consent-attestation-save-button',
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
@@ -749,6 +758,11 @@ export const dataTestIds = {
     submitOrderButton: 'radiology-submit-order-button',
     performedBySelect: 'radiology-performed-by-select',
     performedByValue: 'radiology-performed-by-value',
+    savePerformedByButton: 'radiology-save-performed-by-button',
+    markAsReviewedButton: 'radiology-mark-as-reviewed-button',
+    editReportButton: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-button`,
+    editReportInput: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-input`,
+    saveEditedReportButton: (reportType: RadiologyReportType) => `radiology-save-${reportType}-report-button`,
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     externalOrderLabel: (serviceRequestId: string) => `radiology-external-order-label-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
@@ -803,6 +817,15 @@ export const dataTestIds = {
     rosTable: 'review-of-systems-table',
     deniesCheckboxCell: 'ros-denies-checkbox-cell',
     reportsCheckboxCell: 'ros-reports-checkbox-cell',
+    selectAllDeniesCell: 'ros-select-all-denies-cell',
+    clearRosButton: 'clear-ros-button',
+  },
+
+  examPage: {
+    selectAllNormalCheckbox: (sectionKey: string): string => `exam-select-all-normal-${sectionKey}`,
+    /** Container of a section's normal findings, i.e. its normal column minus the "Select all". */
+    normalFindings: 'exam-normal-findings',
+    clearExamButton: 'clear-exam-button',
   },
 
   externalLabs: {
