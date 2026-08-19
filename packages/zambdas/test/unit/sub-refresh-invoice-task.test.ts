@@ -2,6 +2,7 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Operation } from 'fast-json-patch';
 import { Task, TaskInput } from 'fhir/r4b';
 import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import {
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
   invoiceTaskSourceTag,
@@ -351,5 +352,31 @@ describe('sub-refresh-invoice-task', () => {
     expect(mockGetOrCreateCandidApiClient).toHaveBeenCalled();
     expect(mockZambdaExecute).not.toHaveBeenCalled();
     expect(JSON.parse(result.body).message).toContain('no Candid inventory record');
+  });
+
+  it('rejects a task whose dueDate is in the past', async () => {
+    const dueDateInput: TaskInput[] = [
+      {
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code: 'dueDate' }] },
+        valueString: '2000-01-01',
+      },
+    ];
+    const pastTask = billingTask({ input: dueDateInput });
+
+    await expect(runHandler(pastTask)).rejects.toThrow('dueDate');
+    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a task whose dueDate has an invalid format', async () => {
+    const dueDateInput: TaskInput[] = [
+      {
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code: 'dueDate' }] },
+        valueString: 'not-a-date',
+      },
+    ];
+    const badFormatTask = billingTask({ input: dueDateInput });
+
+    await expect(runHandler(badFormatTask)).rejects.toThrow();
+    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
   });
 });
