@@ -1,5 +1,5 @@
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
 import {
@@ -109,6 +109,12 @@ export function useExamObservations(param?: string | string[]): {
       ? isFieldPending(param)
       : param.some(isFieldPending)
     : hasPendingFields;
+
+  // The requeue timer below outlives the component, so it is what normally releases the hold on a
+  // queued note. Release it on unmount as well: routing the release through that timer alone would
+  // leave the field reading as busy for the rest of the session if it ever stopped firing. The
+  // timeout itself is deliberately left running, so the queued note still saves.
+  useEffect(() => () => queuedNoteReleaseRef.current?.(), []);
 
   const getPrevStateAndValues = useCallback(
     (

@@ -269,4 +269,46 @@ describe('Pending-field release', () => {
 
     expect(usePendingObservationFieldsStore.getState().counts).toEqual({});
   });
+
+  // The two below cover the *queued* holds, which are released by a timer that outlives the
+  // component. That makes the release depend on nobody ever cancelling those timers, so each hook
+  // releases its hold on unmount as well; without that, the day useDebounce grows a cleanup the
+  // field would read as busy for the rest of the session.
+  it('releases the hold of a comment unmounted mid-debounce, without waiting for the timer', async () => {
+    const user = userEvent.setup({ delay: null });
+    const { unmount } = render(<ExamCommentField name="general-comment" />);
+
+    await user.type(screen.getByRole('textbox'), 'well appearing');
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({ 'general-comment': 1 });
+    expect(mutateAsync).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({});
+
+    // The debounced save is deliberately still on its way: cancelling it would silently drop a
+    // comment typed just before navigating away.
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    await settleAllRequests();
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({});
+  });
+
+  it('releases the hold of a note write parked on the requeue timer when the hook unmounts', async () => {
+    const { result, unmount } = renderHook(() => useExamObservations());
+
+    act(() => result.current.update({ field: 'general-comment', note: 'a' }));
+    act(() => result.current.update({ field: 'general-comment', note: 'ab' }));
+    // One count for the in-flight save, one for the write parked behind it.
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({ 'general-comment': 2 });
+
+    unmount();
+
+    // Only the parked hold goes; the in-flight save still owns its own count.
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({ 'general-comment': 1 });
+
+    await settleAllRequests();
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    await settleAllRequests();
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({});
+  });
 });

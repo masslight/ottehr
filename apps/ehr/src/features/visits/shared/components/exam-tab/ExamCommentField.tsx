@@ -43,6 +43,13 @@ export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => 
     });
   };
 
+  // The debounce timer outlives this component, so it is what normally releases the hold. Release it
+  // on unmount too: nothing is left on screen for a "Clear" to race, and routing the release only
+  // through the timer would leave the field busy for the rest of the session the day useDebounce
+  // grows an unmount cleanup. The timer itself is deliberately left running — cancelling it would
+  // drop a comment the provider typed just before navigating away.
+  useEffect(() => () => queuedWriteReleaseRef.current?.(), []);
+
   const [value, setValue] = useState(field?.note || '');
 
   useEffect(() => {

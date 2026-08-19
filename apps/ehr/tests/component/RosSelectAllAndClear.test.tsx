@@ -11,13 +11,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockUpdate = vi.fn();
 type MockObservation = { field: string; label?: string; value?: boolean; resourceId?: string };
 let mockRosObservations: Record<string, MockObservation> = {};
+let mockPendingFields: string[] = [];
 
 vi.mock('src/features/visits/shared/hooks/useRosObservations', () => ({
   useRosObservations: () => ({
     observationMap: mockRosObservations,
     update: mockUpdate,
     isLoading: false,
-    isFieldPending: () => false,
+    isFieldPending: (field: string) => mockPendingFields.includes(field),
   }),
 }));
 
@@ -53,6 +54,7 @@ describe('RosSelectAllRow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRosObservations = {};
+    mockPendingFields = [];
   });
 
   it('denies every finding of the system and clears the paired reports', async () => {
@@ -133,6 +135,7 @@ describe('ClearRosButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRosObservations = {};
+    mockPendingFields = [];
   });
 
   it('is disabled when nothing is selected', () => {
@@ -143,6 +146,23 @@ describe('ClearRosButton', () => {
         resourceId: 'obs-fever-denies',
       },
     };
+
+    render(<ClearRosButton />);
+
+    expect(screen.getByRole('button', { name: 'Clear ROS' })).toBeDisabled();
+  });
+
+  it('waits on a selected field that another component is still writing', () => {
+    mockRosObservations = {
+      'ros-constitutional-fever-denies': {
+        field: 'ros-constitutional-fever-denies',
+        value: true,
+        resourceId: 'obs-fever-denies',
+      },
+    };
+    // A row toggle or a system "Select all" fired elsewhere: this hook instance's own isLoading
+    // says nothing about it, so the button has to read the shared pending fields.
+    mockPendingFields = ['ros-constitutional-fever-denies'];
 
     render(<ClearRosButton />);
 
