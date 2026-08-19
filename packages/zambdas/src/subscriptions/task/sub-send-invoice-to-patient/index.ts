@@ -5,12 +5,18 @@ import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, Tas
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
-import { getPatientReferenceFromAccount, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import {
+  getPatientReferenceFromAccount,
+  getStripeCustomerIdFromAccount,
+  getTaskResource,
+} from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
 import { getInvoiceTaskSource, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TaskIndicator } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
@@ -133,6 +139,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
     console.log('Task status and output updated');
+
+    // Trigger statement generation explicitly so it only runs on a real send, not on refreshes.
+    // Refreshes cycle the task through completed status too, which would retrigger the old
+    // subscription-based approach on every refresh.
+    try {
+      const appointmentDate = appointment.start
+        ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
+        : 'unknown-date';
+      const generateStatementTask: Task = {
+        ...getTaskResource(
+          TaskIndicator.generatePatientStatement,
+          `Generate statement for ${getFullestAvailableName(patient)} visit on ${appointmentDate}`,
+          appointment.id!,
+          encounterId
+        ),
+        for: { reference: `Patient/${patient.id}` },
+      };
+      await oystehr.fhir.create<Task>(generateStatementTask);
+      console.log('Generate-statement task created');
+    } catch (err) {
+      console.error('Failed to create generate-statement task:', err);
+    }
 
     // Produce outreach tasks triggered by invoice issuance
     try {

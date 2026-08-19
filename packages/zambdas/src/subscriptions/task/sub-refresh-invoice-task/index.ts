@@ -10,10 +10,11 @@ import { findClaimsBy, getOrCreateCandidApiClient } from 'utils/lib/helpers/cand
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   createInvoiceTaskInput,
+  getInvoiceTaskClaimId,
+  getInvoiceTaskSource,
   getLatestTaskOutput,
   mapDisplayToInvoiceTaskStatus,
 } from 'utils/lib/helpers/tasks/invoices-tasks';
-import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { InvoiceTaskInput, ZERO_BALANCE_BUSINESS_STATUS } from 'utils/lib/types/api/invoicing.types';
 import { SearchBillingPatientARClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -152,13 +153,18 @@ function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskI
 
   // A send that finished after this event was queued has already written its output and status, and
   // deriving the status from the stale payload would roll that back to "ready".
+  // Only include the status op when it actually changes the value to avoid redundant /status writes
+  // (a no-op patch can still emit a FHIR update event).
+  // This prevents unnecessary downstream triggers and reduces write noise.
   const getLastTaskOutput = getLatestTaskOutput(currentTask);
-  if (getLastTaskOutput?.type === 'success') {
-    updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('sent') });
-  } else if (getLastTaskOutput?.type === 'error') {
-    updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') });
-  } else {
-    updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('ready') });
+  const newStatus =
+    getLastTaskOutput?.type === 'success'
+      ? mapDisplayToInvoiceTaskStatus('sent')
+      : getLastTaskOutput?.type === 'error'
+      ? mapDisplayToInvoiceTaskStatus('error')
+      : mapDisplayToInvoiceTaskStatus('ready');
+  if (currentTask.status !== newStatus) {
+    updateOperations.push({ op: 'replace', path: '/status', value: newStatus });
   }
 
   return updateOperations;
