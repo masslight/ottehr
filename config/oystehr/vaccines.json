@@ -256,6 +256,36 @@
         ]
       }
     },
+    "VACCINE_POLIO_IPV_ADULT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Polio (IPV - Adult)"
+          }
+        ]
+      }
+    },
+    "VACCINE_POLIO_IPV_PEDIATRIC": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Polio (IPV - Pediatric)"
+          }
+        ]
+      }
+    },
     "VACCINE_RABIES_POST_EXPOSURE": {
       "resource": {
         "resourceType": "Medication",
