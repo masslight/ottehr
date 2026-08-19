@@ -470,6 +470,8 @@ export const dataTestIds = {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',
     cancelVisitDialogue: 'cancel-visit-dialogue',
+    consentAttestationCheckbox: 'consent-attestation-checkbox',
+    consentAttestationSaveButton: 'consent-attestation-save-button',
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',

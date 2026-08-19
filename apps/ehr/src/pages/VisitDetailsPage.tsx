@@ -14,6 +14,7 @@ import {
   Skeleton,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -112,6 +113,10 @@ import PageContainer from '../layout/PageContainer';
 import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
+
+// Nothing on the visit can be saved until the staff member attests that consent was obtained.
+const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." before saving.';
 
 interface EditDOBParams {
   dob?: DateTime | null;
@@ -326,10 +331,13 @@ export default function VisitDetailsPage(): ReactElement {
   });
 
   useEffect(() => {
-    if (consentAttested === null) {
+    // Seed the checkbox from the server only once the visit details have actually loaded. Seeding it
+    // from the `?? false` default on the first render would latch an already-attested visit to
+    // unchecked, since this only ever runs while the local value is still null.
+    if (visitDetailsData && consentAttested === null) {
       setConsentAttested(serverConsentAttested);
     }
-  }, [serverConsentAttested, consentAttested]);
+  }, [visitDetailsData, serverConsentAttested, consentAttested]);
 
   const hasConsentChanged = consentAttested !== serverConsentAttested;
 
@@ -1145,37 +1153,44 @@ export default function VisitDetailsPage(): ReactElement {
                           consentAttested !== null && (
                             <Box style={{ display: 'flex', alignItems: 'center' }}>
                               <Checkbox
+                                data-testid={dataTestIds.visitDetailsPage.consentAttestationCheckbox}
                                 checked={consentAttested ?? false}
                                 onChange={(_e: any, checked: boolean) => {
                                   setConsentAttested(checked);
                                 }}
                               />
                               <Typography>I verify that patient consent has been obtained.</Typography>
-                              <LoadingButton
-                                onClick={async () => {
-                                  await bookingDetailsMutation
-                                    .mutateAsync({
-                                      appointmentId: appointment?.id ?? '',
-                                      bookingDetails: {
-                                        consentForms: {
-                                          consentAttested: consentAttested ?? false,
-                                        },
-                                      },
-                                    })
-                                    .catch((error) => {
-                                      if (isApiError(error)) {
-                                        enqueueSnackbar(error.message, { variant: 'error' });
-                                      } else {
-                                        console.error('Error updating consent attestation:', error);
-                                        enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
-                                      }
-                                    });
-                                }}
-                                loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
-                                disabled={!hasConsentChanged}
-                              >
-                                Save
-                              </LoadingButton>
+                              <Tooltip title={consentAttested ? '' : CONSENT_ATTESTATION_REQUIRED_MESSAGE}>
+                                {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
+                                <span>
+                                  <LoadingButton
+                                    data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
+                                    onClick={async () => {
+                                      await bookingDetailsMutation
+                                        .mutateAsync({
+                                          appointmentId: appointment?.id ?? '',
+                                          bookingDetails: {
+                                            consentForms: {
+                                              consentAttested: consentAttested ?? false,
+                                            },
+                                          },
+                                        })
+                                        .catch((error) => {
+                                          if (isApiError(error)) {
+                                            enqueueSnackbar(error.message, { variant: 'error' });
+                                          } else {
+                                            console.error('Error updating consent attestation:', error);
+                                            enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
+                                          }
+                                        });
+                                    }}
+                                    loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
+                                    disabled={!hasConsentChanged || !consentAttested}
+                                  >
+                                    Save
+                                  </LoadingButton>
+                                </span>
+                              </Tooltip>
                             </Box>
                           )
                         }
@@ -1258,6 +1273,7 @@ export default function VisitDetailsPage(): ReactElement {
                 appointmentId={appointmentID}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
+                submitBlockedReason={consentAttested ? undefined : CONSENT_ATTESTATION_REQUIRED_MESSAGE}
               />
             </Grid>
           </Grid>
