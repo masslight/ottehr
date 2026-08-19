@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { UpdateLocationParams } from 'utils/lib/types/api/locations';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { APIErrorCode, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
@@ -11,6 +10,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { applyLocationFields, callerCanEditPaymentFields, locationFieldsSchema } from '../shared';
+import { stripeExtValue, touchesPaymentFields } from './helpers';
 
 const ZAMBDA_NAME = 'update-location';
 let m2mToken: string;
@@ -27,28 +27,22 @@ const UpdateLocationSchema = z.object({
  * owns a schedule (so anchor-only Locations are editable). Only fields present in
  * the body are changed.
  */
-/** Current value of a Location's stripe account extension, for before/after logging. */
-const stripeExtValue = (location: Location): string | undefined =>
-  location.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)?.valueString;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   if (!input.body) throw MISSING_REQUEST_BODY;
   const params = safeValidate(UpdateLocationSchema, safeJsonParse(input.body)) as unknown as UpdateLocationParams;
   const { secrets } = input;
 
-  // Which keys the caller actually sent. A field that's absent is left untouched by
-  // `applyLocationFields`, so "I saved but nothing changed" is usually a key that never arrived —
-  // this line distinguishes that from a write that was attempted and rejected.
+  // Which keys actually arrived. A key that's absent is left untouched by `applyLocationFields`, so
+  // this separates "the edit never reached us" from "the write was attempted and rejected".
   console.log(`Updating Location ${params.locationId}; fields present: [${Object.keys(params).join(', ')}]`);
 
-  const touchesPaymentFields = params.stripeAccountId !== undefined || params.advapacsLocationId !== undefined;
-  if (touchesPaymentFields) {
-    // Values are configuration identifiers (acct_…, a UUID), not credentials — safe to log, and
-    // knowing exactly what was submitted is most of the diagnosis.
+  const editsPaymentFields = touchesPaymentFields(params);
+  if (editsPaymentFields) {
+    // Configuration identifiers (acct_…, a UUID), not credentials, so the values are logged as-is.
+    // JSON.stringify keeps null (clear) distinct from undefined (absent) and from the empty string.
     console.log(
-      `Payment-tier fields submitted: stripeAccountId=${JSON.stringify(
-        params.stripeAccountId
-      )}, advapacsLocationId=${JSON.stringify(params.advapacsLocationId)}`
+      `Payment-tier fields submitted: stripeAccountId=${JSON.stringify(params.stripeAccountId)}, ` +
+        `advapacsLocationId=${JSON.stringify(params.advapacsLocationId)}`
     );
     if (!input.headers?.Authorization) {
       // Distinct from a role denial: the header never reached the zambda, so no role check was even
@@ -81,13 +75,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const before = stripeExtValue(location);
   const candidate = applyLocationFields(location, params);
 
-  if (touchesPaymentFields) {
-    // The write is a full resource replacement, so the value here is what will be persisted —
-    // if this doesn't match what was submitted, the bug is in `applyLocationFields`, not the caller.
+  if (editsPaymentFields) {
+    // The write is a full resource replacement, so the second value is what will be persisted — if
+    // it doesn't match what was submitted, the fault is in `applyLocationFields`, not the caller.
     console.log(
-      `Stripe account on Location ${params.locationId}: ${JSON.stringify(before)} -> ${JSON.stringify(
-        stripeExtValue(candidate)
-      )}`
+      `Stripe account on Location ${params.locationId}: ${JSON.stringify(before)} -> ` +
+        `${JSON.stringify(stripeExtValue(candidate))}`
     );
   }
 
@@ -99,7 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
 
-  if (touchesPaymentFields) {
+  if (editsPaymentFields) {
     // Read back from the write response rather than trusting the request: this is the only line
     // that proves the value actually landed.
     console.log(`Location ${params.locationId} saved; stripe account now ${JSON.stringify(stripeExtValue(updated))}`);
