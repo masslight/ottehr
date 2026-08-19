@@ -83,6 +83,18 @@ describe('InlineEditSection', () => {
     expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
   });
 
+  it('also closes via the Done button in the heading row', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+
+    await user.click(screen.getByTestId('inline-edit-done-top-button-allergies'));
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+  });
+
   it('scrolls the section back into view when a long editor collapses', async () => {
     const user = userEvent.setup();
     const scrollIntoView = vi.fn();

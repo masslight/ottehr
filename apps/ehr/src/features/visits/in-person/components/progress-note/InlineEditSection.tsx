@@ -50,11 +50,28 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
   // replaced while editing rather than duplicated above it; the edit label stands in as
   // the section heading so the section keeps its identity.
   if (isEditing) {
+    const closeEditor = (): void => {
+      scrollBackOnCollapse.current = true;
+      setIsEditing(false);
+    };
+
     return (
       <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
-        <Typography variant="h5" color="primary.dark" sx={{ mb: 1 }}>
-          {editLabel}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1 }}>
+          <Typography variant="h5" color="primary.dark">
+            {editLabel}
+          </Typography>
+          {/* A misclick into a long editor shouldn't require scrolling to the bottom
+              Done button to get back out. */}
+          <RoundedButton
+            variant="contained"
+            size="small"
+            onClick={closeEditor}
+            data-testid={dataTestIds.progressNotePage.inlineEditDoneTopButton(sectionName)}
+          >
+            Done
+          </RoundedButton>
+        </Box>
         <Box
           sx={{
             p: 2,
@@ -67,10 +84,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <RoundedButton
               variant="contained"
-              onClick={() => {
-                scrollBackOnCollapse.current = true;
-                setIsEditing(false);
-              }}
+              onClick={closeEditor}
               data-testid={dataTestIds.progressNotePage.inlineEditDoneButton(sectionName)}
             >
               Done
