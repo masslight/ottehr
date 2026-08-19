@@ -132,6 +132,7 @@ async function performEffect(
       searchText: params.searchText,
       filterParams,
       withServiceDateElements: filteringByServiceDate,
+      patientNameOnly: params.patientNameOnly,
     });
     incomplete = matched.incomplete;
     const matching = filteringByServiceDate
@@ -216,7 +217,13 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
-export function buildClaimSearchTextQueries({ searchText }: { searchText: string }): ClaimSearchParam[][] {
+export function buildClaimSearchTextQueries({
+  searchText,
+  patientNameOnly,
+}: {
+  searchText: string;
+  patientNameOnly?: boolean;
+}): ClaimSearchParam[][] {
   const text = searchText.trim();
   if (!text) return [];
 
@@ -227,49 +234,54 @@ export function buildClaimSearchTextQueries({ searchText }: { searchText: string
         value: text,
       },
     ],
-    [
-      {
-        name: 'provider:Practitioner.name',
-        value: text,
-      },
-    ],
-    [
-      {
-        name: 'provider:Organization.name',
-        value: text,
-      },
-    ],
-    [
-      {
-        name: 'care-team:Practitioner.name',
-        value: text,
-      },
-    ],
-    [
-      {
-        name: 'care-team:Organization.name',
-        value: text,
-      },
-    ],
-    [
-      {
-        name: 'identifier',
-        value: `${CLAIM_PCN_IDENTIFIER_SYSTEM}|${text}`,
-      },
-    ],
-    [
-      {
-        name: 'patient.identifier',
-        value: `${SOURCE_IDENTIFIER_SYSTEM}|${text}`,
-      },
-    ],
-    [
-      {
-        name: 'patient.identifier',
-        value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${text}`,
-      },
-    ],
   ];
+
+  if (!patientNameOnly) {
+    queries.push(
+      [
+        {
+          name: 'provider:Practitioner.name',
+          value: text,
+        },
+      ],
+      [
+        {
+          name: 'provider:Organization.name',
+          value: text,
+        },
+      ],
+      [
+        {
+          name: 'care-team:Practitioner.name',
+          value: text,
+        },
+      ],
+      [
+        {
+          name: 'care-team:Organization.name',
+          value: text,
+        },
+      ],
+      [
+        {
+          name: 'identifier',
+          value: `${CLAIM_PCN_IDENTIFIER_SYSTEM}|${text}`,
+        },
+      ],
+      [
+        {
+          name: 'patient.identifier',
+          value: `${SOURCE_IDENTIFIER_SYSTEM}|${text}`,
+        },
+      ],
+      [
+        {
+          name: 'patient.identifier',
+          value: `${SOURCE_FRIENDLY_PATIENT_ID_SYSTEM}|${text}`,
+        },
+      ]
+    );
+  }
 
   if (isValidUUID(text)) {
     queries.push([
@@ -314,11 +326,13 @@ export async function searchClaimsBySearchText({
   searchText,
   filterParams,
   withServiceDateElements,
+  patientNameOnly,
 }: {
   oystehr: Oystehr;
   searchText: string;
   filterParams: ClaimSearchParam[];
   withServiceDateElements: boolean;
+  patientNameOnly?: boolean;
 }): Promise<{ claims: Claim[]; incomplete: boolean }> {
   const pageParams: ClaimSearchParam[] = [
     {
@@ -337,7 +351,7 @@ export async function searchClaimsBySearchText({
     },
   ];
 
-  const clauses = buildClaimSearchTextQueries({ searchText });
+  const clauses = buildClaimSearchTextQueries({ searchText, patientNameOnly });
 
   const claims: Claim[] = [];
   const truncatedClauses: string[] = [];

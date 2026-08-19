@@ -75,7 +75,7 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
           if (!oystehrZambda) return;
           try {
             setClaimLoading(true);
-            const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25 });
+            const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25, patientNameOnly: true });
             if (request !== searchRequest.current) return;
             setClaims(data.claims);
             if (data.claims.length === 0) setError('Claim not found');
