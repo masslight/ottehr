@@ -8,7 +8,10 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
-import { backfillBillingPatientClinicalIdentifiers } from '../../../src/scripts/backfill-billing-patient-clinical-identifiers.helpers';
+import {
+  addClinicalPatientIdentifiers,
+  backfillBillingPatientClinicalIdentifiers,
+} from '../../../src/scripts/backfill-billing-patient-clinical-identifiers.helpers';
 
 function billingPatient(patient: Partial<Patient> & Pick<Patient, 'id'>): Patient {
   return {
@@ -295,5 +298,138 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
     expect(stats.patched).toBe(1);
     expect(stats.failed).toBe(1);
     expect(patch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('addClinicalPatientIdentifiers', () => {
+  const target = (identifier?: Patient['identifier']): Patient =>
+    billingPatient({
+      id: 'billing-1',
+      extension: copyOf('clinical-1'),
+      identifier,
+    });
+
+  const mockWriter = (): { oystehr: Oystehr; patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> } => {
+    const patch = vi.fn().mockResolvedValue({});
+    const get = vi.fn();
+    return {
+      oystehr: {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr,
+      patch,
+      get,
+    };
+  };
+
+  it('adds the friendly id alongside the clinical patient id in one patch', async () => {
+    const { oystehr, patch } = mockWriter();
+
+    await addClinicalPatientIdentifiers({
+      oystehr,
+      patient: target(),
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+    });
+
+    expect(patch).toHaveBeenCalledWith(
+      {
+        resourceType: 'Patient',
+        id: 'billing-1',
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')],
+          },
+        ],
+      },
+      {
+        optimisticLockingVersionId: '1',
+      }
+    );
+  });
+
+  it('adds only the identifier that is missing', async () => {
+    const { oystehr, patch } = mockWriter();
+
+    await addClinicalPatientIdentifiers({
+      oystehr,
+      patient: target([clinicalPatientIdentifier('clinical-1')]),
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+    });
+
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier/-',
+            value: clinicalFriendlyIdIdentifier('1015'),
+          },
+        ],
+      }),
+      expect.anything()
+    );
+  });
+
+  it('appends rather than replacing when the patient carries other identifiers', async () => {
+    const { oystehr, patch } = mockWriter();
+    const otherId = {
+      system: 'https://fhir.ottehr.com/other',
+      value: 'other',
+    };
+
+    await addClinicalPatientIdentifiers({
+      oystehr,
+      patient: target([otherId]),
+      clinicalId: 'clinical-1',
+    });
+
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier/-',
+            value: clinicalPatientIdentifier('clinical-1'),
+          },
+        ],
+      }),
+      expect.anything()
+    );
+  });
+
+  it('writes nothing when the identifier is already there', async () => {
+    const { oystehr, patch } = mockWriter();
+
+    await addClinicalPatientIdentifiers({
+      oystehr,
+      patient: target([clinicalPatientIdentifier('clinical-1')]),
+      clinicalId: 'clinical-1',
+    });
+
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('does not re-add the identifier when a concurrent claim writes it first', async () => {
+    const { oystehr, patch, get } = mockWriter();
+    patch.mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 412 }));
+    get.mockResolvedValue(target([clinicalPatientIdentifier('clinical-1')]));
+
+    await addClinicalPatientIdentifiers({
+      oystehr,
+      patient: target(),
+      clinicalId: 'clinical-1',
+    });
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith({
+      resourceType: 'Patient',
+      id: 'billing-1',
+    });
   });
 });

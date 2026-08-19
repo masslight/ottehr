@@ -49,7 +49,6 @@ import {
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
-  patchWithOptimisticLock,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -356,10 +355,6 @@ export async function searchPatientsByClinicalIds({
   return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
 }
 
-export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
-  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
-}
-
 export interface ClinicalPatientIds {
   clinicalId?: string;
   clinicalFriendlyId?: string;
@@ -386,56 +381,6 @@ export async function resolveClinicalPatientIds({
     clinicalFriendlyId: parent ? clinicalFriendlyIdOfCopy(parent) : clinicalFriendlyIdOfCopy(patient),
     workingCopyParentId: sourceId,
   };
-}
-
-export function missingClinicalPatientIdentifiers({
-  patient,
-  clinicalId,
-  clinicalFriendlyId,
-}: {
-  patient: Patient;
-  clinicalId: string;
-  clinicalFriendlyId?: string;
-}): Identifier[] {
-  const wanted = [
-    clinicalPatientIdentifier(clinicalId),
-    ...(clinicalFriendlyId ? [clinicalFriendlyIdIdentifier(clinicalFriendlyId)] : []),
-  ];
-  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
-}
-
-export async function addClinicalPatientIdentifiers({
-  oystehr,
-  patient,
-  clinicalId,
-  clinicalFriendlyId,
-}: {
-  oystehr: Oystehr;
-  patient: Patient;
-  clinicalId: string;
-  clinicalFriendlyId?: string;
-}): Promise<void> {
-  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = missingClinicalPatientIdentifiers({
-      patient: current,
-      clinicalId,
-      clinicalFriendlyId,
-    });
-    if (missing.length === 0) return [];
-    return current.identifier?.length
-      ? missing.map((identifier) => ({
-          op: 'add' as const,
-          path: '/identifier/-',
-          value: identifier,
-        }))
-      : [
-          {
-            op: 'add' as const,
-            path: '/identifier',
-            value: missing,
-          },
-        ];
-  });
 }
 
 export async function searchOnClinicalIDs(

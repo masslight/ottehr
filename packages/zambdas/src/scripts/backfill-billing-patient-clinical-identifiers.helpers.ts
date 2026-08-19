@@ -1,11 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient } from 'fhir/r4b';
+import { Identifier, Patient } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import {
-  addClinicalPatientIdentifiers,
-  missingClinicalPatientIdentifiers,
-  resolveClinicalPatientIds,
-} from '../billing/shared';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { clinicalFriendlyIdIdentifier, clinicalPatientIdentifier, resolveClinicalPatientIds } from '../billing/shared';
 
 const BACKFILL_PAGE_SIZE = 200;
 const BACKFILL_PATCH_CONCURRENCY = 5;
@@ -16,6 +13,60 @@ export interface BillingPatientClinicalIdentifierBackfillStats {
   alreadyIndexed: number;
   skipped: number;
   failed: number;
+}
+
+function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
+  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+}
+
+export function missingClinicalPatientIdentifiers({
+  patient,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  patient: Patient;
+  clinicalId: string;
+  clinicalFriendlyId?: string;
+}): Identifier[] {
+  const wanted = [
+    clinicalPatientIdentifier(clinicalId),
+    ...(clinicalFriendlyId ? [clinicalFriendlyIdIdentifier(clinicalFriendlyId)] : []),
+  ];
+  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
+}
+
+export async function addClinicalPatientIdentifiers({
+  oystehr,
+  patient,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  clinicalId: string;
+  clinicalFriendlyId?: string;
+}): Promise<void> {
+  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
+    const missing = missingClinicalPatientIdentifiers({
+      patient: current,
+      clinicalId,
+      clinicalFriendlyId,
+    });
+    if (missing.length === 0) return [];
+    return current.identifier?.length
+      ? missing.map((identifier) => ({
+          op: 'add' as const,
+          path: '/identifier/-',
+          value: identifier,
+        }))
+      : [
+          {
+            op: 'add' as const,
+            path: '/identifier',
+            value: missing,
+          },
+        ];
+  });
 }
 
 export async function backfillBillingPatientClinicalIdentifiers(
