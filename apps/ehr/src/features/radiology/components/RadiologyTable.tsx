@@ -35,6 +35,9 @@ type RadiologyTableProps = {
   titleText?: string;
   onCreateOrder?: () => void;
   followUpAppointmentLookup?: FollowUpAppointmentLookup;
+  // overrides the default navigation to the order details/edit pages — used by the
+  // Review & Sign inline flow to open details in place
+  onRowClick?: (order: GetRadiologyOrderListZambdaOrder) => void;
 };
 
 export const RadiologyTable = ({
@@ -45,6 +48,7 @@ export const RadiologyTable = ({
   titleText,
   onCreateOrder,
   followUpAppointmentLookup,
+  onRowClick: onRowClickOverride,
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
@@ -72,6 +76,10 @@ export const RadiologyTable = ({
       : getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
+    if (onRowClickOverride) {
+      onRowClickOverride(order);
+      return;
+    }
     if (followUpAppointmentLookup) {
       const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
         order.appointmentId,

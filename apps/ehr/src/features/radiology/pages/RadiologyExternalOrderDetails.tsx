@@ -21,7 +21,7 @@ import { LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { RadiologyResultDTO } from 'utils/lib/types/api/radiology';
+import { GetRadiologyOrderListZambdaOrder, RadiologyResultDTO } from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_SAFETY_FLAG_LABELS as SAFETY_FLAG_LABELS } from 'utils/lib/types/api/radiology';
 import {
   createZ3Object,
@@ -55,9 +55,26 @@ const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React
   </Box>
 );
 
-export const RadiologyExternalOrderDetailsPage: React.FC = () => {
+interface RadiologyExternalOrderDetailsPageProps {
+  /**
+   * 'inline' renders without breadcrumbs, takes the order id from props instead of the
+   * URL, shows a Back button wired to onBack, and the edit pencil calls onEdit instead
+   * of navigating — used by the Review & Sign inline edit flow
+   */
+  variant?: 'page' | 'inline';
+  serviceRequestId?: string;
+  onBack?: () => void;
+  onEdit?: (order: GetRadiologyOrderListZambdaOrder) => void;
+}
+
+export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderDetailsPageProps> = ({
+  variant = 'page',
+  serviceRequestId: serviceRequestIdProp,
+  onBack,
+  onEdit,
+}) => {
   const urlParams = useParams();
-  const serviceRequestId = urlParams.serviceRequestID as string;
+  const serviceRequestId = serviceRequestIdProp ?? (urlParams.serviceRequestID as string);
   const appointmentId = urlParams.id as string;
   const navigate = useNavigate();
   const theme = useTheme();
@@ -173,7 +190,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
         <Typography variant="h6">
           {ordersError ? 'Failed to load the radiology order.' : 'Radiology order not found.'}
         </Typography>
-        <Button variant="outlined" onClick={() => navigate(-1)}>
+        <Button variant="outlined" onClick={() => (variant === 'inline' ? onBack?.() : navigate(-1))}>
           Back
         </Button>
       </Stack>
@@ -187,165 +204,186 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
   // The order is editable only until results are uploaded (spec).
   const canEdit = !isReadOnly && results.length === 0;
 
-  return (
-    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
-      <div style={{ maxWidth: '714px', margin: '0 auto' }}>
-        <Stack spacing={2} sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <RadiologyExternalOrderChip />
-            {order.timeWindow && (
-              <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
-                {order.timeWindow}
-              </Typography>
-            )}
-          </Box>
+  const content = (
+    <div style={{ maxWidth: '714px', margin: '0 auto' }}>
+      <Stack spacing={2} sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <RadiologyExternalOrderChip />
+          {order.timeWindow && (
+            <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
+              {order.timeWindow}
+            </Typography>
+          )}
+        </Box>
 
-          <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
+        <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
 
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+            {order.diagnosis}
+          </Typography>
+          <RadiologyTableStatusChip status={order.status} />
+        </Box>
+
+        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-              {order.diagnosis}
+            <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+              Results
             </Typography>
-            <RadiologyTableStatusChip status={order.status} />
+            {!isReadOnly && (
+              <>
+                <input
+                  ref={resultInputRef}
+                  type="file"
+                  hidden
+                  accept=".pdf,application/pdf"
+                  onChange={handleUploadResult}
+                />
+                <LoadingButton
+                  variant="outlined"
+                  size="small"
+                  loading={uploading}
+                  startIcon={<UploadFileOutlinedIcon />}
+                  onClick={() => resultInputRef.current?.click()}
+                  sx={{ borderRadius: 28, textTransform: 'none' }}
+                >
+                  Upload Result
+                </LoadingButton>
+              </>
+            )}
           </Box>
-
-          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
-                Results
-              </Typography>
-              {!isReadOnly && (
-                <>
-                  <input
-                    ref={resultInputRef}
-                    type="file"
-                    hidden
-                    accept=".pdf,application/pdf"
-                    onChange={handleUploadResult}
-                  />
-                  <LoadingButton
-                    variant="outlined"
-                    size="small"
-                    loading={uploading}
-                    startIcon={<UploadFileOutlinedIcon />}
-                    onClick={() => resultInputRef.current?.click()}
-                    sx={{ borderRadius: 28, textTransform: 'none' }}
-                  >
-                    Upload Result
-                  </LoadingButton>
-                </>
-              )}
-            </Box>
-            {results.length > 0 ? (
-              <Stack spacing={1}>
-                {results.map((result) => (
-                  <Box
-                    key={result.documentReferenceId}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: '#f7f7f7',
-                      borderRadius: 1,
-                      px: 2,
-                      py: 1,
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
-                      <InsertDriveFileOutlinedIcon color="primary" fontSize="small" />
-                      <Typography
-                        variant="body2"
-                        onClick={() => window.open(result.url, '_blank')}
-                        sx={{ fontWeight: 'bold', cursor: 'pointer', wordBreak: 'break-all' }}
-                      >
-                        {result.title}
-                      </Typography>
-                    </Box>
-                    {!isReadOnly && (
-                      <ConfirmationDialog
-                        title="Delete result"
-                        description={`Delete "${result.title}"? This cannot be undone.`}
-                        response={() => handleDeleteResult(result.documentReferenceId)}
-                        actionButtons={{ proceed: { text: 'Delete' }, back: { text: 'Cancel' }, reverse: true }}
-                      >
-                        {(showDialog) => (
-                          <IconButton aria-label="delete result" onClick={showDialog}>
-                            <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
-                          </IconButton>
-                        )}
-                      </ConfirmationDialog>
-                    )}
+          {results.length > 0 ? (
+            <Stack spacing={1}>
+              {results.map((result) => (
+                <Box
+                  key={result.documentReferenceId}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#f7f7f7',
+                    borderRadius: 1,
+                    px: 2,
+                    py: 1,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+                    <InsertDriveFileOutlinedIcon color="primary" fontSize="small" />
+                    <Typography
+                      variant="body2"
+                      onClick={() => window.open(result.url, '_blank')}
+                      sx={{ fontWeight: 'bold', cursor: 'pointer', wordBreak: 'break-all' }}
+                    >
+                      {result.title}
+                    </Typography>
                   </Box>
-                ))}
-              </Stack>
-            ) : (
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                No results uploaded yet.
-              </Typography>
-            )}
-          </Box>
-
-          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
-                Order Details
-              </Typography>
-              {canEdit && (
-                <IconButton aria-label="edit external radiology order" onClick={() => navigate(editUrl)}>
-                  <EditIcon color="primary" />
-                </IconButton>
-              )}
-            </Box>
-
-            {order.studyName && <DetailRow label="Study Name" value={order.studyName} />}
-            {order.laterality && (
-              <DetailRow
-                label="Laterality"
-                value={`${order.laterality} (${LATERALITY_SELECTORS[order.laterality].uiDisplay})`}
-              />
-            )}
-            {order.clinicalHistory && <DetailRow label="Clinical History" value={order.clinicalHistory} />}
-            {safetyFlagLabels && (
-              <DetailRow
-                label="Patient has"
-                value={safetyFlagLabels}
-                icon={<WarningAmberOutlinedIcon fontSize="small" sx={{ color: otherColors.priorityHighText }} />}
-              />
-            )}
-            <DetailRow label="Weight" value={weight != null ? `${weight} kg` : undefined} />
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
-                Performing Organization
-              </Typography>
-              <DetailRow label="Organization Name" value={org?.name} />
-              <DetailRow label="Address" value={org?.address} />
-              <DetailRow label="Phone" value={org?.phone} />
-              <DetailRow label="Fax" value={org?.fax} />
-            </Box>
-          </Box>
-
-          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-            <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
-              Print & Fax
+                  {!isReadOnly && (
+                    <ConfirmationDialog
+                      title="Delete result"
+                      description={`Delete "${result.title}"? This cannot be undone.`}
+                      response={() => handleDeleteResult(result.documentReferenceId)}
+                      actionButtons={{ proceed: { text: 'Delete' }, back: { text: 'Cancel' }, reverse: true }}
+                    >
+                      {(showDialog) => (
+                        <IconButton aria-label="delete result" onClick={showDialog}>
+                          <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
+                        </IconButton>
+                      )}
+                    </ConfirmationDialog>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          ) : (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              No results uploaded yet.
             </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <RoundedButton
-                variant="outlined"
-                color="primary"
-                startIcon={<PrintOutlinedIcon />}
-                loading={printing}
-                onClick={handlePrint}
+          )}
+        </Box>
+
+        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+              Order Details
+            </Typography>
+            {canEdit && (
+              <IconButton
+                aria-label="edit external radiology order"
+                onClick={() => (variant === 'inline' ? onEdit?.(order) : navigate(editUrl))}
               >
-                Print Order
-              </RoundedButton>
-              <SendFaxButton onSend={handleSendFax} initialFaxNumber={initialFaxNumber} />
-            </Box>
+                <EditIcon color="primary" />
+              </IconButton>
+            )}
           </Box>
 
-          <RadiologyOrderHistoryCard orderHistory={order.history} label="Order History" />
-        </Stack>
-      </div>
-    </WithRadiologyBreadcrumbs>
+          {order.studyName && <DetailRow label="Study Name" value={order.studyName} />}
+          {order.laterality && (
+            <DetailRow
+              label="Laterality"
+              value={`${order.laterality} (${LATERALITY_SELECTORS[order.laterality].uiDisplay})`}
+            />
+          )}
+          {order.clinicalHistory && <DetailRow label="Clinical History" value={order.clinicalHistory} />}
+          {safetyFlagLabels && (
+            <DetailRow
+              label="Patient has"
+              value={safetyFlagLabels}
+              icon={<WarningAmberOutlinedIcon fontSize="small" sx={{ color: otherColors.priorityHighText }} />}
+            />
+          )}
+          <DetailRow label="Weight" value={weight != null ? `${weight} kg` : undefined} />
+
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+              Performing Organization
+            </Typography>
+            <DetailRow label="Organization Name" value={org?.name} />
+            <DetailRow label="Address" value={org?.address} />
+            <DetailRow label="Phone" value={org?.phone} />
+            <DetailRow label="Fax" value={org?.fax} />
+          </Box>
+        </Box>
+
+        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
+          <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+            Print & Fax
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <RoundedButton
+              variant="outlined"
+              color="primary"
+              startIcon={<PrintOutlinedIcon />}
+              loading={printing}
+              onClick={handlePrint}
+            >
+              Print Order
+            </RoundedButton>
+            <SendFaxButton onSend={handleSendFax} initialFaxNumber={initialFaxNumber} />
+          </Box>
+        </Box>
+
+        <RadiologyOrderHistoryCard orderHistory={order.history} label="Order History" />
+
+        {/* The page relies on breadcrumbs to leave; inline has none, so give it a Back button. */}
+        {variant === 'inline' && (
+          <Box>
+            <Button
+              variant="outlined"
+              color="primary"
+              sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
+              onClick={onBack}
+            >
+              Back
+            </Button>
+          </Box>
+        )}
+      </Stack>
+    </div>
   );
+
+  if (variant === 'inline') {
+    return content;
+  }
+
+  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };

@@ -174,7 +174,11 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
             edit: sharedFields,
           });
           await printOrderForm(initialOrder.serviceRequestId);
-          navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
+          if (variant === 'inline') {
+            onFinished?.();
+          } else {
+            navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
+          }
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
           await printOrderForm(res.serviceRequestId);
