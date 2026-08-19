@@ -101,6 +101,14 @@ export function getOutboundDeliveryInputs(task: Task, code: string): TaskInput[]
   );
 }
 
+/** The organization the attempt was sent from, recorded on the attempt when it was created. */
+export function getOutboundDeliverySenderOrganizationId(task: Task): string | undefined {
+  return removePrefix(
+    'Organization/',
+    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference ?? ''
+  );
+}
+
 export function getOutboundDeliveryOutput(task: Task, code: string): TaskOutput | undefined {
   return task.output?.find(
     (item) =>

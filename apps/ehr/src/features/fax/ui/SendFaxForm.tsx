@@ -5,6 +5,7 @@ import { Box, Button, DialogActions, DialogContent, Stack, Tooltip, Typography, 
 import { FC } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { documentLabelGroups, hasNothingToSend } from '../model/faxDocuments';
 import { buildDefaultFormValues } from '../model/faxForm';
@@ -17,9 +18,11 @@ interface SendFaxFormProps {
   isSending: boolean;
   onSubmit: (values: FaxFormValues) => void;
   onCancel: () => void;
+  /** The number the packet is sent from. Omitted from the dialog when it cannot be resolved. */
+  senderFaxNumber?: string;
 }
 
-export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit, onCancel }) => {
+export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, senderFaxNumber, isSending, onSubmit, onCancel }) => {
   const theme = useTheme();
 
   const methods = useForm<FaxFormValues>({ mode: 'onChange', defaultValues: buildDefaultFormValues(preview) });
@@ -103,6 +106,18 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit
               Add Recipient
             </Button>
           </Box>
+
+          {/* Not editable: every fax leaves from the practice's one configured number. It sits at the end
+              as a footnote so it doesn't compete with the fields the user actually fills in. */}
+          {senderFaxNumber && (
+            <Typography
+              variant="body2"
+              sx={{ color: theme.palette.text.secondary, mt: 1 }}
+              data-testid={dataTestIds.faxDialog.senderFax}
+            >
+              Sender fax number: {formatPhoneNumberDisplay(senderFaxNumber)}
+            </Typography>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>

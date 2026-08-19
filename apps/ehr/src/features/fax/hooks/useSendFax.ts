@@ -17,6 +17,8 @@ export interface UseSendFaxResult {
   isLoadingPreview: boolean;
   previewError: boolean;
   preview?: GetFaxPacketPreviewOutput;
+  /** The number the packet is sent from, so the user can see which number the recipient will call back. */
+  senderFaxNumber?: string;
 
   /** True while the currently open dialog's submission is still in flight. */
   isSending: boolean;
@@ -128,6 +130,7 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
     isLoadingPreview: preview.isLoading,
     previewError: preview.isError,
     preview: preview.data,
+    senderFaxNumber: preview.data?.senderFaxNumber,
     isSending: sendMutation.isPending || Boolean(pendingTaskId),
     send,
     failures,

@@ -48,6 +48,8 @@ export interface ActionLogEntry {
   status: ActionLogStatus;
   recipientAddress: string;
   recipientName?: string;
+  /** The address the attempt was sent from — for faxes, the sending organization's fax number. */
+  senderAddress?: string;
   patientName?: string;
   appointmentId?: string;
   visitDate?: string;

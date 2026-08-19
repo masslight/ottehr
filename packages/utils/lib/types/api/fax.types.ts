@@ -127,6 +127,9 @@ export interface GetFaxPacketPreviewOutput {
   pcp?: FaxRecipient;
   /** Drives the default state of the "Save as patient's PCP" checkbox. */
   hasSavedPcp: boolean;
+  /** The number the packet is transmitted from, i.e. the sending organization's fax telecom. Shown to the
+   * user so they know which number the recipient will call back. Absent when none is configured. */
+  senderFaxNumber?: string;
 }
 
 export const FAX_DOCUMENT_UNAVAILABLE_REASONS: Record<FaxDocumentKind, string> = {

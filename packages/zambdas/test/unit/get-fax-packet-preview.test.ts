@@ -1,11 +1,12 @@
-import { Appointment, Encounter, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
 const mockFhirSearch = vi.fn();
-const mockOystehrClient = { fhir: { search: mockFhirSearch } };
+const mockFhirGet = vi.fn();
+const mockOystehrClient = { fhir: { search: mockFhirSearch, get: mockFhirGet } };
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
@@ -53,6 +54,15 @@ const encounter: Encounter = {
   class: { code: 'ACUTE' },
 };
 
+const senderOrganization: Organization = {
+  resourceType: 'Organization',
+  id: 'org-123',
+  telecom: [
+    { system: 'phone', value: '+12125550001' },
+    { system: 'fax', value: '+12125550000' },
+  ],
+};
+
 const patientWith = (contained?: Practitioner[]): Patient => ({
   resourceType: 'Patient',
   id: 'patient-1',
@@ -85,6 +95,23 @@ describe('get-fax-packet-preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolveFaxDocumentAvailability.mockResolvedValue(AVAILABILITY);
+    mockFhirGet.mockResolvedValue(senderOrganization);
+  });
+
+  it('names the fax number the packet is sent from, read off the sending organization', async () => {
+    const output = await runPreview(patientWith());
+
+    expect(mockFhirGet).toHaveBeenCalledWith({ resourceType: 'Organization', id: 'org-123' });
+    expect(output.senderFaxNumber).toBe('+12125550000');
+  });
+
+  it('still previews the visit when the sending organization cannot be read', async () => {
+    mockFhirGet.mockRejectedValue(new Error('forbidden'));
+
+    const output = await runPreview(patientWith());
+
+    expect(output.senderFaxNumber).toBeUndefined();
+    expect(output.documents).toEqual(AVAILABILITY);
   });
 
   it('passes the resolved document availability straight through', async () => {
