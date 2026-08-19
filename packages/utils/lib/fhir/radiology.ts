@@ -54,9 +54,10 @@ export const SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-sent-for-final-read-by';
 
 /*
- * Reads are stored on `DiagnosticReport.presentedForm` as base64-encoded `text/html`, but they are only ever
- * *text*: what we write is plain text with newlines turned into `<br>`. Both halves of that format live here
- * so the round-trip stays in one place — the zambdas encode, the EHR decodes.
+ * Reads are stored on `DiagnosticReport.presentedForm` as base64-encoded `text/html`. What the EHR writes is
+ * plain text with newlines turned into `<br>`; what comes back from AdvaPACS is the radiologist's own markup.
+ * Both halves of the format live here so the round-trip stays in one place — the zambdas encode, the EHR
+ * decodes, as markup for display or as text for editing.
  */
 
 export const encodeRadiologyReport = (report: string): string =>
@@ -67,17 +68,25 @@ const decodeBase64Utf8 = (value: string): string =>
   new TextDecoder().decode(Uint8Array.from(atob(value), (char) => char.charCodeAt(0)));
 
 /**
- * Reads a stored report back as text. Never returns markup: a final read arriving from AdvaPACS is content
- * we don't author and can't vouch for, so it is parsed inertly and only its words are kept.
+ * Reads a stored report back as the `text/html` it was stored as. A read from AdvaPACS carries the
+ * radiologist's own formatting (italicised findings, paragraphs) and is displayed as sent, so callers must
+ * sanitize before rendering it — see `safeRadiologyReportHtml` in the EHR.
  */
-export const decodeRadiologyReport = (report: string): string => {
-  let html: string;
+export const decodeRadiologyReportHtml = (report: string): string => {
   try {
-    html = decodeBase64Utf8(report);
+    return decodeBase64Utf8(report);
   } catch {
     // Not base64: show what we were given rather than blanking the read.
-    html = report;
+    return report;
   }
+};
+
+/**
+ * The same report as plain text, for seeding the edit field — a textarea can't hold markup, and the reads
+ * that are editable are ones we wrote ourselves as text with `<br>` line breaks.
+ */
+export const decodeRadiologyReportText = (report: string): string => {
+  const html = decodeRadiologyReportHtml(report);
 
   // `<br>` is the line break we write; `</p>` covers paragraphs a teleradiology report may arrive with.
   const withLineBreaks = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p\s*>/gi, '\n');

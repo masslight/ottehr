@@ -3,8 +3,9 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { decodeRadiologyReport } from 'utils/lib/fhir/radiology';
+import { decodeRadiologyReportText } from 'utils/lib/fhir/radiology';
 import { RadiologyReportType } from 'utils/lib/types/api/radiology';
+import { safeRadiologyReportHtml } from '../reportHtml';
 
 interface RadiologyReportSectionProps {
   label: string;
@@ -34,7 +35,9 @@ export const RadiologyReportSection: React.FC<RadiologyReportSectionProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const isEditing = draft !== undefined;
 
-  const savedText = decodeRadiologyReport(report);
+  // Two views of the same stored read: the markup for display, the words for the edit field.
+  const savedHtml = safeRadiologyReportHtml(report);
+  const savedText = decodeRadiologyReportText(report);
   // Nothing to save until the text actually differs from what is stored — an unchanged "correction" would
   // otherwise rewrite the report (and, for a preliminary read, push it to AdvaPACS) for no reason.
   const isUnchanged = draft !== undefined && draft === savedText;
@@ -110,10 +113,13 @@ export const RadiologyReportSection: React.FC<RadiologyReportSectionProps> = ({
         </>
       ) : (
         <>
-          {/* `pre-wrap` is what keeps the read's line breaks now that it renders as text. */}
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {savedText}
-          </Typography>
+          {/* Rendered as the radiologist sent it, sanitized in `safeRadiologyReportHtml`. */}
+          <Typography
+            variant="body2"
+            component="span"
+            sx={{ '& p': { margin: 0 } }}
+            dangerouslySetInnerHTML={{ __html: savedHtml }}
+          />
           {canEdit && (
             <Tooltip placement="top" title={`Edit ${label.toLowerCase()}`}>
               <IconButton

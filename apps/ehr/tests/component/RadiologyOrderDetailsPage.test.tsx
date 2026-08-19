@@ -473,7 +473,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         expect(mockHandleSavePerformedBy).toHaveBeenCalledWith(SERVICE_REQUEST_ID, ORDERING_PROVIDER_ID);
       });
 
-      it('disables the save button while the progress note is locked', () => {
+      it('is not offered while the progress note is locked', () => {
         mockUseGetAppointmentAccessibility.mockReturnValue({
           isAppointmentReadOnly: true,
           isPractitionerLicensedInState: true,
@@ -483,7 +483,8 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
         renderPage();
 
-        expect(screen.getByTestId(dataTestIds.radiologyPage.savePerformedByButton)).toBeDisabled();
+        expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
+        expect(screen.queryByTestId(dataTestIds.radiologyPage.savePerformedByButton)).not.toBeInTheDocument();
       });
 
       it('passes the selected performer to handleSaveReport', async () => {
@@ -549,40 +550,66 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         expect(mockHandleSaveReport).not.toHaveBeenCalled();
       });
 
-      it.each([
-        RadiologyOrderStatus.preliminary,
-        RadiologyOrderStatus.pendingFinal,
-        RadiologyOrderStatus.final,
-        RadiologyOrderStatus.reviewed,
-      ])('shows the recorded performer read-only for status "%s"', (status) => {
+      // Correctable on the same terms as the reads: any status the study has actually happened in, right up
+      // until sign-off locks the order.
+      it.each([RadiologyOrderStatus.preliminary, RadiologyOrderStatus.pendingFinal, RadiologyOrderStatus.final])(
+        'stays editable for status "%s"',
+        (status) => {
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({
+              orders: [makeMockOrder({ status, performedBy: { id: CURRENT_USER_ID, name: CURRENT_USER_NAME } })],
+            })
+          );
+          renderPage();
+
+          expect(screen.getByRole('combobox', { name: PERFORMED_BY_LABEL })).toBeInTheDocument();
+          expect(screen.getByTestId(dataTestIds.radiologyPage.savePerformedByButton)).toBeInTheDocument();
+        }
+      );
+
+      it.each([RadiologyOrderStatus.reviewed, RadiologyOrderStatus.pending])(
+        'shows the recorded performer read-only for status "%s"',
+        (status) => {
+          mockUsePatientRadiologyOrders.mockReturnValue(
+            makeHookResult({
+              orders: [makeMockOrder({ status, performedBy: { id: CURRENT_USER_ID, name: CURRENT_USER_NAME } })],
+            })
+          );
+          renderPage();
+
+          expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
+          expect(screen.getByTestId(dataTestIds.radiologyPage.performedByValue)).toBeInTheDocument();
+          expect(screen.getByText(CURRENT_USER_NAME)).toBeInTheDocument();
+        }
+      );
+
+      it('is not offered on an external order, which is performed elsewhere', () => {
         mockUsePatientRadiologyOrders.mockReturnValue(
           makeHookResult({
-            orders: [makeMockOrder({ status, performedBy: { id: CURRENT_USER_ID, name: CURRENT_USER_NAME } })],
+            orders: [makeMockOrder({ status: RadiologyOrderStatus.ordered, external: true })],
           })
         );
         renderPage();
 
         expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
-        expect(screen.getByTestId(dataTestIds.radiologyPage.performedByValue)).toBeInTheDocument();
-        expect(screen.getByText(CURRENT_USER_NAME)).toBeInTheDocument();
       });
 
-      it('renders nothing when the order has no recorded performer and is past performed', () => {
+      it('renders nothing when the order has no recorded performer and can no longer be edited', () => {
         mockUsePatientRadiologyOrders.mockReturnValue(
-          makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.final })] })
+          makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.reviewed })] })
         );
         renderPage();
 
         expect(screen.queryByTestId(dataTestIds.radiologyPage.performedByValue)).not.toBeInTheDocument();
       });
 
-      it('is not editable once a preliminary report exists on a performed order', () => {
+      it('stays editable once a preliminary report exists', () => {
         mockUsePatientRadiologyOrders.mockReturnValue(
           makeHookResult({ orders: [makePerformedOrder({ preliminaryReport: btoa('Prelim') })] })
         );
         renderPage();
 
-        expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: PERFORMED_BY_LABEL })).toBeInTheDocument();
       });
     });
 
@@ -625,23 +652,45 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         expect(screen.getByText(reportText)).toBeInTheDocument();
       });
 
-      // Reads render as text, not markup — a final read arrives from AdvaPACS and is not content we author.
-      it('renders a read as text, without interpreting markup it may carry', () => {
+      // A read is displayed as the radiologist sent it, so the radiologist's formatting has to survive — but
+      // a final read comes from AdvaPACS, so nothing executable may come with it.
+      it("keeps the radiologist's formatting", () => {
         mockUsePatientRadiologyOrders.mockReturnValue(
           makeHookResult({
             orders: [
               makeMockOrder({
                 status: RadiologyOrderStatus.final,
-                finalReport: btoa('Impression: <b>fracture</b><img src=x onerror="alert(1)">'),
+                finalReport: btoa('<i>Subtle</i> lucency, <b>no</b> acute fracture'),
               }),
             ],
           })
         );
         const { container } = renderPage();
 
-        // Nothing from the report reached the DOM as markup (the page's own `img` is the View Image icon).
+        expect(container.querySelector('i')?.textContent).toBe('Subtle');
+        expect(container.querySelector('b')?.textContent).toBe('no');
+      });
+
+      it('drops anything executable a read may carry', () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [
+              makeMockOrder({
+                status: RadiologyOrderStatus.final,
+                finalReport: btoa(
+                  'Impression: fracture<img src=x onerror="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)">x</a>'
+                ),
+              }),
+            ],
+          })
+        );
+        const { container } = renderPage();
+
+        // Scoped to what the report could have introduced — the page has its own `img` (the View Image icon)
+        // and its own `a` (the consent link).
         expect(container.querySelector('img[src="x"]')).toBeNull();
-        expect(container.querySelector('b')).toBeNull();
+        expect(container.querySelector('script')).toBeNull();
+        expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
         expect(screen.getByText(/Impression: fracture/)).toBeInTheDocument();
       });
 
@@ -667,10 +716,10 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         mockUsePatientRadiologyOrders.mockReturnValue(
           makeHookResult({ orders: [makeMockOrder({ preliminaryReport: btoa('Line one<br>Line two') })] })
         );
-        renderPage();
+        const { container } = renderPage();
 
-        // Default matching collapses whitespace, which is the thing under test here.
-        expect(screen.getByText('Line one\nLine two', { normalizer: (text) => text })).toBeInTheDocument();
+        expect(container.querySelectorAll('br')).toHaveLength(1);
+        expect(container.textContent).toContain('Line oneLine two');
       });
 
       it('shows the decoded preliminary report when the order already has one', () => {

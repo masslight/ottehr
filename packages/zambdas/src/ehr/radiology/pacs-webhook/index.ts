@@ -155,12 +155,13 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
     },
   ];
 
-  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time that the order was performed.
+  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time
+  // that the order was performed. Keyed on the extension alone, which is what makes it exactly-once: also
+  // requiring our status to still be pre-completed meant an order that reached `completed` by any other route
+  // (a direct patch, a seeded fixture, a callback whose patch landed while the response was lost) could never
+  // pick the stamp up afterwards, and with no stamp the order history has no `performed` row at all.
   if (advaPacsServiceRequest.status === 'completed') {
-    if (
-      srToUpdate.status !== 'completed' &&
-      srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null
-    ) {
+    if (srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null) {
       operations.push({
         op: 'add',
         path: '/extension/-',

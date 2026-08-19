@@ -181,7 +181,15 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       performedById
     );
   };
-  const canEditPerformedBy = order?.status === RadiologyOrderStatus.performed && !order.preliminaryReport;
+  // Correctable for as long as the reads are: the order is the record of who did what until it is signed
+  // off, and the study performer is no more fixed than the reads are. `radiology-update-order` allows it
+  // on the same terms, so this only decides whether the field is offered.
+  const canEditPerformedBy =
+    !isReadOnly &&
+    !order?.external &&
+    order?.status !== RadiologyOrderStatus.pending &&
+    order?.status !== RadiologyOrderStatus.ordered &&
+    order?.status !== RadiologyOrderStatus.reviewed;
 
   // Any clinician on the visit may correct a preliminary read until the order is signed off; only the
   // provider who ordered the study and wrote the final read may correct that one, which the order list
@@ -503,7 +511,6 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </>
               )}
 
-              {/* Sign-off lives with the read it applies to, rather than in a separate task banner. */}
               {order.task && (
                 <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                   <LoadingButton

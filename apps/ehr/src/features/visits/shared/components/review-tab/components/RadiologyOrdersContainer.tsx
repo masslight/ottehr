@@ -2,7 +2,7 @@ import { Box, Divider, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
-import { decodeRadiologyReport } from 'utils/lib/fhir/radiology';
+import { safeRadiologyReportHtml } from 'src/features/radiology/reportHtml';
 import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
@@ -34,15 +34,16 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
 
     if (finalReport) {
       reportType = 'Final Read';
-      report = decodeRadiologyReport(finalReport);
+      report = safeRadiologyReportHtml(finalReport);
     } else if (preliminaryReport) {
-      report = decodeRadiologyReport(preliminaryReport);
+      report = safeRadiologyReportHtml(preliminaryReport);
     }
 
     return (
       <Box>
         <span style={{ fontWeight: 'bold' }}>{reportType}: </span>
-        <span style={{ whiteSpace: 'pre-wrap' }}>{report}</span>
+        {/* Displayed as the radiologist sent it, sanitized in `safeRadiologyReportHtml`. */}
+        <span style={{ display: 'inline' }} dangerouslySetInnerHTML={{ __html: report ?? '' }} />
       </Box>
     );
   };
