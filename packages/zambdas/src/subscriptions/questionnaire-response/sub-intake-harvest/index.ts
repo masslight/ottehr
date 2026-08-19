@@ -1,8 +1,9 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Coding, Encounter, Location, Observation, Patient, Task } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Location, Observation, Patient, Questionnaire, Task } from 'fhir/r4b';
 import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from 'utils/lib/fhir/constants';
+import { getCanonicalQuestionnaire, isOttehrManagedIntakeQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { getPatchOperationsForNewMetaTags } from 'utils/lib/fhir/resourcePatch';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -43,15 +44,62 @@ export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput
   }
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
-  const response = await performEffect(validatedParameters, oystehr);
+
+  const effectInput = await complexValidation(validatedParameters, oystehr);
+
+  const response = await performEffect(effectInput, oystehr);
+
   return {
     statusCode: 200,
     body: JSON.stringify(response),
   };
 });
 
+// validate that this questionnaire is a candidate for sub-intake-harvest
+// with the introduction of flows its, the subscription criteria was broadened
+// this logic will determine if the QuestionnaireResponse that triggered the invocation is actually a candidate
+const complexValidation = async (
+  input: QRSubscriptionInput,
+  oystehr: Oystehr
+): Promise<QRSubscriptionInput | undefined> => {
+  const { qr } = input;
+  const questionnaireUrl = qr.questionnaire;
+
+  if (!questionnaireUrl) return;
+
+  if (isOttehrManagedIntakeQuestionnaire(questionnaireUrl)) return input;
+
+  const [url, version] = questionnaireUrl.split('|');
+  if (!url || !version) return;
+
+  const canonicalUrl = { url, version };
+
+  let questionnaire: Questionnaire | undefined;
+  try {
+    questionnaire = await getCanonicalQuestionnaire(canonicalUrl, oystehr);
+  } catch (e) {
+    // I don't think this should happen but I don't see a reason to error,
+    // we will just treat this case an "un-harvestable" and return undefined
+    console.log(`could not find Questionnaire for ${canonicalUrl.url}|${canonicalUrl.version}`, e);
+    return;
+  }
+
+  // we must check the questionnaire to see if
+  // // 1) there is a derivedFrom attribute and if so
+  // // 2) it is an ottehr managed intake questionnaire
+
+  if (!questionnaire.derivedFrom) return;
+
+  const containsHarvestableQ = questionnaire.derivedFrom.some((q) => isOttehrManagedIntakeQuestionnaire(q));
+  if (!containsHarvestableQ) return;
+
+  return input;
+};
+
 // this is exported to facilitate integration testing
-export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr): Promise<string> => {
+export const performEffect = async (input: QRSubscriptionInput | undefined, oystehr: Oystehr): Promise<string> => {
+  if (!input) return 'No harvesting needed';
+
   const { qr, secrets } = input;
 
   if (qr.status !== 'completed' && qr.status !== 'amended') {
