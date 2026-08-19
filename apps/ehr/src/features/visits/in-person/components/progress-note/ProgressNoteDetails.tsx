@@ -58,6 +58,7 @@ import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { InlineEditSection } from './InlineEditSection';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
+import { RadiologyInlineFlow } from './RadiologyInlineFlow';
 
 export const ProgressNoteDetails: FC = () => {
   const { appointment, encounter } = useAppointmentData();
@@ -231,7 +232,15 @@ export const ProgressNoteDetails: FC = () => {
         resultsPending={externalLabResultsPending}
       />
     ),
-    showRadiologyContainer && <RadiologyOrdersContainer radiologyOrders={radiologyOrders} />,
+    (showRadiologyContainer || (inlineEditEnabled && FEATURE_FLAGS.RADIOLOGY_ENABLED)) && (
+      <InlineEditSection
+        sectionName="radiology"
+        editLabel="Edit radiology orders"
+        editContent={<RadiologyInlineFlow />}
+      >
+        <RadiologyOrdersContainer radiologyOrders={radiologyOrders ?? []} />
+      </InlineEditSection>
+    ),
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

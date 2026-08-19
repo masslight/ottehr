@@ -282,9 +282,21 @@ export const RadiologyOrderFormActions: React.FC<{
   errors: string[] | undefined;
   onCancel?: () => void;
   cancelUrl?: string;
+  // inline (Review & Sign) usage: cancel stays on the page, onCancel handles the close
+  skipCancelNavigation?: boolean;
   clearFormButton?: React.ReactNode;
   disabled?: boolean;
-}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton, disabled }) => {
+}> = ({
+  appointmentId,
+  submitting,
+  submitLabel,
+  errors,
+  onCancel,
+  cancelUrl,
+  skipCancelNavigation,
+  clearFormButton,
+  disabled,
+}) => {
   const navigate = useNavigate();
   const theme = useTheme();
   return (
@@ -296,7 +308,9 @@ export const RadiologyOrderFormActions: React.FC<{
             sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
             onClick={() => {
               onCancel?.();
-              navigate(cancelUrl ?? `/in-person/${appointmentId}/radiology`);
+              if (!skipCancelNavigation) {
+                navigate(cancelUrl ?? `/in-person/${appointmentId}/radiology`);
+              }
             }}
           >
             Cancel

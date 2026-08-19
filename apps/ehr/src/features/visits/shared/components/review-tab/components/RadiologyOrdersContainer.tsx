@@ -1,4 +1,4 @@
-import { Box, Divider, Typography } from '@mui/material';
+import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
@@ -10,6 +10,7 @@ interface RadiologyOrdersContainerProps {
 
 export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (props) => {
   const { radiologyOrders } = props;
+  const theme = useTheme();
   const { ordersWithReads, pendingPerformedOrders } = radiologyOrders.reduce(
     (acc: { ordersWithReads: RadiologyDTO[]; pendingPerformedOrders: RadiologyDTO[] }, order) => {
       // External orders never produce reads; they're resulted once their upload sets externalResultReviewed.
@@ -59,6 +60,11 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
       <Typography variant="h5" color="primary.dark">
         Radiology
       </Typography>
+      {/* The section previously only rendered with orders; the Review & Sign inline-edit
+          prototype renders it always, so an empty state is needed. */}
+      {radiologyOrders.length === 0 && (
+        <Typography color={theme.palette.text.secondary}>No radiology orders</Typography>
+      )}
       {ordersWithReads.map((order, idx) => (
         <Box key={`radiology-order-${order.serviceRequestId}`}>
           <Box display="flex" flexDirection="column" gap={0.5}>

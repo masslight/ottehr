@@ -1,6 +1,6 @@
 import { Stack } from '@mui/material';
 import { FC } from 'react';
-import { MedicalHistoryDoubleCard } from '../../../shared/components/medical-history-tab';
+import { MedicalHistoryDoubleCard } from '../../../shared/components/medical-history-tab/MedicalHistoryDoubleCard';
 import { InfoAlert } from '../InfoAlert';
 import { HospitalizationForm } from './HospitalizationForm';
 import { HospitalizationNotes } from './HospitalizationNotes';

@@ -52,9 +52,13 @@ import { useRadiologyConsentExists } from '../components/useRadiologyConsentExis
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
+  // 'inline' renders the bare form (no page container/breadcrumbs) and finishes via
+  // onFinished instead of navigating — used by the Review & Sign inline edit flow
+  variant?: 'page' | 'inline';
+  onFinished?: () => void;
 }
 
-export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => {
+export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ variant = 'page', onFinished }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
@@ -276,7 +280,11 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
         }
 
         clearDraft(encounter.id);
-        navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
+        if (variant === 'inline') {
+          onFinished?.();
+        } else {
+          navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
+        }
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -297,114 +305,116 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const consentExists = useRadiologyConsentExists();
 
-  return (
-    <DetailPageContainer>
-      <WithRadiologyBreadcrumbs sectionName="Order Radiology">
-        <Stack spacing={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-              Order Radiology
-            </Typography>
-          </Box>
-          {encounter.id && hasDraft(encounter.id) && (
-            <UnsavedDraftWarning
-              message={
-                draft.hasNavigatedAway
-                  ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
-                  : 'You have a radiology order in progress. Your draft will be saved.'
+  const formContent = (
+    <Stack spacing={1}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+          Order Radiology
+        </Typography>
+      </Box>
+      {encounter.id && hasDraft(encounter.id) && (
+        <UnsavedDraftWarning
+          message={
+            draft.hasNavigatedAway
+              ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+              : 'You have a radiology order in progress. Your draft will be saved.'
+          }
+        />
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <Paper sx={{ p: 3 }}>
+          <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
+            <Grid item xs={12}>
+              <QuickPicksButton
+                quickPicks={mergedQuickPicks}
+                loading={mergedQuickPicksLoading}
+                getLabel={(qp) => {
+                  const parts = [qp.name] as string[];
+                  if (qp.cptCode) parts.push(qp.cptCode);
+                  return parts.join(' — ');
+                }}
+                onSelect={onQuickPickSelect}
+                disabled={submitting}
+                showAddOption
+                isAdmin={isAdmin}
+                onAddOrUpdate={() => void openQuickPickDialog()}
+                searchable
+              />
+            </Grid>
+            <RadiologyOrderCoreFields form={draftForm} />
+            <Grid item xs={12}>
+              <Box style={{ display: 'flex', alignItems: 'center' }}>
+                <Checkbox
+                  checked={consentObtained}
+                  onChange={() => {
+                    setConsentObtained(!consentObtained);
+                    if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
+                  }}
+                />
+                <Typography>
+                  I have obtained the{' '}
+                  {consentExists ? (
+                    <Link
+                      target="_blank"
+                      to={`/consent_radiology.pdf`}
+                      style={{ color: theme.palette.primary.main }}
+                      rel="noopener noreferrer"
+                    >
+                      consent for X-ray
+                    </Link>
+                  ) : (
+                    'consent for X-ray'
+                  )}
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                sx={{ fontSize: '14px' }}
+                control={
+                  <Switch
+                    checked={stat}
+                    onChange={() => {
+                      setStat(!stat);
+                      if (encounter.id) setDraft(encounter.id, { stat: !stat });
+                    }}
+                  />
+                }
+                label={<Typography variant="body2">STAT</Typography>}
+              />
+            </Grid>
+            <RadiologyOrderFormActions
+              appointmentId={appointmentIdFromUrl || ''}
+              submitting={submitting}
+              submitLabel="Order"
+              disabled={!hasNPI}
+              errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
+              skipCancelNavigation={variant === 'inline'}
+              onCancel={() => {
+                if (encounter.id) clearDraft(encounter.id);
+                if (variant === 'inline') onFinished?.();
+              }}
+              clearFormButton={
+                hasDraft(encounter.id ?? '') ? (
+                  <Button
+                    variant="outlined"
+                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                    onClick={handleClearForm}
+                  >
+                    Clear Form
+                  </Button>
+                ) : undefined
               }
             />
-          )}
+          </Grid>
+        </Paper>
+      </form>
+    </Stack>
+  );
 
-          <form onSubmit={handleSubmit}>
-            <Paper sx={{ p: 3 }}>
-              <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-                <Grid item xs={12}>
-                  <QuickPicksButton
-                    quickPicks={mergedQuickPicks}
-                    loading={mergedQuickPicksLoading}
-                    getLabel={(qp) => {
-                      const parts = [qp.name] as string[];
-                      if (qp.cptCode) parts.push(qp.cptCode);
-                      return parts.join(' — ');
-                    }}
-                    onSelect={onQuickPickSelect}
-                    disabled={submitting}
-                    showAddOption
-                    isAdmin={isAdmin}
-                    onAddOrUpdate={() => void openQuickPickDialog()}
-                    searchable
-                  />
-                </Grid>
-                <RadiologyOrderCoreFields form={draftForm} />
-                <Grid item xs={12}>
-                  <Box style={{ display: 'flex', alignItems: 'center' }}>
-                    <Checkbox
-                      checked={consentObtained}
-                      onChange={() => {
-                        setConsentObtained(!consentObtained);
-                        if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
-                      }}
-                    />
-                    <Typography>
-                      I have obtained the{' '}
-                      {consentExists ? (
-                        <Link
-                          target="_blank"
-                          to={`/consent_radiology.pdf`}
-                          style={{ color: theme.palette.primary.main }}
-                          rel="noopener noreferrer"
-                        >
-                          consent for X-ray
-                        </Link>
-                      ) : (
-                        'consent for X-ray'
-                      )}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    sx={{ fontSize: '14px' }}
-                    control={
-                      <Switch
-                        checked={stat}
-                        onChange={() => {
-                          setStat(!stat);
-                          if (encounter.id) setDraft(encounter.id, { stat: !stat });
-                        }}
-                      />
-                    }
-                    label={<Typography variant="body2">STAT</Typography>}
-                  />
-                </Grid>
-                <RadiologyOrderFormActions
-                  appointmentId={appointmentIdFromUrl || ''}
-                  submitting={submitting}
-                  submitLabel="Order"
-                  disabled={!hasNPI}
-                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
-                  onCancel={() => {
-                    if (encounter.id) clearDraft(encounter.id);
-                  }}
-                  clearFormButton={
-                    hasDraft(encounter.id ?? '') ? (
-                      <Button
-                        variant="outlined"
-                        sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                        onClick={handleClearForm}
-                      >
-                        Clear Form
-                      </Button>
-                    ) : undefined
-                  }
-                />
-              </Grid>
-            </Paper>
-          </form>
-        </Stack>
-      </WithRadiologyBreadcrumbs>
-
+  const dialogs = (
+    <>
       {/* Save as Quick Pick dialog */}
       <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle
@@ -495,6 +505,22 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           </Button>
         </DialogActions>
       </Dialog>
+    </>
+  );
+
+  if (variant === 'inline') {
+    return (
+      <>
+        {formContent}
+        {dialogs}
+      </>
+    );
+  }
+
+  return (
+    <DetailPageContainer>
+      <WithRadiologyBreadcrumbs sectionName="Order Radiology">{formContent}</WithRadiologyBreadcrumbs>
+      {dialogs}
     </DetailPageContainer>
   );
 };
