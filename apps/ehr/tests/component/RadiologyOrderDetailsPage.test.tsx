@@ -435,8 +435,9 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         expect(getPerformedBySelect()).toHaveTextContent('Dr. Test');
       });
 
-      // The "performed" history row is blank until someone records who took the image, and the PACS callback
-      // that produced that status can't tell us. Saving it must not require writing a read first.
+      // The "performed" row itself appears as soon as the PACS callback stamps the performed-on time; it is
+      // the row's *performer* that stays blank, because that callback carries no practitioner we can resolve.
+      // So recording the name must not require writing a read first.
       it('saves the performer on its own, without a preliminary read', async () => {
         const user = userEvent.setup();
         const mockHandleSavePerformedBy = vi.fn().mockResolvedValue(true);
