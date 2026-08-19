@@ -340,8 +340,9 @@ export default function VisitDetailsPage(): ReactElement {
   useEffect(() => {
     // The route can switch to a different visit while this page stays mounted, so drop the previous
     // visit's attestation. Without this the seeding effect below never re-runs (the local value is
-    // no longer null) and the new visit would render with the old one's checkbox state.
-    setConsentAttested(null);
+    // no longer null) and the new visit would render with the old one's checkbox state. The
+    // functional form keeps the initial mount a no-op instead of a redundant state update.
+    setConsentAttested((previous) => (previous === null ? previous : null));
   }, [appointmentID]);
 
   useEffect(() => {
@@ -825,6 +826,65 @@ export default function VisitDetailsPage(): ReactElement {
     />
   );
 
+  // The consent block's own Save commits the checkbox. It stays disabled until the checkbox differs
+  // from what's persisted, so when nothing has been attested yet the tooltip has to spell out that
+  // the box must be checked first. No reason means no Tooltip at all: an empty title would still
+  // wrap the button in a listener-bearing anchor that never shows anything.
+  const consentSaveBlockedReason =
+    !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : undefined;
+
+  const consentAttestationSaveButton = (
+    <LoadingButton
+      data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
+      onClick={async () => {
+        await bookingDetailsMutation
+          .mutateAsync({
+            appointmentId: appointment?.id ?? '',
+            bookingDetails: {
+              consentForms: {
+                consentAttested: consentAttested ?? false,
+              },
+            },
+          })
+          .catch((error) => {
+            if (isApiError(error)) {
+              enqueueSnackbar(error.message, { variant: 'error' });
+            } else {
+              console.error('Error updating consent attestation:', error);
+              enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
+            }
+          });
+      }}
+      loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
+      disabled={!hasConsentChanged}
+    >
+      Save
+    </LoadingButton>
+  );
+
+  const consentAttestationFooter = consentAttested !== null && (
+    <Box style={{ display: 'flex', alignItems: 'center' }}>
+      <Checkbox
+        inputProps={
+          { 'data-testid': dataTestIds.visitDetailsPage.consentAttestationCheckbox } as Record<string, unknown>
+        }
+        checked={consentAttested ?? false}
+        onChange={(_e: any, checked: boolean) => {
+          setConsentAttested(checked);
+        }}
+      />
+      <Typography>I verify that patient consent has been obtained.</Typography>
+      {consentSaveBlockedReason ? (
+        <Tooltip title={consentSaveBlockedReason}>
+          {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
+          <span>{consentAttestationSaveButton}</span>
+        </Tooltip>
+      ) : (
+        consentAttestationSaveButton
+      )}
+    </Box>
+  );
+
   return (
     <PageContainer>
       <>
@@ -1163,55 +1223,7 @@ export default function VisitDetailsPage(): ReactElement {
                         patientDetails={{
                           ...signedConsentForm,
                         }}
-                        footerCellContent={
-                          consentAttested !== null && (
-                            <Box style={{ display: 'flex', alignItems: 'center' }}>
-                              <Checkbox
-                                data-testid={dataTestIds.visitDetailsPage.consentAttestationCheckbox}
-                                checked={consentAttested ?? false}
-                                onChange={(_e: any, checked: boolean) => {
-                                  setConsentAttested(checked);
-                                }}
-                              />
-                              <Typography>I verify that patient consent has been obtained.</Typography>
-                              <Tooltip
-                                title={
-                                  !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : ''
-                                }
-                              >
-                                {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
-                                <span>
-                                  <LoadingButton
-                                    data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
-                                    onClick={async () => {
-                                      await bookingDetailsMutation
-                                        .mutateAsync({
-                                          appointmentId: appointment?.id ?? '',
-                                          bookingDetails: {
-                                            consentForms: {
-                                              consentAttested: consentAttested ?? false,
-                                            },
-                                          },
-                                        })
-                                        .catch((error) => {
-                                          if (isApiError(error)) {
-                                            enqueueSnackbar(error.message, { variant: 'error' });
-                                          } else {
-                                            console.error('Error updating consent attestation:', error);
-                                            enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
-                                          }
-                                        });
-                                    }}
-                                    loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
-                                    disabled={!hasConsentChanged}
-                                  >
-                                    Save
-                                  </LoadingButton>
-                                </span>
-                              </Tooltip>
-                            </Box>
-                          )
-                        }
+                        footerCellContent={consentAttestationFooter}
                       />
                     </Grid>
                     {allCustomForms.length > 0 ? (

@@ -145,8 +145,9 @@ const renderPage = async (consentIsAttested: boolean): Promise<void> => {
   await screen.findByText('I verify that patient consent has been obtained.');
 };
 
+// The test id sits on the checkbox's underlying input, so this is the real control, not MUI's wrapper.
 const consentCheckbox = (): HTMLInputElement =>
-  screen.getByTestId(dataTestIds.visitDetailsPage.consentAttestationCheckbox).querySelector('input')!;
+  screen.getByTestId(dataTestIds.visitDetailsPage.consentAttestationCheckbox) as HTMLInputElement;
 
 const consentSaveButton = (): HTMLElement =>
   screen.getByTestId(dataTestIds.visitDetailsPage.consentAttestationSaveButton);

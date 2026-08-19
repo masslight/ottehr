@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { ActionBar } from '../../src/features/visits/shared/components/patient/ActionBar';
@@ -11,7 +12,7 @@ import { ActionBar } from '../../src/features/visits/shared/components/patient/A
 const BLOCKED_REASON = 'Please check "I verify that patient consent has been obtained." before saving.';
 
 const renderActionBar = (
-  overrides: Partial<React.ComponentProps<typeof ActionBar>> = {}
+  overrides: Partial<ComponentProps<typeof ActionBar>> = {}
 ): { handleSave: ReturnType<typeof vi.fn> } => {
   const handleSave = vi.fn().mockResolvedValue(undefined);
   render(
