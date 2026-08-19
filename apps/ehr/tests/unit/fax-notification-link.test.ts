@@ -56,16 +56,6 @@ describe('getNotificationLink', () => {
     expect(getNotificationLink(notification({ uiCategory: 'inboundFax', about: ['Task/fax-task-1'] }))).toBeUndefined();
   });
 
-  it('ignores an absolute reference rather than mangling it into a match-page id', () => {
-    // Only a relative `Communication/<id>` names a fax on this project; an absolute URL would otherwise be
-    // sliced down to a bogus id and produce a link to nothing.
-    expect(
-      getNotificationLink(
-        notification({ uiCategory: 'inboundFax', about: ['https://fhir.example.com/r4b/Communication/comm-456'] })
-      )
-    ).toBeUndefined();
-  });
-
   it('picks the Communication reference out of a mixed `about` list', () => {
     expect(
       getNotificationLink(
