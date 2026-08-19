@@ -98,6 +98,8 @@ export interface ChartPlanRequest {
   incremental?: boolean;
   /** Bounded rolling window of prior turns. Never contains a transcript. */
   history?: ConversationTurn[];
+  /** See CallerPatientStatus. Used only when the chart lookup yields nothing. */
+  patientStatus?: CallerPatientStatus;
 }
 
 /** An action after every server guard has run. */
@@ -138,6 +140,21 @@ export interface ReviewSuggestion {
   partialNote?: string;
   actions: PlannedAction[];
 }
+
+/**
+ * New-vs-established, when the CALLER already knows it and the endpoint cannot look it up.
+ *
+ * The endpoint normally derives this from the chart, and that stays authoritative: demographics are read
+ * from the record, never inferred from a narrative. This field is the narrow case where there is no
+ * encounter to read — an eval corpus whose cases carry the status but only a hashed encounter id, for
+ * PHI reasons. It is used ONLY when the chart lookup produced nothing, so a caller can never override
+ * what the record says.
+ *
+ * It matters because the status decides the E&M code FAMILY: 9920x for a new patient, 9921x for an
+ * established one. Without it the prompt falls back to the established family, which is wrong for every
+ * new patient and shows up as a 100% E&M mismatch that looks like a model failure.
+ */
+export type CallerPatientStatus = 'new' | 'established';
 
 export interface ChartReviewRequest extends Omit<ChartPlanRequest, 'incremental' | 'history'> {
   /** The note as written, which the review pass reads back against the narrative. */

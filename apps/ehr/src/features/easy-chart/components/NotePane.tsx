@@ -15,9 +15,14 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Box, Collapse, Divider, Link, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, Fragment, ReactNode, useState } from 'react';
+import { ChiefComplaintField, ChiefComplaintFieldReadOnly } from 'src/features/visits/ChiefComplaintField';
 import { HistoryOfPresentIllnessField, HistoryOfPresentIllnessFieldReadOnly } from 'src/features/visits/HpiField';
 import { MechanismOfInjuryField, MechanismOfInjuryFieldReadOnly } from 'src/features/visits/MechanismOfInjuryField';
 import { EMCodeField } from 'src/features/visits/shared/components/assessment-tab/EMCodeField';
+import {
+  MedicalDecisionField,
+  MedicalDecisionFieldReadOnly,
+} from 'src/features/visits/shared/components/assessment-tab/MedicalDecisionField';
 import { DispositionCard } from 'src/features/visits/shared/components/DispositionCard';
 import {
   DispositionSummary,
@@ -25,11 +30,11 @@ import {
   SubspecialtyFollowUpList,
 } from 'src/features/visits/shared/components/DispositionSummary';
 import { AddendumCard } from 'src/features/visits/shared/components/review-tab/AddendumCard';
+import { AppointmentAccessibilityOverrideProvider } from 'src/features/visits/shared/hooks/appointment-accessibility-override';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { groupExamFindingsBySection } from 'utils/lib/config-helpers/exam-observations';
-import { NoteTextField, PlannableVitalField } from 'utils/lib/easy-chart/actions';
-import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
-import { ADDABLE_VITAL_FIELDS, trimVitalNumber, VITAL_FIXED_UNIT, VITAL_LABEL } from 'utils/lib/easy-chart/vital-entry';
+import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { trimVitalNumber, VITAL_FIXED_UNIT, VITAL_LABEL } from 'utils/lib/easy-chart/vital-entry';
 import { createMedicationString } from 'utils/lib/fhir/medication-administration';
 import { formatHeightObservationValue } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -50,22 +55,16 @@ import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { buildChartSnapshot } from '../executor/chartSnapshot';
 import { ProvenanceRecord, ProvenanceState } from '../provenance/provenance';
 import { AiChartedItem, ItemCorrection } from './AiChartedItem';
-import { InlineNoteField } from './InlineNoteField';
 import { buildScreeningQuestionRows, computeSectionVisibility } from './note-visibility';
 import { PROCEDURE_REVIEW_FIELDS, procedureFieldLabel } from './procedure-fields';
-import { VitalAddChips, VitalDraft, VitalEntryEditor } from './VitalEntry';
+import { VitalAddChips } from './VitalEntry';
 
 export interface NotePaneProps {
   chartData: GetChartDataResponse | undefined;
   provenance: ProvenanceState;
   readOnly?: boolean;
-  onSaveNoteText: (field: NoteTextField, text: string) => void | Promise<void>;
-  /** Hand-editing a field clears the AI mark for the rows it owns. */
-  onNoteEditStart: (field: NoteTextField) => void;
   onConfirmItem: (resourceId: string) => void;
   onDeleteItem: (field: string, resourceId: string, display: string) => void;
-  /** Quick-add and inline correction of a vital, straight into the note. */
-  onSaveVital?: (draft: VitalDraft) => void | Promise<void>;
   /** Promote a diagnosis to primary, demoting the current one. */
   onMakePrimary?: (diagnosis: DiagnosisDTO) => void | Promise<void>;
   /** Confirm ONE template-filled procedure field, each of which is its own assertion. */
@@ -233,11 +232,8 @@ export const NotePane: FC<NotePaneProps> = ({
   chartData,
   provenance,
   readOnly,
-  onSaveNoteText,
-  onNoteEditStart,
   onConfirmItem,
   onDeleteItem,
-  onSaveVital,
   onMakePrimary,
   onConfirmProcedureField,
   inHouseMedications = [],
@@ -309,24 +305,11 @@ export const NotePane: FC<NotePaneProps> = ({
     </Section>
   );
 
-  const freeText = (field: NoteTextField): ReactNode => (
-    <InlineNoteField
-      key={field}
-      label={NOTE_FIELD_LABELS[field]}
-      value={chartData?.[chartKeyForNoteField(field)]?.text}
-      disabled={readOnly}
-      onSave={(text) => onSaveNoteText(field, text)}
-      onEditStart={() => onNoteEditStart(field)}
-      dataTestId={`easy-chart-note-${field}`}
-    />
-  );
-
   const vitals = (chartData?.vitalsObservations ?? []) as VitalsObservationDTO[];
   const instructions = chartData?.instructions ?? [];
   const prescriptions = chartData?.prescribedMedications ?? [];
   const radiologyOrders = chartData?.radiologyOrders ?? [];
   const procedures = chartData?.procedures ?? [];
-  const vitalsEditable = Boolean(onSaveVital) && !readOnly;
 
   // ROS states only what the patient REPORTED. A recorded "denies" is a negative the section does not
   // assert, and listing it reads as a positive finding to anyone skimming.
@@ -349,7 +332,9 @@ export const NotePane: FC<NotePaneProps> = ({
   const visible = computeSectionVisibility({
     chartData,
     editable: !readOnly,
-    canSaveVital: Boolean(onSaveVital),
+    // The chart's own vitals cards do the saving now, and they only need the encounter. This is still
+    // "a save path is really wired" — the chips would otherwise open cards that cannot write.
+    canSaveVital: Boolean(encounterId),
     inHouseMedications,
     immunizations,
     labOrders,
@@ -465,7 +450,22 @@ export const NotePane: FC<NotePaneProps> = ({
 
     // Always shown: the free-text fields are how a provider writes the note by hand, and a section you
     // cannot see is a section you cannot type into.
-    { id: 'chief-complaint', node: freeText('chiefComplaint') },
+    // The Chief Complaint page's own field. NOTE THE STORAGE SWAP: this component writes the
+    // `historyOfPresentIllness` chart key, which is what the whole app displays as the chief complaint —
+    // the same mapping `chartKeyForNoteField` encodes, and the reason a reimplementation of either field
+    // gets the wrong key half the time.
+    {
+      id: 'chief-complaint',
+      node: (
+        <Section key="chief-complaint" label={NOTE_FIELD_LABELS.chiefComplaint}>
+          {readOnly || !encounterId ? (
+            <ChiefComplaintFieldReadOnly label="" encounterId={encounterId} />
+          ) : (
+            <ChiefComplaintField label="" encounterId={encounterId} onSaved={onNoteFieldSaved} />
+          )}
+        </Section>
+      ),
+    },
     // THE IN-PERSON CHART'S OWN FIELDS, not a second implementation. Each owns its debounced save, its
     // saving indicator, and — for the MOI — the "what to include" guidance a provider expects to find
     // there. They also encode the CC↔HPI storage swap (this field writes the `chiefComplaint` key), which
@@ -550,24 +550,25 @@ export const NotePane: FC<NotePaneProps> = ({
       id: 'vitals',
       node: (
         <Section key="vitals" label="Vitals">
-          {vitals.length === 0 && !vitalsEditable && <EmptyValue />}
+          {vitals.length === 0 && readOnly && <EmptyValue />}
+          {/* The charted readings, as the NOTE renders them: canonical units printed in both systems, and
+              the AI marks the chart's own cards know nothing about. The cards below are for ENTRY. */}
           {vitals.map((vital, index) => (
             <VitalRow
               key={vital.resourceId ?? index}
               vital={vital}
               provenance={record(vital.resourceId)}
-              editable={vitalsEditable}
               onConfirm={vital.resourceId ? () => onConfirmItem(vital.resourceId!) : undefined}
               onDelete={
                 readOnly || !vital.resourceId
                   ? undefined
                   : () => onDeleteItem('vitalsObservations', vital.resourceId!, describeVital(vital))
               }
-              onSave={onSaveVital}
             />
           ))}
-          {/* Ghost "+ Temp" chips: a simple numeric should not have to be routed through the assistant. */}
-          {vitalsEditable && onSaveVital && <VitalAddChips charted={vitals} onSave={onSaveVital} />}
+          {/* Ghost "+ HR" chips: a simple numeric should not have to be routed through the assistant.
+              Clicking one opens the Vitals page's own card for that vital. */}
+          {encounterId && <VitalAddChips encounterId={encounterId} readOnly={readOnly} />}
           <SectionNotes notes={notesOfType(NOTE_TYPE.VITALS)} />
         </Section>
       ),
@@ -694,7 +695,25 @@ export const NotePane: FC<NotePaneProps> = ({
       }),
     },
 
-    { id: 'mdm', node: freeText('medicalDecision') },
+    // The Assessment card's own MDM field, not a second implementation. It owns the debounced save, the
+    // in-flight indicator, and the `*` the practice's `mdmRequired` config adds to the label — and MDM is
+    // a sign blocker, so a field that saves differently here than in the chart is a note that reports
+    // itself signable in one place and not the other.
+    {
+      id: 'mdm',
+      node: (
+        <Section key="mdm" label={NOTE_FIELD_LABELS.medicalDecision}>
+          {readOnly || !encounterId ? (
+            <MedicalDecisionFieldReadOnly encounterId={encounterId} />
+          ) : (
+            // Empty label, as for HPI: the section heading already names the field, and the `*` the
+            // practice's mdmRequired config appends would read as a second, competing requirement marker
+            // next to the readiness banner that already reports MDM as a sign blocker.
+            <MedicalDecisionField label="" encounterId={encounterId} onSaved={onNoteFieldSaved} />
+          )}
+        </Section>
+      ),
+    },
 
     {
       id: 'em-code',
@@ -909,11 +928,17 @@ export const NotePane: FC<NotePaneProps> = ({
   const shown = sections.filter((section) => visible[section.id]);
 
   return (
-    <Stack spacing={2} divider={<Divider flexItem />} sx={{ pb: 4 }}>
-      {shown.map((section) => (
-        <Fragment key={section.id}>{section.node}</Fragment>
-      ))}
-    </Stack>
+    // The chart's own components — the vitals cards, the note list, the disposition card — read the lock
+    // from `useGetAppointmentAccessibility`, which derives it from the APPOINTMENT STORE. This route does
+    // not populate that store, and an empty store answers "not locked": on a signed visit every one of
+    // them would render live inputs. The provider hands them the truth.
+    <AppointmentAccessibilityOverrideProvider value={{ isAppointmentReadOnly: Boolean(readOnly) }}>
+      <Stack spacing={2} divider={<Divider flexItem />} sx={{ pb: 4 }}>
+        {shown.map((section) => (
+          <Fragment key={section.id}>{section.node}</Fragment>
+        ))}
+      </Stack>
+    </AppointmentAccessibilityOverrideProvider>
   );
 };
 
@@ -924,41 +949,16 @@ export const NotePane: FC<NotePaneProps> = ({
 const VitalRow: FC<{
   vital: VitalsObservationDTO;
   provenance?: ProvenanceRecord;
-  editable?: boolean;
   onConfirm?: () => void;
   onDelete?: () => void;
-  onSave?: (draft: VitalDraft) => void | Promise<void>;
-}> = ({ vital, provenance, editable, onConfirm, onDelete, onSave }) => {
-  const [editing, setEditing] = useState(false);
-  const addable = (ADDABLE_VITAL_FIELDS as readonly string[]).includes(vital.field);
-
-  if (editing && onSave) {
-    return (
-      <VitalEntryEditor
-        field={vital.field as PlannableVitalField}
-        initialCanonical={'value' in vital && typeof vital.value === 'number' ? vital.value : undefined}
-        initialSystolic={'systolicPressure' in vital ? vital.systolicPressure : undefined}
-        initialDiastolic={'diastolicPressure' in vital ? vital.diastolicPressure : undefined}
-        onCommit={(draft) => {
-          setEditing(false);
-          if (draft) void onSave(draft);
-        }}
-        onCancel={() => setEditing(false)}
-      />
-    );
-  }
-
-  return (
-    <AiChartedItem
-      provenance={provenance}
-      onConfirm={onConfirm}
-      onDelete={onDelete}
-      onCorrect={editable && onSave && addable ? () => setEditing(true) : undefined}
-    >
-      <Typography variant="body2">{describeVital(vital)}</Typography>
-    </AiChartedItem>
-  );
-};
+}> = ({ vital, provenance, onConfirm, onDelete }) => (
+  // No inline editor. A reading is corrected the way the Vitals page corrects one — remove it and add
+  // the right value through the card — because each reading is its own observation with its own time, and
+  // silently rewriting one in place would lose that it was ever taken.
+  <AiChartedItem provenance={provenance} onConfirm={onConfirm} onDelete={onDelete}>
+    <Typography variant="body2">{describeVital(vital)}</Typography>
+  </AiChartedItem>
+);
 
 /**
  * A procedure, with a "default, verify" marker on every field a template filled.

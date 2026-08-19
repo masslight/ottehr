@@ -46,6 +46,20 @@ describe('easy-chart-review request validation', () => {
     expect(params.templateTitles).toBeUndefined();
   });
 
+  // Review renders the same patient block as the planner. Losing patientStatus here does not fail a
+  // request — it silently makes the tail say "unknown", and the prompt's documented fallback then codes
+  // every new patient into the established E&M family, overwriting a correct code from the plan.
+  it('carries patientStatus through, and only the two legal values', () => {
+    expect(validateRequestParameters(asInput({ narrative: 'n', patientStatus: 'new' })).patientStatus).toBe('new');
+    expect(validateRequestParameters(asInput({ narrative: 'n', patientStatus: 'established' })).patientStatus).toBe(
+      'established'
+    );
+    expect(
+      validateRequestParameters(asInput({ narrative: 'n', patientStatus: 'brand-new' })).patientStatus
+    ).toBeUndefined();
+    expect(validateRequestParameters(asInput({ narrative: 'n' })).patientStatus).toBeUndefined();
+  });
+
   it('rejects a non-string encounterId', () => {
     expect(() => validateRequestParameters(asInput({ narrative: 'n', encounterId: 7 }))).toThrow(/encounterId/);
   });

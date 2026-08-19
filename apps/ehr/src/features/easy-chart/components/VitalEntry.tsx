@@ -1,221 +1,113 @@
-// Typing a vital directly into the note.
+// The vitals ENTRY affordance: a row of ghost chips, and the Vitals page's own INPUT ROW for whichever
+// one is open.
 //
-// Vitals are not searchable the way diagnoses and medications are, so they do not go through the
-// catalogue picker — they get a numeric inline editor with a box per unit and live cross-conversion,
-// the same affordance the regular Vitals cards give. That is the point of the quick-add chips too: a
-// simple numeric should not have to be routed through the assistant.
+// The chips exist because a simple numeric should not have to be routed through the assistant — "+ HR",
+// click, type, Add. What they open is deliberately NOT a form of this feature's own: it is the exact entry
+// row the Vitals page renders for that vital, with its unit boxes, its qualifier dropdown, its validation
+// and its save. Those know things a reimplementation forgets — °C/°F kept in step, ft'in" parsing, the
+// qualifier that says how a temperature was taken, the plausibility bounds — and each of those is a wrong
+// number in a chart if it is re-derived here.
 //
-// Every box writes the SAME canonical value, so which one the provider types in is their choice and
-// the chart still stores °C / kg / cm.
+// `variant="input"` and not the whole card: the card also carries an accordion header repeating the latest
+// value and a history column repeating every reading, and the note has already stated both directly above
+// the chips. Only the part a provider types into belongs here.
+//
+// The cards read and write through `useVitalsManagement({ encounterId })`, which is keyed by encounter
+// and touches no appointment store, so it works on this route unchanged. Their read-only state comes from
+// `useGetAppointmentAccessibility`, which DOES read the store — the note pane wraps them in
+// `AppointmentAccessibilityOverrideProvider` so a signed visit does not render live inputs.
 
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
-import { Box, Chip, IconButton, Stack, TextField, Typography } from '@mui/material';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { Chip, Stack } from '@mui/material';
+import { FC, useState } from 'react';
+import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
+import VitalsHeartbeatCard from 'src/features/visits/shared/components/vitals/heartbeat/VitalsHeartbeatCard';
+import VitalsHeightCard from 'src/features/visits/shared/components/vitals/heights/VitalsHeightCard';
+import { useVitalsManagement } from 'src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
+import VitalsOxygenSatCard from 'src/features/visits/shared/components/vitals/oxygen-saturation/VitalsOxygenSatCard';
+import VitalsRespirationRateCard from 'src/features/visits/shared/components/vitals/respiration-rate/VitalsRespirationRateCard';
+import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals/temperature/VitalsTemperaturesCard';
+import VitalsWeightsCard from 'src/features/visits/shared/components/vitals/weights/VitalsWeightsCard';
 import { PlannableVitalField } from 'utils/lib/easy-chart/actions';
-import { ADDABLE_VITAL_FIELDS, VITAL_LABEL, vitalEntrySpec, VitalUnitField } from 'utils/lib/easy-chart/vital-entry';
-import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ADDABLE_VITAL_FIELDS, VITAL_LABEL } from 'utils/lib/easy-chart/vital-entry';
 
-export type VitalDraft =
-  | { field: PlannableVitalField; value: number }
-  | { field: 'vital-blood-pressure'; systolicPressure: number; diastolicPressure: number };
+/**
+ * Which `useVitalsManagement` field backs each chip, and which card renders it.
+ *
+ * Keyed by the PLAN's field names, because those are what the assistant's actions and the chart's
+ * observations use — the mapping is the one place the two vocabularies meet.
+ */
+const CARD_FOR_FIELD: Record<
+  PlannableVitalField,
+  { key: 'temperature' | 'heartbeat' | 'respirationRate' | 'bloodPressure' | 'oxygenSat' | 'weight' | 'height' }
+> = {
+  'vital-temperature': { key: 'temperature' },
+  'vital-heartbeat': { key: 'heartbeat' },
+  'vital-respiration-rate': { key: 'respirationRate' },
+  'vital-blood-pressure': { key: 'bloodPressure' },
+  'vital-oxygen-sat': { key: 'oxygenSat' },
+  'vital-weight': { key: 'weight' },
+  'vital-height': { key: 'height' },
+};
 
-export interface VitalEntryEditorProps {
-  field: PlannableVitalField;
-  /** Canonical starting value, when editing a charted vital rather than adding a new one. */
-  initialCanonical?: number;
-  initialSystolic?: number;
-  initialDiastolic?: number;
-  /** Called with a draft to save, or undefined when the provider cleared it — which cancels. */
-  onCommit: (draft: VitalDraft | undefined) => void;
-  onCancel: () => void;
+export interface VitalAddChipsProps {
+  encounterId: string;
+  /** Hidden while the visit is locked: there is nothing to add to a signed note. */
+  readOnly?: boolean;
 }
 
-/** Blood pressure is two numbers, not one value in convertible units, so it has its own boxes. */
-const BloodPressureBoxes: FC<{
-  systolic: string;
-  diastolic: string;
-  onChange: (systolic: string, diastolic: string) => void;
-}> = ({ systolic, diastolic, onChange }) => (
-  <Stack direction="row" spacing={0.5} alignItems="center">
-    <TextField
-      size="small"
-      label="systolic"
-      value={systolic}
-      onChange={(event) => onChange(event.target.value, diastolic)}
-      sx={{ width: 100 }}
-      autoFocus
-    />
-    <Typography>/</Typography>
-    <TextField
-      size="small"
-      label="diastolic"
-      value={diastolic}
-      onChange={(event) => onChange(systolic, event.target.value)}
-      sx={{ width: 100 }}
-    />
-    <Typography variant="caption" color="text.secondary">
-      mmHg
-    </Typography>
-  </Stack>
-);
+export const VitalAddChips: FC<VitalAddChipsProps> = ({ encounterId, readOnly }) => {
+  const [open, setOpen] = useState<PlannableVitalField[]>([]);
+  const vitals = useVitalsManagement({ encounterId });
 
-export const VitalEntryEditor: FC<VitalEntryEditorProps> = ({
-  field,
-  initialCanonical,
-  initialSystolic,
-  initialDiastolic,
-  onCommit,
-  onCancel,
-}) => {
-  const isBloodPressure = field === VitalFieldNames.VitalBloodPressure;
-  const spec = useMemo(() => vitalEntrySpec(field), [field]);
+  if (readOnly) return null;
 
-  const [systolic, setSystolic] = useState(initialSystolic != null ? String(initialSystolic) : '');
-  const [diastolic, setDiastolic] = useState(initialDiastolic != null ? String(initialDiastolic) : '');
-  // One canonical value behind every box, so typing in one updates the others.
-  const [canonical, setCanonical] = useState<number | undefined>(initialCanonical);
-  // The box being typed in keeps the provider's raw text; the others render from `canonical`. Without
-  // this, typing "3" toward "38" would be re-rendered as "3" → 37.4 °F and fight the keystrokes.
-  const [editing, setEditing] = useState<{ index: number; text: string } | undefined>();
-
-  useEffect(() => {
-    setCanonical(initialCanonical);
-  }, [initialCanonical]);
-
-  const boxText = (unit: VitalUnitField, index: number): string => {
-    if (editing?.index === index) return editing.text;
-    return canonical == null ? '' : unit.render(canonical);
-  };
-
-  const commit = (): void => {
-    if (isBloodPressure) {
-      const s = Number(systolic);
-      const d = Number(diastolic);
-      if (!Number.isFinite(s) || !Number.isFinite(d) || !systolic.trim() || !diastolic.trim()) {
-        onCommit(undefined);
-        return;
-      }
-      onCommit({ field: 'vital-blood-pressure', systolicPressure: s, diastolicPressure: d });
-      return;
-    }
-    onCommit(canonical == null ? undefined : { field, value: spec.toStored(canonical) });
-  };
+  const toggle = (field: PlannableVitalField): void =>
+    setOpen((current) => (current.includes(field) ? current.filter((f) => f !== field) : [...current, field]));
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
-      <Typography variant="body2" sx={{ minWidth: 72, fontWeight: 600 }}>
-        {VITAL_LABEL[field] ?? field}
-      </Typography>
+    <Stack spacing={1}>
+      {/* The opened cards come first and the chips stay below them, so the chip a provider just clicked
+          does not jump position under the cursor. */}
+      {open.map((field) => (
+        <VitalCard key={field} field={field} vitals={vitals} />
+      ))}
 
-      {isBloodPressure ? (
-        <BloodPressureBoxes
-          systolic={systolic}
-          diastolic={diastolic}
-          onChange={(s, d) => (setSystolic(s), setDiastolic(d))}
-        />
-      ) : (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          {spec.fields.map((unit, index) => (
-            <TextField
-              key={unit.label}
-              size="small"
-              label={unit.label}
-              value={boxText(unit, index)}
-              autoFocus={index === 0}
-              sx={{ width: 110 }}
-              onChange={(event) => {
-                const text = event.target.value;
-                setEditing({ index, text });
-                // An unparseable box clears the value rather than keeping a stale one: committing a
-                // number the provider has just typed over would chart something they did not mean.
-                setCanonical(unit.parse(text));
-              }}
-              onBlur={() => setEditing(undefined)}
-            />
-          ))}
-        </Stack>
-      )}
-
-      <IconButton size="small" onClick={commit} aria-label="Save vital">
-        <CheckIcon fontSize="small" />
-      </IconButton>
-      <IconButton size="small" onClick={onCancel} aria-label="Cancel">
-        <CloseIcon fontSize="small" />
-      </IconButton>
+      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+        {ADDABLE_VITAL_FIELDS.map((field) => (
+          <Chip
+            key={field}
+            size="small"
+            variant="outlined"
+            label={`${open.includes(field) ? '−' : '+'} ${VITAL_LABEL[field] ?? field}`}
+            onClick={() => toggle(field)}
+            sx={{ borderStyle: 'dashed', cursor: 'pointer' }}
+            data-testid={`easy-chart-add-${field}`}
+          />
+        ))}
+      </Stack>
     </Stack>
   );
 };
 
-export interface VitalAddChipsProps {
-  charted: VitalsObservationDTO[];
-  onSave: (draft: VitalDraft) => void | Promise<void>;
-}
-
-/**
- * Ghost "+ Temp" chips for the standard vitals not yet on this encounter. Clicking one opens its
- * entry line above the chips; saving removes the chip. Progressive disclosure: the affordance is
- * always there, the boxes only appear when wanted.
- */
-export const VitalAddChips: FC<VitalAddChipsProps> = ({ charted, onSave }) => {
-  const [open, setOpen] = useState<PlannableVitalField[]>([]);
-  // A just-saved field stays hidden until the chart refetch brings it back, so its chip does not
-  // flicker in and out across the round trip.
-  const [inFlight, setInFlight] = useState<PlannableVitalField[]>([]);
-
-  // Compared as plain strings: PlannableVitalField is the string subset of the VitalFieldNames enum,
-  // and a Set of the enum would not accept the subset's literals.
-  const chartedFields = useMemo(() => new Set<string>(charted.map((vital) => vital.field)), [charted]);
-
-  useEffect(() => {
-    setInFlight((current) => current.filter((field) => !chartedFields.has(field)));
-  }, [chartedFields]);
-
-  const missing = ADDABLE_VITAL_FIELDS.filter((field) => !chartedFields.has(field) && !inFlight.includes(field));
-  const chips = missing.filter((field) => !open.includes(field));
-  const openLines = open.filter((field) => missing.includes(field));
-
-  if (missing.length === 0) return null;
-
-  const close = (field: PlannableVitalField): void => setOpen((current) => current.filter((f) => f !== field));
-
-  return (
-    <>
-      {openLines.map((field) => (
-        <VitalEntryEditor
-          key={field}
-          field={field}
-          onCommit={(draft) => {
-            close(field);
-            if (!draft) return;
-            setInFlight((current) => [...current, field]);
-            const result = onSave(draft);
-            // A rejected save puts the chip back so the value can be re-entered.
-            if (result && typeof (result as Promise<void>).then === 'function') {
-              void (result as Promise<void>).then(undefined, () =>
-                setInFlight((current) => current.filter((f) => f !== field))
-              );
-            }
-          }}
-          onCancel={() => close(field)}
-        />
-      ))}
-
-      {chips.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.5 }}>
-          {chips.map((field) => (
-            <Chip
-              key={field}
-              size="small"
-              variant="outlined"
-              label={`+ ${VITAL_LABEL[field] ?? field}`}
-              onClick={() => setOpen((current) => [...current, field])}
-              sx={{ borderStyle: 'dashed' }}
-            />
-          ))}
-        </Box>
-      )}
-    </>
-  );
+/** One vital's real card. Split out so the switch stays exhaustive over the mapping above. */
+const VitalCard: FC<{
+  field: PlannableVitalField;
+  vitals: ReturnType<typeof useVitalsManagement>;
+}> = ({ field, vitals }) => {
+  switch (CARD_FOR_FIELD[field].key) {
+    case 'temperature':
+      return <VitalsTemperaturesCard field={vitals.fields.temperature} variant="input" />;
+    case 'heartbeat':
+      return <VitalsHeartbeatCard field={vitals.fields.heartbeat} variant="input" />;
+    case 'respirationRate':
+      return <VitalsRespirationRateCard field={vitals.fields.respirationRate} variant="input" />;
+    case 'bloodPressure':
+      return <VitalsBloodPressureCard field={vitals.fields.bloodPressure} variant="input" />;
+    case 'oxygenSat':
+      return <VitalsOxygenSatCard field={vitals.fields.oxygenSat} variant="input" />;
+    case 'weight':
+      return <VitalsWeightsCard field={vitals.fields.weight} variant="input" />;
+    case 'height':
+      return <VitalsHeightCard field={vitals.fields.height} variant="input" />;
+  }
 };

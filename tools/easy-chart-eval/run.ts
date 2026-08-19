@@ -44,6 +44,15 @@ function parseArgs(argv: string[]): Options {
   return { url, token, caseId: get('--case'), outDir: get('--out') };
 }
 
+/**
+ * The local zambda server wraps a handler's result as `{ status, output }`; deployed zambdas return the
+ * payload directly. Accept both, so the same runner works against either.
+ */
+function unwrap<T>(body: unknown): T {
+  const wrapper = body as { output?: T };
+  return wrapper && typeof wrapper === 'object' && 'output' in wrapper ? (wrapper.output as T) : (body as T);
+}
+
 async function plan(options: Options, request: ChartPlanRequest): Promise<ChartPlanResponse> {
   const response = await fetch(`${options.url}/local/zambda/easy-chart-plan/execute`, {
     method: 'POST',
@@ -52,7 +61,7 @@ async function plan(options: Options, request: ChartPlanRequest): Promise<ChartP
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`easy-chart-plan returned ${response.status}: ${text.slice(0, 500)}`);
-  return JSON.parse(text) as ChartPlanResponse;
+  return unwrap<ChartPlanResponse>(JSON.parse(text));
 }
 
 async function main(): Promise<void> {

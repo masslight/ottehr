@@ -19,6 +19,14 @@ import { VitalField } from './hooks/useVitalsManagement';
 export interface VitalsCardProps<TypeObsDTO extends VitalsObservationDTO> {
   field: VitalField<TypeObsDTO>;
   historyElementSkeletonText?: string;
+  /**
+   * `input` renders ONLY the entry row — no accordion header, no history column.
+   *
+   * For a surface that already states the charted readings itself and only needs somewhere to type the
+   * next one, like the Easy Chart note. It is the same inputs, the same unit pairing, the same qualifier
+   * and the same save; what it drops is the chrome that would otherwise duplicate the note around it.
+   */
+  variant?: 'card' | 'input';
 }
 
 export interface TemperatureLocalState {

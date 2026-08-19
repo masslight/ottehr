@@ -35,6 +35,14 @@ export interface StepOutcome {
   /** Extra note for the provenance record ("template default, verify", "auto-picked from 3 matches"). */
   note?: string;
   /**
+   * The catalogue entry this action was resolved TO, when it was resolved against one. The action's
+   * `display` is what the provider said; this is what the chart actually got — an exam finding filed as
+   * `ros-constitutional-fever` is a different fact from the phrase "denies fever" that produced it.
+   * Anything reading a plan after the fact (provenance, the eval harness) needs the resolved id, and
+   * re-deriving it by matching a second time would be a second copy of the dispatch logic.
+   */
+  matchedId?: string;
+  /**
    * Rows this step created that THE DICTATION DID NOT NAME — a procedure quick-pick's linked diagnoses
    * and CPT codes. They are charted because the practice's template says the procedure implies them,
    * which is a weaker claim than "the provider said it", so they carry the amber inferred mark even

@@ -20,7 +20,7 @@ import { VitalsCardProps } from '../types';
 
 type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
 
-const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Element => {
+const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field, variant = 'card' }): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { isLargeScreen } = useScreenDimensions();
 
@@ -42,6 +42,97 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
     onSave: field.save,
   });
 
+  // The entry row on its own, so a caller that wants only the inputs can render it without the
+  // accordion and the history beside it.
+  const renderLeftColumn = (): JSX.Element => (
+    <Grid
+      container
+      sx={{
+        height: 'auto',
+        width: 'auto',
+        backgroundColor: '#F7F8F9',
+        borderRadius: 2,
+        my: 2,
+        mx: 2,
+        py: 2,
+        px: 2,
+        border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+        transition: VITALS_FORM_BORDER_TRANSITION,
+      }}
+    >
+      {/* Height Input Field column */}
+      <Grid item xs={12} sm={10} md={10} lg={10} order={{ xs: 1, sm: 1, md: 1 }}>
+        <VitalsUnitInputRow
+          order={unitInputOrder}
+          metricInput={
+            <VitalsTextInputFiled
+              label="cm"
+              value={localState.valueCm}
+              disabled={field.isSaving}
+              isInputError={localState.validationError}
+              onChange={localState.handleCmChange}
+              onKeyDown={handleKeyDown}
+              data-testid={dataTestIds.vitalsPage.heightInput}
+            />
+          }
+          imperialInput={
+            // Imperial group: total inches ≈ ft/in. Kept as one node so its internal order
+            // is preserved regardless of the configured metric/imperial order.
+            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+              <VitalsTextInputFiled
+                label="total inches"
+                value={localState.valueInches}
+                disabled={field.isSaving}
+                isInputError={localState.validationError}
+                onChange={localState.handleInchesChange}
+                onKeyDown={handleKeyDown}
+                data-testid={dataTestIds.vitalsPage.heightTotalInchesInput}
+              />
+              <Typography fontSize={25}>≈</Typography>
+              <VitalsTextInputFiled
+                label="ft"
+                value={localState.valueFeet}
+                disabled={field.isSaving}
+                isInputError={localState.validationError}
+                onChange={localState.handleFeetChange}
+                onKeyDown={handleKeyDown}
+                data-testid={dataTestIds.vitalsPage.heightFeetInput}
+              />
+              <VitalsTextInputFiled
+                label="inches"
+                value={localState.valueInchRemainder}
+                disabled={field.isSaving}
+                isInputError={localState.validationError}
+                onChange={localState.handleInchRemainderChange}
+                onKeyDown={handleKeyDown}
+                data-testid={dataTestIds.vitalsPage.heightInchRemainderInput}
+              />
+            </Box>
+          }
+        />
+      </Grid>
+
+      {/* Add Button column */}
+      <Grid item xs={12} sm={2} md={2} lg={2} order={{ xs: 2, sm: 2, md: 2, lg: 2 }} sx={{ mt: isLargeScreen ? 0 : 0 }}>
+        <RoundedButton
+          size="small"
+          disabled={localState.isDisabled}
+          onClick={field.save}
+          loading={field.isSaving}
+          color="primary"
+          sx={{
+            height: '40px',
+            px: 2,
+            ml: 1,
+          }}
+          data-testid={dataTestIds.vitalsPage.heightAddButton}
+        >
+          Add
+        </RoundedButton>
+      </Grid>
+    </Grid>
+  );
+
   const renderRightColumn = (): JSX.Element => {
     return (
       <VitalsHistoryContainer
@@ -61,6 +152,10 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
       />
     );
   };
+
+  // `input` is the entry row alone. On a locked visit it renders nothing rather than a disabled
+  // form: the note already states the readings, so an empty greyed-out box would say nothing.
+  if (variant === 'input') return isReadOnly ? <></> : renderLeftColumn();
 
   return (
     <Box>
@@ -88,106 +183,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
         {isReadOnly ? (
           renderRightColumn()
         ) : (
-          <DoubleColumnContainer
-            divider
-            leftColumn={
-              <Grid
-                container
-                sx={{
-                  height: 'auto',
-                  width: 'auto',
-                  backgroundColor: '#F7F8F9',
-                  borderRadius: 2,
-                  my: 2,
-                  mx: 2,
-                  py: 2,
-                  px: 2,
-                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
-                  transition: VITALS_FORM_BORDER_TRANSITION,
-                }}
-              >
-                {/* Height Input Field column */}
-                <Grid item xs={12} sm={10} md={10} lg={10} order={{ xs: 1, sm: 1, md: 1 }}>
-                  <VitalsUnitInputRow
-                    order={unitInputOrder}
-                    metricInput={
-                      <VitalsTextInputFiled
-                        label="cm"
-                        value={localState.valueCm}
-                        disabled={field.isSaving}
-                        isInputError={localState.validationError}
-                        onChange={localState.handleCmChange}
-                        onKeyDown={handleKeyDown}
-                        data-testid={dataTestIds.vitalsPage.heightInput}
-                      />
-                    }
-                    imperialInput={
-                      // Imperial group: total inches ≈ ft/in. Kept as one node so its internal order
-                      // is preserved regardless of the configured metric/imperial order.
-                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                        <VitalsTextInputFiled
-                          label="total inches"
-                          value={localState.valueInches}
-                          disabled={field.isSaving}
-                          isInputError={localState.validationError}
-                          onChange={localState.handleInchesChange}
-                          onKeyDown={handleKeyDown}
-                          data-testid={dataTestIds.vitalsPage.heightTotalInchesInput}
-                        />
-                        <Typography fontSize={25}>≈</Typography>
-                        <VitalsTextInputFiled
-                          label="ft"
-                          value={localState.valueFeet}
-                          disabled={field.isSaving}
-                          isInputError={localState.validationError}
-                          onChange={localState.handleFeetChange}
-                          onKeyDown={handleKeyDown}
-                          data-testid={dataTestIds.vitalsPage.heightFeetInput}
-                        />
-                        <VitalsTextInputFiled
-                          label="inches"
-                          value={localState.valueInchRemainder}
-                          disabled={field.isSaving}
-                          isInputError={localState.validationError}
-                          onChange={localState.handleInchRemainderChange}
-                          onKeyDown={handleKeyDown}
-                          data-testid={dataTestIds.vitalsPage.heightInchRemainderInput}
-                        />
-                      </Box>
-                    }
-                  />
-                </Grid>
-
-                {/* Add Button column */}
-                <Grid
-                  item
-                  xs={12}
-                  sm={2}
-                  md={2}
-                  lg={2}
-                  order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
-                  sx={{ mt: isLargeScreen ? 0 : 0 }}
-                >
-                  <RoundedButton
-                    size="small"
-                    disabled={localState.isDisabled}
-                    onClick={field.save}
-                    loading={field.isSaving}
-                    color="primary"
-                    sx={{
-                      height: '40px',
-                      px: 2,
-                      ml: 1,
-                    }}
-                    data-testid={dataTestIds.vitalsPage.heightAddButton}
-                  >
-                    Add
-                  </RoundedButton>
-                </Grid>
-              </Grid>
-            }
-            rightColumn={renderRightColumn()}
-          />
+          <DoubleColumnContainer divider leftColumn={renderLeftColumn()} rightColumn={renderRightColumn()} />
         )}
       </AccordionCard>
     </Box>

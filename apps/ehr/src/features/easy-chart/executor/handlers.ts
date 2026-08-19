@@ -92,6 +92,7 @@ async function addFromCatalogue(
   return applied(composite.createdResourceIds, {
     lowConfidence: pick.lowConfidence,
     note: pick.note,
+    matchedId: pick.match.id,
     ...(composite.inferredResourceIds?.length ? { inferredResourceIds: composite.inferredResourceIds } : {}),
     ...(composite.templateFilledFields?.length ? { templateFilledFields: composite.templateFilledFields } : {}),
   });

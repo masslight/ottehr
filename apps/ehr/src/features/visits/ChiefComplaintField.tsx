@@ -5,13 +5,30 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
-export const ChiefComplaintField: FC = () => {
+type ChiefComplaintFieldProps = {
+  /** Overrides the label. The Easy Chart note puts the field's name in its section heading instead. */
+  label?: string;
+  /**
+   * Read and write this encounter instead of resolving one from the appointment store — for a page keyed
+   * by encounter, where the store is empty and the field would neither load nor save.
+   */
+  encounterId?: string;
+  /** Called after a save lands, for a page that owns its own chart query. */
+  onSaved?: () => void;
+};
+
+export const ChiefComplaintField: FC<ChiefComplaintFieldProps> = ({
+  label = 'Additional Information',
+  encounterId,
+  onSaved,
+}) => {
   const { data: chartDataFields, isFetched: isChartDataFetched } = useChartFields({
     requestedFields: {
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
       },
     },
+    encounterId,
   });
 
   const methods = useForm({
@@ -32,7 +49,7 @@ export const ChiefComplaintField: FC = () => {
     onValueChange: onChiefComplaintChange,
     isLoading: isChiefComplaintLoading,
     isChartDataLoading: isChiefComplaintChartDataLoading,
-  } = useDebounceNotesField('historyOfPresentIllness');
+  } = useDebounceNotesField('historyOfPresentIllness', { encounterId, onSaved });
 
   return (
     <Controller
@@ -48,7 +65,7 @@ export const ChiefComplaintField: FC = () => {
             });
           }}
           disabled={isChiefComplaintChartDataLoading}
-          label="Additional Information"
+          label={label}
           fullWidth
           multiline
           data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes}
@@ -67,15 +84,18 @@ export const ChiefComplaintField: FC = () => {
 
 interface ChiefComplaintFieldReadOnlyProps {
   label?: string;
+  encounterId?: string;
 }
 
 export const ChiefComplaintFieldReadOnly: FC<ChiefComplaintFieldReadOnlyProps> = ({
   label = 'Additional information',
+  encounterId,
 }) => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
       historyOfPresentIllness: { _tag: 'history-of-present-illness' },
     },
+    encounterId,
   });
 
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
