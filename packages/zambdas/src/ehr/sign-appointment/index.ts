@@ -14,6 +14,7 @@ import {
   getTaskResource,
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
@@ -24,9 +25,10 @@ import {
   SignAppointmentInput,
   SignAppointmentResponse,
 } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, practitionerHasRole, requirePractitionerNPI } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -93,6 +95,20 @@ export const performEffect = async (
   }
   if (!patient) {
     throw new Error(`No patient found for encounter ${encounter.id}`);
+  }
+
+  // The assigned provider (the encounter's Attender) is the note's — and the claim's — rendering
+  // provider, so the visit can only be signed while that person still holds the Provider role.
+  // Nothing removes the participant when an employee's role is downgraded, so the stale assignment
+  // survives on the encounter and has to be rejected here rather than assumed valid.
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
+  if (!attendingPractitionerId) {
+    throw new Error(`No provider is assigned to encounter ${encounter.id}`);
+  }
+  if (!(await practitionerHasRole(oystehr, attendingPractitionerId, RoleType.Provider))) {
+    throw new Error(
+      `Practitioner ${attendingPractitionerId} assigned to encounter ${encounter.id} no longer holds the Provider role`
+    );
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);

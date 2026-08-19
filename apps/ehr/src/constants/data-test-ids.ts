@@ -26,6 +26,9 @@ export const dataTestIds = {
     allergies: 'header-allergies',
     weight: 'header-weight',
   },
+  inPersonLayout: {
+    selectProviderAlert: 'select-provider-alert',
+  },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',

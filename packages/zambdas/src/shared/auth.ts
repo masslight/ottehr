@@ -97,6 +97,28 @@ export const requirePractitionerNPI = async (oystehr: Oystehr, practitionerId: s
   return practitioner;
 };
 
+/**
+ * True when the Oystehr user behind the given Practitioner holds `role`.
+ *
+ * Roles live in Oystehr, not in FHIR, so answering this takes two calls: `listV2` resolves the
+ * Practitioner profile to a user id, and `get` is what actually returns the user's roles
+ * (`UserListItem` from a list does not carry them). Returns false when no user is found for the
+ * profile — a Practitioner nobody logs in as holds no roles.
+ */
+export const practitionerHasRole = async (
+  oystehr: Oystehr,
+  practitionerId: string,
+  role: RoleType
+): Promise<boolean> => {
+  const { data } = await oystehr.user.listV2({ profile: `Practitioner/${practitionerId}`, limit: 1 });
+  const userId = data[0]?.id;
+  if (!userId) {
+    return false;
+  }
+  const user = await oystehr.user.get({ id: userId });
+  return (user.roles ?? []).some((userRole) => userRole.name === role);
+};
+
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {
   const resources = (
     await oystehr.fhir.search<Patient | RelatedPerson>({

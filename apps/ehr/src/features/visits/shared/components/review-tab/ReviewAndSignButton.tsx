@@ -25,6 +25,7 @@ import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointm
 import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { useAssignedProvider } from '../../hooks/useAssignedProvider';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
@@ -69,6 +70,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   });
 
   const apiClient = useOystehrAPIClient();
+  const { isAssignedProviderEligible } = useAssignedProvider();
   const evolveUser = useEvolveUser();
   const practitioner = evolveUser?.profileResource;
   const hasNPI = evolveUser?.hasNPI ?? false;
@@ -125,6 +127,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     // Signing / co-signing a note is NPI-gated — block users without an NPI (e.g. the Clinician role).
     if (!hasNPI) {
       messages.push('You need an NPI on file to sign');
+    }
+
+    // The assigned provider is the note's rendering provider, and the sign zambda rejects a visit
+    // whose provider no longer holds the Provider role. Checked here too so the button reports it
+    // rather than failing the request — the enclosing InPersonLayout normally hides this whole page
+    // in that state, so this only matters if that gate is ever relaxed.
+    if (!isAssignedProviderEligible) {
+      messages.push('A provider must be assigned to this visit');
     }
 
     if (isFollowup) {
@@ -200,6 +210,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   }, [
     completed,
     hasNPI,
+    isAssignedProviderEligible,
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
