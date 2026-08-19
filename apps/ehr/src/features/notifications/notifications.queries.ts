@@ -5,7 +5,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { isPhoneNumberValid, removePrefix } from 'utils/lib/helpers/helpers';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import {
   AppointmentProviderNotificationTypes,
   PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
@@ -22,6 +22,8 @@ import {
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { inboundFaxMatchPath } from '../inbound-fax/routes';
+
+const COMMUNICATION_REFERENCE_PREFIX = 'Communication/';
 
 export type ProviderNotification = {
   appointmentID: string;
@@ -44,14 +46,21 @@ export type ProviderNotification = {
  * carry no `about` and simply have no link; the bell shows the last 10, so they age out.
  */
 export const getNotificationLink = (communication: Communication): string | undefined => {
-  const uiCategory: UiTaskCategoryId | undefined = communication.category
+  // Typed against `UiTaskCategoryId` rather than asserted onto it: the coding carries whatever string the
+  // producer wrote, and this way renaming the id is a compile error instead of a link that stops resolving.
+  const inboundFaxCategory: UiTaskCategoryId = 'inboundFax';
+  const categoryCode = communication.category
     ?.flatMap((concept) => concept.coding ?? [])
-    .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code as UiTaskCategoryId | undefined;
-  if (uiCategory !== 'inboundFax') return undefined;
+    .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code;
+  if (categoryCode !== inboundFaxCategory) return undefined;
 
+  // Only a relative `Communication/<id>` reference names a fax we can route to. Checked with an explicit
+  // prefix test so nothing else in `about` — a Task, or an absolute URL to some other server — can be
+  // mangled into a match-page id.
   const faxCommunicationID = communication.about
-    ?.map((reference) => removePrefix('Communication/', reference.reference ?? ''))
-    .find((id): id is string => !!id);
+    ?.map((about) => about.reference)
+    .find((reference): reference is string => !!reference?.startsWith(COMMUNICATION_REFERENCE_PREFIX))
+    ?.slice(COMMUNICATION_REFERENCE_PREFIX.length);
   return faxCommunicationID ? inboundFaxMatchPath(faxCommunicationID) : undefined;
 };
 

@@ -9,6 +9,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { ReactElement, useMemo } from 'react';
@@ -16,6 +17,7 @@ import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.typ
 import {
   NotificationRowPref,
   ProviderNotificationPreferencesV2,
+  taskCategoryHasNoLocation,
   UI_TASK_CATEGORY_IDS,
   UI_TASK_CATEGORY_LABELS,
   UiTaskCategoryId,
@@ -136,6 +138,7 @@ export default function NotificationSettingsTable({
             disabled={disabled}
             locations={locations}
             locationNameById={locationNameById}
+            locationFilterUnavailable={taskCategoryHasNoLocation(id)}
             onChange={(row) => setTaskRow(id, row)}
           />
         ))}
@@ -152,6 +155,11 @@ interface NotificationRowProps {
   locationNameById: Map<string, string>;
   disabled?: boolean;
   indent?: boolean;
+  /**
+   * This category's tasks never carry a location (`taskCategoryHasNoLocation`), so narrowing the row by one
+   * would match nothing and silently mute the category. The cell shows the pinned "All locations" read-only.
+   */
+  locationFilterUnavailable?: boolean;
 }
 
 function NotificationRow({
@@ -162,6 +170,7 @@ function NotificationRow({
   locationNameById,
   disabled,
   indent,
+  locationFilterUnavailable,
 }: NotificationRowProps): ReactElement {
   const controlsDisabled = disabled || !row.enabled;
 
@@ -210,34 +219,51 @@ function NotificationRow({
         </Select>
       </TableCell>
       <TableCell>
-        <Select
-          size="small"
-          fullWidth
-          multiple
-          displayEmpty
-          value={selectedLocationValues}
-          disabled={controlsDisabled}
-          sx={{ '& .MuiSelect-select': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}
-          onChange={(e) => handleLocationChange(e.target.value as string[])}
-          renderValue={() =>
-            row.allLocations
-              ? 'All locations'
-              : row.locationIds.length > 0
-              ? row.locationIds.map((id) => locationNameById.get(id) ?? id).join(', ')
-              : 'Select locations'
-          }
-        >
-          <MenuItem value={ALL_LOCATIONS_OPTION}>
-            <Checkbox checked={row.allLocations} />
-            All locations
-          </MenuItem>
-          {locations.map((loc) => (
-            <MenuItem key={loc.id} value={loc.id}>
-              <Checkbox checked={!row.allLocations && row.locationIds.includes(loc.id)} />
-              {loc.name}
+        {locationFilterUnavailable ? (
+          <Tooltip title={`${label} tasks arrive without a location, so this row can't be narrowed to one.`}>
+            {/* A disabled input swallows pointer events, so the tooltip needs a wrapper that still gets them. */}
+            <Box>
+              <Select
+                size="small"
+                fullWidth
+                multiple
+                displayEmpty
+                disabled
+                value={[ALL_LOCATIONS_OPTION]}
+                renderValue={() => 'All locations'}
+              />
+            </Box>
+          </Tooltip>
+        ) : (
+          <Select
+            size="small"
+            fullWidth
+            multiple
+            displayEmpty
+            value={selectedLocationValues}
+            disabled={controlsDisabled}
+            sx={{ '& .MuiSelect-select': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}
+            onChange={(e) => handleLocationChange(e.target.value as string[])}
+            renderValue={() =>
+              row.allLocations
+                ? 'All locations'
+                : row.locationIds.length > 0
+                ? row.locationIds.map((id) => locationNameById.get(id) ?? id).join(', ')
+                : 'Select locations'
+            }
+          >
+            <MenuItem value={ALL_LOCATIONS_OPTION}>
+              <Checkbox checked={row.allLocations} />
+              All locations
             </MenuItem>
-          ))}
-        </Select>
+            {locations.map((loc) => (
+              <MenuItem key={loc.id} value={loc.id}>
+                <Checkbox checked={!row.allLocations && row.locationIds.includes(loc.id)} />
+                {loc.name}
+              </MenuItem>
+            ))}
+          </Select>
+        )}
       </TableCell>
       <TableCell>
         <Select

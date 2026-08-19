@@ -891,8 +891,12 @@ export function buildSMSSendList(buffer: SMSBufferByPractitionerId): { practitio
         // so `basedOn` is part of the key: without it, two genuinely different events that happen to phrase
         // themselves identically collapse into one text (two 3-page faxes from the same number in one run
         // read the same, and the second SMS would be dropped while both tasks still await work). Telemed
-        // notifications set no `basedOn`, so they de-dup on (handset, message) exactly as before.
-        const subject = communication.basedOn?.map((ref) => ref.reference).join(',') ?? '';
+        // notifications set no `basedOn`, so they de-dup on (handset, message) exactly as before. Sorted, so
+        // that two notifications naming the same references in a different order still key the same.
+        const subject = (communication.basedOn ?? [])
+          .map((ref) => ref.reference ?? '')
+          .sort()
+          .join(',');
         const dedupeKey = `${handset}|${subject}|${message}`;
         if (alreadyQueued.has(dedupeKey)) {
           console.log(`Skipping duplicate SMS for ${practitionerRef}: same message already queued for this number`);

@@ -677,8 +677,9 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     if (code === FAX_TASK.code.matchInboundFax) {
       // The fax subscription already wrote this sentence into the Task's description (`faxTaskTitle`), and
       // the notification bell shows the same string — re-deriving it from the inputs here is how the three
-      // wordings drift apart.
-      title = task.description ?? '';
+      // wordings drift apart. The fallback only covers a fax task written by something other than that
+      // subscription: a generic label beats a blank row in the queue, and it stays a single wording.
+      title = task.description || 'Inbound fax';
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       if (communicationId) {
         // Once the fax is actioned (filed = completed, deleted = cancelled), the match page

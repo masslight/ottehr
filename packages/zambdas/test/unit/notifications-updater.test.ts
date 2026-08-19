@@ -286,8 +286,9 @@ describe('inbound fax notifications', () => {
   });
 
   describe('location filtering', () => {
-    // The dead end the Inbound Fax settings row has to live with: fax Tasks carry no location, so only an
-    // "All locations" row can ever match one. If this flips, fax delivery silently turns on or off.
+    // Fax Tasks carry no location, so a location-narrowed row matches nothing — which is why `inboundFax` is
+    // in `UNLOCATED_TASK_CATEGORIES` and such a row can no longer be built (see the two tests below). This
+    // one pins the matcher itself: if it flips, fax delivery silently turns on or off.
     it('has no location, so only an "All locations" row matches', () => {
       const taskLocationId = getTaskLocation(faxTask(faxInputs))?.id;
       expect(taskLocationId).toBeUndefined();
@@ -295,6 +296,35 @@ describe('inbound fax notifications', () => {
       expect(rowMatchesFilters(makeRow({ allLocations: false, locationIds: ['loc-1'] }), taskLocationId, false)).toBe(
         false
       );
+    });
+
+    // The cron reads prefs through `getProviderNotificationPreferencesV2` → `normalizeNotificationPreferencesV2`,
+    // so the row it sees is already repaired even if the stored blob narrowed Inbound Fax to a location.
+    it('notifies a subscriber whose stored Inbound Fax row was narrowed to a location', () => {
+      const prefs = normalizeNotificationPreferencesV2({
+        taskCategories: { inboundFax: { enabled: true, allLocations: false, locationIds: ['loc-1'] } } as any,
+      });
+      const taskLocationId = getTaskLocation(faxTask(faxInputs))?.id;
+      expect(rowMatchesFilters(prefs.taskCategories.inboundFax, taskLocationId, false)).toBe(true);
+    });
+
+    // Same repair on the assignment engine: being handed a fax and hearing nothing is the worse half of the bug.
+    it('notifies the assignee of a fax task despite a stored location filter', () => {
+      const prefs = normalizeNotificationPreferencesV2({
+        taskCategories: { inboundFax: { enabled: true, allLocations: false, locationIds: ['loc-1'] } } as any,
+      });
+      const task = faxTask(faxInputs, { owner: { reference: 'Practitioner/prac-1' } });
+      expect(
+        resolveAssignmentDelivery({
+          task,
+          recipient: { resourceType: 'Practitioner', id: 'prac-1' },
+          hasExplicitPrefs: true,
+          prefs,
+          legacySettings: undefined,
+          categoryNotifiedThisRun: new Set(),
+          taskLocationId: getTaskLocation(task)?.id,
+        })
+      ).toEqual({ notify: true, method: prefs.taskCategories.inboundFax.method });
     });
   });
 
@@ -500,6 +530,30 @@ describe('buildSMSSendList — no double-texting a handset (OTR: provider got 2 
       },
     });
     expect(sent).toEqual([{ practitionerRef: 'Practitioner/prac-1', message: FAX }]);
+  });
+
+  // The subject key is order-independent: the same set of references, listed either way round, is the same
+  // subject and must not be texted twice.
+  it('collapses two notifications whose `basedOn` references differ only in order', () => {
+    const multiSubject = (message: string, references: string[]): BufferedNotification => ({
+      communication: {
+        resourceType: 'Communication',
+        status: 'in-progress',
+        basedOn: references.map((reference) => ({ reference })),
+        payload: [{ contentString: message }],
+      },
+      method: ProviderNotificationMethod['phone and computer'],
+    });
+    const sent = buildSMSSendList({
+      'prac-1': {
+        practitioner: practitioner('prac-1', '+15551234567'),
+        communications: [
+          multiSubject(WAITING, ['Task/task-a', 'Task/task-b']),
+          multiSubject(WAITING, ['Task/task-b', 'Task/task-a']),
+        ],
+      },
+    });
+    expect(sent).toEqual([{ practitionerRef: 'Practitioner/prac-1', message: WAITING }]);
   });
 
   it('skips practitioners with no sms telecom, even when a phone telecom exists', () => {

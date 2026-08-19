@@ -155,9 +155,10 @@ const MenuItem = ({ onClick, cursor, title, subtitle }: MenuItemProps): JSX.Elem
         mt: 1,
         cursor,
         // Spelled out for both cases: leaving the hover rule off would fall back to MUI's own Button
-        // hover, which is the highlight we're trying not to show.
+        // hover, which is the highlight we're trying not to show. The non-navigable case repeats the
+        // resting background above, so hovering changes nothing.
         '&:hover': {
-          backgroundColor: isNavigable ? alpha(theme.palette.primary.main, 0.1) : 'background.default',
+          backgroundColor: isNavigable ? alpha(theme.palette.primary.main, 0.1) : theme.palette.background.default,
         },
       }}
       disableRipple={!isNavigable}
