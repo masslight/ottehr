@@ -100,6 +100,11 @@ vi.mock('src/components/PatientPaymentsList', () => ({ default: () => <div /> })
 vi.mock('src/components/AppointmentNotesHistory', () => ({ default: () => <div /> }));
 vi.mock('src/components/dialogs/ActivityLogDialog', () => ({ default: () => <div /> }));
 vi.mock('src/components/ScannerModal', () => ({ ScannerModal: () => <div /> }));
+// The visit page now embeds the documents explorer, whose hooks would
+// otherwise have to be mocked wholesale. Not part of the consent gate.
+vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer', () => ({
+  PatientDocumentsExplorer: () => <div />,
+}));
 
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import VisitDetailsPage from '../../src/pages/VisitDetailsPage';
