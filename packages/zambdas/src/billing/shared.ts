@@ -918,17 +918,19 @@ export function copyBillingPatient({
     ? prepareWorkingCopy<Patient>(patient, patient.id!)
     : prepareCopy<Patient>(patient, patient.id!);
   if (!clinicalId && !clinicalFriendlyId) return copy;
-  copy.extension ??= [];
   copy.identifier ??= [];
   if (clinicalId) {
     // Source reference in extension is managed by prepareCopy
     copy.identifier.push(clinicalPatientIdentifier(clinicalId));
   }
   if (clinicalFriendlyId) {
-    copy.extension.push({
-      url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
-      valueString: clinicalFriendlyId,
-    });
+    copy.extension = [
+      ...(copy.extension ?? []),
+      {
+        url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+        valueString: clinicalFriendlyId,
+      },
+    ];
     copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
   }
   return copy;
