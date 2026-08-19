@@ -2,13 +2,10 @@ import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { MedicalHistoryDoubleCard } from 'src/features/visits/shared/components/medical-history-tab/MedicalHistoryDoubleCard';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { KnownAllergiesPatientColumn } from '../../shared/components/known-allergies/KnownAllergiesPatientColumn';
-import { KnownAllergiesProviderColumn } from '../../shared/components/known-allergies/KnownAllergiesProviderColumn';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { AllergiesNotes } from '../components/allergies/AllergiesNotes';
-import { InfoAlert } from '../components/InfoAlert';
+import { AllergiesBody } from '../components/allergies/AllergiesBody';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 interface AllergiesProps {
   appointmentID?: string;
@@ -36,14 +33,7 @@ export const Allergies: React.FC<AllergiesProps> = () => {
         label="Allergies"
         showIntakeNotesButton={interactionMode === 'main'}
       />
-      <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
-      <MedicalHistoryDoubleCard
-        patientSide={<KnownAllergiesPatientColumn />}
-        patientSideLabel="Patient provided"
-        providerSide={<KnownAllergiesProviderColumn />}
-        providerSideLabel="Healthcare staff input"
-      />
-      <AllergiesNotes />
+      <AllergiesBody />
     </Stack>
   );
 };

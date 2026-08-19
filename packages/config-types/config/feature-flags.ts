@@ -25,6 +25,10 @@ export const FeatureFlagsConfigSchema = z.object({
   // The admin UI is unaffected (it queries `admin-list-service-categories`,
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
+  // Prototype: lets providers add/edit intake sections (allergies, hospitalization,
+  // screening questions) inline on the Review & Sign page instead of navigating to
+  // each intake screen. Optional so per-customer configs default to off.
+  inlineProgressNoteEditingEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;

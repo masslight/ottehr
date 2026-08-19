@@ -35,6 +35,7 @@ import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/
 import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -50,8 +51,12 @@ import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
+import { AllergiesBody } from '../allergies/AllergiesBody';
+import { HospitalizationBody } from '../hospitalization/HospitalizationBody';
+import { ScreeningBody } from '../screening/ScreeningBody';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
+import { InlineEditSection } from './InlineEditSection';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
@@ -150,12 +155,31 @@ export const ProgressNoteDetails: FC = () => {
     ? getSupervisorApprovalStatus(appointment, encounter)
     : 'unknown';
 
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const inlineEditEnabled = FEATURE_FLAGS.INLINE_PROGRESS_NOTE_EDITING_ENABLED && !isAppointmentReadOnly;
+  // The supervisor approval box reuses these sections as a read-only summary.
+  const inlineEditDisabled = approvalStatus === 'waiting-for-approval';
+
   const medicalHistorySections = [
-    <AllergiesContainer notes={allergyNotes} />,
+    <InlineEditSection
+      sectionName="allergies"
+      editLabel="Edit allergies"
+      editContent={<AllergiesBody />}
+      disabled={inlineEditDisabled}
+    >
+      <AllergiesContainer notes={allergyNotes} />
+    </InlineEditSection>,
     <MedicationsContainer notes={intakeMedicationNotes} />,
     <MedicalConditionsContainer notes={medicalConditionNotes} />,
     <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
-    <HospitalizationContainer notes={hospitalizationNotes} />,
+    <InlineEditSection
+      sectionName="hospitalization"
+      editLabel="Edit hospitalization"
+      editContent={<HospitalizationBody />}
+      disabled={inlineEditDisabled}
+    >
+      <HospitalizationContainer notes={hospitalizationNotes} />
+    </InlineEditSection>,
     showInHouseMedications && (
       <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
     ),
@@ -171,7 +195,11 @@ export const ProgressNoteDetails: FC = () => {
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showLegacyReviewOfSystems && <ReviewOfSystemsContainer />,
     showRosReviewContainer && <RosReviewContainer />,
-    showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
+    (showAdditionalQuestions || inlineEditEnabled) && (
+      <InlineEditSection sectionName="screening" editLabel="Edit screening questions" editContent={<ScreeningBody />}>
+        <AdditionalQuestionsContainer notes={screeningNotes} emptyMessage="No screening information" />
+      </InlineEditSection>
+    ),
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
 
     <Stack spacing={1}>

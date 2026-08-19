@@ -21,6 +21,8 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // and land at undefined (falsy → FHIR categories suppressed) — customers
   // opt in explicitly by setting `dynamicServiceCategoriesEnabled: true`.
   dynamicServiceCategoriesEnabled: true,
+  // Prototype: inline add/edit of intake sections on the Review & Sign page.
+  inlineProgressNoteEditingEnabled: true,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));
