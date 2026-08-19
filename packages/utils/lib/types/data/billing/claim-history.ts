@@ -1,6 +1,7 @@
 import { Coding } from 'fhir/r4b';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from '../../../fhir/systemUrls';
 import { PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../labs/labs.constants';
+import { RulesEngineType } from './rules-engine.constants';
 
 // Types and codings for billing-claim change history. The design overview (how Provenances are
 // written and queried) lives in packages/zambdas/src/billing/provenance.ts.
@@ -85,10 +86,17 @@ export interface ClaimFieldChange {
   newValue: string | null;
   previousRef?: string;
   newRef?: string;
+  rule?: ClaimHistoryRuleRef;
   // Deep-links to the screens managing referenced resources — populated by the read API only,
   // never stored.
   previousLink?: ClaimHistoryLink | null;
   newLink?: ClaimHistoryLink | null;
+}
+
+export interface ClaimHistoryRuleRef {
+  id: string;
+  name: string;
+  engine: RulesEngineType;
 }
 
 // A link from a history value to the billing-app screen that manages that resource. The UI builds

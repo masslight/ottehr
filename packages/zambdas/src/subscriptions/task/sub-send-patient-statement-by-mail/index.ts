@@ -5,7 +5,6 @@ import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { RCM_TASK_SYSTEM } from 'utils/lib/fhir/constants';
 import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
-import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { generateStatement } from 'utils/lib/statements/generate-statement';
@@ -14,7 +13,11 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { MAIL_VENDOR_EXTENSION_URL, sendPostGridLetter } from '../../../shared/postgrid';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStatementDetails, StatementType } from '../../../shared/statements/get-statement-details';
+import {
+  getStatementDetails,
+  resolveStatementAmountsSource,
+  StatementType,
+} from '../../../shared/statements/get-statement-details';
 import { getHTMLStatementTemplate } from '../../../shared/statements/get-statement-template';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -58,7 +61,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+    const amountsSource = await resolveStatementAmountsSource({
+      secrets,
+      oystehr,
+      m2mToken,
+    });
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 
@@ -68,7 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statementType,
       secrets,
       oystehr,
-      candidApiClient,
+      amountsSource,
     });
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',

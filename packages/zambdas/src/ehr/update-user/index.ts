@@ -8,13 +8,15 @@ import {
 } from 'utils/lib/fhir/practitioners';
 import { getSecret } from 'utils/lib/secrets';
 import { UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { hasPractitionerProfile, RoleType } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { isFhirNotFoundError } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { authorizeUserEdit, resolveEffectiveRoles } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-user';
@@ -46,15 +48,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
-  // Editing users / assigning roles is an admin-only operation, matching the EHR's employee-management
-  // gate (Administrator or Customer Support). Enforcing it here prevents a non-admin (e.g. a Clinician)
-  // from calling this zambda directly to grant themselves the Provider role or an NPI and thereby
-  // bypass every NPI-gated action check.
+  // Two callers are allowed here: an admin (Administrator or Customer Support) editing anyone, and
+  // any user editing their own record. Everyone else is refused.
+  //
+  // Role assignment stays admin-only — a self-editing caller's `selectedRoles` is discarded below in
+  // favour of the roles they already hold, so they cannot promote themselves.
+  //
+  // Note what this does NOT protect, by product decision: a self-editing user may set their own NPI
+  // and state licenses. Both are authorization inputs — `assertPractitionerHasNPI` gates note
+  // signing, e-prescribing, external labs & imaging, claims and in-house meds, and active licenses
+  // gate which states' visits a practitioner can open. A user who can edit their own record can
+  // therefore grant themselves those capabilities. This was weighed and accepted; if that changes,
+  // the fix is to reject `npi` and `licenses` from non-admin callers here, not in the UI.
   const userToken = input.headers.Authorization?.replace('Bearer ', '');
   if (!userToken) {
     throw NOT_AUTHORIZED;
   }
-  await requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.CustomerSupport]);
+  const callerIsAdmin = authorizeUserEdit(await getUser(userToken, secrets), userId);
 
   const PROJECT_API = getSecret('PROJECT_API', secrets);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -66,14 +76,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const user = await oystehr.user.get({ id: userId });
   const userProfile = user.profile;
-  const hasPractitionerProfile = userProfile?.startsWith('Practitioner/') ?? false;
+  const isPractitioner = hasPractitionerProfile(userProfile);
   const orphanedPatientId = userProfile?.startsWith('Patient/') ? userProfile.split('/')[1] : undefined;
 
   // self-registered users have a patient profile instead of practitioner, so
   // create a practitioner first
   let practitionerId: string;
   let newProfile: string | undefined;
-  if (hasPractitionerProfile) {
+  if (isPractitioner) {
     practitionerId = userProfile.split('/')[1];
   } else {
     const created = await oystehr.fhir.create<Practitioner>({
@@ -101,12 +111,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     newProfile = `Practitioner/${practitionerId}`;
   }
 
+  const effectiveRoles = resolveEffectiveRoles(callerIsAdmin, selectedRoles, user);
+
   // Update user's Oystehr roles
   // calling update user on an inactive user, reactivates them
   let roles: string[] = [];
 
-  if (selectedRoles && selectedRoles.length > 0) {
-    const promises = selectedRoles
+  if (effectiveRoles && effectiveRoles.length > 0) {
+    const promises = effectiveRoles
       .filter((roleName) => roleName !== 'Inactive')
       .map((roleName) => getRoleId(roleName, m2mToken, PROJECT_API));
     roles = await Promise.all(promises);
@@ -130,14 +142,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         id: practitionerId,
       });
     } catch (error: any) {
-      if (
-        error.resourceType === 'OperationOutcome' &&
-        error.issue &&
-        error.issue.some((issue: any) => issue.severity === 'error' && issue.code === 'not-found')
-      ) {
+      // Absent is a normal outcome: the branch below creates the Practitioner. This is the path a
+      // self-registered user takes the first time they're saved as an employee.
+      if (isFhirNotFoundError(error)) {
         existingPractitionerResource = null;
       } else {
-        throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
+        throw error;
       }
     }
     const providerTypeExtension = makeProviderTypeExtension(providerType, providerTypeText);
@@ -200,7 +210,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // existing Provider is switched to Clinician and the hidden NPI field keeps its old value). This
       // upholds the "a non-Provider (e.g. Clinician) has no NPI" invariant that the NPI-gated action
       // checks rely on; otherwise such a user would keep an NPI and slip past every gate.
-      const effectiveNpi = selectedRoles?.includes(RoleType.Provider) ? npi : undefined;
+      const effectiveNpi = effectiveRoles?.includes(RoleType.Provider) ? npi : undefined;
       if (effectiveNpi) {
         if (!existingPractitionerResource.identifier) {
           existingPractitionerResource.identifier = [];
@@ -269,7 +279,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     }
   } catch (error: unknown) {
-    throw new Error(`Failed to update Practitioner: ${JSON.stringify(error)}`);
+    // Rethrow as-is: `JSON.stringify` on an Error yields `{}`, because `message` and `stack` are
+    // non-enumerable — so wrapping here reported every failure as `Failed to update Practitioner: {}`
+    // and discarded the stack along with it.
+    console.error(`Failed to update Practitioner ${practitionerId}:`, error);
+    throw error;
   }
   console.log(await updatedUserResponse.json());
   if (!updatedUserResponse.ok) {
@@ -282,7 +296,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       await oystehr.fhir.delete({ resourceType: 'Patient', id: orphanedPatientId });
     } catch (error: unknown) {
-      console.error(`Failed to delete orphaned Patient ${orphanedPatientId}:`, JSON.stringify(error));
+      console.error(`Failed to delete orphaned Patient ${orphanedPatientId}:`, error);
       // don't actually block zambda, will just have remnant patient resource
     }
   }

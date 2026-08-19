@@ -36,6 +36,7 @@ import {
   CLAIM_SYSTEM_DEVICE_IDENTIFIER,
   CLAIM_SYSTEM_DEVICE_NAME,
   ClaimFieldChange,
+  ClaimHistoryRuleRef,
   ClaimProvenanceActivityKey,
 } from 'utils/lib/types/data/billing/claim-history';
 import {
@@ -417,6 +418,7 @@ export interface ClaimProvenanceArgs {
   // Additional change entries the projection diff can't see (e.g. policy-holder edits folded into
   // the owning Coverage's record).
   extraChanges?: ClaimFieldChange[];
+  ruleAttribution?: ReadonlyMap<string, ClaimHistoryRuleRef>;
   note?: string;
 }
 
@@ -455,12 +457,13 @@ function changeRefEntities(changes: ClaimFieldChange[]): ProvenanceEntity[] {
 // write time) is stored as null — it could be a urn the server is about to rewrite — and the reader
 // resolves a friendly name from the entity reference.
 function storedChange(change: ClaimFieldChange): ClaimFieldChange {
-  const { field, label, previousValue, newValue, previousRef, newRef } = change;
+  const { field, label, previousValue, newValue, previousRef, newRef, rule } = change;
   return {
     field,
     label,
     previousValue: previousRef && previousValue === previousRef ? null : previousValue,
     newValue: newRef && newValue === newRef ? null : newValue,
+    ...(rule ? { rule } : {}),
   };
 }
 
@@ -470,7 +473,11 @@ function storedChange(change: ClaimFieldChange): ClaimFieldChange {
  * produce a record. target[0] is the changed resource; the claim is appended as a second target.
  */
 export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPostRequest<Provenance> | null {
-  const changes = [...diffResources(args.before, args.after), ...(args.extraChanges ?? [])];
+  const annotate = (change: ClaimFieldChange): ClaimFieldChange => {
+    const rule = args.ruleAttribution?.get(change.field);
+    return rule ? { ...change, rule } : change;
+  };
+  const changes = [...diffResources(args.before, args.after).map(annotate), ...(args.extraChanges ?? [])];
   if (args.activity !== 'create' && args.activity !== 'delete' && !args.note && changes.length === 0) return null;
 
   const target = [{ reference: args.targetReference }];
@@ -546,6 +553,7 @@ export interface ClaimResourceChange {
   activity?: ClaimProvenanceActivityKey;
   // Change entries the projection diff can't see (e.g. policy-holder edits folded into the Coverage).
   extraChanges?: ClaimFieldChange[];
+  ruleAttribution?: ReadonlyMap<string, ClaimHistoryRuleRef>;
   // Optimistic-locking header for the PUT; a concurrent edit then fails the transaction instead of
   // being clobbered.
   ifMatch?: string;
@@ -556,7 +564,7 @@ export interface ClaimResourceChange {
  * when composing a larger transaction; use commitClaimResourceChange to commit directly.
  */
 export function claimResourceChangeRequests(change: ClaimResourceChange): BatchInputRequest<FhirResource>[] {
-  const { resource, before, agent, claimReference, activity, extraChanges, ifMatch } = change;
+  const { resource, before, agent, claimReference, activity, extraChanges, ruleAttribution, ifMatch } = change;
   const provenance = claimProvenanceRequest({
     targetReference: `${resource.resourceType}/${resource.id}`,
     claimReference,
@@ -567,6 +575,7 @@ export function claimResourceChangeRequests(change: ClaimResourceChange): BatchI
     recorded: recordedNow(),
     priorVersionReference: versionedReference(before),
     extraChanges,
+    ruleAttribution,
   });
   return [
     { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource, ...(ifMatch ? { ifMatch } : {}) },
@@ -672,7 +681,8 @@ export async function addErrorProvenanceForClaimSubmission(
   oystehr: Oystehr,
   claim: Claim,
   error: Error,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent,
+  rule?: ClaimHistoryRuleRef
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
   const recorded = recordedNow();
@@ -685,6 +695,7 @@ export async function addErrorProvenanceForClaimSubmission(
         label: 'Error',
         previousValue: null,
         newValue: error.message,
+        ...(rule ? { rule } : {}),
       },
     ],
     activity: 'submit',

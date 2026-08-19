@@ -35,7 +35,9 @@ import {
   resolveClaimActor,
 } from '../provenance';
 import {
+  attachPrimaryCoverageToClaim,
   buildAddress,
+  buildClaimCoverageCopies,
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
@@ -251,33 +253,29 @@ async function attachClaimResources(
 
   if (fields.coverageId) {
     const original = await fetchById<Coverage>(oystehr, 'Coverage', fields.coverageId);
-    const copy = prepareWorkingCopy<Coverage>(original, fields.coverageId);
-    if (claim.patient?.reference) {
-      copy.beneficiary = { reference: claim.patient.reference };
-      copy.subscriber = { reference: claim.patient.reference };
-      // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
-      const subscriberRef = original.subscriber?.reference;
-      if (subscriberRef?.startsWith('RelatedPerson/')) {
-        const subscriber = await fetchById<RelatedPerson>(
-          oystehr,
-          'RelatedPerson',
-          subscriberRef.replace('RelatedPerson/', '')
-        );
-        const subscriberCopy = prepareWorkingCopy<RelatedPerson>(subscriber, subscriber.id!);
-        subscriberCopy.patient = { reference: claim.patient.reference };
-        const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
-        copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
-      }
+    // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
+    const subscriberRef = original.subscriber?.reference;
+    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+      ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', subscriberRef.replace('RelatedPerson/', ''))
+      : undefined;
+    const { coverage: copy, subscriber: subscriberCopy } = buildClaimCoverageCopies({
+      coverage: original,
+      subscriber,
+      patientReference: claim.patient?.reference,
+    });
+    if (subscriberCopy) {
+      const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
+      copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
     }
     const created = await oystehr.fhir.create(copy);
     const payerRef = created.payor?.[0]?.reference;
     const display = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
-    // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.
-    claim.insurance = ensureClaimInsurance([
-      { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}`, display } },
-      ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-    ]);
-    if (payerRef) claim.insurer = { reference: payerRef, display };
+    attachPrimaryCoverageToClaim({
+      claim,
+      coverageReference: `Coverage/${created.id}`,
+      display,
+      payerReference: payerRef,
+    });
   }
 
   if (fields.removeCoverage) {
