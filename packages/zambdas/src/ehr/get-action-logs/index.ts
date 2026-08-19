@@ -1,6 +1,6 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, Organization, Patient, Task } from 'fhir/r4b';
+import { Appointment, Communication, FhirResource, Organization, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_TASK_CODES, OUTBOUND_DELIVERY_TASK_SYSTEM } from 'utils/lib/fhir/constants';
 import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
@@ -102,48 +102,75 @@ export async function performEffect(
       .filter((resource): resource is Appointment => resource.resourceType === 'Appointment')
       .map((appointment) => [appointment.id, appointment])
   );
-  const [communications, retriedAttemptIds, senderFaxNumbers] = await Promise.all([
+  const [communications, retriedAttemptIds, senderFaxNumbersByAttempt] = await Promise.all([
     channel === 'fax' ? getFaxCommunications(tasks, oystehr) : Promise.resolve(new Map<string, Communication>()),
     getRetriedAttemptIds(tasks, oystehr),
     channel === 'fax' ? getSenderFaxNumbers(tasks, oystehr) : Promise.resolve(new Map<string, string>()),
   ]);
 
   const logs = tasks.map((task) =>
-    composeEntry(task, patients, appointments, communications, retriedAttemptIds, senderFaxNumbers)
+    composeEntry(task, patients, appointments, communications, retriedAttemptIds, senderFaxNumbersByAttempt)
   );
   return { logs, totalCount: bundle.total ?? 0 };
 }
 
 /**
- * Fax number per sending organization, keyed by organization id. An attempt records which organization it
- * was sent from rather than the number itself, so the number is resolved from that organization here —
- * which also fills the column in for attempts recorded before it was displayed.
+ * One page's worth of resources fetched by id. The id list is always bounded by the page size, so a
+ * single `_count`-capped search covers it without paging.
  */
-async function getSenderFaxNumbers(tasks: Task[], oystehr: Oystehr): Promise<Map<string, string>> {
-  const ids = [
-    ...new Set(
-      tasks.flatMap((task) => {
-        const organizationId = getOutboundDeliverySenderOrganizationId(task);
-        return organizationId ? [organizationId] : [];
-      })
-    ),
-  ];
-  if (!ids.length) return new Map();
-  const organizations = (
-    await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
+async function searchByIds<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  ids: string[]
+): Promise<T[]> {
+  if (!ids.length) return [];
+  return (
+    await oystehr.fhir.search<T>({
+      resourceType,
       params: [
         { name: '_id', value: ids.join(',') },
         { name: '_count', value: String(ids.length) },
       ],
     })
   ).unbundle();
-  return new Map(
-    organizations.flatMap((organization) => {
-      const faxNumber = getOrganizationFaxNumber(organization);
-      return organization.id && faxNumber ? [[organization.id, faxNumber] as [string, string]] : [];
+}
+
+/**
+ * Sender fax number per attempt, keyed by attempt id. An attempt records which organization it was sent
+ * from rather than the number itself, so the number is resolved from that organization here — which also
+ * fills the column in for attempts recorded before it was displayed.
+ *
+ * Never fails the page: the column is informational, so a page of logs without it beats an error screen.
+ */
+async function getSenderFaxNumbers(tasks: Task[], oystehr: Oystehr): Promise<Map<string, string>> {
+  const organizationIdByAttempt = new Map(
+    tasks.flatMap((task) => {
+      const organizationId = getOutboundDeliverySenderOrganizationId(task);
+      return task.id && organizationId ? [[task.id, organizationId] as [string, string]] : [];
     })
   );
+  if (!organizationIdByAttempt.size) return new Map();
+
+  try {
+    const organizations = await searchByIds<Organization>(oystehr, 'Organization', [
+      ...new Set(organizationIdByAttempt.values()),
+    ]);
+    const faxNumberByOrganization = new Map(
+      organizations.flatMap((organization) => {
+        const faxNumber = getOrganizationFaxNumber(organization);
+        return organization.id && faxNumber ? [[organization.id, faxNumber] as [string, string]] : [];
+      })
+    );
+    return new Map(
+      [...organizationIdByAttempt].flatMap(([attemptId, organizationId]) => {
+        const faxNumber = faxNumberByOrganization.get(organizationId);
+        return faxNumber ? [[attemptId, faxNumber] as [string, string]] : [];
+      })
+    );
+  } catch (error) {
+    console.error('Could not resolve the sender fax numbers for this page of logs', error);
+    return new Map();
+  }
 }
 
 async function getFaxCommunications(tasks: Task[], oystehr: Oystehr): Promise<Map<string, Communication>> {
@@ -154,16 +181,7 @@ async function getFaxCommunications(tasks: Task[], oystehr: Oystehr): Promise<Ma
         .filter((id): id is string => Boolean(id))
     ),
   ];
-  if (!ids.length) return new Map();
-  const resources = (
-    await oystehr.fhir.search<Communication>({
-      resourceType: 'Communication',
-      params: [
-        { name: '_id', value: ids.join(',') },
-        { name: '_count', value: String(ids.length) },
-      ],
-    })
-  ).unbundle();
+  const resources = await searchByIds<Communication>(oystehr, 'Communication', ids);
   return new Map(resources.map((communication) => [communication.id!, communication]));
 }
 
@@ -198,7 +216,7 @@ function composeEntry(
   appointments: Map<string | undefined, Appointment>,
   communications: Map<string, Communication>,
   retriedAttemptIds: Set<string>,
-  senderFaxNumbers: Map<string, string>
+  senderFaxNumbersByAttempt: Map<string, string>
 ): ActionLogEntry {
   const channel = getOutboundDeliveryChannel(task)!;
   const patientId = removePrefix('Patient/', task.for?.reference ?? '');
@@ -207,7 +225,6 @@ function composeEntry(
   const appointment = appointments.get(appointmentId);
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
   const faxPacket = getOutboundDeliveryFaxPacketSnapshot(task);
-  const senderOrganizationId = getOutboundDeliverySenderOrganizationId(task);
   const status = getOutboundDeliveryAttemptStatus(
     task,
     recipient.communicationId ? communications.get(recipient.communicationId) : undefined
@@ -218,7 +235,7 @@ function composeEntry(
     status,
     recipientAddress: recipient.address ?? '',
     recipientName: recipient.name,
-    senderAddress: senderOrganizationId ? senderFaxNumbers.get(senderOrganizationId) : undefined,
+    senderAddress: senderFaxNumbersByAttempt.get(task.id!),
     patientName: patient ? getFormattedPatientFullName(patient, { skipNickname: true }) : undefined,
     appointmentId,
     visitDate: appointment?.start,

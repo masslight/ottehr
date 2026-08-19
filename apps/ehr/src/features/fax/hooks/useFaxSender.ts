@@ -17,6 +17,9 @@ export const useFaxSenderFaxNumber = (enabled: boolean): UseQueryResult<string |
     queryFn: () => fetchFaxSenderFaxNumber(apiClient!),
     enabled: Boolean(apiClient && enabled),
     staleTime: Infinity,
+    // Kept past the last dialog closing: without this the entry is collected between dialogs and the
+    // next open refetches, which is exactly what `staleTime` is here to avoid.
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
   });
 };

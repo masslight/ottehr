@@ -55,8 +55,9 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
 
   const queryClient = useQueryClient();
   const preview = useFaxPacketPreview(previewAppointmentId, isOpen);
-  // Independent of the source, so every dialog names its sender — including the preview-less ones.
-  const sender = useFaxSenderFaxNumber(isOpen);
+  // Only for the preview-less sources: a visit preview already carries the sender's number, so asking
+  // for it separately would be a second request for a value this dialog is about to receive anyway.
+  const sender = useFaxSenderFaxNumber(isOpen && !previewAppointmentId);
   const sendMutation = useSendFaxPacket();
   const statuses = useFaxPacketStatuses(activeTaskIds);
 
@@ -141,7 +142,7 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
     isLoadingPreview: Boolean(previewAppointmentId) && preview.isLoading,
     previewError: Boolean(previewAppointmentId) && preview.isError,
     preview: preview.data,
-    senderFaxNumber: sender.data ?? undefined,
+    senderFaxNumber: preview.data?.senderFaxNumber ?? sender.data ?? undefined,
     isSending: sendMutation.isPending || Boolean(pendingTaskId),
     send,
     failures,

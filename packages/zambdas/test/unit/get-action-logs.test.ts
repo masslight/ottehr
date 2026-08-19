@@ -140,6 +140,31 @@ describe('get-action-logs', () => {
     expect(search).toHaveBeenCalledTimes(3);
   });
 
+  it('still renders the page when the sender organizations cannot be read', async () => {
+    const taskWithSender: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: '+12125551234',
+        senderOrganizationReference: 'Organization/org-1',
+      }),
+      id: 'attempt-sender',
+    };
+    const search = vi.fn().mockImplementation(async ({ resourceType, params }: any) => {
+      // The sender column is informational: losing it must not cost the user the log rows themselves.
+      if (resourceType === 'Organization') throw new Error('forbidden');
+      if (params.some((param: any) => param.name === 'part-of')) return { unbundle: () => [], total: 0, entry: [] };
+      if (resourceType === 'Communication') return { unbundle: () => [] };
+      return { unbundle: () => [taskWithSender, patient, appointment], total: 1 };
+    });
+
+    const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs).toHaveLength(1);
+    expect(result.logs[0].senderAddress).toBeUndefined();
+  });
+
   it('disables retry after a failed attempt already has a child', async () => {
     const failedTask: Task = { ...task, status: 'failed' };
     const child: Task = {
