@@ -15,7 +15,13 @@ import {
   sortClaimResponsesByRecency,
 } from '../../claim-amounts';
 import { eraPatientAccountNumber } from '../../era-remits';
-import { createBillingClient, createEraReadClient, fhirName, getEraCheckNumber } from '../../shared';
+import {
+  createBillingClient,
+  createEraReadClient,
+  fhirName,
+  getEraCheckNumber,
+  resolvePayersByRef,
+} from '../../shared';
 import {
   checkDateInRange,
   claimResponseClaimId,
@@ -27,7 +33,6 @@ import {
   fetchPartialClaimsById,
   payerIdFromRef,
   payerNamesByRef,
-  resolvePayersWithFallback,
   toMonth,
   UNKNOWN_PAYER_NAME,
   WATERFALL_UNKNOWN_MONTH,
@@ -64,11 +69,10 @@ export async function performEffect(
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   const [payersByRef, partialClaimsById] = await Promise.all([
-    resolvePayersWithFallback(
-      oystehr,
-      [...allEras.map((pr) => pr.paymentIssuer?.reference), ...allClaimResponses.map((cr) => cr.insurer?.reference)],
-      params.secrets
-    ),
+    resolvePayersByRef(oystehr, [
+      ...allEras.map((pr) => pr.paymentIssuer?.reference),
+      ...allClaimResponses.map((cr) => cr.insurer?.reference),
+    ]),
     fetchPartialClaimsById(oystehr, allClaimResponses.map(claimResponseClaimId).filter(Boolean) as string[]),
   ]);
 

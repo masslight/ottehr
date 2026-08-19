@@ -1,11 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Secrets } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
-import { resolvePayersByRef } from '../shared';
 
 export const ERA_PAGE_SIZE = 200;
 export const CLAIM_BATCH_SIZE = 100;
@@ -42,41 +39,6 @@ export function payerNamesByRef(claimResponses: ClaimResponse[]): Map<string, st
     names.set(ref, display.replace(/\s*\([^)]*\)\s*$/, ''));
   }
   return names;
-}
-
-// Optional second M2M (e.g. the local project's) used only for the platform-global RCM payer
-// directory when the primary project's client is not permitted to read it.
-export const RCM_FALLBACK_AUTH0_CLIENT = 'RCM_FALLBACK_AUTH0_CLIENT';
-export const RCM_FALLBACK_AUTH0_SECRET = 'RCM_FALLBACK_AUTH0_SECRET';
-
-let rcmFallbackToken = '';
-
-export async function resolvePayersWithFallback(
-  oystehr: Oystehr,
-  refs: (string | undefined)[],
-  secrets: Secrets | null
-): Promise<Map<string, Organization>> {
-  const resolved = await resolvePayersByRef(oystehr, refs);
-
-  const missing = [...new Set(refs.filter((ref): ref is string => !!ref))].filter((ref) => !resolved.has(ref));
-  const clientId = secrets?.[RCM_FALLBACK_AUTH0_CLIENT];
-  const clientSecret = secrets?.[RCM_FALLBACK_AUTH0_SECRET];
-  if (missing.length === 0 || !clientId || !clientSecret) return resolved;
-
-  try {
-    rcmFallbackToken = await checkOrCreateM2MClientToken(rcmFallbackToken, {
-      ...secrets,
-      AUTH0_CLIENT: clientId,
-      AUTH0_SECRET: clientSecret,
-    } as Secrets);
-    const fallbackClient = new Oystehr({ accessToken: rcmFallbackToken });
-    const extra = await resolvePayersByRef(fallbackClient, missing);
-    for (const [ref, org] of extra) resolved.set(ref, org);
-  } catch (err) {
-    // name enrichment only; the report renders payer IDs without it
-    console.error('RCM fallback payer resolution failed:', err);
-  }
-  return resolved;
 }
 
 export function checkDateInRange(era: PaymentReconciliation, from?: string, to?: string): boolean {

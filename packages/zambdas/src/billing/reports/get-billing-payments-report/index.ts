@@ -18,7 +18,7 @@ import {
   extractReportedCharge,
   fetchClaimResponsesByPaymentReconciliations,
 } from '../../claim-amounts';
-import { createBillingClient, createEraReadClient } from '../../shared';
+import { createBillingClient, createEraReadClient, resolvePayersByRef } from '../../shared';
 import {
   checkDateInRange,
   claimResponseClaimId,
@@ -30,7 +30,6 @@ import {
   fetchPartialClaimsById,
   payerIdFromRef,
   payerNamesByRef,
-  resolvePayersWithFallback,
   toMonth,
   UNKNOWN_PAYER_NAME,
   WATERFALL_UNKNOWN_MONTH,
@@ -130,11 +129,10 @@ async function computeInsurancePayments(
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the ClaimResponses' payer
   const [payersByRef, partialClaimsById] = await Promise.all([
-    resolvePayersWithFallback(
-      oystehr,
-      [...allEras.map((pr) => pr.paymentIssuer?.reference), ...allClaimResponses.map((cr) => cr.insurer?.reference)],
-      params.secrets
-    ),
+    resolvePayersByRef(oystehr, [
+      ...allEras.map((pr) => pr.paymentIssuer?.reference),
+      ...allClaimResponses.map((cr) => cr.insurer?.reference),
+    ]),
     fetchPartialClaimsById(oystehr, allClaimResponses.map(claimResponseClaimId).filter(Boolean) as string[]),
   ]);
 
