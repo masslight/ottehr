@@ -1,10 +1,7 @@
 import DOMPurify from 'dompurify';
 import { decodeRadiologyReportHtml } from 'utils/lib/fhir/radiology';
 
-/**
- * Inline formatting a radiology report plausibly carries. No attributes are allowed through, so there is
- * nowhere for a style, a URL or an event handler to ride along.
- */
+/** Formatting a radiology report plausibly carries. */
 const ALLOWED_REPORT_TAGS = [
   'b',
   'strong',
@@ -30,6 +27,13 @@ const ALLOWED_REPORT_TAGS = [
 ];
 
 /**
+ * Table spans only. They are integers describing layout, so they carry no URL or handler, and a table sent
+ * with merged cells would otherwise render with its columns out of line. Everything else — `style`, `class`,
+ * `href`, any `on*` — is dropped.
+ */
+const ALLOWED_REPORT_ATTR = ['colspan', 'rowspan'];
+
+/**
  * A stored read, ready to render: decoded from base64 and sanitized.
  *
  * The read is displayed as the radiologist sent it — italicised findings and paragraphs survive — but a final
@@ -40,5 +44,5 @@ const ALLOWED_REPORT_TAGS = [
 export const safeRadiologyReportHtml = (report: string): string =>
   DOMPurify.sanitize(decodeRadiologyReportHtml(report), {
     ALLOWED_TAGS: ALLOWED_REPORT_TAGS,
-    ALLOWED_ATTR: [],
+    ALLOWED_ATTR: ALLOWED_REPORT_ATTR,
   });
