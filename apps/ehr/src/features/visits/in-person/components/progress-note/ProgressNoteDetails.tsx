@@ -66,10 +66,15 @@ import { SurgicalHistoryBody } from '../surgical-history/SurgicalHistoryBody';
 import { PatientVitalsBody } from '../vitals/PatientVitalsBody';
 import { BlankSection } from './BlankSection';
 import { ERXInlineFlow } from './ERXInlineFlow';
+import { ExternalLabsInlineFlow } from './ExternalLabsInlineFlow';
 import { HospitalizationContainer } from './HospitalizationContainer';
+import { ImmunizationInlineFlow } from './ImmunizationInlineFlow';
+import { InHouseLabsInlineFlow } from './InHouseLabsInlineFlow';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
+import { InHouseMedicationsInlineFlow } from './InHouseMedicationsInlineFlow';
 import { InlineEditSection } from './InlineEditSection';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
+import { ProceduresInlineFlow } from './ProceduresInlineFlow';
 import { RadiologyInlineFlow } from './RadiologyInlineFlow';
 
 export const ProgressNoteDetails: FC = () => {
@@ -214,10 +219,34 @@ export const ProgressNoteDetails: FC = () => {
     >
       <HospitalizationContainer notes={hospitalizationNotes} />
     </InlineEditSection>,
-    showInHouseMedications && (
-      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+    (showInHouseMedications || inlineEditEnabled) && (
+      <InlineEditSection
+        sectionName="in-house-medications"
+        editLabel="Edit in-house medications"
+        editContent={<InHouseMedicationsInlineFlow />}
+        disabled={inlineEditDisabled}
+      >
+        {showInHouseMedications ? (
+          <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+        ) : (
+          <BlankSection title="In-House Medications" message="No in-house medications" />
+        )}
+      </InlineEditSection>
     ),
-    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
+    (showImmunization || inlineEditEnabled) && (
+      <InlineEditSection
+        sectionName="immunizations"
+        editLabel="Edit immunizations"
+        editContent={<ImmunizationInlineFlow />}
+        disabled={inlineEditDisabled}
+      >
+        {showImmunization ? (
+          <ImmunizationContainer orders={immunizationOrders} />
+        ) : (
+          <BlankSection title="Immunization" message="No immunizations administered" />
+        )}
+      </InlineEditSection>
+    ),
   ].filter(Boolean);
 
   const sections = [
@@ -317,17 +346,37 @@ export const ProgressNoteDetails: FC = () => {
     ),
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
-    showInHouseLabsResultsContainer && (
-      <LabResultsReviewContainer
-        resultDetails={{ type: LabType.inHouse, results: inHouseLabResults.labOrderResults }}
-        resultsPending={inHouseLabResultsPending}
-      />
+    (showInHouseLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED)) && (
+      <InlineEditSection
+        sectionName="in-house-labs"
+        editLabel="Edit in-house lab orders"
+        editContent={<InHouseLabsInlineFlow />}
+      >
+        {showInHouseLabsResultsContainer ? (
+          <LabResultsReviewContainer
+            resultDetails={{ type: LabType.inHouse, results: inHouseLabResults.labOrderResults }}
+            resultsPending={inHouseLabResultsPending}
+          />
+        ) : (
+          <BlankSection title="In-House Labs" message="No in-house lab orders" />
+        )}
+      </InlineEditSection>
     ),
-    showExternalLabsResultsContainer && (
-      <LabResultsReviewContainer
-        resultDetails={{ type: LabType.external, results: externalLabResults.labOrderResults }}
-        resultsPending={externalLabResultsPending}
-      />
+    (showExternalLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.LAB_ORDERS_ENABLED)) && (
+      <InlineEditSection
+        sectionName="external-labs"
+        editLabel="Edit external lab orders"
+        editContent={<ExternalLabsInlineFlow />}
+      >
+        {showExternalLabsResultsContainer ? (
+          <LabResultsReviewContainer
+            resultDetails={{ type: LabType.external, results: externalLabResults.labOrderResults }}
+            resultsPending={externalLabResultsPending}
+          />
+        ) : (
+          <BlankSection title="External Labs" message="No external lab orders" />
+        )}
+      </InlineEditSection>
     ),
     (showRadiologyContainer || (inlineEditEnabled && FEATURE_FLAGS.RADIOLOGY_ENABLED)) && (
       <InlineEditSection
@@ -338,7 +387,15 @@ export const ProgressNoteDetails: FC = () => {
         <RadiologyOrdersContainer radiologyOrders={radiologyOrders ?? []} />
       </InlineEditSection>
     ),
-    showProceduresContainer && <ProceduresContainer />,
+    (showProceduresContainer || inlineEditEnabled) && (
+      <InlineEditSection sectionName="procedures" editLabel="Edit procedures" editContent={<ProceduresInlineFlow />}>
+        {showProceduresContainer ? (
+          <ProceduresContainer />
+        ) : (
+          <BlankSection title="Procedures" message="No procedures documented" />
+        )}
+      </InlineEditSection>
+    ),
     (showPrescribedMedications || inlineEditEnabled) && (
       <InlineEditSection sectionName="prescriptions" editLabel="Edit prescriptions" editContent={<ERXInlineFlow />}>
         {showPrescribedMedications ? (
