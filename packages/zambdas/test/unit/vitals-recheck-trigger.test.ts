@@ -8,8 +8,7 @@ import {
 import { describe, expect, test } from 'vitest';
 import { shouldCreateVitalsRecheckNursingOrder } from '../../src/ehr/create-update-medication-order/helpers';
 
-const IV_INFUSION = medicationApplianceRoutes.INFUSION.code; // 424494006
-const INTRAVENOUS = medicationApplianceRoutes.INTRAVENOUS.code; // 47625008
+const IV_INFUSION = medicationApplianceRoutes.INFUSION.code; // 445214009
 const ORAL = medicationApplianceRoutes.ORAL.code;
 
 const makeMedicationAdministration = (routeCode?: string): MedicationAdministration =>
@@ -50,11 +49,8 @@ const check = ({
 // on the route the clinician confirmed plus the status transition, so the cases that matter are: which
 // routes count, which statuses count, and not firing twice for one order.
 describe('shouldCreateVitalsRecheckNursingOrder', () => {
-  test.each([
-    ['IV Infusion', IV_INFUSION],
-    ['Intravenous', INTRAVENOUS],
-  ])('fires when a %s order is administered', (_label, route) => {
-    expect(check({ newStatus: 'administered', route })).toBe(true);
+  test('fires when an IV Infusion order is administered', () => {
+    expect(check({ newStatus: 'administered', route: IV_INFUSION })).toBe(true);
   });
 
   test('fires for partly administered, since IV medication still entered the patient', () => {

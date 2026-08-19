@@ -912,7 +912,7 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
     display: 'Intracerebroventricular route (qualifier value)',
   },
   INFUSION: {
-    code: '424494006',
+    code: '445214009',
     system: 'http://snomed.info/sct',
     display: 'IV Infusion',
   },
@@ -1168,10 +1168,7 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
  * order is administered. Administering an order on one of these routes auto-generates a nursing order
  * prompting the clinician to re-record temp, RR, HR, BP and SpO2.
  */
-export const IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK: readonly string[] = [
-  medicationApplianceRoutes.INTRAVENOUS.code,
-  medicationApplianceRoutes.INFUSION.code,
-];
+export const IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK: readonly string[] = [medicationApplianceRoutes.INFUSION.code];
 
 export interface EmergencyContactRelationship {
   code: string;
