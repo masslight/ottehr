@@ -359,9 +359,11 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
     expect(patch).toHaveBeenCalledTimes(2);
   });
 
-  // The source-resource extension points at the billing main patient by design, but the identifier of
-  // the same system indexes the clinical patient, which is what claim search queries. Earlier runs of
-  // this script copied the extension's value into the identifier, so any other value is left over.
+  // The source-resource extension points at the billing main patient by design, but the identifier
+  // of the same system indexes the clinical patient, which is what claim search queries. Earlier
+  // runs of this script copied the extension's value into the identifier, so any other value is
+  // left over. Only that system is pruned; those runs could never leave a stale friendly id,
+  // because prepareWorkingCopy drops the Patient extension it reads from.
   describe('--prune-stale', () => {
     const misindexedCopy = (): Patient[] => [
       billingPatient({
