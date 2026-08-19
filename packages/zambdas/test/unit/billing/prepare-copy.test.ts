@@ -16,6 +16,8 @@ import {
   clinicalPatientIdentifier,
   CopyableBillingResource,
   copyBillingPatient,
+  copySourceId,
+  copySourceRef,
   prepareCopy,
   prepareWorkingCopy,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
@@ -250,6 +252,56 @@ describe('prepareCopy', () => {
       prepareCopy<typeof resource>(resource, ORIGINAL_ID);
       expect(resource).toEqual(before);
     });
+  });
+});
+
+describe('copySourceRef / copySourceId', () => {
+  const withSourceRef = (reference: string): Patient => ({
+    resourceType: 'Patient',
+    extension: [
+      {
+        url: SOURCE_IDENTIFIER_SYSTEM,
+        valueReference: {
+          reference,
+        },
+      },
+    ],
+  });
+
+  it('returns the whole reference and the bare id of the resource copied from', () => {
+    const patient = withSourceRef(`Patient/${ORIGINAL_ID}`);
+    expect(copySourceRef(patient)).toBe(`Patient/${ORIGINAL_ID}`);
+    expect(copySourceId(patient)).toBe(ORIGINAL_ID);
+  });
+
+  // The from-encounter path builds a claim working copy in the same transaction that creates its
+  // main patient, so the reference is still an unresolved urn at copy time.
+  it('leaves an unresolved urn reference intact', () => {
+    expect(copySourceId(withSourceRef('urn:uuid:main-patient'))).toBe('urn:uuid:main-patient');
+  });
+
+  it('accepts a reference that is already a bare id', () => {
+    expect(copySourceId(withSourceRef(ORIGINAL_ID))).toBe(ORIGINAL_ID);
+  });
+
+  it.each([
+    [
+      'a resource with no extensions',
+      {
+        resourceType: 'Patient',
+      } as Patient,
+    ],
+    [
+      'a resource with no source extension',
+      {
+        resourceType: 'Patient',
+        extension: [],
+      } as Patient,
+    ],
+    ['no resource at all', undefined],
+  ])('resolves nothing for %s', (_label, resource) => {
+    expect(copySourceRef(resource)).toBeUndefined();
+    expect(copySourceId(resource)).toBeUndefined();
   });
 });
 

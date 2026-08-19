@@ -21,12 +21,12 @@ import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
+  copySourceId,
   createBillingClient,
   fhirName,
   payerDisplay,
   resolvePayersByRef,
   resourceDisplayName,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { GetClaimHistoryParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -251,7 +251,9 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
     const resource = resourcesByRef.get(ref);
     const resolved = displayMissing && resource ? resourceDisplayName(resource) || value : value;
     const screen = FIELD_SCREEN[field];
-    const linkId = resource ? sourceId(resource) ?? resource.id : undefined;
+    // The master resource behind a working copy, so links open the canonical record the provider /
+    // facility screens manage rather than the per-claim copy.
+    const linkId = resource ? copySourceId(resource) ?? resource.id : undefined;
     return { value: resolved, link: screen && linkId ? { screen, id: linkId } : null };
   };
 
@@ -266,14 +268,6 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
       change.newLink = next.link;
     }
   }
-}
-
-// The master resource id behind a working copy (from its source-identifier extension), so links open
-// the canonical record the provider / facility screens manage rather than the per-claim copy.
-function sourceId(resource: Practitioner | Organization | Location): string | undefined {
-  const ref = resource.extension?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
-  if (!ref) return undefined;
-  return ref.includes('/') ? ref.split('/')[1] : ref;
 }
 
 function activityDisplay(code: string, resourceType: string): string {

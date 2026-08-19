@@ -79,6 +79,7 @@ import {
   billingCopyMatches,
   BillingFhirResource,
   copyBillingPatient,
+  copySourceRef,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -229,12 +230,7 @@ export async function performEffect(
   const mainPatientSubscribers: RelatedPerson[] = [];
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
-      (bac) =>
-        bac.extension?.some(
-          (ext) =>
-            ext.url === SOURCE_IDENTIFIER_SYSTEM &&
-            ext.valueReference?.reference === uuidOrUrnReference('Account', a.id!).reference
-        )
+      (bac) => copySourceRef(bac) === uuidOrUrnReference('Account', a.id!).reference
     );
     if (!existingBillingAccount) {
       // No existing billing copy, create new everything
@@ -544,11 +540,7 @@ export function getClaimCoveragesForEncounter(
       let tertiaryCoverage: Coverage | undefined;
       let quaternaryCoverage: Coverage | undefined;
       ucAccount?.coverage?.forEach((uccov) => {
-        const foundClaimCoverage = claimCoverages.find(
-          (ccov) =>
-            ccov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
-            uccov.coverage.reference
-        );
+        const foundClaimCoverage = claimCoverages.find((ccov) => copySourceRef(ccov) === uccov.coverage.reference);
         if (uccov.priority === 1) {
           primaryCoverage = foundClaimCoverage;
         }
@@ -583,11 +575,7 @@ export function getClaimCoveragesForEncounter(
       );
       let wcCoverage: Coverage | undefined;
       wcAccount?.coverage?.forEach((wccov) => {
-        const foundClaimCoverage = claimCoverages.find(
-          (ccov) =>
-            ccov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
-            wccov.coverage.reference
-        );
+        const foundClaimCoverage = claimCoverages.find((ccov) => copySourceRef(ccov) === wccov.coverage.reference);
         if (foundClaimCoverage) {
           wcCoverage = foundClaimCoverage;
         }
@@ -619,11 +607,7 @@ export function copyAccount(account: Account, patientId: string, billingCoverage
   if (billingCoverages?.length) {
     copy.coverage = account.coverage
       ?.map((acov): AccountCoverage | undefined => {
-        const billingCoverage = billingCoverages?.find(
-          (bcov) =>
-            bcov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
-            acov.coverage.reference
-        );
+        const billingCoverage = billingCoverages?.find((bcov) => copySourceRef(bcov) === acov.coverage.reference);
         if (billingCoverage) {
           return {
             coverage: uuidOrUrnReference('Coverage', billingCoverage.id!),
