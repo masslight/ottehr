@@ -7,20 +7,31 @@ import { EditableMedicationCard } from '../components/medication-administration/
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
 import { PageHeader } from '../components/medication-administration/PageHeader';
 
-export const InHouseOrderNew: React.FC = () => {
+interface InHouseOrderNewProps {
+  /**
+   * 'inline' drops the breadcrumbs and finishes via onFinished instead of navigating —
+   * used by the Review & Sign inline edit flow
+   */
+  variant?: 'page' | 'inline';
+  onFinished?: () => void;
+}
+
+export const InHouseOrderNew: React.FC<InHouseOrderNewProps> = ({ variant = 'page', onFinished }) => {
   const scrollToRef = useRef<HTMLHeadingElement>(null);
 
   useLayoutEffect(() => {
-    scrollToRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
-  }, []);
+    if (variant === 'page') {
+      scrollToRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
+  }, [variant]);
   return (
     <Stack spacing={2}>
       <span ref={scrollToRef} />
-      <InHouseOrderNewBreadcrumbs />
+      {variant === 'page' && <InHouseOrderNewBreadcrumbs />}
       <PageHeader title="Order Medication" variant="h3" component="h1" />
       <InfoAlert text="Make sure an AssociatedDx is selected first in the Assessment menu item." />
       <MedicationWarnings />
-      <EditableMedicationCard type="order-new" />
+      <EditableMedicationCard type="order-new" onNavigateToMar={variant === 'inline' ? onFinished : undefined} />
       <MedicationHistoryList />
     </Stack>
   );

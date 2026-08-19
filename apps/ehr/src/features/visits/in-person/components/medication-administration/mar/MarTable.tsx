@@ -40,7 +40,14 @@ const sortByDateTimeCreated = (
   });
 };
 
-export const MarTable: React.FC = () => {
+interface MarTableProps {
+  // Override the default row-click navigations (details tab / order edit page) — used by the
+  // Review & Sign inline edit flow
+  onPendingMedicationClick?: (medicationId: string) => void;
+  onEditOrder?: (medicationId: string) => void;
+}
+
+export const MarTable: React.FC<MarTableProps> = ({ onPendingMedicationClick, onEditOrder }) => {
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
   const { medications, cancelledMedications, isLoading } = useMedicationAPI();
@@ -110,7 +117,13 @@ export const MarTable: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {pendingMedications.map((row) => (
-                      <MarTableRow key={row.id} medication={row} columnStyles={columnStyles} />
+                      <MarTableRow
+                        key={row.id}
+                        medication={row}
+                        columnStyles={columnStyles}
+                        onPendingMedicationClick={onPendingMedicationClick}
+                        onEditOrder={onEditOrder}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -144,7 +157,13 @@ export const MarTable: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {completedMedications.map((row) => (
-                      <MarTableRow key={row.id} medication={row} columnStyles={columnStyles} />
+                      <MarTableRow
+                        key={row.id}
+                        medication={row}
+                        columnStyles={columnStyles}
+                        onPendingMedicationClick={onPendingMedicationClick}
+                        onEditOrder={onEditOrder}
+                      />
                     ))}
                   </TableBody>
                 </Table>

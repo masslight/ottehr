@@ -28,7 +28,28 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
   </Box>
 );
 
-export const InHouseMedication: React.FC = () => {
+export type InHouseMedicationTab = 'mar' | 'medication-details';
+
+interface InHouseMedicationProps {
+  /**
+   * 'inline' drives the tab from the `tab`/`onTabChange` props instead of the URL, drops the
+   * page title, and replaces every navigation with callbacks — used by the Review & Sign
+   * inline edit flow
+   */
+  variant?: 'page' | 'inline';
+  tab?: InHouseMedicationTab;
+  onTabChange?: (tab: InHouseMedicationTab) => void;
+  onOrderNew?: () => void;
+  onEditOrder?: (orderId: string) => void;
+}
+
+export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
+  variant = 'page',
+  tab,
+  onTabChange,
+  onOrderNew,
+  onEditOrder,
+}) => {
   const { id: appointmentId } = useParams();
   const { medications } = useMedicationAPI();
   const navigate = useNavigate();
@@ -40,9 +61,19 @@ export const InHouseMedication: React.FC = () => {
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
+  const currentTab = variant === 'inline' ? tab ?? 'mar' : tabName;
+
+  // In inline mode there is no URL to carry ?scrollTo=, so a pending-row click stores it locally
+  const [inlineScrollTo, setInlineScrollTo] = useState<string | undefined>(undefined);
+
   // handle tabs click navigation
   const handleChange = useCallback(() => {
     isTabTransitionRef.current = true;
+    if (variant === 'inline') {
+      setInlineScrollTo(undefined);
+      onTabChange?.(currentTab === 'mar' ? 'medication-details' : 'mar');
+      return;
+    }
     requestAnimationFrame(() => {
       if (tabName === 'mar') {
         navigate(getInHouseMedicationDetailsUrl(appointmentId!));
@@ -50,10 +81,10 @@ export const InHouseMedication: React.FC = () => {
         navigate(getInHouseMedicationMARUrl(appointmentId!));
       }
     });
-  }, [appointmentId, navigate, tabName]);
+  }, [appointmentId, currentTab, navigate, onTabChange, tabName, variant]);
 
   const [searchParams] = useSearchParams();
-  const scrollTo = searchParams.get('scrollTo');
+  const scrollTo = variant === 'inline' ? inlineScrollTo : searchParams.get('scrollTo');
 
   // handle scroll to element (row was clicked - scroll to element, or tab was clicked - scroll to table top)
   useLayoutEffect(() => {
@@ -65,12 +96,32 @@ export const InHouseMedication: React.FC = () => {
         }
       });
     }
-  }, [scrollTo, tabName]);
+  }, [scrollTo, currentTab]);
+
+  const handlePendingMedicationClick = useCallback(
+    (medicationId: string): void => {
+      setInlineScrollTo(medicationId);
+      onTabChange?.('medication-details');
+    },
+    [onTabChange]
+  );
+
+  const handleNavigateToMar = useCallback((): void => {
+    onTabChange?.('mar');
+  }, [onTabChange]);
 
   useEffect(() => {
     // the page is heavy and rendering takes a time, to optimization we initially show loader and starting render process for content after that
-    setContent({ mar: <MarTable />, details: <MedicationList /> });
-  }, [medications]);
+    setContent({
+      mar: (
+        <MarTable
+          onPendingMedicationClick={variant === 'inline' ? handlePendingMedicationClick : undefined}
+          onEditOrder={variant === 'inline' ? onEditOrder : undefined}
+        />
+      ),
+      details: <MedicationList onNavigateToMar={variant === 'inline' ? handleNavigateToMar : undefined} />,
+    });
+  }, [medications, variant, handlePendingMedicationClick, handleNavigateToMar, onEditOrder]);
 
   if (!content) {
     return <Loader />;
@@ -78,14 +129,22 @@ export const InHouseMedication: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle
-          dataTestId={dataTestIds.inHouseMedicationsPage.title}
-          label="Medications"
-          showIntakeNotesButton={false}
-        />
-        {!isReadOnly && <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />}
-      </Box>
+      {variant === 'inline' ? (
+        !isReadOnly && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} onClick={onOrderNew} />
+          </Box>
+        )
+      ) : (
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <PageTitle
+            dataTestId={dataTestIds.inHouseMedicationsPage.title}
+            label="Medications"
+            showIntakeNotesButton={false}
+          />
+          {!isReadOnly && <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />}
+        </Box>
+      )}
       <MedicationHistoryList />
 
       <Box ref={tabContentRef}>
@@ -108,15 +167,15 @@ export const InHouseMedication: React.FC = () => {
               backgroundColor: theme.palette.background.default,
             }}
           >
-            <Tabs value={tabName === 'mar' ? 0 : 1} onChange={handleChange} aria-label="medication tabs">
+            <Tabs value={currentTab === 'mar' ? 0 : 1} onChange={handleChange} aria-label="medication tabs">
               <Tab data-testid={dataTestIds.inHouseMedicationsPage.marTab} label="MAR" />
               <Tab data-testid={dataTestIds.inHouseMedicationsPage.medicationDetailsTab} label="Medication Details" />
             </Tabs>
           </Box>
         </AppBar>
 
-        <TabContent isActive={tabName === 'mar'}>{content.mar}</TabContent>
-        <TabContent isActive={tabName === 'medication-details'}>{content.details}</TabContent>
+        <TabContent isActive={currentTab === 'mar'}>{content.mar}</TabContent>
+        <TabContent isActive={currentTab === 'medication-details'}>{content.details}</TabContent>
       </Box>
 
       <MedicationNotes />

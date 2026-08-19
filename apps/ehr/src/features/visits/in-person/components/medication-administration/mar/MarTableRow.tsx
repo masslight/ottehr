@@ -18,6 +18,9 @@ import { MedicationInteractionsAlertButton } from './MedicationInteractionsAlert
 interface MarTableRowProps {
   medication: ExtendedMedicationDataForResponse;
   columnStyles: Record<string, React.CSSProperties>;
+  // Override the default navigations (details tab / order edit page) — used by the Review & Sign inline edit flow
+  onPendingMedicationClick?: (medicationId: string) => void;
+  onEditOrder?: (medicationId: string) => void;
 }
 
 const DATE_FORMAT = 'MM/dd/yyyy hh:mm a';
@@ -28,7 +31,12 @@ const StyledTouchRipple = styled(TouchRipple)(({ theme }) => ({
   },
 }));
 
-export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyles }) => {
+export const MarTableRow: React.FC<MarTableRowProps> = ({
+  medication,
+  columnStyles,
+  onPendingMedicationClick,
+  onEditOrder,
+}) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const rippleRef = React.useRef(null);
@@ -49,10 +57,18 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
 
   const handleRowClick = (): void => {
     if (isPending) {
+      if (onPendingMedicationClick) {
+        onPendingMedicationClick(medication.id);
+        return;
+      }
       requestAnimationFrame(() => {
         navigate(`${getInHouseMedicationDetailsUrl(appointmentId!)}?scrollTo=${medication.id}`);
       });
     } else if (isCompleted) {
+      if (onEditOrder) {
+        onEditOrder(medication.id);
+        return;
+      }
       requestAnimationFrame(() => {
         navigate(getEditOrderUrl(appointmentId!, medication.id));
       });
@@ -143,7 +159,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTable.statusCell} sx={columnStyles.status}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <MedicationStatusChip medication={medication} />
-          {!isReadOnly && <MedicationActions medication={medication} />}
+          {!isReadOnly && <MedicationActions medication={medication} onEditOrder={onEditOrder} />}
         </Box>
       </TableCell>
       <StyledTouchRipple ref={rippleRef} center={false} />
