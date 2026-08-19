@@ -9,12 +9,18 @@ async function backfill(config: Secrets): Promise<void> {
   if (!token) throw new Error('Failed to fetch auth token.');
   const oystehr = createBillingClient(token, config);
   const dryRun = process.argv.includes('--dry-run');
-  const stats = await backfillBillingPatientClinicalIdentifiers(oystehr, dryRun);
+  const pruneStale = process.argv.includes('--prune-stale');
+  const stats = await backfillBillingPatientClinicalIdentifiers({
+    oystehr,
+    dryRun,
+    pruneStale,
+  });
   const patchedLabel = dryRun ? 'would be patched' : 'patched';
+  const prunedLabel = dryRun ? 'would be pruned' : 'pruned';
   console.log(
     `Billing patient clinical identifier backfill ${dryRun ? 'dry run ' : ''}complete: ${stats.examined} examined, ` +
-      `${stats.patched} ${patchedLabel}, ${stats.alreadyIndexed} already indexed, ${stats.skipped} skipped, ` +
-      `${stats.failed} failed`
+      `${stats.patched} ${patchedLabel}, ${stats.pruned} ${prunedLabel}, ${stats.alreadyIndexed} already indexed, ` +
+      `${stats.skipped} skipped, ${stats.failed} failed`
   );
   if (stats.failed) throw new Error(`Billing patient clinical identifier backfill failed for ${stats.failed} Patients`);
 }
