@@ -108,7 +108,8 @@ import VisitDetailsPage from '../../src/pages/VisitDetailsPage';
 // HARNESS
 // ============================================================================
 
-const CONSENT_REQUIRED_MESSAGE = 'Please check "I verify that patient consent has been obtained." before saving.';
+const CONSENT_NOT_SAVED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
 
 const visitDetails = (consentIsAttested: boolean): EHRVisitDetails =>
   ({
@@ -162,20 +163,41 @@ beforeEach(() => {
 // ============================================================================
 
 describe('Visit details consent attestation gate', () => {
-  it('blocks both saves until the attestation checkbox is checked', async () => {
+  it('keeps Save All blocked until the attestation is persisted, not merely checked', async () => {
     await renderPage(false);
 
     expect(consentCheckbox()).not.toBeChecked();
     expect(consentSaveButton()).toBeDisabled();
-    expect(saveAllBlockedReason()).toBe(CONSENT_REQUIRED_MESSAGE);
+    expect(saveAllBlockedReason()).toBe(CONSENT_NOT_SAVED_MESSAGE);
 
     await userEvent.click(consentCheckbox());
 
+    // Checking the box only enables the consent block's own save; Save All stays blocked because the
+    // server still has no attestation recorded.
     expect(consentSaveButton()).toBeEnabled();
-    await waitFor(() => expect(saveAllBlockedReason()).toBe(''));
+    expect(saveAllBlockedReason()).toBe(CONSENT_NOT_SAVED_MESSAGE);
   });
 
-  it('re-blocks both saves when an attested consent is unchecked', async () => {
+  it('unblocks Save All once the persisted attestation comes back from the server', async () => {
+    await renderPage(false);
+
+    await userEvent.click(consentCheckbox());
+    // The mutation's onSuccess refetches the visit, so the next read reports the attestation.
+    getPatientVisitDetailsMock.mockResolvedValue(visitDetails(true));
+    await userEvent.click(consentSaveButton());
+
+    await waitFor(() =>
+      expect(updatePatientVisitDetailsMock).toHaveBeenCalledWith(expect.anything(), {
+        appointmentId: 'appointment-1',
+        bookingDetails: { consentForms: { consentAttested: true } },
+      })
+    );
+    await waitFor(() => expect(saveAllBlockedReason()).toBe(''));
+    // Nothing left to change, so the block's own save goes back to disabled.
+    await waitFor(() => expect(consentSaveButton()).toBeDisabled());
+  });
+
+  it('lets an attested consent be retracted and saved', async () => {
     await renderPage(true);
 
     expect(consentCheckbox()).toBeChecked();
@@ -185,22 +207,18 @@ describe('Visit details consent attestation gate', () => {
 
     await userEvent.click(consentCheckbox());
 
-    // Unchecking is a change, but an unchecked attestation may never be saved.
-    expect(consentSaveButton()).toBeDisabled();
-    await waitFor(() => expect(saveAllBlockedReason()).toBe(CONSENT_REQUIRED_MESSAGE));
-  });
-
-  it('persists the attestation when the consent block is saved', async () => {
-    await renderPage(false);
-
-    await userEvent.click(consentCheckbox());
+    // Unchecking is a savable change: the retraction has to be persistable, otherwise the page would
+    // be stuck blocked with no way to reconcile the UI and the server.
+    expect(consentSaveButton()).toBeEnabled();
+    getPatientVisitDetailsMock.mockResolvedValue(visitDetails(false));
     await userEvent.click(consentSaveButton());
 
     await waitFor(() =>
       expect(updatePatientVisitDetailsMock).toHaveBeenCalledWith(expect.anything(), {
         appointmentId: 'appointment-1',
-        bookingDetails: { consentForms: { consentAttested: true } },
+        bookingDetails: { consentForms: { consentAttested: false } },
       })
     );
+    await waitFor(() => expect(saveAllBlockedReason()).toBe(CONSENT_NOT_SAVED_MESSAGE));
   });
 });

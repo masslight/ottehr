@@ -114,7 +114,14 @@ import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
-// Nothing on the visit can be saved until the staff member attests that consent was obtained.
+// The bottom "Save All" button and the "Completed consent forms" block's own Save button are gated on
+// the staff member attesting that consent was obtained. The inline pencil-icon dialogs (DOB, reason
+// for visit, service category, non-legal guardians) are intentionally not gated.
+//
+// The Save All gate reads the *persisted* attestation, not the local checkbox, so it has to spell out
+// that the checkbox must be committed via the consent block's Save button first.
+const CONSENT_ATTESTATION_NOT_SAVED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
 const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
   'Please check "I verify that patient consent has been obtained." before saving.';
 
@@ -329,6 +336,13 @@ export default function VisitDetailsPage(): ReactElement {
     patientId,
     disabled: !patientId,
   });
+
+  useEffect(() => {
+    // The route can switch to a different visit while this page stays mounted, so drop the previous
+    // visit's attestation. Without this the seeding effect below never re-runs (the local value is
+    // no longer null) and the new visit would render with the old one's checkbox state.
+    setConsentAttested(null);
+  }, [appointmentID]);
 
   useEffect(() => {
     // Seed the checkbox from the server only once the visit details have actually loaded. Seeding it
@@ -1160,7 +1174,11 @@ export default function VisitDetailsPage(): ReactElement {
                                 }}
                               />
                               <Typography>I verify that patient consent has been obtained.</Typography>
-                              <Tooltip title={consentAttested ? '' : CONSENT_ATTESTATION_REQUIRED_MESSAGE}>
+                              <Tooltip
+                                title={
+                                  !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : ''
+                                }
+                              >
                                 {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
                                 <span>
                                   <LoadingButton
@@ -1185,7 +1203,7 @@ export default function VisitDetailsPage(): ReactElement {
                                         });
                                     }}
                                     loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
-                                    disabled={!hasConsentChanged || !consentAttested}
+                                    disabled={!hasConsentChanged}
                                   >
                                     Save
                                   </LoadingButton>
@@ -1273,7 +1291,7 @@ export default function VisitDetailsPage(): ReactElement {
                 appointmentId={appointmentID}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
-                submitBlockedReason={consentAttested ? undefined : CONSENT_ATTESTATION_REQUIRED_MESSAGE}
+                submitBlockedReason={serverConsentAttested ? undefined : CONSENT_ATTESTATION_NOT_SAVED_MESSAGE}
               />
             </Grid>
           </Grid>
