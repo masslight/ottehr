@@ -543,6 +543,8 @@ export function getClaimCoveragesForEncounter(
       );
       let primaryCoverage: Coverage | undefined;
       let secondaryCoverage: Coverage | undefined;
+      let tertiaryCoverage: Coverage | undefined;
+      let quaternaryCoverage: Coverage | undefined;
       ucAccount?.coverage?.forEach((uccov) => {
         const foundClaimCoverage = claimCoverages.find(
           (ccov) =>
@@ -555,6 +557,12 @@ export function getClaimCoveragesForEncounter(
         if (uccov.priority === 2) {
           secondaryCoverage = foundClaimCoverage;
         }
+        if (uccov.priority === 3) {
+          tertiaryCoverage = foundClaimCoverage;
+        }
+        if (uccov.priority === 4) {
+          quaternaryCoverage = foundClaimCoverage;
+        }
       });
       return [
         ...(primaryCoverage
@@ -562,6 +570,12 @@ export function getClaimCoveragesForEncounter(
           : []),
         ...(secondaryCoverage
           ? [{ coverageRef: coverageDisplayReference(secondaryCoverage), payorRef: secondaryCoverage.payor[0] }]
+          : []),
+        ...(tertiaryCoverage
+          ? [{ coverageRef: coverageDisplayReference(tertiaryCoverage), payorRef: tertiaryCoverage.payor[0] }]
+          : []),
+        ...(quaternaryCoverage
+          ? [{ coverageRef: coverageDisplayReference(quaternaryCoverage), payorRef: quaternaryCoverage.payor[0] }]
           : []),
       ];
     }
