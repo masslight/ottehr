@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Claim, Encounter, Location, Organization, Patient, PaymentNotice } from 'fhir/r4b';
+import { Appointment, Claim, Encounter, Location, MeasureReport, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -28,6 +28,11 @@ const NOTICE_PAGE_SIZE = 200;
 const RESOURCE_BATCH_SIZE = 100;
 const UNKNOWN_LOCATION = 'Unknown Location';
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
+
+const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
+const CACHE_KEY_PREFIX = 'patient-payments:v1';
+const MEASURE_URL = 'https://fhir.ottehr.com/billing/measures/patient-payments';
+const ROW_METRIC_KEYS = ['collected', 'refunded', 'net'] as const;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -91,6 +96,17 @@ export async function performEffect(
   untaggedClient: Oystehr,
   params: GetBillingPatientPaymentsReportParams
 ): Promise<GetBillingPatientPaymentsReportResponse> {
+  const cacheKey = `${CACHE_KEY_PREFIX}:${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`;
+
+  // rollup requests serve the latest saved report; detail (drill-down) always computes live
+  if (!params.detail && !params.refresh) {
+    const cached = await findCachedRollup(oystehr, cacheKey);
+    if (cached) {
+      const rows = rowsFromCache(cached);
+      return { rows, totals: totalsOf(rows), generatedAt: cached.date ?? '', fromCache: true };
+    }
+  }
+
   // billing-tagged (client is workspace-scoped) active notices; window filtered in memory by day
   const allNotices: PaymentNotice[] = [];
   await fetchAllPages(async (offset, count) => {
@@ -208,17 +224,12 @@ export async function performEffect(
     }))
     .sort((a, b) => a.locationName.localeCompare(b.locationName) || a.paymentMethod.localeCompare(b.paymentMethod));
 
-  const totals = rows.reduce(
-    (acc, row) => ({
-      paymentCount: acc.paymentCount + row.paymentCount,
-      collected: roundNumberToDecimalPlaces(acc.collected + row.collected, 2),
-      refunded: roundNumberToDecimalPlaces(acc.refunded + row.refunded, 2),
-      net: roundNumberToDecimalPlaces(acc.net + row.net, 2),
-    }),
-    emptyTotals()
-  );
+  const totals = totalsOf(rows);
 
-  if (!params.detail) return { rows, totals, generatedAt };
+  if (!params.detail) {
+    await saveCachedRollup(oystehr, cacheKey, rows, generatedAt, params);
+    return { rows, totals, generatedAt, fromCache: false };
+  }
 
   const detailNotices = notices.filter(
     (notice) =>
@@ -276,6 +287,92 @@ const emptyTotals = (): GetBillingPatientPaymentsReportResponse['totals'] => ({
   refunded: 0,
   net: 0,
 });
+
+const totalsOf = (rows: PatientPaymentsReportRow[]): GetBillingPatientPaymentsReportResponse['totals'] =>
+  rows.reduce(
+    (acc, row) => ({
+      paymentCount: acc.paymentCount + row.paymentCount,
+      collected: roundNumberToDecimalPlaces(acc.collected + row.collected, 2),
+      refunded: roundNumberToDecimalPlaces(acc.refunded + row.refunded, 2),
+      net: roundNumberToDecimalPlaces(acc.net + row.net, 2),
+    }),
+    emptyTotals()
+  );
+
+async function findCachedRollup(oystehr: Oystehr, cacheKey: string): Promise<MeasureReport | undefined> {
+  const bundle = await oystehr.fhir.search<MeasureReport>({
+    resourceType: 'MeasureReport',
+    params: [
+      { name: 'identifier', value: `${REPORT_IDENTIFIER_SYSTEM}|${cacheKey}` },
+      { name: '_sort', value: '-_lastUpdated' },
+      { name: '_count', value: '1' },
+    ],
+  });
+  return bundle.unbundle()[0];
+}
+
+// one group per location|method row: payment count as population, dollar metrics as strata
+async function saveCachedRollup(
+  oystehr: Oystehr,
+  cacheKey: string,
+  rows: PatientPaymentsReportRow[],
+  generatedAt: string,
+  params: { dateFrom?: string; dateTo?: string }
+): Promise<void> {
+  const report: MeasureReport = {
+    resourceType: 'MeasureReport',
+    status: 'complete',
+    type: 'summary',
+    measure: MEASURE_URL,
+    identifier: [{ system: REPORT_IDENTIFIER_SYSTEM, value: cacheKey }],
+    date: generatedAt,
+    // period is required and must be non-empty (ele-1)
+    period: { start: params.dateFrom ?? generatedAt, ...(params.dateTo ? { end: params.dateTo } : {}) },
+    group: rows.map((row) => ({
+      code: { text: `${row.locationName}|${row.paymentMethod}` },
+      population: [{ code: { text: 'payments' }, count: row.paymentCount }],
+      stratifier: [
+        {
+          stratum: ROW_METRIC_KEYS.map((key) => ({
+            value: { text: key },
+            measureScore: { value: row[key] },
+          })),
+        },
+      ],
+    })),
+  };
+  try {
+    const existing = await findCachedRollup(oystehr, cacheKey);
+    if (existing?.id) {
+      await oystehr.fhir.update<MeasureReport>({ ...report, id: existing.id });
+    } else {
+      await oystehr.fhir.create<MeasureReport>(report);
+    }
+  } catch (err) {
+    // the cache is an optimization; a failed write must not fail the report
+    console.error('Failed to cache patient payments rollup:', err);
+  }
+}
+
+function rowsFromCache(report: MeasureReport): PatientPaymentsReportRow[] {
+  return (report.group ?? []).map((group) => {
+    const [locationName = UNKNOWN_LOCATION, paymentMethod = 'unknown'] = (group.code?.text ?? '').split('|');
+    const metrics = new Map(
+      (group.stratifier?.[0]?.stratum ?? []).map((stratum) => [
+        stratum.value?.text ?? '',
+        stratum.measureScore?.value ?? 0,
+      ])
+    );
+    return {
+      locationName,
+      paymentMethod,
+      paymentCount: group.population?.[0]?.count ?? 0,
+      collected: metrics.get('collected') ?? 0,
+      refunded: metrics.get('refunded') ?? 0,
+      net: metrics.get('net') ?? 0,
+    };
+  });
+}
 
 // Status per notice, aligned by index with the input. Stripe-linked payments get live invoice
 // state ('Invoice past due' etc.); manual payments report ''.

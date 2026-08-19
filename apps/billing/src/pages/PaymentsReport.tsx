@@ -1,4 +1,5 @@
 import {
+  ArrowBack as ArrowBackIcon,
   Close as CloseIcon,
   KeyboardArrowDown as ArrowDownIcon,
   KeyboardArrowUp as ArrowUpIcon,
@@ -26,6 +27,7 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   GetBillingPatientPaymentsReportInput,
@@ -618,6 +620,7 @@ function WaterfallMatrix({
 
 export default function PaymentsReport(): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const navigate = useNavigate();
 
   const [report, setReport] = useState<GetBillingPaymentsReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -635,7 +638,7 @@ export default function PaymentsReport(): ReactElement {
   const columns = useMemo(() => buildColumns(avgBasis), [avgBasis]);
 
   const fetchPatientPayments = useCallback(
-    async (opts?: { from?: string; to?: string }): Promise<void> => {
+    async (opts?: { from?: string; to?: string; refresh?: boolean }): Promise<void> => {
       if (!oystehrZambda) return;
       setPatientLoading(true);
       setPatientError(null);
@@ -645,6 +648,7 @@ export default function PaymentsReport(): ReactElement {
         const to = opts?.to ?? dateTo;
         if (from) params.dateFrom = from;
         if (to) params.dateTo = to;
+        if (opts?.refresh) params.refresh = true;
         setPatientReport(await getBillingPatientPaymentsReport(oystehrZambda, params));
       } catch (err) {
         setPatientError(getApiError({ error: err, defaultError: 'Failed to load patient payments' }));
@@ -692,6 +696,13 @@ export default function PaymentsReport(): ReactElement {
 
   return (
     <Box>
+      <Button
+        startIcon={<ArrowBackIcon />}
+        onClick={() => navigate('/reports')}
+        sx={{ mb: 1.5, color: 'text.secondary', textTransform: 'none' }}
+      >
+        Reports
+      </Button>
       <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} gap={1.5} mb={3}>
         <Box sx={{ flex: 1 }}>
           <Typography variant="h4" color="primary.dark" fontWeight={600}>
@@ -710,7 +721,7 @@ export default function PaymentsReport(): ReactElement {
           disabled={loading || patientLoading}
           onClick={() => {
             void fetchReport({ refresh: true });
-            void fetchPatientPayments();
+            void fetchPatientPayments({ refresh: true });
           }}
         >
           Refresh
@@ -790,17 +801,17 @@ export default function PaymentsReport(): ReactElement {
 
       <Stack direction={{ xs: 'column', md: 'row' }} gap={2} mb={2.5}>
         <StatCard
-          label="Insurance Paid"
-          value={formatCurrency(totals?.insurancePaid ?? 0)}
+          label="Billed"
+          value={formatCurrency(totals?.billed ?? 0)}
           hint={`${totals?.eraCount ?? 0} ERAs · ${totals?.claimCount ?? 0} claims`}
         />
-        <StatCard label="Billed" value={formatCurrency(totals?.billed ?? 0)} />
         <StatCard label="Allowed" value={formatCurrency(totals?.allowed ?? 0)} />
+        <StatCard label="Paid" value={formatCurrency(totals?.insurancePaid ?? 0)} hint="From claim paid amounts" />
+        <StatCard label="Check Total" value={formatCurrency(totals?.checkTotal ?? 0)} hint="Sum of ERA check amounts" />
         <StatCard
           label={`Avg / Claim (${avgBasis === 'allowed' ? 'Allowed' : 'Paid'})`}
           value={formatCurrency(totals && totals.claimCount > 0 ? totals[avgBasis] / totals.claimCount : 0)}
         />
-        <StatCard label="Check Total" value={formatCurrency(totals?.checkTotal ?? 0)} />
       </Stack>
 
       <DataGridPro

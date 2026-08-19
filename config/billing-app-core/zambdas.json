@@ -281,6 +281,13 @@
       "src": "src/billing/reports/get-billing-patient-payments-report/index",
       "zip": ".dist/zips/get-billing-patient-payments-report.zip"
     },
+    "GET-BILLING-CARDS-ON-FILE-REPORT": {
+      "name": "get-billing-cards-on-file-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/reports/get-billing-cards-on-file-report/index",
+      "zip": ".dist/zips/get-billing-cards-on-file-report.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",

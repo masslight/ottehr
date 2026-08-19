@@ -628,6 +628,36 @@ export interface GetBillingPatientPaymentsReportResponse {
   // present when detail was requested
   payments?: PatientPaymentItem[];
   generatedAt: string;
+  fromCache?: boolean;
+}
+
+export interface CardOnFileReportRow {
+  stripeCustomerId: string;
+  customerName: string;
+  // connected account the customer lives on ('' = platform account)
+  stripeAccountId: string;
+  livemode: boolean;
+  patientId: string;
+  patientName: string;
+  // Stripe payment method id ('' = no card on file)
+  cardId: string;
+  cardBrand: string;
+  cardLast4: string;
+  lastVisitDate: string;
+  lastVisitAppointmentId: string;
+  // open (unpaid) Stripe invoices for this customer
+  openInvoiceCount: number;
+  openInvoiceAmount: number;
+  hasPastDueInvoice: boolean;
+}
+
+export interface GetBillingCardsOnFileReportResponse {
+  rows: CardOnFileReportRow[];
+  totals: { customers: number; withCard: number; withoutCard: number; withOpenInvoices: number };
+  // true when the Stripe customer list was cut off at the safety cap
+  truncated: boolean;
+  generatedAt: string;
+  fromCache: boolean;
 }
 
 export interface GetPatientCoveragesResponse {

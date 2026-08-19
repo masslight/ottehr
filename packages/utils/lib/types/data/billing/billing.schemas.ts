@@ -660,10 +660,17 @@ export const GetBillingPatientPaymentsReportInputSchema = z.object({
   // payment (created) date window, ISO dates
   dateFrom: nonEmptyString.optional(),
   dateTo: nonEmptyString.optional(),
+  // recompute instead of returning the latest saved report
+  refresh: z.boolean().optional(),
   // drill-down: include individual payments (optionally row-filtered) with live Stripe status
   detail: z.boolean().optional(),
   locationName: nonEmptyString.optional(),
   paymentMethod: nonEmptyString.optional(),
+});
+
+export const GetBillingCardsOnFileReportInputSchema = z.object({
+  // recompute instead of returning the latest saved report
+  refresh: z.boolean().optional(),
 });
 
 export const RecordBillingManualPaymentInputSchema = z.object({
@@ -697,6 +704,7 @@ export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputS
 export type GetBillingPaymentsReportInput = z.output<typeof GetBillingPaymentsReportInputSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
 export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
+export type GetBillingCardsOnFileReportInput = z.output<typeof GetBillingCardsOnFileReportInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;

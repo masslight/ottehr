@@ -46,7 +46,6 @@ export const PAYMENTS_REPORT_NAME = 'payments-by-payer';
 export const PAYMENTS_REPORT_CACHE_VERSION = 'v6';
 // canonical for the cached MeasureReport's required `measure` element; no Measure resource exists yet
 export const PAYMENTS_REPORT_MEASURE_URL = 'https://fhir.ottehr.com/billing/measures/payments-by-payer';
-export const REPORT_CACHE_TTL_MINUTES = 60;
 
 const METRIC_KEYS = ['billed', 'allowed', 'insurancePaid', 'checkTotal'] as const;
 
@@ -71,7 +70,8 @@ export async function performEffect(
   const cacheKey = reportCacheKey(params);
 
   const cached = await findCachedReport(oystehr, cacheKey);
-  if (cached && !params.refresh && isCacheFresh(cached)) {
+  // latest saved report is served as-is; a new computation only happens on explicit refresh
+  if (cached && !params.refresh) {
     const rows = rowsFromMeasureReport(cached);
     return {
       rows,
@@ -100,12 +100,6 @@ export function reportCacheKey(params: { dateFrom?: string; dateTo?: string }): 
   return `${PAYMENTS_REPORT_NAME}:${PAYMENTS_REPORT_CACHE_VERSION}:${params.dateFrom ?? 'all'}:${
     params.dateTo ?? 'all'
   }`;
-}
-
-function isCacheFresh(report: MeasureReport): boolean {
-  if (!report.date) return false;
-  const age = DateTime.now().diff(DateTime.fromISO(report.date), 'minutes').minutes;
-  return age >= 0 && age < REPORT_CACHE_TTL_MINUTES;
 }
 
 async function findCachedReport(oystehr: Oystehr, cacheKey: string): Promise<MeasureReport | undefined> {
