@@ -491,6 +491,19 @@ export interface SearchBillingClaimsResponse extends Paginated {
   incomplete?: boolean;
 }
 
+export interface BillingClaimsExportKickOffResponse {
+  taskId: string;
+}
+
+export interface BillingClaimsExportStatusResponse {
+  status: 'requested' | 'in-progress' | 'completed' | 'failed';
+  downloadUrl?: string;
+  error?: string;
+  incomplete?: boolean;
+}
+
+export type BillingClaimsExportResponse = BillingClaimsExportKickOffResponse | BillingClaimsExportStatusResponse;
+
 // amounts in dollars
 export interface PatientArClaimItem {
   claimId: string;
