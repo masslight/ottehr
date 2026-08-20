@@ -150,6 +150,8 @@ describe('radiology-update-report integration', () => {
   // correct it — not even the provider who ordered the study, who otherwise could.
   it('refuses a preliminary read that carries no author of ours', async () => {
     const preliminary = (await getReports()).find((report) => report.status === 'preliminary');
+    // Says which precondition broke, rather than failing inside the patch with a confusing message.
+    expect(preliminary?.id).toBeDefined();
     await oystehrAdmin.fhir.patch<DiagnosticReport>({
       resourceType: 'DiagnosticReport',
       id: preliminary!.id!,

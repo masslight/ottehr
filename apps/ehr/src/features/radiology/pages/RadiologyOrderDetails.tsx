@@ -191,9 +191,9 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     order?.status !== RadiologyOrderStatus.ordered &&
     order?.status !== RadiologyOrderStatus.reviewed;
 
-  // Either read may be corrected only by the provider who ordered the study and wrote that read, and only
-  // until the order is signed off. The order list decides both (`canCallerEditReport`) and the zambda
-  // enforces the same rule on save — these only offer the pencil.
+  // Either read may be corrected by the practitioner who wrote it or by the provider who ordered the study,
+  // and only until the order is signed off. The order list decides both (`canCallerEditReport`) and the
+  // zambda enforces the same rule on save — these only offer the pencil.
   const canEditPreliminaryReport = !isReadOnly && !!order?.canEditPreliminaryReport;
   const canEditFinalReport = !isReadOnly && !!order?.canEditFinalReport;
 
