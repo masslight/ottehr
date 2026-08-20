@@ -49,7 +49,7 @@ import {
 } from '../../../billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
-  clinicalPatientIdOfCopy,
+  copySourceId,
   createBillingClient,
   fetchById,
   fetchClaimGraph,
@@ -227,7 +227,7 @@ async function loadPatientCoverageContext(
   patient: Patient | undefined
 ): Promise<RulesEngineClaimModel['patientCoverageContext']> {
   if (!rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))) return undefined;
-  const sourcePatientId = patient ? clinicalPatientIdOfCopy(patient) : undefined;
+  const sourcePatientId = copySourceId(patient);
   if (!sourcePatientId) return undefined;
 
   const records = await fetchPatientCoverages(oystehr, sourcePatientId);

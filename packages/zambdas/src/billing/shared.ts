@@ -11,6 +11,7 @@ import {
   ClaimResponseItem,
   Coding,
   Coverage,
+  DomainResource,
   FhirResource,
   Identifier,
   List,
@@ -48,7 +49,6 @@ import {
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
-  patchWithOptimisticLock,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -271,10 +271,14 @@ export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
-export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
-  return patient.extension
-    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-    ?.valueReference?.reference?.replace('Patient/', '');
+export function copySourceRef(resource?: DomainResource): string | undefined {
+  return resource?.extension?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
+}
+
+export function copySourceId(resource?: DomainResource): string | undefined {
+  const ref = copySourceRef(resource);
+  if (!ref) return undefined;
+  return ref.includes('/') ? ref.slice(ref.lastIndexOf('/') + 1) : ref;
 }
 
 export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
@@ -351,45 +355,34 @@ export async function searchPatientsByClinicalIds({
   return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
 }
 
-export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
-  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+export interface ClinicalPatientIds {
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+  workingCopyParentId?: string;
 }
 
-export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
-  const friendlyId = clinicalFriendlyIdOfCopy(patient);
-  const wanted = [
-    clinicalPatientIdentifier(clinicalPatientId),
-    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
-  ];
-  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
-}
-
-export async function addClinicalPatientIdentifiers({
+export async function resolveClinicalPatientIds({
   oystehr,
   patient,
-  clinicalPatientId,
+  fetchBillingPatient = (id) => findById<Patient>(oystehr, 'Patient', id),
 }: {
   oystehr: Oystehr;
   patient: Patient;
-  clinicalPatientId: string;
-}): Promise<void> {
-  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
-    if (missing.length === 0) return [];
-    return current.identifier?.length
-      ? missing.map((identifier) => ({
-          op: 'add' as const,
-          path: '/identifier/-',
-          value: identifier,
-        }))
-      : [
-          {
-            op: 'add' as const,
-            path: '/identifier',
-            value: missing,
-          },
-        ];
-  });
+  fetchBillingPatient?: (id: string) => Promise<Patient | undefined>;
+}): Promise<ClinicalPatientIds> {
+  const sourceId = copySourceId(patient);
+  if (!isWorkingCopy(patient)) {
+    return {
+      clinicalId: sourceId,
+      clinicalFriendlyId: clinicalFriendlyIdOfCopy(patient),
+    };
+  }
+  const parent = sourceId ? await fetchBillingPatient(sourceId) : undefined;
+  return {
+    clinicalId: parent ? copySourceId(parent) : undefined,
+    clinicalFriendlyId: (parent ? clinicalFriendlyIdOfCopy(parent) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
+    workingCopyParentId: sourceId,
+  };
 }
 
 export async function searchOnClinicalIDs(
@@ -421,8 +414,7 @@ export async function searchOnClinicalIDs(
   }, CLINICAL_ID_SCAN_PAGE_SIZE);
   if (uuid || friendlyId) {
     results = results.filter(
-      (p) =>
-        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+      (p) => (!!uuid && copySourceId(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
     );
   }
   const total = results.length;
@@ -597,13 +589,29 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
   });
 }
 
+export async function findById<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string
+): Promise<T | undefined> {
+  const result = await oystehr.fhir.search<T>({
+    resourceType,
+    params: [
+      {
+        name: '_id',
+        value: id,
+      },
+    ],
+  });
+  return result.unbundle()[0];
+}
+
 export async function fetchById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   id: string
 ): Promise<T> {
-  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
-  const resource = result.unbundle()[0];
+  const resource = await findById<T>(oystehr, resourceType, id);
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
 }
@@ -894,6 +902,60 @@ export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: 
   );
   copy.meta = { tag: [...providerTags, BILLING_WORKING_COPY_TAG] };
   return copy;
+}
+
+export function copyBillingPatient({
+  patient,
+  workingCopy,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  patient: Patient;
+  workingCopy?: boolean;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+}): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  if (!clinicalId && !clinicalFriendlyId) return copy;
+  copy.identifier ??= [];
+  if (clinicalId) {
+    // Source reference in extension is managed by prepareCopy
+    copy.identifier.push(clinicalPatientIdentifier(clinicalId));
+  }
+  if (clinicalFriendlyId) {
+    copy.extension = [
+      ...(copy.extension ?? []),
+      {
+        url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+        valueString: clinicalFriendlyId,
+      },
+    ];
+    copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
+  }
+  return copy;
+}
+
+export async function copyBillingPatientWithClinicalIds({
+  oystehr,
+  patient,
+  workingCopy,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  workingCopy?: boolean;
+}): Promise<Patient> {
+  const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+    oystehr,
+    patient,
+  });
+  return copyBillingPatient({
+    patient,
+    workingCopy,
+    clinicalId,
+    clinicalFriendlyId,
+  });
 }
 
 /**
@@ -1492,13 +1554,7 @@ export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
 });
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
-  let workingCopyReferenceResourceId: string | undefined;
-  if (isWorkingCopy(resource)) {
-    workingCopyReferenceResourceId = resource.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Practitioner/', '')
-      ?.replace('Organization/', '');
-  }
+  const workingCopyReferenceResourceId = isWorkingCopy(resource) ? copySourceId(resource) : undefined;
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',

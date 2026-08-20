@@ -26,6 +26,7 @@ import {
 } from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
+  copySourceId,
   createBillingClient,
   createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
@@ -39,7 +40,6 @@ import {
   getEraCheckNumber,
   getTaxonomy,
   resolvePayersByRef,
-  SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -171,10 +171,7 @@ export async function performEffect(
     patientDob: patient?.birthDate ?? '',
     patientGender: patient?.gender ?? '',
     patientId: patient?.id ?? '',
-    patientOriginalId:
-      patient?.extension
-        ?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)
-        ?.valueReference?.reference?.replace('Patient/', '') ?? '',
+    patientOriginalId: copySourceId(patient) ?? '',
     patientAddress: formatAddress(patientAddr),
     patientAddressParts: toAddressParts(patientAddr),
     coverageFhirId: coverage?.id ?? '',
