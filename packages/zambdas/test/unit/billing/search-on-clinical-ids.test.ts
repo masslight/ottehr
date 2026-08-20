@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BILLING_WORKING_COPY_TAG,
   clinicalFriendlyIdIdentifier,
@@ -163,6 +163,16 @@ describe('searchOnClinicalIDs', () => {
 });
 
 describe('resolveClinicalPatientIds', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   // The backfill serves parent hops from the Patients it already scanned; production leaves the
   // fetcher out and the default reads the parent from the server.
   const preloaded = (patients: Patient[]) => {
@@ -259,6 +269,7 @@ describe('resolveClinicalPatientIds', () => {
       clinicalFriendlyId: '1015',
       workingCopyParentId: 'billing-copy',
     });
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('resolves no clinical id for a working copy whose extension points at itself', async () => {
@@ -275,6 +286,7 @@ describe('resolveClinicalPatientIds', () => {
       clinicalFriendlyId: undefined,
       workingCopyParentId: 'billing-loop',
     });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('cycles back to Patient/billing-loop'));
   });
 
   it('resolves no clinical id when the copy chain cycles', async () => {
@@ -288,6 +300,25 @@ describe('resolveClinicalPatientIds', () => {
     });
 
     expect(ids.clinicalId).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Patient/billing-first: the chain cycles back to Patient/billing-first')
+    );
+  });
+
+  it('names the copy in the chain that has no source reference', async () => {
+    const orphan = workingCopy('billing-orphan');
+    const copy = workingCopy('billing-copy', 'billing-orphan');
+    const { oystehr } = serverWith([orphan, copy]);
+
+    const ids = await resolveClinicalPatientIds({
+      oystehr,
+      patient: copy,
+    });
+
+    expect(ids.clinicalId).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Patient/billing-orphan in the chain has no source reference')
+    );
   });
 
   // The cap is a backstop against an unbounded walk, so a chain deeper than it resolves to nothing
@@ -305,6 +336,7 @@ describe('resolveClinicalPatientIds', () => {
     });
 
     expect(ids.clinicalId).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('the chain is deeper than 10 hops'));
   });
 
   // A deleted main patient must not fail the copy: there is no clinical patient left to index, the
@@ -323,6 +355,7 @@ describe('resolveClinicalPatientIds', () => {
       clinicalFriendlyId: undefined,
       workingCopyParentId: 'billing-gone',
     });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Patient/billing-gone in the chain no longer exists'));
   });
 
   it('keeps the working copy own friendly id when the main patient has none', async () => {

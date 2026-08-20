@@ -403,13 +403,24 @@ async function findMainPatientOfWorkingCopy({
 }): Promise<Patient | undefined> {
   const visited = new Set<string>(patient.id ? [patient.id] : []);
   let ancestorId = sourceId;
-  for (let hop = 0; ancestorId && !visited.has(ancestorId) && hop < MAX_COPY_CHAIN_HOPS; hop++) {
+  if (!ancestorId) return noMainPatient(patient, 'it has no source reference');
+  for (let hop = 0; hop < MAX_COPY_CHAIN_HOPS; hop++) {
+    if (visited.has(ancestorId)) return noMainPatient(patient, `the chain cycles back to Patient/${ancestorId}`);
     visited.add(ancestorId);
     const ancestor = await fetchBillingPatient(ancestorId);
-    if (!ancestor) return undefined;
+    if (!ancestor) return noMainPatient(patient, `Patient/${ancestorId} in the chain no longer exists`);
     if (!isWorkingCopy(ancestor)) return ancestor;
-    ancestorId = copySourceId(ancestor);
+    const nextAncestorId = copySourceId(ancestor);
+    if (!nextAncestorId) return noMainPatient(patient, `Patient/${ancestorId} in the chain has no source reference`);
+    ancestorId = nextAncestorId;
   }
+  return noMainPatient(patient, `the chain is deeper than ${MAX_COPY_CHAIN_HOPS} hops`);
+}
+
+// A copy that resolves no main patient is written with no clinical identifiers, which nothing
+// downstream can tell apart from a copy that never had a clinical patient, so say which chain broke.
+function noMainPatient(patient: Patient, reason: string): undefined {
+  console.warn(`No main billing Patient resolved for working copy Patient/${patient.id}: ${reason}`);
   return undefined;
 }
 
