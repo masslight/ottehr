@@ -39,6 +39,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,
+  copyBillingPatientWithClinicalIds,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -118,7 +119,7 @@ async function performEffect(
   if (!created?.id) throw InternalError;
 
   const engine = determineRulesEngineForClaim(created);
-  if (engine) await kickOffRulesEngine(oystehr, engine, created.id, params.secrets);
+  if (engine) await kickOffRulesEngine(oystehr, engine, created.id, agent.who, params.secrets);
 
   return { claimId: created.id };
 }
@@ -149,12 +150,16 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   return { patient, coverage, coverageSubscriber, renderingProvider, facility, billingProvider };
 }
 
-async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResources): Promise<OriginalResources> {
+export async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResources): Promise<OriginalResources> {
   const requests: BatchInputPostRequest<BillingFhirResource>[] = [];
   const order: string[] = [];
 
   const patientUrn = `urn:uuid:${randomUUID()}`;
-  const patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
+  const patientCopy = await copyBillingPatientWithClinicalIds({
+    oystehr,
+    patient: originals.patient,
+    workingCopy: true,
+  });
   requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
 
