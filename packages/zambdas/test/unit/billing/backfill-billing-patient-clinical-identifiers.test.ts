@@ -326,6 +326,45 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
+  // Nothing resolves the uuid once the main patient is deleted, but the copy still carries the
+  // friendly id it was created with, and indexing that beats indexing nothing.
+  it('indexes the friendly id of a working copy whose main patient is gone', async () => {
+    const { oystehr, patch } = mockOystehr([
+      workingCopyOf({
+        id: 'billing-copy',
+        extension: copyOf('billing-gone', '1015'),
+      }),
+    ]);
+
+    const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
+
+    expect(stats).toEqual({
+      examined: 1,
+      changed: 1,
+      patientsGainingIdentifiers: 1,
+      patientsDroppingStaleIdentifiers: 0,
+      alreadyIndexed: 0,
+      skipped: 0,
+      skippedWithNothingToIndex: 0,
+      skippedWithPrunableIdentifiers: 0,
+      skippedNeedingReview: 0,
+      failed: 0,
+    });
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'billing-copy',
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [clinicalFriendlyIdIdentifier('1015')],
+          },
+        ],
+      }),
+      expect.anything()
+    );
+  });
+
   it('skips a working copy whose main patient has no clinical source', async () => {
     const { oystehr, patch } = mockOystehr([
       billingPatient({
@@ -794,6 +833,39 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
         expect(stats.skippedWithNothingToIndex).toBe(1);
         expect(stats.skippedNeedingReview).toBe(0);
         expect(patch).not.toHaveBeenCalled();
+      });
+
+      // The friendly id is adjudicated off the copy own extension whether or not the uuid resolves,
+      // so the two systems do not have to be decidable together.
+      it('still fixes the friendly id when the uuid resolves to nothing', async () => {
+        const { oystehr, patch } = mockOystehr([
+          workingCopyOf({
+            id: 'billing-copy',
+            extension: copyOf('billing-gone', '1015'),
+            identifier: [clinicalFriendlyIdIdentifier('1014')],
+          }),
+        ]);
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(
+          runOptions(oystehr, {
+            pruneStale: true,
+          })
+        );
+
+        expect(stats.patientsDroppingStaleIdentifiers).toBe(1);
+        expect(patch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'billing-copy',
+            operations: [
+              {
+                op: 'replace',
+                path: '/identifier',
+                value: [clinicalFriendlyIdIdentifier('1015')],
+              },
+            ],
+          }),
+          expect.anything()
+        );
       });
     });
   });

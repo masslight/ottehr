@@ -33,17 +33,32 @@ function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
   return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
 }
 
+// Each system is adjudicated on its own: a copy whose main Patient is gone still resolves the
+// friendly id off its own extension, and indexing that is better than indexing nothing.
+function wantedIdentifiersBySystem({
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+}): Map<string, string> {
+  const wanted = new Map<string, string>();
+  if (clinicalId) wanted.set(SOURCE_IDENTIFIER_SYSTEM, clinicalId);
+  if (clinicalFriendlyId) wanted.set(SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, clinicalFriendlyId);
+  return wanted;
+}
+
 function missingClinicalPatientIdentifiers({
   patient,
   clinicalId,
   clinicalFriendlyId,
 }: {
   patient: Patient;
-  clinicalId: string;
+  clinicalId?: string;
   clinicalFriendlyId?: string;
 }): Identifier[] {
   const wanted = [
-    clinicalPatientIdentifier(clinicalId),
+    ...(clinicalId ? [clinicalPatientIdentifier(clinicalId)] : []),
     ...(clinicalFriendlyId ? [clinicalFriendlyIdIdentifier(clinicalFriendlyId)] : []),
   ];
   return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
@@ -53,34 +68,26 @@ function staleClinicalPatientIdentifiers({
   patient,
   clinicalId,
   clinicalFriendlyId,
-}: {
-  patient: Patient;
-  clinicalId: string;
-  clinicalFriendlyId?: string;
-}): Identifier[] {
-  const wantedBySystem = new Map<string, string>([[SOURCE_IDENTIFIER_SYSTEM, clinicalId]]);
-  if (clinicalFriendlyId) wantedBySystem.set(SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, clinicalFriendlyId);
-  return (patient.identifier ?? []).filter((identifier) => {
-    const wanted = identifier.system ? wantedBySystem.get(identifier.system) : undefined;
-    return !!wanted && identifier.value !== wanted;
-  });
-}
-
-// With no clinical id to compare against, a source identifier is still provably wrong when its value
-// names a Patient in the billing workspace: the system indexes clinical Patients, which a billing
-// scan can never contain. A value naming no scanned Patient is left alone, since a deleted billing
-// Patient and a clinical Patient look the same from here.
-function unindexableClinicalPatientIdentifiers({
-  patient,
   isBillingPatientId,
 }: {
   patient: Patient;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
   isBillingPatientId: (id: string) => boolean;
 }): Identifier[] {
-  return (patient.identifier ?? []).filter(
-    (identifier) =>
-      identifier.system === SOURCE_IDENTIFIER_SYSTEM && !!identifier.value && isBillingPatientId(identifier.value)
-  );
+  const wantedBySystem = wantedIdentifiersBySystem({
+    clinicalId,
+    clinicalFriendlyId,
+  });
+  return (patient.identifier ?? []).filter((identifier) => {
+    const wanted = identifier.system ? wantedBySystem.get(identifier.system) : undefined;
+    if (wanted) return identifier.value !== wanted;
+    // Nothing resolved for this system, but a source identifier is still provably wrong when its
+    // value names a Patient in the billing workspace: the system indexes clinical Patients, which a
+    // billing scan can never contain. A value naming no scanned Patient is left alone, since a
+    // deleted billing Patient and a clinical Patient look the same from here.
+    return identifier.system === SOURCE_IDENTIFIER_SYSTEM && !!identifier.value && isBillingPatientId(identifier.value);
+  });
 }
 
 function planClinicalIdentifiers({
@@ -99,31 +106,20 @@ function planClinicalIdentifiers({
   missing: Identifier[];
   stale: Identifier[];
 } {
-  const missing = clinicalId
-    ? missingClinicalPatientIdentifiers({
-        patient,
-        clinicalId,
-        clinicalFriendlyId,
-      })
-    : [];
-  if (!pruneStale) {
-    return {
-      missing,
-      stale: [],
-    };
-  }
   return {
-    missing,
-    stale: clinicalId
+    missing: missingClinicalPatientIdentifiers({
+      patient,
+      clinicalId,
+      clinicalFriendlyId,
+    }),
+    stale: pruneStale
       ? staleClinicalPatientIdentifiers({
           patient,
           clinicalId,
           clinicalFriendlyId,
-        })
-      : unindexableClinicalPatientIdentifiers({
-          patient,
           isBillingPatientId,
-        }),
+        })
+      : [],
   };
 }
 
@@ -312,8 +308,8 @@ export async function backfillBillingPatientClinicalIdentifiers({
         if (stale.length) {
           stats.patientsDroppingStaleIdentifiers++;
           console.log(
-            `Patient/${patient.id} ${dryRun ? 'would drop' : 'dropped'} ` +
-              `${clinicalId ? 'stale' : 'unindexable'} identifiers: ${stale.map(identifierSearchToken).join(', ')}`
+            `Patient/${patient.id} ${dryRun ? 'would drop' : 'dropped'} stale identifiers: ` +
+              `${stale.map(identifierSearchToken).join(', ')}`
           );
         }
       })
