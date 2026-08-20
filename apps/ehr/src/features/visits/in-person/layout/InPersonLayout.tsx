@@ -10,12 +10,14 @@ import {
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ThemeProvider } from 'styled-components';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSelectors } from 'utils/lib/store';
+import { isVisitFinished } from 'utils/lib/utils/visitUtils';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
+import { useAssignedProvider } from '../../shared/hooks/useAssignedProvider';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useStopAmbientScribeOnLeave } from '../../shared/hooks/useStopAmbientScribeOnLeave';
@@ -54,7 +56,7 @@ export const InPersonLayout: React.FC = () => {
   const [recordingAnchorElement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
   const recordingOpen = Boolean(recordingAnchorElement);
-  const { visitType } = useGetAppointmentAccessibility();
+  const { visitType, isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 
   useResetAppointmentStore();
@@ -62,7 +64,22 @@ export const InPersonLayout: React.FC = () => {
   // Keep the Ambient Scribe recording alive across rotation; stop & save it on leaving the visit.
   useStopAmbientScribeOnLeave({ hostKey: encounter.id ?? '' });
   const { chartData } = useChartData({ shouldUpdateExams: true });
-  const assignedProviderId = getAttendingPractitionerId(encounter);
+  const { isAssignedProviderEligible, isAssignedProviderStale, assignedProviderName } = useAssignedProvider();
+  // A finished visit is a record, not work in progress. The provider gate exists to stop new
+  // charting and signing under an unassignable provider; applying it to finished visits too would
+  // retroactively hide every past note the moment its provider left or changed role.
+  //
+  // The status check carries this rather than the lock tag alone: the tag is only written by
+  // sign-appointment, so visits signed before locking landed carry none and awaiting-approval
+  // visits are never tagged. Unlocking a visit for editing leaves its status finished, so the chart
+  // stays readable — re-signing it is still blocked, by ReviewAndSignButton and by the zambda.
+  const canChart = isAppointmentReadOnly || isVisitFinished(appointment, encounter) || isAssignedProviderEligible;
+  // A stale assignment gets its own wording: the Provider picker renders blank once the assignee
+  // drops off the provider roster, so "select a provider" alone reads as though nothing happened.
+  const staleProviderLabel = assignedProviderName || 'The assigned provider';
+  const selectProviderText = isAssignedProviderStale
+    ? `${staleProviderLabel} is no longer available as a provider. Select a provider in order to begin charting.`
+    : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
 
@@ -116,12 +133,16 @@ export const InPersonLayout: React.FC = () => {
               padding: '20px 20px 24px 20px',
             }}
           >
-            {assignedProviderId ? (
+            {canChart ? (
               <>
                 <Outlet />
               </>
             ) : (
-              <InfoAlert text="Select a provider in order to begin charting." persistent />
+              <InfoAlert
+                text={selectProviderText}
+                persistent
+                dataTestId={dataTestIds.inPersonLayout.selectProviderAlert}
+              />
             )}
           </div>
           <BottomNavigation />

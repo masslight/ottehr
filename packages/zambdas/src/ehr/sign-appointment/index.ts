@@ -34,6 +34,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { assertAssignedProviderCanSign } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -93,6 +94,15 @@ export const performEffect = async (
   }
   if (!patient) {
     throw new Error(`No patient found for encounter ${encounter.id}`);
+  }
+
+  // Skipped for a supervisor co-signing a visit its attender already signed: the attender was valid
+  // at signing time, the supervisor cannot undo a role change, and reassigning the slot would
+  // rewrite who the note says delivered the care — so blocking here would only strand the visit.
+  // The EHR takes the same view (ReviewAndSignButton treats awaiting-approval as completed and
+  // raises no message), and the guard still covers every first sign and every re-sign after unlock.
+  if (getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled) !== 'awaiting supervisor approval') {
+    await assertAssignedProviderCanSign(oystehr, encounter);
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
