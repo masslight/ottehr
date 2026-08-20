@@ -66,19 +66,24 @@ describe('Radiology order-list - canCallerEditReport', () => {
     ).toBe(false);
   });
 
+  // The author is also what marks a read as ours, so its absence gates the ordering provider too: the caller
+  // here placed the order and still cannot rewrite what teleradiology issued.
   test('refuses a teleradiology read, which carries no author of ours', () => {
     expect(
       canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(undefined), RadiologyOrderStatus.final, CALLER)
     ).toBe(false);
   });
 
-  test('refuses when someone else wrote the read', () => {
+  // The two roles qualify independently, so the ordering provider can correct a read somebody else wrote…
+  test('lets the ordering provider edit a read written by someone else', () => {
     expect(
       canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(SOMEONE_ELSE), RadiologyOrderStatus.final, CALLER)
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  test('refuses when the caller wrote the read but had nothing to do with ordering the study', () => {
+  // …and the author can correct their own read even with no part in ordering the study. Requiring both roles
+  // of one person would leave this read uncorrectable by anyone.
+  test('lets the author edit a read on a study they had nothing to do with ordering', () => {
     expect(
       canCallerEditReport(
         serviceRequest(SOMEONE_ELSE),
@@ -86,6 +91,19 @@ describe('Radiology order-list - canCallerEditReport', () => {
         reportBy(CALLER),
         RadiologyOrderStatus.final,
         CALLER
+      )
+    ).toBe(true);
+  });
+
+  test('refuses a caller who neither wrote the read nor ordered the study', () => {
+    const bystander = 'prac-bystander';
+    expect(
+      canCallerEditReport(
+        serviceRequest(SOMEONE_ELSE),
+        encounterAttendedBy(SOMEONE_ELSE),
+        reportBy(SOMEONE_ELSE),
+        RadiologyOrderStatus.final,
+        bystander
       )
     ).toBe(false);
   });
@@ -104,16 +122,18 @@ describe('Radiology order-list - canCallerEditReport', () => {
 
   // OTR-3116 settled that a preliminary read is restricted the same way, so it goes through this same rule.
   test('governs a preliminary read on exactly the same terms', () => {
+    // Its author.
     expect(
       canCallerEditReport(
-        serviceRequest(CALLER),
-        undefined,
+        serviceRequest(SOMEONE_ELSE),
+        encounterAttendedBy(SOMEONE_ELSE),
         reportBy(CALLER, 'preliminary'),
         RadiologyOrderStatus.preliminary,
         CALLER
       )
     ).toBe(true);
 
+    // The ordering provider, on a read somebody else wrote.
     expect(
       canCallerEditReport(
         serviceRequest(CALLER),
@@ -122,9 +142,9 @@ describe('Radiology order-list - canCallerEditReport', () => {
         RadiologyOrderStatus.preliminary,
         CALLER
       )
-    ).toBe(false);
+    ).toBe(true);
 
-    // A preliminary read written before authorship was recorded has no author, so it matches nobody.
+    // A preliminary read written before authorship was recorded is nobody's to claim.
     expect(
       canCallerEditReport(
         serviceRequest(CALLER),

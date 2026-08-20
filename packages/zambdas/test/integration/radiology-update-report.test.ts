@@ -146,9 +146,9 @@ describe('radiology-update-report integration', () => {
     expect(decodeReport(final)).toBe('Corrected final report');
   });
 
-  // A preliminary read is now restricted the same way as a final one: written by the caller, who must also
-  // have ordered the study. Strip the author and the same caller loses the right to correct it.
-  it('refuses a preliminary read the caller did not write', async () => {
+  // The author is what marks a read as ours. Strip it and the read reads as teleradiology's, so nobody may
+  // correct it — not even the provider who ordered the study, who otherwise could.
+  it('refuses a preliminary read that carries no author of ours', async () => {
     const preliminary = (await getReports()).find((report) => report.status === 'preliminary');
     await oystehrAdmin.fhir.patch<DiagnosticReport>({
       resourceType: 'DiagnosticReport',

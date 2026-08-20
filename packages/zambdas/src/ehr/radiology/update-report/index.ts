@@ -160,9 +160,10 @@ const fetchOrderResources = async (
 /**
  * The read the caller asked to edit, once they have been shown to be allowed to edit it.
  *
- * Both reads follow one rule: the caller must have written it and have ordered the study. A read with no
- * author of ours matches nobody — that covers anything teleradiology issued, and any read written before
- * authorship was recorded, both of which are therefore read-only.
+ * Both reads follow one rule, the same one the order list applies for the UI affordance: the practitioner who
+ * wrote the read may correct it, and so may the provider who ordered the study — independently. A read with
+ * no author of ours was not written here, which is how teleradiology's reads are recognised; nobody may
+ * rewrite those, nor a read written before authorship was recorded.
  *
  * After finalization the preliminary read lives on as its own snapshot resource (see
  * `buildPreliminaryReportSnapshot`), which carries its author across, so the rule still resolves. That
@@ -185,12 +186,19 @@ const resolveReportToEdit = async (
     throw RADIOLOGY_ERROR(`This order has no ${reportType} read to edit.`);
   }
 
+  const authorId = getReportAuthorId(report);
+  if (!authorId) {
+    throw RADIOLOGY_ERROR(`This ${reportType} read was not written here, so it cannot be edited.`);
+  }
+
   const callerPractitionerId = await getMyPractitionerId(auth.callerAccessToken, auth.secrets);
-  const wroteIt = getReportAuthorId(report) === callerPractitionerId;
+  const wroteIt = authorId === callerPractitionerId;
   const orderedIt = getOrderingProviderIds(serviceRequest, encounter).includes(callerPractitionerId);
 
-  if (!wroteIt || !orderedIt) {
-    throw RADIOLOGY_ERROR(`Only the ordering provider who wrote this ${reportType} read can edit it.`);
+  if (!wroteIt && !orderedIt) {
+    throw RADIOLOGY_ERROR(
+      `Only the practitioner who wrote this ${reportType} read, or the provider who ordered the study, can edit it.`
+    );
   }
 
   return report;
