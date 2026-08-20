@@ -20,6 +20,7 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
@@ -92,7 +93,16 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const oystehr = createBillingClient(m2mToken, secrets);
   // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
   // change the engine writes lands in the claim history attributed to it.
-  const agent = await resolveClaimActor('rules', oystehr, undefined, secrets);
+  const agent = [await resolveClaimActor('rules', oystehr, undefined, secrets)];
+  if (task.requester?.reference) {
+    const requesterType = task.requester.reference.startsWith('Practitioner/')
+      ? CLAIM_PROVENANCE_AGENT_TYPE.human
+      : CLAIM_PROVENANCE_AGENT_TYPE.system;
+    agent.push({
+      type: { coding: [requesterType] },
+      who: task.requester,
+    });
+  }
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {
@@ -278,7 +288,7 @@ export class RuleFailureError extends Error {
 export async function performEffect(
   oystehr: Oystehr,
   { engine, claimId, rules, model, skipRules }: ValidatedRulesRun,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent[]
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
   const attribution: RuleAttributionMap = new Map();
@@ -360,7 +370,7 @@ export async function performEffect(
 // Backstop for the catch path: whatever went wrong (load, persist, finalize), the claim must end
 // up carrying the Hold tag so the failure is visible on the claim itself, not just the Task. Never
 // throws — the original error is the one that matters.
-export async function ensureClaimHeld(oystehr: Oystehr, claim: Claim, agent: ProvenanceAgent): Promise<void> {
+export async function ensureClaimHeld(oystehr: Oystehr, claim: Claim, agent: ProvenanceAgent[]): Promise<void> {
   try {
     if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME })) return;
     const updatedTags = [...(claim.meta?.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
@@ -465,7 +475,7 @@ export async function persistModel(
   oystehr: Oystehr,
   model: RulesEngineClaimModel,
   snapshot: Map<string, ModelResource>,
-  agent: ProvenanceAgent,
+  agent: ProvenanceAgent[],
   attribution?: RuleAttributionMap
 ): Promise<number> {
   const claimReference = `Claim/${model.claim.id}`;

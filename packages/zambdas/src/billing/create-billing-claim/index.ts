@@ -118,7 +118,7 @@ async function performEffect(
   if (!created?.id) throw InternalError;
 
   const engine = determineRulesEngineForClaim(created);
-  if (engine) await kickOffRulesEngine(oystehr, engine, created.id, params.secrets);
+  if (engine) await kickOffRulesEngine(oystehr, engine, created.id, agent.who, params.secrets);
 
   return { claimId: created.id };
 }

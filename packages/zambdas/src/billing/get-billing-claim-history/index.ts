@@ -2,11 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
+  CLAIM_PROVENANCE_AGENT_TYPE,
+  CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
@@ -160,8 +163,14 @@ function toHistoryEntry(
   const activityCode = provenance.activity?.coding?.[0]?.code;
   // target[0] is the changed resource (the claim itself is appended as a second target).
   const targetRef = provenance.target?.[0]?.reference;
-  const agentRef = provenance.agent?.[0]?.who?.reference;
-  const agentTypeCode = provenance.agent?.[0]?.type?.coding?.[0]?.code;
+  // Take a human agent if it's present
+  const agent =
+    provenance.agent?.find(
+      (agent) =>
+        getCoding(agent.type, CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM)?.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code
+    ) ?? provenance.agent?.[0];
+  const agentRef = agent?.who?.reference;
+  const agentTypeCode = agent?.type?.coding?.[0]?.code;
 
   // Our writer always sets these; a claim-history Provenance missing them is a real defect, not a
   // routine optional-field case — surface it rather than silently rendering blanks.
