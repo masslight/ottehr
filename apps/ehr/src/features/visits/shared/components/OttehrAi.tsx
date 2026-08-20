@@ -85,11 +85,12 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
 
   const chartDataHasResources = (chartData?.aiChat?.documents?.length ?? 0) > 0;
 
-  const { isPolling, pollingExhausted, hasInterviewWithoutResources } = useAiResourcesPolling({
+  const { isPolling, pollingExhausted, hasPendingAiSource } = useAiResourcesPolling({
     appointment,
     encounter,
     oystehr,
     chartDataHasResources,
+    hasPendingRecording: Boolean(chartData?.aiChat?.hasPendingRecording),
     onRefetch: refetchChartData,
   });
 
@@ -118,7 +119,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
   });
 
   const aiDocuments = chartData?.aiChat?.documents;
-  const shouldShowLoader = hasInterviewWithoutResources && (isLoading || isPolling);
+  const shouldShowLoader = hasPendingAiSource && (isLoading || isPolling);
 
   return (
     <Stack spacing={1}>

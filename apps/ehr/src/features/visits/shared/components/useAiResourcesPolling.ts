@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AMBIENT_SCRIBE_RECORDING_PENDING_CODING } from 'utils/lib/fhir/constants';
 import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 
@@ -9,17 +10,18 @@ interface UseAiResourcesPollingParams {
   encounter: Encounter | undefined;
   oystehr: Oystehr | undefined;
   chartDataHasResources: boolean;
+  hasPendingRecording: boolean;
   onRefetch: () => Promise<void>;
 }
 
 interface UseAiResourcesPollingResult {
   isPolling: boolean;
-  hasInterviewWithoutResources: boolean;
+  hasPendingAiSource: boolean;
   pollingExhausted: boolean;
 }
 
 const MIN_ANSWERS_REQUIRED = 4;
-const MAX_POLLING_ATTEMPTS = 12;
+const MAX_POLLING_ATTEMPTS = 60;
 const POLLING_INTERVAL_MS = 5_000; // 5 seconds
 
 export const useAiResourcesPolling = ({
@@ -27,10 +29,11 @@ export const useAiResourcesPolling = ({
   encounter,
   oystehr,
   chartDataHasResources,
+  hasPendingRecording,
   onRefetch,
 }: UseAiResourcesPollingParams): UseAiResourcesPollingResult => {
   const [isPolling, setIsPolling] = useState(false);
-  const [hasInterviewWithoutResources, setHasInterviewWithoutResources] = useState(false);
+  const [hasPendingAiSource, setHasPendingAiSource] = useState(false);
 
   const pollingAttemptsRef = useRef(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout>();
@@ -67,6 +70,37 @@ export const useAiResourcesPolling = ({
     }
   }, [oystehr, encounter?.id, chartDataHasResources]);
 
+  // Check if an in-person recording was uploaded and is awaiting transcription
+  const checkForPendingAudioRecording = useCallback(async (): Promise<boolean> => {
+    if (!oystehr || !encounter?.id || chartDataHasResources) return false;
+
+    try {
+      const drResult = await oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          { name: 'encounter', value: `Encounter/${encounter.id}` },
+          {
+            name: 'type',
+            value: `${AMBIENT_SCRIBE_RECORDING_PENDING_CODING.system}|${AMBIENT_SCRIBE_RECORDING_PENDING_CODING.code}`,
+          },
+        ],
+      });
+
+      return drResult.unbundle().length > 0;
+    } catch (error) {
+      console.error('Error checking for pending audio recording:', error);
+      return false;
+    }
+  }, [oystehr, encounter?.id, chartDataHasResources]);
+
+  const checkForPendingAiSource = useCallback(async (): Promise<boolean> => {
+    const [interviewPending, audioRecordingPending] = await Promise.all([
+      checkForInterviewWithoutResources(),
+      checkForPendingAudioRecording(),
+    ]);
+    return interviewPending || audioRecordingPending;
+  }, [checkForInterviewWithoutResources, checkForPendingAudioRecording]);
+
   // Start polling when conditions are met
   useEffect(() => {
     const shouldPoll = async (): Promise<void> => {
@@ -75,8 +109,8 @@ export const useAiResourcesPolling = ({
       const visitStatus = getInPersonVisitStatus(appointment, encounter);
       const isRelevantStatus = visitStatus === 'ready for provider' || visitStatus === 'provider';
 
-      if (!isRelevantStatus) {
-        setHasInterviewWithoutResources(false);
+      if (!hasPendingRecording && !isRelevantStatus) {
+        setHasPendingAiSource(false);
         setIsPolling(false);
         pollingAttemptsRef.current = 0;
         pollingExhaustedRef.current = false;
@@ -87,8 +121,8 @@ export const useAiResourcesPolling = ({
       // Only check and start polling if we haven't done initial check yet
       // or if we know resources are missing
       if (!initialCheckDoneRef.current || !chartDataHasResources) {
-        const needsPolling = await checkForInterviewWithoutResources();
-        setHasInterviewWithoutResources(needsPolling);
+        const needsPolling = await checkForPendingAiSource();
+        setHasPendingAiSource(needsPolling);
         initialCheckDoneRef.current = true;
 
         if (needsPolling && !isPolling && pollingAttemptsRef.current < MAX_POLLING_ATTEMPTS) {
@@ -104,7 +138,7 @@ export const useAiResourcesPolling = ({
     };
 
     void shouldPoll();
-  }, [appointment, encounter, chartDataHasResources, isPolling, checkForInterviewWithoutResources]);
+  }, [appointment, encounter, chartDataHasResources, hasPendingRecording, isPolling, checkForPendingAiSource]);
 
   // Handle polling interval
   useEffect(() => {
@@ -126,11 +160,11 @@ export const useAiResourcesPolling = ({
       await onRefetch();
 
       // Check if resources appeared
-      const stillNeedsPolling = await checkForInterviewWithoutResources();
+      const stillNeedsPolling = await checkForPendingAiSource();
 
       if (!stillNeedsPolling) {
         setIsPolling(false);
-        setHasInterviewWithoutResources(false);
+        setHasPendingAiSource(false);
         pollingAttemptsRef.current = 0;
         pollingExhaustedRef.current = false;
       } else if (pollingAttemptsRef.current >= MAX_POLLING_ATTEMPTS) {
@@ -144,11 +178,11 @@ export const useAiResourcesPolling = ({
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isPolling, onRefetch, checkForInterviewWithoutResources]);
+  }, [isPolling, onRefetch, checkForPendingAiSource]);
 
   return {
     isPolling,
-    hasInterviewWithoutResources,
+    hasPendingAiSource,
     pollingExhausted: pollingExhaustedRef.current,
   };
 };
