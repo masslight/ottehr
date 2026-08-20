@@ -1825,6 +1825,13 @@
       "src": "src/ehr/retry-action-log/index",
       "zip": ".dist/zips/retry-action-log.zip"
     },
+    "SEARCH-PATIENTS": {
+      "name": "search-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/search-patients/index",
+      "zip": ".dist/zips/search-patients.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
