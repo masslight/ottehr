@@ -273,6 +273,8 @@ export const createAppointmentComplexValidation = async (
   let locationState = input.locationState;
 
   // patient input complex validation
+  // M2Ms and EHR users can access any patient,
+  // Patient users can access patients they have access to.
   if (patient.id && !isM2M) {
     if (!user) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
