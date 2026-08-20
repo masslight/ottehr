@@ -273,6 +273,33 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     for (const loc of locs) if (loc.id) pairedLocationById.set(loc.id, loc);
   }
 
+  // Drop schedules that can only be delivered at a deactivated Location, so a group stops vending
+  // once its member Locations are deactivated.
+  //
+  // Narrowing `qualifyingLocationIds` further down is NOT sufficient on its own: an empty set takes
+  // neither the `atLocationId` branch nor the multi-Location branch, so the schedules fall straight
+  // through and still vend — the same fall-through that let a single deactivated Location keep
+  // booking. The schedules themselves have to go.
+  const bookableEntries = scheduleList.filter((entry) => {
+    if (entry.owner.resourceType === 'Location') {
+      return isLocationBookable(entry.owner as Location);
+    }
+    if (entry.owner.resourceType === 'PractitionerRole') {
+      const locationRefs = (entry.owner as PractitionerRole).location ?? [];
+      // A provider with no Location at all has none to deactivate; leaving it alone keeps
+      // Location-less provider schedules behaving as they did.
+      if (locationRefs.length === 0) return true;
+      // Present in the map == returned by `searchBookableLocations` == not deactivated.
+      return locationRefs.some((ref) => {
+        const id = ref.reference?.split('/')[1];
+        return id ? pairedLocationById.has(id) : false;
+      });
+    }
+    return true;
+  });
+  scheduleList.length = 0;
+  scheduleList.push(...bookableEntries);
+
   if (serviceMode) {
     const modeFiltered = scheduleList.filter((entry) =>
       scheduleOwnerSupportsServiceMode(entry.owner, serviceMode, pairedLocationById)
