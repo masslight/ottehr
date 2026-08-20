@@ -584,6 +584,109 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       expect(stats.patientsDroppingStaleIdentifiers).toBe(1);
       expect(patch).not.toHaveBeenCalled();
     });
+
+    // A working copy of a manually created billing patient resolves no clinical id, so there is no
+    // right value to compare against. Earlier runs could still only have written a billing Patient
+    // id, and this system indexes clinical Patients, so a scanned id is proof enough to drop it.
+    describe('with no clinical id to compare against', () => {
+      const copyOfManualPatient = (identifier: Patient['identifier']): Patient[] => [
+        billingPatient({
+          id: 'billing-manual',
+        }),
+        workingCopyOf({
+          id: 'billing-copy',
+          extension: copyOf('billing-manual'),
+          identifier,
+        }),
+      ];
+
+      it('drops a source identifier that names a scanned billing patient', async () => {
+        const otherId = {
+          system: 'https://fhir.ottehr.com/other',
+          value: 'other',
+        };
+        const { oystehr, patch } = mockOystehr(
+          copyOfManualPatient([otherId, clinicalPatientIdentifier('billing-manual')])
+        );
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(
+          runOptions(oystehr, {
+            pruneStale: true,
+          })
+        );
+
+        expect(stats).toEqual({
+          examined: 2,
+          changed: 1,
+          patientsGainingIdentifiers: 0,
+          patientsDroppingStaleIdentifiers: 1,
+          alreadyIndexed: 0,
+          skipped: 1,
+          failed: 0,
+        });
+        expect(patch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'billing-copy',
+            operations: [
+              {
+                op: 'replace',
+                path: '/identifier',
+                value: [otherId],
+              },
+            ],
+          }),
+          expect.anything()
+        );
+      });
+
+      it('removes the identifier element when the prune empties it', async () => {
+        const { oystehr, patch } = mockOystehr(copyOfManualPatient([clinicalPatientIdentifier('billing-manual')]));
+
+        await backfillBillingPatientClinicalIdentifiers(
+          runOptions(oystehr, {
+            pruneStale: true,
+          })
+        );
+
+        expect(patch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'billing-copy',
+            operations: [
+              {
+                op: 'remove',
+                path: '/identifier',
+              },
+            ],
+          }),
+          expect.anything()
+        );
+      });
+
+      // Indistinguishable from a clinical id: the scan cannot see clinical patients, and a deleted
+      // billing patient leaves the same trace. Dropping it would destroy the only link left.
+      it('leaves a source identifier that names no scanned patient', async () => {
+        const { oystehr, patch } = mockOystehr(copyOfManualPatient([clinicalPatientIdentifier('clinical-9')]));
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(
+          runOptions(oystehr, {
+            pruneStale: true,
+          })
+        );
+
+        expect(stats.skipped).toBe(2);
+        expect(stats.patientsDroppingStaleIdentifiers).toBe(0);
+        expect(patch).not.toHaveBeenCalled();
+      });
+
+      it('keeps the identifier without the flag', async () => {
+        const { oystehr, patch } = mockOystehr(copyOfManualPatient([clinicalPatientIdentifier('billing-manual')]));
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
+
+        expect(stats.skipped).toBe(2);
+        expect(patch).not.toHaveBeenCalled();
+      });
+    });
   });
 });
 

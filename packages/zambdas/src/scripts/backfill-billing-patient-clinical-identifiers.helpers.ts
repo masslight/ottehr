@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Identifier, Patient } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { addOperation, removeOperation, replaceOperation } from 'utils/lib/helpers/operations';
 import {
   clinicalFriendlyIdIdentifier,
   clinicalPatientIdentifier,
@@ -57,18 +58,80 @@ function staleClinicalPatientIdentifiers({
   return (patient.identifier ?? []).filter((identifier) => isStaleClinicalPatientIdentifier(identifier, clinicalId));
 }
 
+// With no clinical id to compare against, a source identifier is still provably wrong when its value
+// names a Patient in the billing workspace: the system indexes clinical Patients, which a billing
+// scan can never contain. A value naming no scanned Patient is left alone, since a deleted billing
+// Patient and a clinical Patient look the same from here.
+function unindexableClinicalPatientIdentifiers({
+  patient,
+  isBillingPatientId,
+}: {
+  patient: Patient;
+  isBillingPatientId: (id: string) => boolean;
+}): Identifier[] {
+  return (patient.identifier ?? []).filter(
+    (identifier) =>
+      identifier.system === SOURCE_IDENTIFIER_SYSTEM && !!identifier.value && isBillingPatientId(identifier.value)
+  );
+}
+
+function planClinicalIdentifiers({
+  patient,
+  clinicalId,
+  clinicalFriendlyId,
+  pruneStale,
+  isBillingPatientId,
+}: {
+  patient: Patient;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+  pruneStale?: boolean;
+  isBillingPatientId: (id: string) => boolean;
+}): {
+  missing: Identifier[];
+  stale: Identifier[];
+} {
+  const missing = clinicalId
+    ? missingClinicalPatientIdentifiers({
+        patient,
+        clinicalId,
+        clinicalFriendlyId,
+      })
+    : [];
+  if (!pruneStale) {
+    return {
+      missing,
+      stale: [],
+    };
+  }
+  return {
+    missing,
+    stale: clinicalId
+      ? staleClinicalPatientIdentifiers({
+          patient,
+          clinicalId,
+        })
+      : unindexableClinicalPatientIdentifiers({
+          patient,
+          isBillingPatientId,
+        }),
+  };
+}
+
 export async function syncClinicalPatientIdentifiers({
   oystehr,
   patient,
   clinicalId,
   clinicalFriendlyId,
   pruneStale,
+  isBillingPatientId = () => false,
 }: {
   oystehr: Oystehr;
   patient: Patient;
-  clinicalId: string;
+  clinicalId?: string;
   clinicalFriendlyId?: string;
   pruneStale?: boolean;
+  isBillingPatientId?: (id: string) => boolean;
 }): Promise<void> {
   await patchWithOptimisticLock(
     oystehr,
@@ -77,43 +140,24 @@ export async function syncClinicalPatientIdentifiers({
       id: patient.id!,
     },
     (current) => {
-      const missing = missingClinicalPatientIdentifiers({
+      const { missing, stale } = planClinicalIdentifiers({
         patient: current,
         clinicalId,
         clinicalFriendlyId,
+        pruneStale,
+        isBillingPatientId,
       });
-      const stale = pruneStale
-        ? staleClinicalPatientIdentifiers({
-            patient: current,
-            clinicalId,
-          })
-        : [];
       if (missing.length === 0 && stale.length === 0) return [];
       if (stale.length > 0) {
-        const kept = (current.identifier ?? []).filter(
-          (identifier) => !isStaleClinicalPatientIdentifier(identifier, clinicalId)
-        );
-        return [
-          {
-            op: 'replace' as const,
-            path: '/identifier',
-            value: [...kept, ...missing],
-          },
-        ];
+        const dropped = new Set(stale);
+        const kept = (current.identifier ?? []).filter((identifier) => !dropped.has(identifier));
+        const remaining = [...kept, ...missing];
+        // FHIR has no empty arrays, so the element goes away entirely when the prune empties it
+        return remaining.length ? [replaceOperation('/identifier', remaining)] : [removeOperation('/identifier')];
       }
       return current.identifier?.length
-        ? missing.map((identifier) => ({
-            op: 'add' as const,
-            path: '/identifier/-',
-            value: identifier,
-          }))
-        : [
-            {
-              op: 'add' as const,
-              path: '/identifier',
-              value: missing,
-            },
-          ];
+        ? missing.map((identifier) => addOperation('/identifier/-', identifier))
+        : [addOperation('/identifier', missing)];
     }
   );
 }
@@ -150,6 +194,7 @@ export async function backfillBillingPatientClinicalIdentifiers({
 
   const scanned = new Map(patients.filter((patient) => patient.id).map((patient) => [patient.id!, patient]));
   const fetchBillingPatient = async (id: string): Promise<Patient | undefined> => scanned.get(id);
+  const isBillingPatientId = (id: string): boolean => scanned.has(id);
 
   for (let index = 0; index < patients.length; index += BACKFILL_PATCH_CONCURRENCY) {
     const batch = patients.slice(index, index + BACKFILL_PATCH_CONCURRENCY);
@@ -160,24 +205,22 @@ export async function backfillBillingPatientClinicalIdentifiers({
           patient,
           fetchBillingPatient,
         });
-        if (!patient.id || !clinicalId) {
+        if (!patient.id) {
           stats.skipped++;
           return;
         }
 
-        const missing = missingClinicalPatientIdentifiers({
+        const { missing, stale } = planClinicalIdentifiers({
           patient,
           clinicalId,
           clinicalFriendlyId,
+          pruneStale,
+          isBillingPatientId,
         });
-        const stale = pruneStale
-          ? staleClinicalPatientIdentifiers({
-              patient,
-              clinicalId,
-            })
-          : [];
         if (!missing.length && !stale.length) {
-          stats.alreadyIndexed++;
+          // An unresolved patient with nothing prunable is not indexed and cannot be
+          if (clinicalId) stats.alreadyIndexed++;
+          else stats.skipped++;
           return;
         }
 
@@ -189,6 +232,7 @@ export async function backfillBillingPatientClinicalIdentifiers({
               clinicalId,
               clinicalFriendlyId,
               pruneStale,
+              isBillingPatientId,
             });
           } catch (error) {
             stats.failed++;
