@@ -146,6 +146,30 @@ describe('radiology-update-report integration', () => {
     expect(decodeReport(final)).toBe('Corrected final report');
   });
 
+  // A preliminary read is now restricted the same way as a final one: written by the caller, who must also
+  // have ordered the study. Strip the author and the same caller loses the right to correct it.
+  it('refuses a preliminary read the caller did not write', async () => {
+    const preliminary = (await getReports()).find((report) => report.status === 'preliminary');
+    await oystehrAdmin.fhir.patch<DiagnosticReport>({
+      resourceType: 'DiagnosticReport',
+      id: preliminary!.id!,
+      operations: [{ op: 'remove', path: '/performer' }],
+    });
+
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'radiology-update-report',
+        serviceRequestId,
+        report: 'Not mine to correct',
+        reportType: 'preliminary',
+      })
+    ).rejects.toThrow();
+
+    // Unchanged on disk.
+    const after = (await getReports()).find((report) => report.status === 'preliminary');
+    expect(decodeReport(after)).toBe('Preliminary corrected after finalization');
+  });
+
   it('refuses both reads once the order has been reviewed', async () => {
     const tasks = (
       await oystehrAdmin.fhir.search<Task>({

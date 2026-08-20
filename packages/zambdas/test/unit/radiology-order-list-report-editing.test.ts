@@ -1,7 +1,7 @@
 import { DiagnosticReport, Encounter, ServiceRequest } from 'fhir/r4b';
 import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { describe, expect, test } from 'vitest';
-import { canCallerEditFinalReport } from '../../src/ehr/radiology/order-list';
+import { canCallerEditReport } from '../../src/ehr/radiology/order-list';
 
 const CALLER = 'prac-caller';
 const SOMEONE_ELSE = 'prac-other';
@@ -30,35 +30,30 @@ const encounterAttendedBy = (practitionerId: string): Encounter =>
     ],
   }) as Encounter;
 
-const finalReportBy = (authorId?: string): DiagnosticReport =>
+// The rule is the same for either read, so the fixture takes the status too.
+const reportBy = (authorId?: string, status: 'preliminary' | 'final' = 'final'): DiagnosticReport =>
   ({
     resourceType: 'DiagnosticReport',
-    id: 'dr-final',
-    status: 'final',
+    id: `dr-${status}`,
+    status,
     code: {},
     ...(authorId ? { performer: [{ reference: `Practitioner/${authorId}` }] } : {}),
   }) as DiagnosticReport;
 
-describe('Radiology order-list - canCallerEditFinalReport', () => {
+describe('Radiology order-list - canCallerEditReport', () => {
   test('lets the requester who wrote the read edit it', () => {
     expect(
-      canCallerEditFinalReport(
-        serviceRequest(CALLER),
-        undefined,
-        finalReportBy(CALLER),
-        RadiologyOrderStatus.final,
-        CALLER
-      )
+      canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(CALLER), RadiologyOrderStatus.final, CALLER)
     ).toBe(true);
   });
 
   // A nurse routinely places the order on the provider's behalf, so the requester is not always the provider.
   test("lets the visit's attending provider edit a read they wrote but did not place the order for", () => {
     expect(
-      canCallerEditFinalReport(
+      canCallerEditReport(
         serviceRequest(SOMEONE_ELSE),
         encounterAttendedBy(CALLER),
-        finalReportBy(CALLER),
+        reportBy(CALLER),
         RadiologyOrderStatus.final,
         CALLER
       )
@@ -67,46 +62,28 @@ describe('Radiology order-list - canCallerEditFinalReport', () => {
 
   test('refuses once the order has been signed off', () => {
     expect(
-      canCallerEditFinalReport(
-        serviceRequest(CALLER),
-        undefined,
-        finalReportBy(CALLER),
-        RadiologyOrderStatus.reviewed,
-        CALLER
-      )
+      canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(CALLER), RadiologyOrderStatus.reviewed, CALLER)
     ).toBe(false);
   });
 
   test('refuses a teleradiology read, which carries no author of ours', () => {
     expect(
-      canCallerEditFinalReport(
-        serviceRequest(CALLER),
-        undefined,
-        finalReportBy(undefined),
-        RadiologyOrderStatus.final,
-        CALLER
-      )
+      canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(undefined), RadiologyOrderStatus.final, CALLER)
     ).toBe(false);
   });
 
   test('refuses when someone else wrote the read', () => {
     expect(
-      canCallerEditFinalReport(
-        serviceRequest(CALLER),
-        undefined,
-        finalReportBy(SOMEONE_ELSE),
-        RadiologyOrderStatus.final,
-        CALLER
-      )
+      canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(SOMEONE_ELSE), RadiologyOrderStatus.final, CALLER)
     ).toBe(false);
   });
 
   test('refuses when the caller wrote the read but had nothing to do with ordering the study', () => {
     expect(
-      canCallerEditFinalReport(
+      canCallerEditReport(
         serviceRequest(SOMEONE_ELSE),
         encounterAttendedBy(SOMEONE_ELSE),
-        finalReportBy(CALLER),
+        reportBy(CALLER),
         RadiologyOrderStatus.final,
         CALLER
       )
@@ -115,19 +92,47 @@ describe('Radiology order-list - canCallerEditFinalReport', () => {
 
   test('refuses when the caller has no Practitioner profile', () => {
     expect(
-      canCallerEditFinalReport(
-        serviceRequest(CALLER),
-        undefined,
-        finalReportBy(CALLER),
-        RadiologyOrderStatus.final,
-        undefined
-      )
+      canCallerEditReport(serviceRequest(CALLER), undefined, reportBy(CALLER), RadiologyOrderStatus.final, undefined)
     ).toBe(false);
   });
 
-  test('refuses when there is no final read yet', () => {
+  test('refuses when there is no such read yet', () => {
     expect(
-      canCallerEditFinalReport(serviceRequest(CALLER), undefined, undefined, RadiologyOrderStatus.preliminary, CALLER)
+      canCallerEditReport(serviceRequest(CALLER), undefined, undefined, RadiologyOrderStatus.preliminary, CALLER)
+    ).toBe(false);
+  });
+
+  // OTR-3116 settled that a preliminary read is restricted the same way, so it goes through this same rule.
+  test('governs a preliminary read on exactly the same terms', () => {
+    expect(
+      canCallerEditReport(
+        serviceRequest(CALLER),
+        undefined,
+        reportBy(CALLER, 'preliminary'),
+        RadiologyOrderStatus.preliminary,
+        CALLER
+      )
+    ).toBe(true);
+
+    expect(
+      canCallerEditReport(
+        serviceRequest(CALLER),
+        undefined,
+        reportBy(SOMEONE_ELSE, 'preliminary'),
+        RadiologyOrderStatus.preliminary,
+        CALLER
+      )
+    ).toBe(false);
+
+    // A preliminary read written before authorship was recorded has no author, so it matches nobody.
+    expect(
+      canCallerEditReport(
+        serviceRequest(CALLER),
+        undefined,
+        reportBy(undefined, 'preliminary'),
+        RadiologyOrderStatus.preliminary,
+        CALLER
+      )
     ).toBe(false);
   });
 });

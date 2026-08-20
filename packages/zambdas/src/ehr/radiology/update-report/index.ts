@@ -9,7 +9,7 @@ import {
   encodeRadiologyReport,
 } from 'utils/lib/fhir/radiology';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { UpdateRadiologyReportZambdaOutput } from 'utils/lib/types/api/radiology';
+import { RadiologyReportType, UpdateRadiologyReportZambdaOutput } from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -67,13 +67,10 @@ async function performEffect(
     throw RADIOLOGY_ERROR('This order has already been reviewed, its reads can no longer be edited.');
   }
 
-  const diagnosticReport =
-    reportType === 'preliminary'
-      ? resolvePreliminaryReportToEdit(diagnosticReports)
-      : await resolveFinalReportToEdit(diagnosticReports, serviceRequest, encounter, {
-          callerAccessToken: validatedInput.callerAccessToken,
-          secrets,
-        });
+  const diagnosticReport = await resolveReportToEdit(reportType, diagnosticReports, serviceRequest, encounter, {
+    callerAccessToken: validatedInput.callerAccessToken,
+    secrets,
+  });
 
   // The preliminary read is the one teleradiology works from, so the PACS copy is corrected first: if that
   // write fails the two stores are still in agreement on the original text and the edit can be retried.
@@ -161,44 +158,42 @@ const fetchOrderResources = async (
 };
 
 /**
- * Once the final read arrives, the preliminary read lives on as its own snapshot resource (see
- * `buildPreliminaryReportSnapshot`) and that is what gets resolved here. The snapshot has no AdvaPACS
- * identifier, so correcting it after finalization stays local — by then the PACS copy holds the final read.
+ * The read the caller asked to edit, once they have been shown to be allowed to edit it.
+ *
+ * Both reads follow one rule: the caller must have written it and have ordered the study. A read with no
+ * author of ours matches nobody — that covers anything teleradiology issued, and any read written before
+ * authorship was recorded, both of which are therefore read-only.
+ *
+ * After finalization the preliminary read lives on as its own snapshot resource (see
+ * `buildPreliminaryReportSnapshot`), which carries its author across, so the rule still resolves. That
+ * snapshot has no AdvaPACS identifier, so correcting it stays local — by then the PACS copy holds the final
+ * read.
  */
-const resolvePreliminaryReportToEdit = (diagnosticReports: DiagnosticReport[]): DiagnosticReport => {
-  const preliminaryReport = takeMostRecentPreliminaryReport(diagnosticReports);
-  if (!preliminaryReport?.id) {
-    throw RADIOLOGY_ERROR('This order has no preliminary read to edit.');
-  }
-
-  return preliminaryReport;
-};
-
-/**
- * Only the provider who ordered the study and wrote the read may correct a final read. Teleradiology's
- * reports arrive from AdvaPACS with no author of ours recorded, which is what keeps them out of reach here.
- * The order list decides the same thing for the UI affordance; see `canCallerEditFinalReport`.
- */
-const resolveFinalReportToEdit = async (
+const resolveReportToEdit = async (
+  reportType: RadiologyReportType,
   diagnosticReports: DiagnosticReport[],
   serviceRequest: ServiceRequest,
   encounter: Encounter | undefined,
   auth: { callerAccessToken: string; secrets: Secrets }
 ): Promise<DiagnosticReport> => {
-  const finalReport = takeTheBestFinalDiagnosticReport(diagnosticReports);
-  if (!finalReport?.id) {
-    throw RADIOLOGY_ERROR('This order has no final read to edit.');
+  const report =
+    reportType === 'preliminary'
+      ? takeMostRecentPreliminaryReport(diagnosticReports)
+      : takeTheBestFinalDiagnosticReport(diagnosticReports);
+
+  if (!report?.id) {
+    throw RADIOLOGY_ERROR(`This order has no ${reportType} read to edit.`);
   }
 
   const callerPractitionerId = await getMyPractitionerId(auth.callerAccessToken, auth.secrets);
-  const wroteIt = getReportAuthorId(finalReport) === callerPractitionerId;
+  const wroteIt = getReportAuthorId(report) === callerPractitionerId;
   const orderedIt = getOrderingProviderIds(serviceRequest, encounter).includes(callerPractitionerId);
 
   if (!wroteIt || !orderedIt) {
-    throw RADIOLOGY_ERROR('Only the ordering provider who wrote this final read can edit it.');
+    throw RADIOLOGY_ERROR(`Only the ordering provider who wrote this ${reportType} read can edit it.`);
   }
 
-  return finalReport;
+  return report;
 };
 
 /**

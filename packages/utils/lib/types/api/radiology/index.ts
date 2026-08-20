@@ -166,9 +166,11 @@ export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
   /** Practitioner id of the ordering provider (`providerName`); used to populate the "Performed by" options. */
   providerId: string;
   /**
-   * Whether the caller may correct the final read. Decided by the order list rather than the client so the
-   * rule lives in one place; `radiology-update-report` enforces the same one on save.
+   * Whether the caller may correct each read. Both follow the same rule — wrote it, ordered the study, order
+   * not signed off — decided server-side in `canCallerEditReport` and re-checked by `radiology-update-report`
+   * on save; these only tell the UI whether to offer the pencil.
    */
+  canEditPreliminaryReport: boolean;
   canEditFinalReport: boolean;
   status: RadiologyOrderStatus;
   isStat: boolean;
