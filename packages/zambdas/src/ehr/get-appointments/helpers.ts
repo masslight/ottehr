@@ -215,6 +215,24 @@ interface AppointmentQueryInput {
   group?: HealthcareService;
 }
 
+/**
+ * Converts an inclusive [searchDateFrom, searchDateTo] calendar-day range into a UTC instant
+ * window, interpreting the days in the given IANA timezone. Exported for unit tests.
+ */
+export const getAppointmentSearchWindow = ({
+  searchDateFrom,
+  searchDateTo,
+  timezone,
+}: {
+  searchDateFrom: string;
+  searchDateTo: string;
+  timezone: string;
+}): { startDay: string | null; endDay: string | null } => {
+  const startDay = DateTime.fromISO(searchDateFrom, { zone: timezone }).startOf('day').toUTC().toISO();
+  const endDay = DateTime.fromISO(searchDateTo, { zone: timezone }).endOf('day').toUTC().toISO();
+  return { startDay, endDay };
+};
+
 export const getAppointmentQueryInput = async (input: {
   oystehr: Oystehr;
   resourceId: string;
@@ -223,10 +241,30 @@ export const getAppointmentQueryInput = async (input: {
   searchDateTo: string;
   timezone: string;
 }): Promise<AppointmentQueryInput> => {
-  const { searchDateFrom, searchDateTo, timezone } = input;
+  const { oystehr, resourceId, resourceType, searchDateFrom, searchDateTo, timezone } = input;
 
-  const startDay = DateTime.fromISO(searchDateFrom, { zone: timezone }).startOf('day').toUTC().toISO();
-  const endDay = DateTime.fromISO(searchDateTo, { zone: timezone }).endOf('day').toUTC().toISO();
+  // The tracking board renders each row's time in the queried resource's own timezone, so a date
+  // filter of "08/13" must mean that resource's local Aug 13 — otherwise the filter and the display
+  // disagree. Interpreting the date in the caller's timezone shifted the window by the offset
+  // difference: a browser in UTC (CI, or any admin east of the clinic) asking for 08/13 at an
+  // America/New_York location built a UTC-day window that excluded appointments whose local time
+  // was 8pm-midnight (00:00-04:00Z on the next UTC day). Resolve the resource's timezone (cheap —
+  // timezoneMap caches it) and interpret the dates there; the caller's timezone stays as the
+  // fallback for resources without one.
+  let resourceTimezone: string | undefined;
+  try {
+    resourceTimezone = await getTimezone({ oystehr, resourceType, resourceId });
+  } catch (error) {
+    console.error(
+      `failed to resolve timezone for ${resourceType}/${resourceId}; falling back to request timezone`,
+      error
+    );
+  }
+  const { startDay, endDay } = getAppointmentSearchWindow({
+    searchDateFrom,
+    searchDateTo,
+    timezone: resourceTimezone ?? timezone,
+  });
 
   const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
 
