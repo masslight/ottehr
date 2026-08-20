@@ -28,11 +28,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     id: taskId,
   });
 
+  const originalStatus = task.status;
   task.status = status as any;
   console.log('New status: ', status);
   if (
     mapInvoiceTaskStatusToDisplay(status as any) === 'updating' &&
-    mapInvoiceTaskStatusToDisplay(task.status) === 'updating'
+    mapInvoiceTaskStatusToDisplay(originalStatus) === 'updating'
   ) {
     // this is for preventing task stack in "updating" status
     console.log(

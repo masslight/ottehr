@@ -122,7 +122,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
   const logs = visitIdIsInvalid ? [] : actionLogs?.logs ?? [];
   const totalCount = visitIdIsInvalid ? 0 : actionLogs?.totalCount ?? 0;
   const showLoading = isFetching && !visitIdIsInvalid;
-  const columnsCount = patientId ? 5 : 6;
+  const columnsCount = (patientId ? 5 : 6) + (channelCopy.senderAddressLabel ? 1 : 0);
 
   const renderSearchField = (
     label: string,
@@ -201,7 +201,8 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
             {!patientId && <TableCell>Patient</TableCell>}
             <TableCell>Visit</TableCell>
             <TableCell>Recipient</TableCell>
-            <TableCell>{channelCopy.addressLabel}</TableCell>
+            <TableCell>{channelCopy.recipientAddressLabel}</TableCell>
+            {channelCopy.senderAddressLabel && <TableCell>{channelCopy.senderAddressLabel}</TableCell>}
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -259,6 +260,9 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                     ? formatPhoneNumberDisplay(log.recipientAddress)
                     : log.recipientAddress || '-'}
                 </TableCell>
+                {channelCopy.senderAddressLabel && (
+                  <TableCell>{log.senderAddress ? formatPhoneNumberDisplay(log.senderAddress) : '-'}</TableCell>
+                )}
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />

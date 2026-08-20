@@ -11,8 +11,19 @@ const documents: FaxDocumentAvailability[] = [
   { kind: 'patient-education', available: false },
 ];
 
-const renderForm = (preview?: { documents: FaxDocumentAvailability[]; hasSavedPcp: boolean }): void => {
-  render(<SendFaxForm preview={preview} isSending={false} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+const renderForm = (
+  preview?: { documents: FaxDocumentAvailability[]; hasSavedPcp: boolean },
+  senderFaxNumber?: string
+): void => {
+  render(
+    <SendFaxForm
+      preview={preview}
+      senderFaxNumber={senderFaxNumber}
+      isSending={false}
+      onSubmit={vi.fn()}
+      onCancel={vi.fn()}
+    />
+  );
 };
 
 describe('SendFaxForm PCP control', () => {
@@ -26,5 +37,25 @@ describe('SendFaxForm PCP control', () => {
     renderForm({ documents, hasSavedPcp: false });
 
     expect(screen.getByRole('checkbox', { name: "Save as patient's PCP" })).toBeChecked();
+  });
+});
+
+describe('SendFaxForm sender', () => {
+  it('names the number the fax is sent from, formatted for reading', () => {
+    renderForm(undefined, '+12125550000');
+
+    expect(screen.getByText('Sender fax number: (212) 555-0000')).toBeVisible();
+  });
+
+  it('leaves the sender out when the sending number cannot be resolved', () => {
+    renderForm({ documents, hasSavedPcp: false });
+
+    expect(screen.queryByText(/Sender fax number/)).toBeNull();
+  });
+
+  it("labels the recipient's own number so the two cannot be confused", () => {
+    renderForm(undefined, '+12125550000');
+
+    expect(screen.getByLabelText(/Recipient Fax/)).toBeVisible();
   });
 });

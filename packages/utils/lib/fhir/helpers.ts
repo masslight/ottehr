@@ -112,6 +112,14 @@ export function handleUnknownError(error: any): any {
   return errorToThrow;
 }
 
+/**
+ * The fax number an Organization sends from, as stored on its `fax` telecom. Returned unformatted so
+ * callers can display or standardize it themselves.
+ */
+export function getOrganizationFaxNumber(organization: Organization | undefined): string | undefined {
+  return organization?.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+}
+
 export function getNPI(resource: Practitioner | Organization | Location | HealthcareService): string | undefined {
   return resource.identifier?.find((ident) => {
     return ident.system === FHIR_IDENTIFIER_NPI;

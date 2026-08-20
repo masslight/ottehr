@@ -122,6 +122,7 @@ export const dataTestIds = {
     recipientName: 'fax-dialog-recipient-name',
     organization: 'fax-dialog-recipient-organization',
     faxNumber: 'fax-dialog-recipient-fax-number',
+    senderFax: 'fax-dialog-sender-fax',
     phoneNumber: 'fax-dialog-recipient-phone-number',
     saveAsPcp: 'fax-dialog-save-as-pcp',
     visitCheckbox: 'fax-dialog-visit',

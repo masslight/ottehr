@@ -10,6 +10,7 @@ const mockClinicalClient = {
   fhir: {
     search: vi.fn(),
     patch: vi.fn(),
+    create: vi.fn(),
   },
 };
 const mockStripe = {
@@ -110,7 +111,7 @@ const invoiceInput = (): TaskInput[] =>
         },
       ],
     },
-    valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2026-08-01' : 'pay your invoice',
+    valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2099-12-31' : 'pay your invoice',
   }));
 
 const task = (overrides: Partial<Task> = {}): Task =>
@@ -193,6 +194,7 @@ describe('sub-send-invoice-to-patient source guard', () => {
       unbundle: () => [encounter, patient, account, appointment],
     });
     mockClinicalClient.fhir.patch.mockResolvedValue({});
+    mockClinicalClient.fhir.create.mockResolvedValue({});
     mockStripe.customers.retrieve.mockResolvedValue({
       deleted: false,
       email: 'Katie@example.com',
@@ -232,6 +234,34 @@ describe('sub-send-invoice-to-patient source guard', () => {
     expect(mockSendSmsForPatient).toHaveBeenCalled();
   });
 
+  it('creates a generate-statement task for Patient and Appointment after sending invoice', async () => {
+    const billingTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+    });
+
+    await runHandler(billingTask);
+
+    expect(mockClinicalClient.fhir.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        status: 'requested',
+        for: { reference: 'Patient/pat-1' },
+        focus: expect.objectContaining({
+          type: 'Appointment',
+          reference: 'Appointment/appt-1',
+        }),
+        code: {
+          coding: [
+            expect.objectContaining({
+              system: 'https://fhir.ottehr.com/CodeSystem/generate-patient-statement',
+              code: 'generate-statement',
+            }),
+          ],
+        },
+      })
+    );
+  });
+
   it('still rejects candid and legacy untagged tasks without a Candid encounter id', async () => {
     await expect(runHandler(task())).rejects.toThrow('CandidEncounterId is not found');
 
@@ -249,5 +279,31 @@ describe('sub-send-invoice-to-patient source guard', () => {
         }),
       ])
     );
+  });
+
+  it('rejects a task whose dueDate is in the past without calling Stripe', async () => {
+    const pastTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2000-01-01' : 'pay your invoice',
+      })),
+    });
+
+    await expect(runHandler(pastTask)).rejects.toThrow('Due date should be in the future');
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a task whose dueDate has an invalid format without calling Stripe', async () => {
+    const badFormatTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? 'not-a-date' : 'pay your invoice',
+      })),
+    });
+
+    await expect(runHandler(badFormatTask)).rejects.toThrow();
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
   });
 });
