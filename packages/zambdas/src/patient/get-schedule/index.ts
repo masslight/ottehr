@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -9,7 +10,13 @@ import {
   getServiceCategoryDurationMinutes,
 } from 'utils/lib/fhir/healthcareService';
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
-import { getLocationInformation, isLocationInPerson, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import {
+  getLocationInformation,
+  isLocationBookable,
+  isLocationInPerson,
+  LOCATION_BOOKABLE_SEARCH_PARAM,
+  locationSupportsServiceMode,
+} from 'utils/lib/fhir/location';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { getOpeningTime, isLocationOpen } from 'utils/lib/helpers/check-office-open';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -32,6 +39,25 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
+
+/**
+ * Locations that are eligible to be booked, narrowed by `selector`.
+ *
+ * Every Location this handler resolves goes through here so the deactivated-Location rule is applied
+ * once. `getSchedules` only filters the *owner* named by the slug — a group's member Locations
+ * arrive via `_include` and never pass through it, so each of the lookups below (slug resolution,
+ * the paired-Location map, the multi-Location picker) has to exclude them itself.
+ */
+const searchBookableLocations = async (
+  oystehr: Oystehr,
+  selector: { name: string; value: string }
+): Promise<Location[]> =>
+  (
+    await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [selector, LOCATION_BOOKABLE_SEARCH_PARAM],
+    })
+  ).unbundle();
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -226,27 +252,28 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // pairedLocationById is reused by the qualifyingLocationIds loop below so the
   // multi-Location picker never offers a Location the provider can't serve in
   // this mode.
+  // Fetched regardless of `serviceMode`: the qualifying-Locations loop below needs each paired
+  // Location's `status` to keep deactivated ones out of booking, and that has to hold whether or not
+  // a mode was requested.
   const pairedLocationById = new Map<string, Location>();
-  if (serviceMode) {
-    const pairedLocationIds = new Set<string>();
-    for (const entry of scheduleList) {
-      if (entry.owner.resourceType === 'PractitionerRole') {
-        for (const ref of (entry.owner as PractitionerRole).location ?? []) {
-          const id = ref.reference?.split('/')[1];
-          if (id) pairedLocationIds.add(id);
-        }
+  const pairedLocationIds = new Set<string>();
+  for (const entry of scheduleList) {
+    if (entry.owner.resourceType === 'PractitionerRole') {
+      for (const ref of (entry.owner as PractitionerRole).location ?? []) {
+        const id = ref.reference?.split('/')[1];
+        if (id) pairedLocationIds.add(id);
       }
     }
-    if (pairedLocationIds.size > 0) {
-      const locs = (
-        await oystehr.fhir.search<Location>({
-          resourceType: 'Location',
-          params: [{ name: '_id', value: Array.from(pairedLocationIds).join(',') }],
-        })
-      ).unbundle();
-      for (const loc of locs) if (loc.id) pairedLocationById.set(loc.id, loc);
-    }
+  }
+  if (pairedLocationIds.size > 0) {
+    const locs = await searchBookableLocations(oystehr, {
+      name: '_id',
+      value: Array.from(pairedLocationIds).join(','),
+    });
+    for (const loc of locs) if (loc.id) pairedLocationById.set(loc.id, loc);
+  }
 
+  if (serviceMode) {
     const modeFiltered = scheduleList.filter((entry) =>
       scheduleOwnerSupportsServiceMode(entry.owner, serviceMode, pairedLocationById)
     );
@@ -266,12 +293,10 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   let atLocationId: string | undefined;
   let atLocation: Location | undefined;
   if (atLocationSlug) {
-    const candidates = (
-      await oystehr.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${atLocationSlug}` }],
-      })
-    ).unbundle();
+    const candidates = await searchBookableLocations(oystehr, {
+      name: 'identifier',
+      value: `${SLUG_SYSTEM}|${atLocationSlug}`,
+    });
     const candidate = candidates[0];
     if (!candidate?.id) {
       return {
@@ -291,11 +316,14 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     if (entry.owner.resourceType === 'Location' && entry.owner.id) {
       // Owner Locations that survived the mode filter above already support
       // the requested mode, so no re-check is needed here.
+      if (!isLocationBookable(entry.owner as Location)) continue;
       qualifyingLocationIds.add(entry.owner.id);
     } else if (entry.owner.resourceType === 'PractitionerRole') {
       for (const ref of (entry.owner as PractitionerRole).location ?? []) {
         const id = ref.reference?.split('/')[1];
         if (!id) continue;
+        // Absent from the map means the fetch above excluded it as deactivated.
+        if (!pairedLocationById.has(id)) continue;
         // When a mode is requested, admit only the provider's mode-capable
         // Location(s) so the multi-Location picker can't surface a Location
         // the provider can't serve in this mode.
@@ -339,12 +367,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     // the presence of pickableLocations signals "no slots yet, pick a
     // Location first."
     const ids = Array.from(qualifyingLocationIds);
-    const locationResources = (
-      await oystehr.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [{ name: '_id', value: ids.join(',') }],
-      })
-    ).unbundle();
+    const locationResources = await searchBookableLocations(oystehr, { name: '_id', value: ids.join(',') });
     const pickableLocations: PickableLocation[] = locationResources
       .map((loc) => {
         if (!loc.id) return undefined;

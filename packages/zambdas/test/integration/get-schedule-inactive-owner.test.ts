@@ -600,4 +600,83 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     expect(afterScheduleRefs.has(`Schedule/${fixture.scheduleA.id}`)).toBe(true);
     expect(afterScheduleRefs.has(`Schedule/${fixture.scheduleB.id}`)).toBe(false);
   });
+
+  test('group whose member Location is deactivated — group URL stops vending slots', async () => {
+    // Deactivating a Location in Admin > Locations must remove it from every booking flow. The
+    // group's own `active` filter doesn't cover this: `getSchedules` only filters the owner
+    // resolved from the slug, and member Locations arrive via `_include`, so they never pass
+    // through it. Both members here sit at the one Location, so deactivating it must empty the
+    // group entirely rather than merely dropping one member.
+    const fixture = await createGroupFixture();
+    const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
+    assert(selectedDate);
+
+    const callGroup = async (): Promise<GetScheduleResponse> => {
+      const res = await oystehr.zambda.executePublic({
+        id: 'get-schedule',
+        slug: fixture.slug,
+        scheduleType: 'group',
+        selectedDate,
+      });
+      return res.output as GetScheduleResponse;
+    };
+
+    // Positive control: the group vends before the Location is deactivated, so an empty result
+    // afterwards can only be the deactivation.
+    const before = await callGroup();
+    expect((before.available ?? []).length).toBeGreaterThan(0);
+
+    await oystehr.fhir.patch<Location>({
+      resourceType: 'Location',
+      id: fixture.location.id!,
+      operations: [{ op: 'add', path: '/status', value: 'inactive' }],
+    });
+
+    const after = await callGroup();
+    expect(after.available ?? []).toHaveLength(0);
+    // And it must not be offered as a choice either — a picker entry that can't vend is just a
+    // dead end the patient discovers one click later.
+    expect(after.pickableLocations ?? []).toHaveLength(0);
+  });
+
+  test('deactivated Location resolved by slug via atLocationSlug — group URL refuses it', async () => {
+    // `atLocation` is stamped onto every vended Slot, so this is the gate that decides bookability
+    // once a patient has picked a Location. It has to refuse independently of the picker: a stale
+    // link or a hand-edited URL reaches this path without ever seeing the list.
+    const fixture = await createGroupFixture();
+    const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
+    assert(selectedDate);
+
+    const locationSlug = `inactive-at-loc-${randomUUID().slice(0, 8)}`;
+    await oystehr.fhir.patch<Location>({
+      resourceType: 'Location',
+      id: fixture.location.id!,
+      operations: [{ op: 'add', path: '/identifier', value: [{ system: SLUG_SYSTEM, value: locationSlug }] }],
+    });
+
+    const callWithAtLocation = async (): Promise<GetScheduleResponse> => {
+      const res = await oystehr.zambda.executePublic({
+        id: 'get-schedule',
+        slug: fixture.slug,
+        scheduleType: 'group',
+        selectedDate,
+        atLocationSlug: locationSlug,
+      });
+      return res.output as GetScheduleResponse;
+    };
+
+    // Positive control: while active, the slug resolves and vends.
+    const before = await callWithAtLocation();
+    expect((before.available ?? []).length).toBeGreaterThan(0);
+
+    await oystehr.fhir.patch<Location>({
+      resourceType: 'Location',
+      id: fixture.location.id!,
+      operations: [{ op: 'add', path: '/status', value: 'inactive' }],
+    });
+
+    // The slug no longer resolves to a bookable Location, so no slots are vended for it.
+    const after = await callWithAtLocation();
+    expect(after.available ?? []).toHaveLength(0);
+  });
 });

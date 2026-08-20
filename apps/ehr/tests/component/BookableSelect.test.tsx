@@ -323,6 +323,33 @@ const getOptionTexts = async (): Promise<string[]> => {
   return Array.from(listbox.querySelectorAll('li')).map((li) => li.textContent ?? '');
 };
 
+describe('BookableSelect — deactivated Locations', () => {
+  beforeEach(() => {
+    mockSearch.mockClear();
+  });
+
+  it('asks the server to exclude inactive Locations', async () => {
+    // Deactivating a Location in Admin > Locations must drop it from the staff picker too. The
+    // exclusion is server-side, and the mock here is resource-type-routed rather than
+    // param-aware, so the meaningful assertion is on the query we send — emulating the filter in
+    // the mock would only test the mock.
+    //
+    // `status:not` rather than `status=active`: Locations predating the status field have none
+    // set, and those must stay bookable. Only an explicit `inactive` excludes.
+    render(<Harness />);
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+
+    const locationCall = mockSearch.mock.calls
+      .map(([params]) => params as { resourceType: string; params?: { name: string; value: string }[] })
+      .find((params) => params.resourceType === 'Location');
+
+    expect(locationCall?.params).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'status:not', value: 'inactive' })])
+    );
+  });
+});
+
 describe('BookableSelect — filter props', () => {
   beforeEach(() => {
     mockSearch.mockClear();
