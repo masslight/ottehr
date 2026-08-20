@@ -238,6 +238,9 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
+// A working copy can itself be copied, so a copy is not always one hop from its main Patient
+const MAX_COPY_CHAIN_HOPS = 10;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
@@ -377,12 +380,48 @@ export async function resolveClinicalPatientIds({
       clinicalFriendlyId: clinicalFriendlyIdOfCopy(patient),
     };
   }
-  const parent = sourceId ? await fetchBillingPatient(sourceId) : undefined;
+  const main = await findMainPatientOfWorkingCopy({
+    patient,
+    sourceId,
+    fetchBillingPatient,
+  });
   return {
-    clinicalId: parent ? copySourceId(parent) : undefined,
-    clinicalFriendlyId: (parent ? clinicalFriendlyIdOfCopy(parent) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
+    clinicalId: main ? copySourceId(main) : undefined,
+    clinicalFriendlyId: (main ? clinicalFriendlyIdOfCopy(main) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
     workingCopyParentId: sourceId,
   };
+}
+
+async function findMainPatientOfWorkingCopy({
+  patient,
+  sourceId,
+  fetchBillingPatient,
+}: {
+  patient: Patient;
+  sourceId?: string;
+  fetchBillingPatient: (id: string) => Promise<Patient | undefined>;
+}): Promise<Patient | undefined> {
+  const visited = new Set<string>(patient.id ? [patient.id] : []);
+  let ancestorId = sourceId;
+  if (!ancestorId) return noMainPatient(patient, 'it has no source reference');
+  for (let hop = 0; hop < MAX_COPY_CHAIN_HOPS; hop++) {
+    if (visited.has(ancestorId)) return noMainPatient(patient, `the chain cycles back to Patient/${ancestorId}`);
+    visited.add(ancestorId);
+    const ancestor = await fetchBillingPatient(ancestorId);
+    if (!ancestor) return noMainPatient(patient, `Patient/${ancestorId} in the chain no longer exists`);
+    if (!isWorkingCopy(ancestor)) return ancestor;
+    const nextAncestorId = copySourceId(ancestor);
+    if (!nextAncestorId) return noMainPatient(patient, `Patient/${ancestorId} in the chain has no source reference`);
+    ancestorId = nextAncestorId;
+  }
+  return noMainPatient(patient, `the chain is deeper than ${MAX_COPY_CHAIN_HOPS} hops`);
+}
+
+// A copy that resolves no main patient is written with no clinical identifiers, which nothing
+// downstream can tell apart from a copy that never had a clinical patient, so say which chain broke.
+function noMainPatient(patient: Patient, reason: string): undefined {
+  console.warn(`No main billing Patient resolved for working copy Patient/${patient.id}: ${reason}`);
+  return undefined;
 }
 
 export async function searchOnClinicalIDs(
