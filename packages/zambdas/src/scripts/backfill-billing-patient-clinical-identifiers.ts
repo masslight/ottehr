@@ -20,7 +20,10 @@ async function backfill(config: Secrets): Promise<void> {
       `${stats.changed} ${dryRun ? 'would change' : 'changed'}, ${stats.alreadyIndexed} already indexed, ` +
       `${stats.skipped} skipped, ${stats.failed} failed ` +
       `(${stats.patientsGainingIdentifiers} patients gaining identifiers, ` +
-      `${stats.patientsDroppingStaleIdentifiers} patients dropping stale identifiers)`
+      `${stats.patientsDroppingStaleIdentifiers} patients dropping stale identifiers; ` +
+      `of the skipped, ${stats.skippedWithNothingToIndex} with nothing to index, ` +
+      `${stats.skippedWithPrunableIdentifiers} needing --prune-stale, ` +
+      `${stats.skippedNeedingReview} needing review)`
   );
   if (stats.failed) throw new Error(`Billing patient clinical identifier backfill failed for ${stats.failed} Patients`);
 }

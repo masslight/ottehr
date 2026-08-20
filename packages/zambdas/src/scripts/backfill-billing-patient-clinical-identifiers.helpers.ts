@@ -21,6 +21,10 @@ export interface BillingPatientClinicalIdentifierBackfillStats {
   patientsDroppingStaleIdentifiers: number;
   alreadyIndexed: number;
   skipped: number;
+  // The three reasons partition skipped, so a run can be verified without reading every log line
+  skippedWithNothingToIndex: number;
+  skippedWithPrunableIdentifiers: number;
+  skippedNeedingReview: number;
   failed: number;
 }
 
@@ -118,6 +122,44 @@ function planClinicalIdentifiers({
   };
 }
 
+function sourceClinicalPatientIdentifiers(patient: Patient): Identifier[] {
+  return (patient.identifier ?? []).filter((identifier) => identifier.system === SOURCE_IDENTIFIER_SYSTEM);
+}
+
+// Skipping is only safe if it is visible: a patient carrying source identifiers this run could not
+// adjudicate needs either the prune flag or a human, and saying which is what makes a run verifiable.
+function recordSkip({
+  stats,
+  patient,
+  pruneStale,
+  isBillingPatientId,
+}: {
+  stats: BillingPatientClinicalIdentifierBackfillStats;
+  patient: Patient;
+  pruneStale?: boolean;
+  isBillingPatientId: (id: string) => boolean;
+}): void {
+  stats.skipped++;
+  if (!patient.id) {
+    stats.skippedNeedingReview++;
+    console.log('A scanned billing Patient has no id and cannot be indexed');
+    return;
+  }
+  const sourceIdentifiers = sourceClinicalPatientIdentifiers(patient);
+  if (!sourceIdentifiers.length) {
+    stats.skippedWithNothingToIndex++;
+    return;
+  }
+  const tokens = sourceIdentifiers.map(identifierSearchToken).join(', ');
+  if (!pruneStale && sourceIdentifiers.some((identifier) => identifier.value && isBillingPatientId(identifier.value))) {
+    stats.skippedWithPrunableIdentifiers++;
+    console.log(`Patient/${patient.id} keeps source identifiers that --prune-stale would drop: ${tokens}`);
+    return;
+  }
+  stats.skippedNeedingReview++;
+  console.log(`Patient/${patient.id} has source identifiers that resolve to no clinical Patient: ${tokens}`);
+}
+
 export async function syncClinicalPatientIdentifiers({
   oystehr,
   patient,
@@ -178,6 +220,9 @@ export async function backfillBillingPatientClinicalIdentifiers({
     patientsDroppingStaleIdentifiers: 0,
     alreadyIndexed: 0,
     skipped: 0,
+    skippedWithNothingToIndex: 0,
+    skippedWithPrunableIdentifiers: 0,
+    skippedNeedingReview: 0,
     failed: 0,
   };
 
@@ -206,7 +251,12 @@ export async function backfillBillingPatientClinicalIdentifiers({
           fetchBillingPatient,
         });
         if (!patient.id) {
-          stats.skipped++;
+          recordSkip({
+            stats,
+            patient,
+            pruneStale,
+            isBillingPatientId,
+          });
           return;
         }
 
@@ -218,9 +268,14 @@ export async function backfillBillingPatientClinicalIdentifiers({
           isBillingPatientId,
         });
         if (!missing.length && !stale.length) {
-          // An unresolved patient with nothing prunable is not indexed and cannot be
           if (clinicalId) stats.alreadyIndexed++;
-          else stats.skipped++;
+          else
+            recordSkip({
+              stats,
+              patient,
+              pruneStale,
+              isBillingPatientId,
+            });
           return;
         }
 
@@ -252,8 +307,8 @@ export async function backfillBillingPatientClinicalIdentifiers({
         if (stale.length) {
           stats.patientsDroppingStaleIdentifiers++;
           console.log(
-            `Patient/${patient.id} ${dryRun ? 'would drop' : 'dropped'} stale identifiers: ` +
-              `${stale.map(identifierSearchToken).join(', ')}`
+            `Patient/${patient.id} ${dryRun ? 'would drop' : 'dropped'} ` +
+              `${clinicalId ? 'stale' : 'unindexable'} identifiers: ${stale.map(identifierSearchToken).join(', ')}`
           );
         }
       })

@@ -112,6 +112,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       patientsDroppingStaleIdentifiers: 0,
       alreadyIndexed: 0,
       skipped: 0,
+      skippedWithNothingToIndex: 0,
+      skippedWithPrunableIdentifiers: 0,
+      skippedNeedingReview: 0,
       failed: 0,
     });
     expect(patch).toHaveBeenCalledWith(
@@ -204,6 +207,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       patientsDroppingStaleIdentifiers: 0,
       alreadyIndexed: 1,
       skipped: 0,
+      skippedWithNothingToIndex: 0,
+      skippedWithPrunableIdentifiers: 0,
+      skippedNeedingReview: 0,
       failed: 0,
     });
     expect(patch).toHaveBeenCalledWith(
@@ -268,6 +274,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       patientsDroppingStaleIdentifiers: 0,
       alreadyIndexed: 2,
       skipped: 0,
+      skippedWithNothingToIndex: 0,
+      skippedWithPrunableIdentifiers: 0,
+      skippedNeedingReview: 0,
       failed: 0,
     });
     expect(patch).toHaveBeenCalledWith(
@@ -355,6 +364,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       patientsDroppingStaleIdentifiers: 0,
       alreadyIndexed: 1,
       skipped: 1,
+      skippedWithNothingToIndex: 1,
+      skippedWithPrunableIdentifiers: 0,
+      skippedNeedingReview: 0,
       failed: 0,
     });
     expect(patch).not.toHaveBeenCalled();
@@ -395,9 +407,15 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       patientsDroppingStaleIdentifiers: 1,
       alreadyIndexed: 1,
       skipped: 1,
+      skippedWithNothingToIndex: 1,
+      skippedWithPrunableIdentifiers: 0,
+      skippedNeedingReview: 0,
       failed: 1,
     });
     expect(stats.changed + stats.alreadyIndexed + stats.skipped + stats.failed).toBe(stats.examined);
+    expect(stats.skippedWithNothingToIndex + stats.skippedWithPrunableIdentifiers + stats.skippedNeedingReview).toBe(
+      stats.skipped
+    );
     expect(stats.patientsGainingIdentifiers + stats.patientsDroppingStaleIdentifiers).toBeGreaterThan(stats.changed);
   });
 
@@ -466,6 +484,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
         patientsDroppingStaleIdentifiers: 1,
         alreadyIndexed: 1,
         skipped: 0,
+        skippedWithNothingToIndex: 0,
+        skippedWithPrunableIdentifiers: 0,
+        skippedNeedingReview: 0,
         failed: 0,
       });
       expect(patch).toHaveBeenCalledWith(
@@ -555,6 +576,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
         patientsDroppingStaleIdentifiers: 1,
         alreadyIndexed: 0,
         skipped: 0,
+        skippedWithNothingToIndex: 0,
+        skippedWithPrunableIdentifiers: 0,
+        skippedNeedingReview: 0,
         failed: 0,
       });
       expect(patch).toHaveBeenCalledWith(
@@ -622,6 +646,9 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
           patientsDroppingStaleIdentifiers: 1,
           alreadyIndexed: 0,
           skipped: 1,
+          skippedWithNothingToIndex: 1,
+          skippedWithPrunableIdentifiers: 0,
+          skippedNeedingReview: 0,
           failed: 0,
         });
         expect(patch).toHaveBeenCalledWith(
@@ -674,16 +701,22 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
         );
 
         expect(stats.skipped).toBe(2);
+        expect(stats.skippedNeedingReview).toBe(1);
+        expect(stats.skippedWithNothingToIndex).toBe(1);
         expect(stats.patientsDroppingStaleIdentifiers).toBe(0);
         expect(patch).not.toHaveBeenCalled();
       });
 
-      it('keeps the identifier without the flag', async () => {
+      // Reported apart from the ones needing review: another run with the flag clears these out.
+      it('keeps the identifier without the flag and counts it as prunable', async () => {
         const { oystehr, patch } = mockOystehr(copyOfManualPatient([clinicalPatientIdentifier('billing-manual')]));
 
         const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
 
         expect(stats.skipped).toBe(2);
+        expect(stats.skippedWithPrunableIdentifiers).toBe(1);
+        expect(stats.skippedWithNothingToIndex).toBe(1);
+        expect(stats.skippedNeedingReview).toBe(0);
         expect(patch).not.toHaveBeenCalled();
       });
     });
