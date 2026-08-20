@@ -243,6 +243,70 @@ describe('resolveClinicalPatientIds', () => {
     expect(search).not.toHaveBeenCalled();
   });
 
+  it('walks past an intermediate working copy to reach the main patient', async () => {
+    const main = billingPatient('billing-main', 'clinical-1', '1015');
+    const copy = workingCopy('billing-copy', 'billing-main');
+    const copyOfCopy = workingCopy('billing-copy-of-copy', 'billing-copy');
+    const { oystehr } = serverWith([main, copy, copyOfCopy]);
+
+    const ids = await resolveClinicalPatientIds({
+      oystehr,
+      patient: copyOfCopy,
+    });
+
+    expect(ids).toEqual({
+      clinicalId: 'clinical-1',
+      clinicalFriendlyId: '1015',
+      workingCopyParentId: 'billing-copy',
+    });
+  });
+
+  it('resolves no clinical id for a working copy whose extension points at itself', async () => {
+    const copy = workingCopy('billing-loop', 'billing-loop');
+    const { oystehr } = serverWith([copy]);
+
+    const ids = await resolveClinicalPatientIds({
+      oystehr,
+      patient: copy,
+    });
+
+    expect(ids).toEqual({
+      clinicalId: undefined,
+      clinicalFriendlyId: undefined,
+      workingCopyParentId: 'billing-loop',
+    });
+  });
+
+  it('resolves no clinical id when the copy chain cycles', async () => {
+    const first = workingCopy('billing-first', 'billing-second');
+    const second = workingCopy('billing-second', 'billing-first');
+    const { oystehr } = serverWith([first, second]);
+
+    const ids = await resolveClinicalPatientIds({
+      oystehr,
+      patient: first,
+    });
+
+    expect(ids.clinicalId).toBeUndefined();
+  });
+
+  // The cap is a backstop against an unbounded walk, so a chain deeper than it resolves to nothing
+  // rather than hanging. Real chains are one hop, occasionally two.
+  it('gives up on a copy chain longer than the hop cap', async () => {
+    const main = billingPatient('billing-main', 'clinical-1', '1015');
+    const chain = Array.from({ length: 12 }, (_, index) =>
+      workingCopy(`billing-copy-${index}`, index === 11 ? 'billing-main' : `billing-copy-${index + 1}`)
+    );
+    const { oystehr } = serverWith([main, ...chain]);
+
+    const ids = await resolveClinicalPatientIds({
+      oystehr,
+      patient: chain[0],
+    });
+
+    expect(ids.clinicalId).toBeUndefined();
+  });
+
   // A deleted main patient must not fail the copy: there is no clinical patient left to index, the
   // same as a working copy of a manually created billing patient.
   it('degrades rather than throwing when the main patient is gone', async () => {

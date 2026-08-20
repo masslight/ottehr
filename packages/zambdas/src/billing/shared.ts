@@ -238,6 +238,9 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
+// A working copy can itself be copied, so a copy is not always one hop from its main Patient
+const MAX_COPY_CHAIN_HOPS = 10;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
@@ -377,12 +380,37 @@ export async function resolveClinicalPatientIds({
       clinicalFriendlyId: clinicalFriendlyIdOfCopy(patient),
     };
   }
-  const parent = sourceId ? await fetchBillingPatient(sourceId) : undefined;
+  const main = await findMainPatientOfWorkingCopy({
+    patient,
+    sourceId,
+    fetchBillingPatient,
+  });
   return {
-    clinicalId: parent ? copySourceId(parent) : undefined,
-    clinicalFriendlyId: (parent ? clinicalFriendlyIdOfCopy(parent) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
+    clinicalId: main ? copySourceId(main) : undefined,
+    clinicalFriendlyId: (main ? clinicalFriendlyIdOfCopy(main) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
     workingCopyParentId: sourceId,
   };
+}
+
+async function findMainPatientOfWorkingCopy({
+  patient,
+  sourceId,
+  fetchBillingPatient,
+}: {
+  patient: Patient;
+  sourceId?: string;
+  fetchBillingPatient: (id: string) => Promise<Patient | undefined>;
+}): Promise<Patient | undefined> {
+  const visited = new Set<string>(patient.id ? [patient.id] : []);
+  let ancestorId = sourceId;
+  for (let hop = 0; ancestorId && !visited.has(ancestorId) && hop < MAX_COPY_CHAIN_HOPS; hop++) {
+    visited.add(ancestorId);
+    const ancestor = await fetchBillingPatient(ancestorId);
+    if (!ancestor) return undefined;
+    if (!isWorkingCopy(ancestor)) return ancestor;
+    ancestorId = copySourceId(ancestor);
+  }
+  return undefined;
 }
 
 export async function searchOnClinicalIDs(
