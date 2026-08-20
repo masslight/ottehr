@@ -456,8 +456,8 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
   // The source-resource extension points at the billing main patient by design, but the identifier
   // of the same system indexes the clinical patient, which is what claim search queries. Earlier
   // runs of this script copied the extension's value into the identifier, so any other value is
-  // left over. Only that system is pruned; those runs could never leave a stale friendly id,
-  // because prepareWorkingCopy drops the Patient extension it reads from.
+  // left over. Those runs could not leave a stale friendly id, since they read the value the copy
+  // was created with; that system goes stale later instead, when the clinical friendly id changes.
   describe('--prune-stale', () => {
     const misindexedCopy = (): Patient[] => [
       billingPatient({
@@ -607,6 +607,82 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
 
       expect(stats.patientsDroppingStaleIdentifiers).toBe(1);
       expect(patch).not.toHaveBeenCalled();
+    });
+
+    // A copy carries the friendly id resolved when it was made, so it disagrees with the main
+    // patient once the clinical friendly id changes.
+    describe('friendly ids', () => {
+      const renamedPatient = (identifier: Patient['identifier'], friendlyId?: string): Patient[] => [
+        billingPatient({
+          id: 'billing-main',
+          extension: copyOf('clinical-1', friendlyId),
+          identifier,
+        }),
+      ];
+
+      it('drops a friendly id identifier that no longer matches', async () => {
+        const { oystehr, patch } = mockOystehr(
+          renamedPatient([clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')], '1016')
+        );
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(
+          runOptions(oystehr, {
+            pruneStale: true,
+          })
+        );
+
+        expect(stats.patientsDroppingStaleIdentifiers).toBe(1);
+        expect(patch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            operations: [
+              {
+                op: 'replace',
+                path: '/identifier',
+                value: [clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1016')],
+              },
+            ],
+          }),
+          expect.anything()
+        );
+      });
+
+      it('adds the new friendly id without dropping the old one when the flag is absent', async () => {
+        const { oystehr, patch } = mockOystehr(
+          renamedPatient([clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')], '1016')
+        );
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
+
+        expect(stats.patientsDroppingStaleIdentifiers).toBe(0);
+        expect(patch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            operations: [
+              {
+                op: 'add',
+                path: '/identifier/-',
+                value: clinicalFriendlyIdIdentifier('1016'),
+              },
+            ],
+          }),
+          expect.anything()
+        );
+      });
+
+      // Nothing resolved to compare against, so the identifier is the only record of the friendly id.
+      it('leaves a friendly id identifier alone when no friendly id resolves', async () => {
+        const { oystehr, patch } = mockOystehr(
+          renamedPatient([clinicalPatientIdentifier('clinical-1'), clinicalFriendlyIdIdentifier('1015')])
+        );
+
+        const stats = await backfillBillingPatientClinicalIdentifiers(
+          runOptions(oystehr, {
+            pruneStale: true,
+          })
+        );
+
+        expect(stats.alreadyIndexed).toBe(1);
+        expect(patch).not.toHaveBeenCalled();
+      });
     });
 
     // A working copy of a manually created billing patient resolves no clinical id, so there is no

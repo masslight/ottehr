@@ -8,6 +8,7 @@ import {
   clinicalPatientIdentifier,
   identifierSearchToken,
   resolveClinicalPatientIds,
+  SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../billing/shared';
 
@@ -48,18 +49,21 @@ function missingClinicalPatientIdentifiers({
   return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
 }
 
-function isStaleClinicalPatientIdentifier(identifier: Identifier, clinicalId: string): boolean {
-  return identifier.system === SOURCE_IDENTIFIER_SYSTEM && identifier.value !== clinicalId;
-}
-
 function staleClinicalPatientIdentifiers({
   patient,
   clinicalId,
+  clinicalFriendlyId,
 }: {
   patient: Patient;
   clinicalId: string;
+  clinicalFriendlyId?: string;
 }): Identifier[] {
-  return (patient.identifier ?? []).filter((identifier) => isStaleClinicalPatientIdentifier(identifier, clinicalId));
+  const wantedBySystem = new Map<string, string>([[SOURCE_IDENTIFIER_SYSTEM, clinicalId]]);
+  if (clinicalFriendlyId) wantedBySystem.set(SOURCE_FRIENDLY_PATIENT_ID_SYSTEM, clinicalFriendlyId);
+  return (patient.identifier ?? []).filter((identifier) => {
+    const wanted = identifier.system ? wantedBySystem.get(identifier.system) : undefined;
+    return !!wanted && identifier.value !== wanted;
+  });
 }
 
 // With no clinical id to compare against, a source identifier is still provably wrong when its value
@@ -114,6 +118,7 @@ function planClinicalIdentifiers({
       ? staleClinicalPatientIdentifiers({
           patient,
           clinicalId,
+          clinicalFriendlyId,
         })
       : unindexableClinicalPatientIdentifiers({
           patient,
