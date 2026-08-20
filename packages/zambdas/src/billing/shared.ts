@@ -261,6 +261,7 @@ export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
   'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
 export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,

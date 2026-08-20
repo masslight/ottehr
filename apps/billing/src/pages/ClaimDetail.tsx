@@ -1191,6 +1191,7 @@ function ServiceLinesSection({
         serviceDate: line.serviceDate,
         placeOfService: line.placeOfService,
         diagnosisPointers: line.diagnosisPointers,
+        revenueCode: line.revenueCode,
       })),
     [claim]
   );
@@ -1226,6 +1227,7 @@ function ServiceLinesSection({
           ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
+          revenueCode: row.revenueCode,
         };
       }),
     });
@@ -1242,6 +1244,7 @@ function ServiceLinesSection({
           onChange={setRows}
           diagnoses={claim.diagnoses}
           defaultServiceDate={claim.created}
+          claimType={claim.type}
         />
       }
     >

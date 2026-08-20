@@ -566,7 +566,12 @@ export default function CreateClaim(): ReactElement {
             }}
             render={({ field, fieldState: { error: fieldError } }) => (
               <>
-                <ServiceLinesEditor value={field.value} onChange={field.onChange} diagnoses={diagnosisOptions} />
+                <ServiceLinesEditor
+                  value={field.value}
+                  onChange={field.onChange}
+                  diagnoses={diagnosisOptions}
+                  claimType={'professional'}
+                />
                 {fieldError && <FormHelperText error>{fieldError.message}</FormHelperText>}
               </>
             )}

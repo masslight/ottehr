@@ -210,6 +210,7 @@ const claimServiceLineSchema = z.object({
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
+  revenueCode: z.string().max(5).optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({

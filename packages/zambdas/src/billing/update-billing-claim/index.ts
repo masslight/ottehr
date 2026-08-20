@@ -13,7 +13,7 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
-import { setNpi } from 'utils/lib/fhir/helpers';
+import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
@@ -41,6 +41,7 @@ import {
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
   createBillingClient,
   ensureClaimInsurance,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
@@ -322,6 +323,7 @@ async function attachClaimResources(
         : undefined,
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
+      revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
     }));
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {

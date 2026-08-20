@@ -448,6 +448,7 @@ export interface ClaimDetailResponse {
     serviceDate: string;
     placeOfService: string;
     diagnosisPointers: number[];
+    revenueCode: string;
   }[];
   billed: number;
   allowed: number;

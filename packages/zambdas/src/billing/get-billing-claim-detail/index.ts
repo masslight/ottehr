@@ -4,7 +4,7 @@ import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } fr
 import { DateTime } from 'luxon';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
-import { getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -26,6 +26,7 @@ import {
 } from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
+  CODE_SYSTEM_NUBC_REVENUE,
   createBillingClient,
   createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
@@ -234,6 +235,7 @@ export async function performEffect(
       serviceDate: item.servicedPeriod?.start ?? item.servicedDate ?? claim.created ?? '',
       placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
       diagnosisPointers: item.diagnosisSequence ?? [],
+      revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
     })),
     billed,
     allowed: payments.allowed,
