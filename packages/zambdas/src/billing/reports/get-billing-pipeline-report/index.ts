@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { GetBillingPipelineReportResponse, PipelineReportRow } from 'utils/lib/types/data/billing/billing.types';
-import { getActiveStatusGroup, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { AR_STAGE, getActiveStatusGroup, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { gunzipSync, gzipSync } from 'zlib';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
@@ -21,6 +21,8 @@ const HISTORY_KEY = 'pipeline-report-history:v1';
 // stay well under FHIR resource size limits
 const MAX_CACHE_BYTES = 4 * 1024 * 1024;
 const HISTORY_MAX_DAYS = 180;
+// insurance AR claims with no update for this long count as stale
+const STALE_DAYS = 30;
 
 interface PipelineSnapshot {
   // ISO date the snapshot was taken (one per day, latest run wins)
@@ -56,6 +58,14 @@ export async function performEffect(
 
   const cellByKey = new Map<string, PipelineReportRow>();
   let totalBilled = 0;
+  const staleBefore = DateTime.now().toUTC().minus({ days: STALE_DAYS }).toISO();
+  const insuranceBreakout = {
+    denied: { claimCount: 0, totalBilled: 0 },
+    rejected: { claimCount: 0, totalBilled: 0 },
+    stale: { claimCount: 0, totalBilled: 0 },
+    staleDays: STALE_DAYS,
+    staleBefore,
+  };
   for (const claim of claims) {
     const statuses = getClaimStatusValues(claim);
     const arStage = statuses.arStage;
@@ -69,6 +79,23 @@ export async function performEffect(
     cell.totalBilled += billed;
     cellByKey.set(key, cell);
     totalBilled += billed;
+
+    if (arStage === AR_STAGE.insurancePayer) {
+      if (statuses.adjudicationStatus === 'denied') {
+        insuranceBreakout.denied.claimCount += 1;
+        insuranceBreakout.denied.totalBilled += billed;
+      }
+      if (statuses.adjudicationStatus === 'rejected') {
+        insuranceBreakout.rejected.claimCount += 1;
+        insuranceBreakout.rejected.totalBilled += billed;
+      }
+      // UTC ISO strings compare lexicographically
+      const lastUpdated = claim.meta?.lastUpdated ?? '';
+      if (lastUpdated && lastUpdated <= staleBefore) {
+        insuranceBreakout.stale.claimCount += 1;
+        insuranceBreakout.stale.totalBilled += billed;
+      }
+    }
   }
 
   const rows = [...cellByKey.values()];
@@ -80,6 +107,7 @@ export async function performEffect(
   return {
     rows,
     totals: { claims: claims.length, totalBilled },
+    insuranceBreakout,
     ...(previous && { previous: { snapshotDate: previous.date, rows: previous.rows } }),
     generatedAt: DateTime.now().toUTC().toISO(),
     fromCache: false,

@@ -146,6 +146,8 @@ export const SearchBillingClaimsInputSchema = z.object({
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
+  // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)
+  updatedBefore: nonEmptyString.optional(),
   serviceDateFrom: nonEmptyString.optional(),
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),

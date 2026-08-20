@@ -744,9 +744,21 @@ export interface PipelineReportRow {
   totalBilled: number;
 }
 
+// Insurance Payer AR attention buckets: adjudication problems and claims with no recent activity.
+export interface PipelineInsuranceBreakout {
+  denied: { claimCount: number; totalBilled: number };
+  rejected: { claimCount: number; totalBilled: number };
+  stale: { claimCount: number; totalBilled: number };
+  // claims with no update in this many days count as stale
+  staleDays: number;
+  // _lastUpdated cutoff used for the stale bucket, for drilldown filtering
+  staleBefore: string;
+}
+
 export interface GetBillingPipelineReportResponse {
   rows: PipelineReportRow[];
   totals: { claims: number; totalBilled: number };
+  insuranceBreakout: PipelineInsuranceBreakout;
   // closest daily snapshot from ~a week ago, for week-over-week deltas (absent until history accrues)
   previous?: { snapshotDate: string; rows: PipelineReportRow[] };
   generatedAt: string;

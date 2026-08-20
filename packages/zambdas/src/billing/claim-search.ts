@@ -61,6 +61,7 @@ export type ClaimFilterInput = Pick<
   | 'arStage'
   | 'createdFrom'
   | 'createdTo'
+  | 'updatedBefore'
   | 'patientId'
   | 'service'
   | 'payerId'
@@ -130,6 +131,11 @@ export async function buildClaimFilterParams({
     filterParams.push({
       name: 'created',
       value: `le${params.createdTo}`,
+    });
+  if (params.updatedBefore)
+    filterParams.push({
+      name: '_lastUpdated',
+      value: `le${params.updatedBefore}`,
     });
   if (params.patientId)
     filterParams.push(

@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingClaimItem, GetBillingPipelineReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
+  AR_STAGE,
   AR_STAGE_NONE,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_GROUPS,
@@ -203,6 +204,10 @@ interface StageDrilldown {
   // AR_STAGE code, or AR_STAGE_NONE for claims without a stage
   arStage: string;
   statusFieldKey?: ClaimStatusFieldKey;
+  // status tag value to narrow by (e.g. adjudication 'denied')
+  status?: string;
+  // only claims last updated on/before this ISO timestamp
+  updatedBefore?: string;
   // claim created-date window matching the report filter
   createdFrom?: string;
   createdTo?: string;
@@ -240,6 +245,8 @@ function StageDrilldownDrawer({
           arStage: drilldown.arStage,
           offset,
           pageSize: DRILLDOWN_PAGE_SIZE,
+          ...(drilldown.status ? { status: drilldown.status } : {}),
+          ...(drilldown.updatedBefore ? { updatedBefore: drilldown.updatedBefore } : {}),
           ...(drilldown.createdFrom ? { createdFrom: drilldown.createdFrom } : {}),
           ...(drilldown.createdTo ? { createdTo: drilldown.createdTo } : {}),
         });
@@ -668,6 +675,92 @@ export default function PipelineReport(): ReactElement {
           );
         })}
       </Stack>
+
+      <Box
+        sx={{
+          mt: 2.5,
+          bgcolor: 'background.paper',
+          border: `1px solid ${otherColors.lightDivider}`,
+          borderRadius: 2,
+          px: 3,
+          py: 2.5,
+        }}
+      >
+        <Typography variant="h6" color="primary.dark" fontWeight={600}>
+          Insurance Payer AR — Needs Attention
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Denied, rejected, and stale claims currently in insurance AR. Click a bucket for the claims list.
+        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} gap={2} mt={2}>
+          {(
+            [
+              {
+                key: 'denied',
+                label: 'Denied',
+                cell: report?.insuranceBreakout.denied ?? EMPTY_CELL,
+                drilldown: {
+                  title: 'Insurance Payer AR — Denied Claims',
+                  arStage: AR_STAGE.insurancePayer,
+                  statusFieldKey: 'adjudicationStatus' as ClaimStatusFieldKey,
+                  status: 'denied',
+                },
+              },
+              {
+                key: 'rejected',
+                label: 'Rejected',
+                cell: report?.insuranceBreakout.rejected ?? EMPTY_CELL,
+                drilldown: {
+                  title: 'Insurance Payer AR — Rejected Claims',
+                  arStage: AR_STAGE.insurancePayer,
+                  statusFieldKey: 'adjudicationStatus' as ClaimStatusFieldKey,
+                  status: 'rejected',
+                },
+              },
+              {
+                key: 'stale',
+                label: `Stale (no activity in ${report?.insuranceBreakout.staleDays ?? 30}+ days)`,
+                cell: report?.insuranceBreakout.stale ?? EMPTY_CELL,
+                drilldown: {
+                  title: 'Insurance Payer AR — Stale Claims',
+                  arStage: AR_STAGE.insurancePayer,
+                  statusFieldKey: 'insuranceArStatus' as ClaimStatusFieldKey,
+                  ...(report?.insuranceBreakout.staleBefore
+                    ? { updatedBefore: report.insuranceBreakout.staleBefore }
+                    : {}),
+                },
+              },
+            ] as const
+          ).map((bucket) => (
+            <Box
+              key={bucket.key}
+              onClick={() =>
+                setDrilldown({
+                  ...bucket.drilldown,
+                  ...(dateFrom ? { createdFrom: dateFrom } : {}),
+                  ...(dateTo ? { createdTo: dateTo } : {}),
+                })
+              }
+              sx={{
+                flex: 1,
+                border: `1px solid ${otherColors.lightDivider}`,
+                borderRadius: 2,
+                px: 2.5,
+                py: 2,
+                cursor: 'pointer',
+                '&:hover': { bgcolor: otherColors.apptHover },
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {bucket.label}
+              </Typography>
+              <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ mt: 0.5 }}>
+                {headerLabel(bucket.cell)}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      </Box>
 
       <StageDrilldownDrawer criteria={drilldown} onClose={() => setDrilldown(null)} />
     </Box>
