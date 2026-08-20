@@ -38,6 +38,7 @@ import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { isEntryAtBookableLocation } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 /**
@@ -280,23 +281,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // neither the `atLocationId` branch nor the multi-Location branch, so the schedules fall straight
   // through and still vend — the same fall-through that let a single deactivated Location keep
   // booking. The schedules themselves have to go.
-  const bookableEntries = scheduleList.filter((entry) => {
-    if (entry.owner.resourceType === 'Location') {
-      return isLocationBookable(entry.owner as Location);
-    }
-    if (entry.owner.resourceType === 'PractitionerRole') {
-      const locationRefs = (entry.owner as PractitionerRole).location ?? [];
-      // A provider with no Location at all has none to deactivate; leaving it alone keeps
-      // Location-less provider schedules behaving as they did.
-      if (locationRefs.length === 0) return true;
-      // Present in the map == returned by `searchBookableLocations` == not deactivated.
-      return locationRefs.some((ref) => {
-        const id = ref.reference?.split('/')[1];
-        return id ? pairedLocationById.has(id) : false;
-      });
-    }
-    return true;
-  });
+  const bookableEntries = scheduleList.filter((entry) => isEntryAtBookableLocation(entry, pairedLocationById));
   scheduleList.length = 0;
   scheduleList.push(...bookableEntries);
 
