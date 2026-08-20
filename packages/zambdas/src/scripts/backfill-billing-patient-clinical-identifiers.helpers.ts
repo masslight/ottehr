@@ -296,23 +296,21 @@ export async function backfillBillingPatientClinicalIdentifiers({
     const batch = patients.slice(index, index + BACKFILL_PATCH_CONCURRENCY);
     await Promise.all(
       batch.map(async (patient) => {
-        const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
-          oystehr,
-          patient,
-          fetchBillingPatient,
-        });
         if (!patient.id) {
           recordSkip({
             stats,
             patient,
-            clinicalId,
-            clinicalFriendlyId,
             pruneStale,
             isBillingPatientId,
           });
           return;
         }
 
+        const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+          oystehr,
+          patient,
+          fetchBillingPatient,
+        });
         const { missing, stale } = planClinicalIdentifiers({
           patient,
           clinicalId,
