@@ -16,8 +16,8 @@ const BACKFILL_PATCH_CONCURRENCY = 5;
 export interface BillingPatientClinicalIdentifierBackfillStats {
   examined: number;
   changed: number;
-  identifiersAdded: number;
-  identifiersDropped: number;
+  patientsGainingIdentifiers: number;
+  patientsDroppingStaleIdentifiers: number;
   alreadyIndexed: number;
   skipped: number;
   failed: number;
@@ -130,8 +130,8 @@ export async function backfillBillingPatientClinicalIdentifiers({
   const stats: BillingPatientClinicalIdentifierBackfillStats = {
     examined: 0,
     changed: 0,
-    identifiersAdded: 0,
-    identifiersDropped: 0,
+    patientsGainingIdentifiers: 0,
+    patientsDroppingStaleIdentifiers: 0,
     alreadyIndexed: 0,
     skipped: 0,
     failed: 0,
@@ -199,14 +199,14 @@ export async function backfillBillingPatientClinicalIdentifiers({
 
         stats.changed++;
         if (missing.length) {
-          stats.identifiersAdded++;
+          stats.patientsGainingIdentifiers++;
           console.log(
             `Patient/${patient.id} ${dryRun ? 'would gain' : 'gained'} identifiers: ` +
               `${missing.map((identifier) => identifier.system).join(', ')}`
           );
         }
         if (stale.length) {
-          stats.identifiersDropped++;
+          stats.patientsDroppingStaleIdentifiers++;
           console.log(
             `Patient/${patient.id} ${dryRun ? 'would drop' : 'dropped'} stale identifiers: ` +
               `${stale.map(identifierSearchToken).join(', ')}`
