@@ -215,14 +215,16 @@ export async function syncClinicalPatientIdentifiers({
   clinicalId,
   clinicalFriendlyId,
   pruneStale,
-  isBillingPatientId = () => false,
+  isBillingPatientId,
 }: {
   oystehr: Oystehr;
   patient: Patient;
   clinicalId?: string;
   clinicalFriendlyId?: string;
   pruneStale?: boolean;
-  isBillingPatientId?: (id: string) => boolean;
+  // Required: a prune that cannot tell a billing id from a clinical one silently keeps identifiers
+  // it was asked to drop, and defaulting the answer to "no" hides that from the caller
+  isBillingPatientId: (id: string) => boolean;
 }): Promise<void> {
   await patchWithOptimisticLock(
     oystehr,

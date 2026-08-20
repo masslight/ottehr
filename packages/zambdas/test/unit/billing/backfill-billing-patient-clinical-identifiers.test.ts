@@ -926,6 +926,14 @@ describe('syncClinicalPatientIdentifiers', () => {
       identifier,
     });
 
+  const sync = (
+    params: Omit<Parameters<typeof syncClinicalPatientIdentifiers>[0], 'isBillingPatientId'>
+  ): Promise<void> =>
+    syncClinicalPatientIdentifiers({
+      ...params,
+      isBillingPatientId: () => false,
+    });
+
   const mockWriter = (): { oystehr: Oystehr; patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> } => {
     const patch = vi.fn().mockResolvedValue({});
     const get = vi.fn();
@@ -944,7 +952,7 @@ describe('syncClinicalPatientIdentifiers', () => {
   it('adds the friendly id alongside the clinical patient id in one patch', async () => {
     const { oystehr, patch } = mockWriter();
 
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient: target(),
       clinicalId: 'clinical-1',
@@ -972,7 +980,7 @@ describe('syncClinicalPatientIdentifiers', () => {
   it('adds only the identifier that is missing', async () => {
     const { oystehr, patch } = mockWriter();
 
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient: target([clinicalPatientIdentifier('clinical-1')]),
       clinicalId: 'clinical-1',
@@ -1000,7 +1008,7 @@ describe('syncClinicalPatientIdentifiers', () => {
       value: 'other',
     };
 
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient: target([otherId]),
       clinicalId: 'clinical-1',
@@ -1023,7 +1031,7 @@ describe('syncClinicalPatientIdentifiers', () => {
   it('writes nothing when the identifier is already there', async () => {
     const { oystehr, patch } = mockWriter();
 
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient: target([clinicalPatientIdentifier('clinical-1')]),
       clinicalId: 'clinical-1',
@@ -1037,7 +1045,7 @@ describe('syncClinicalPatientIdentifiers', () => {
     patch.mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 412 }));
     get.mockResolvedValue(target([clinicalPatientIdentifier('clinical-1')]));
 
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient: target(),
       clinicalId: 'clinical-1',
@@ -1054,7 +1062,7 @@ describe('syncClinicalPatientIdentifiers', () => {
     const { oystehr, patch } = mockWriter();
     const patient = target([clinicalPatientIdentifier('billing-parent')]);
 
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient,
       clinicalId: 'clinical-1',
@@ -1073,7 +1081,7 @@ describe('syncClinicalPatientIdentifiers', () => {
     );
 
     patch.mockClear();
-    await syncClinicalPatientIdentifiers({
+    await sync({
       oystehr,
       patient,
       clinicalId: 'clinical-1',
