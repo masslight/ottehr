@@ -25,8 +25,12 @@ import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
 import { createPresignedUrl } from './z3Utils';
 
+export const NO_SPEECH_DETECTED = 'NO_SPEECH_DETECTED';
+
 export const TRANSCRIPT_PROMPT =
-  'give a transcript of this file, include only the transcript without other input, include who the speaker is with labels for the provider and the patient';
+  'Give a transcript of this file, include only the transcript without other input, include who the speaker is ' +
+  'with labels for the provider and the patient. If the audio contains just silence or background noise, ' +
+  `respond with "${NO_SPEECH_DETECTED}"`;
 
 export class ClaudeClient {
   chatbot: ChatAnthropic;
@@ -276,6 +280,13 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
     secrets
   );
+
+  if (transcript === NO_SPEECH_DETECTED) {
+    console.log(
+      `[transcribeAndCreateResourcesFromZ3Audio] No speech detected in recording z3URL=${args.z3URL}; skipping AI resource creation`
+    );
+    return 'no speech detected; skipped AI resource creation';
+  }
 
   return createResourcesFromAiInterview(
     oystehr,
