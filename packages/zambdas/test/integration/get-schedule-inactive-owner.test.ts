@@ -675,8 +675,10 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
       operations: [{ op: 'add', path: '/status', value: 'inactive' }],
     });
 
-    // The slug no longer resolves to a bookable Location, so no slots are vended for it.
-    const after = await callWithAtLocation();
-    expect(after.available ?? []).toHaveLength(0);
+    // The slug no longer resolves to a bookable Location at all, so the request is refused outright
+    // rather than answered with an empty slot list — get-schedule returns AT_LOCATION_NOT_FOUND and
+    // the SDK surfaces a non-2xx as a throw. Refusing beats vending nothing: a silent empty list
+    // reads to the patient as "no availability today" rather than "this location is closed".
+    await expect(callWithAtLocation()).rejects.toThrow(/did not match any Location/);
   });
 });
