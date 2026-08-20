@@ -10,6 +10,7 @@ interface UseAiResourcesPollingParams {
   encounter: Encounter | undefined;
   oystehr: Oystehr | undefined;
   chartDataHasResources: boolean;
+  hasPendingRecording: boolean;
   onRefetch: () => Promise<void>;
 }
 
@@ -28,6 +29,7 @@ export const useAiResourcesPolling = ({
   encounter,
   oystehr,
   chartDataHasResources,
+  hasPendingRecording,
   onRefetch,
 }: UseAiResourcesPollingParams): UseAiResourcesPollingResult => {
   const [isPolling, setIsPolling] = useState(false);
@@ -107,7 +109,7 @@ export const useAiResourcesPolling = ({
       const visitStatus = getInPersonVisitStatus(appointment, encounter);
       const isRelevantStatus = visitStatus === 'ready for provider' || visitStatus === 'provider';
 
-      if (!isRelevantStatus) {
+      if (!hasPendingRecording && !isRelevantStatus) {
         setHasPendingAiSource(false);
         setIsPolling(false);
         pollingAttemptsRef.current = 0;
@@ -136,7 +138,7 @@ export const useAiResourcesPolling = ({
     };
 
     void shouldPoll();
-  }, [appointment, encounter, chartDataHasResources, isPolling, checkForPendingAiSource]);
+  }, [appointment, encounter, chartDataHasResources, hasPendingRecording, isPolling, checkForPendingAiSource]);
 
   // Handle polling interval
   useEffect(() => {

@@ -90,6 +90,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
     encounter,
     oystehr,
     chartDataHasResources,
+    hasPendingRecording: Boolean(chartData?.aiChat?.hasPendingRecording),
     onRefetch: refetchChartData,
   });
 
