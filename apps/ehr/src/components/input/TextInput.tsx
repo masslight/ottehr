@@ -1,7 +1,7 @@
 import { Box, FormHelperText, InputBaseComponentProps, InputProps, Skeleton, TextField } from '@mui/material';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 
 type Props = {
   name: string;

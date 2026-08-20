@@ -1,9 +1,13 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
-import { ChartDataRequestedFields, GetChartDataResponse, PUBLIC_EXTENSION_BASE_URL } from 'utils';
-import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
+import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getPatientEncounter } from '../../shared/encounter';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
   configProceduresRequestsForGetChartData,

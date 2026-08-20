@@ -1,14 +1,13 @@
 import {
+  AdHocBillingOutput,
   AdHocBillingRow,
   BILLING_DOMAIN_FIELDS,
   BILLING_INTERNAL_FIELDS,
   BILLING_LAYERS,
   BillingBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-} from 'utils';
-import { getAdHocBilling } from '../../../api/api';
-import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from '../query/batching';
+} from 'utils/lib/types/adhoc/datasets/billing';
+import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
+import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -23,31 +22,25 @@ async function fetchAdHocBilling({
   options,
 }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
-  const flags = layerIncludeFlags(BILLING_LAYERS, opts);
 
-  // Zambda emits date/lastPaymentDate as raw ISO; derive viewer-local yyyy-MM-dd here.
-  const rows = await fetchBatchedRange(
-    dateRange,
-    (range) =>
-      queryClient
-        .fetchQuery({
-          queryKey: ['adhoc-billing', range, flags],
-          queryFn: () => getAdHocBilling(oystehrZambda, { dateRange: range, ...flags }),
-          staleTime: ADHOC_QUERY_STALE_MS,
-        })
-        .then((r) =>
-          r.rows.map(
-            (row): AdHocBillingRow => ({
-              ...row,
-              date: toLocalYmd(row.date),
-              lastPaymentDate: row.lastPaymentDate == null ? row.lastPaymentDate : toLocalYmd(row.lastPaymentDate),
-            })
-          )
-        ),
-    dedupeByEncounter
+  const result = await queryClient.fetchQuery({
+    queryKey: ['adhoc-billing', dateRange, opts],
+    queryFn: () =>
+      runAdHocReport<AdHocBillingOutput>(oystehrZambda, {
+        datasetId: 'billing',
+        dateRange,
+        options: opts,
+      }),
+    staleTime: ADHOC_QUERY_STALE_MS,
+  });
+
+  return result.rows.map(
+    (row): AdHocBillingRow => ({
+      ...row,
+      date: toLocalYmd(row.date),
+      lastPaymentDate: row.lastPaymentDate == null ? row.lastPaymentDate : toLocalYmd(row.lastPaymentDate),
+    })
   );
-
-  return rows;
 }
 
 export const billingDataset: AdHocDataset = {

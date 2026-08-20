@@ -57,7 +57,8 @@ vi.mock('../../src/hooks/useLocationSupportPhones', () => ({
 }));
 
 import { SchoolWorkExcuseCard } from 'src/features/visits/shared/components/SchoolWorkExcuseCard';
-import { GetChartDataResponse, SchoolWorkNoteExcuseDocFileDTO } from 'utils';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import {
   useDeleteChartData,
   useSaveChartData,

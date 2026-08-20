@@ -1,7 +1,9 @@
 import { Checkbox, TableCell, TableRow, Typography } from '@mui/material';
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExamObservationDTO, getRosFindingFieldKeys, RosCardItem } from 'utils';
+import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { RosCardItem } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useRosObservations } from '../../hooks/useRosObservations';
 
 interface RosTableRowProps {
@@ -11,17 +13,7 @@ interface RosTableRowProps {
 
 export const RosTableRow: FC<RosTableRowProps> = (props) => {
   const { baseKey, item } = props;
-  const { value: allObservations, update, isLoading } = useRosObservations();
-
-  const observationMap = useMemo(() => {
-    return (allObservations as ExamObservationDTO[]).reduce(
-      (map, obs) => {
-        map[obs.field] = obs;
-        return map;
-      },
-      {} as Record<string, ExamObservationDTO>
-    );
-  }, [allObservations]);
+  const { observationMap, update, isLoading, isFieldPending } = useRosObservations();
 
   const handleCheck = useCallback(
     (field: string, label: string, pairedField: string, resourceId?: string, pairedResourceId?: string) => {
@@ -46,10 +38,14 @@ export const RosTableRow: FC<RosTableRowProps> = (props) => {
   const reportsObs = observationMap[reportsKey];
   const isDenied = deniesObs?.value === true;
   const isReported = reportsObs?.value === true;
+  // Checking either column may rewrite the other, so a request touching either field — including a
+  // bulk "Select all" or "Clear ROS" fired elsewhere — locks the whole row.
+  const isRowPending = isLoading || isFieldPending(deniesKey) || isFieldPending(reportsKey);
 
   return (
     <TableRow sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
-      <TableCell sx={{ pl: 1.5, pr: 0 }}>
+      {/* Indented one step past the section's "Select all" row, which the findings sit under. */}
+      <TableCell sx={{ pl: 4, pr: 0 }}>
         <Typography variant="body2" sx={{ fontSize: 13 }}>
           {item.label}
         </Typography>
@@ -62,7 +58,7 @@ export const RosTableRow: FC<RosTableRowProps> = (props) => {
               ? handleUncheck(deniesKey, item.label, deniesObs?.resourceId)
               : handleCheck(deniesKey, item.label, reportsKey, deniesObs?.resourceId, reportsObs?.resourceId)
           }
-          disabled={isLoading}
+          disabled={isRowPending}
           size="small"
           sx={{ p: 0.25, color: 'success.light', '&.Mui-checked': { color: 'success.main' } }}
         />
@@ -75,7 +71,7 @@ export const RosTableRow: FC<RosTableRowProps> = (props) => {
               ? handleUncheck(reportsKey, item.label, reportsObs?.resourceId)
               : handleCheck(reportsKey, item.label, deniesKey, reportsObs?.resourceId, deniesObs?.resourceId)
           }
-          disabled={isLoading}
+          disabled={isRowPending}
           size="small"
           sx={{ p: 0.25, color: 'error.light', '&.Mui-checked': { color: 'error.main' } }}
         />

@@ -8,10 +8,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { Plugin } from 'vite';
 
-// Match the app's own build target (derived from browserslist), so the frame bundle uses the same
-// browser baseline instead of a hardcoded year.
 const BUILD_TARGET = browserslistToEsbuild();
-
 const VIRTUAL_ID = 'virtual:adhoc-report-runtime';
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
 

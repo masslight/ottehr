@@ -14,25 +14,27 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  CreateLabPaymentMethod,
-  DiagnosisDTO,
   FHIR_IDC10_VALUESET_SYSTEM,
   GENERIC_LAB_ORDER_TAG,
-  getFullestAvailableName,
-  getPatientFriendlyId,
   LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
   LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
-  LabPaymentMethod,
-  ModifiedOrderingLocation,
-  OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
   STATIC_COMPENDIUM_LAB_GUID,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
+  LabPaymentMethod,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+} from 'utils/lib/types/data/labs/labs.types';
 import { createTask } from '../../../../shared/tasks';
 
 export type CreateLabCoverageDetails =
@@ -257,6 +259,12 @@ export const formatServiceRequestConfig = (
   return serviceRequestConfig;
 };
 
+export const getCptCodingFromOrderableItem = (orderableItem: OrderableItemSearchResult): Coding[] =>
+  orderableItem.item.cptCodes.map((code) => ({
+    system: CPT_CODE_SYSTEM,
+    code: code.cptCode,
+  }));
+
 const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
   const coding: Coding[] = [
     {
@@ -271,6 +279,7 @@ const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest[
       code: orderableItem.item.itemLoinc,
     });
   }
+  coding.push(...getCptCodingFromOrderableItem(orderableItem));
   return {
     coding,
     text: orderableItem.item.itemName,

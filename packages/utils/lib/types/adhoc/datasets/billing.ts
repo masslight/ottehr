@@ -41,13 +41,12 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   'state',
   'region',
   'location',
-  // coverage / claims categoricals
+  // coverage categoricals
   'primaryPayer',
   'secondaryPayer',
   'insuranceType',
   'coverageStatus',
   'subscriberRelationship',
-  'claimStatus',
   'paymentMethods',
   // codes
   'chargeCpts',
@@ -98,20 +97,6 @@ export const BILLING_LAYERS = {
       cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit.'),
       emCode: z.string().describe('E&M level code (e.g. "99213").'),
       icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes. HIERARCHICAL — prefix-match.'),
-    }),
-  },
-  claims: {
-    label: 'Insurance claims',
-    description:
-      'Insurance claims filed for the visit and their responses — claim status, amount billed, ' +
-      'insurance paid, and patient responsibility.',
-    schema: z.object({
-      claimCount: z.number().describe('Number of insurance claims filed.'),
-      claimStatus: z.string().describe('Status of most recent claim (open/submitted/paid/denied).'),
-      billedAmount: z.number().nullable().describe('Total billed to insurance across claims, USD.'),
-      insurancePaid: z.number().nullable().describe('Amount insurance paid (ClaimResponse), USD.'),
-      patientResponsibility: z.number().nullable().describe('Amount assigned to patient (copay/deductible), USD.'),
-      claimBalance: z.number().nullable().describe('billedAmount − insurancePaid, USD (when both known).'),
     }),
   },
 } as const satisfies AdHocLayerMap;

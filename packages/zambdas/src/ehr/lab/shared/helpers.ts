@@ -18,22 +18,21 @@ import {
 } from 'fhir/r4b';
 import { isEqual } from 'lodash';
 import { DateTime } from 'luxon';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
+import { getLabListStatus, getLabListType } from 'utils/lib/helpers/labs/helpers';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import {
-  COVERAGE_MEMBER_IDENTIFIER_BASE,
   DR_UNSOLICITED_PATIENT_REF,
-  getLabListStatus,
-  getLabListType,
-  getTimezone,
   LAB_LIST_CODE_CODING,
   LAB_LIST_IDENTIFIER_SYSTEM,
   LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListSearchFieldKey,
-  LabSetDTO,
-  LabType,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 
 type SoftDeleteLabResourceTypes =
   | 'ServiceRequest'

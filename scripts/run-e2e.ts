@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 
@@ -110,17 +111,89 @@ const startZambdas = (): void => {
   });
 };
 
+// In CI the app is served to a fixed set of tests and never edited, so the dev server buys nothing
+// and costs a lot: it serves first-party source as unbundled ESM, transforming each module on demand
+// (~1,500 of them for the EHR). Playwright gives every test a fresh browser context with a cold HTTP
+// cache, so that request volume is re-paid per test rather than amortized, all through one Node
+// process shared by every worker. Measured on the EHR suite, switching to a production build halved
+// total test time, with the gain on each spec proportional to how page-load-dominated it was. A
+// production build is also the artifact that actually ships. Local runs keep the dev server for HMR.
+const shouldServeProductionBuild = (_app: (typeof supportedApps)[number]): boolean => isCI;
+
+// A CI job can hand us a bundle built elsewhere — see the build-<app>-bundle jobs, which build
+// alongside the terraform apply so this job doesn't wait for them. Anything already in the app's build
+// directory is used as-is; that job is responsible for only leaving one there when it is valid for
+// this environment.
+const prebuiltBundleExists = (app: (typeof supportedApps)[number]): boolean =>
+  fs.existsSync(path.join(process.cwd(), 'apps', app, 'build', 'index.html'));
+
+// How the app under test is being served, surfaced to the perf reporter so it prints alongside the
+// timings it explains. That placement is the point: the handoff happens minutes before the tests
+// start, and a chatty suite pushes those early log lines out of reach of a tail-limited log fetch —
+// which is exactly how a run once left it unknowable whether the prebuilt bundle had been used.
+const recordServeMode = (mode: string): void => {
+  process.env.E2E_SERVE_MODE = mode;
+  console.log(`Serving the app under test from: ${mode}`);
+};
+
+const buildApp = (app: (typeof supportedApps)[number]): void => {
+  const appEnv = envMapping[app][ENV];
+  if (prebuiltBundleExists(app)) {
+    recordServeMode(`the ${app} production bundle built earlier in this run`);
+    return;
+  }
+  console.log(`Building ${app} (${appEnv}) to serve as a production build...`);
+  const startedAt = Date.now();
+  // The dev server resolves workspace packages without building them (turbo's start:iac task has no
+  // dependsOn), but a production build needs their build output and type declarations. Build the
+  // app's dependencies first; `<pkg>^...` selects dependencies only, not the app itself.
+  execSync(`npx turbo run build --filter=${app}-ui^...`, {
+    stdio: 'inherit',
+    env: { ...process.env, ENV: appEnv },
+  });
+  // build-bundle, not build:<env>: the latter goes through build-skeleton, which typechecks first.
+  // That typecheck took ~54s of a 135s build here and is redundant — the lint-and-build job
+  // typechecks the same code in parallel, and serving the app doesn't depend on it.
+  execSync('npm run build-bundle', {
+    stdio: 'inherit',
+    cwd: path.join(process.cwd(), `apps/${app}`),
+    env: {
+      ...process.env,
+      ENV: appEnv,
+      // The build is memory hungry on this module count; the e2e4/e2e5 build scripts already raise
+      // the heap for the same reason.
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=8192`.trim(),
+    },
+  });
+  const buildSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(`Built ${app} in ${buildSeconds}s`);
+  recordServeMode(`an ${app} production bundle built in this job (${buildSeconds}s)`);
+};
+
 const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
+  if (shouldServeProductionBuild(app)) {
+    buildApp(app);
+  } else {
+    recordServeMode('the vite dev server');
+  }
   return new Promise((resolve, reject) => {
-    const childProcess = spawn(
-      'cross-env',
-      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start:iac`, '--', '--verbosity=2'],
-      {
-        shell: true,
-        stdio: 'inherit',
-        env: { ...process.env, ENV: envMapping[app][ENV] },
-      }
-    );
+    const childProcess = shouldServeProductionBuild(app)
+      ? // --strictPort so a busy port fails loudly instead of serving somewhere wait-on isn't looking.
+        spawn('npm', ['run', 'preview', '--', '--strictPort'], {
+          shell: true,
+          stdio: 'inherit',
+          cwd: path.join(process.cwd(), `apps/${app}`),
+          env: { ...process.env, ENV: envMapping[app][ENV] },
+        })
+      : spawn(
+          'cross-env',
+          [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start:iac`, '--', '--verbosity=2'],
+          {
+            shell: true,
+            stdio: 'inherit',
+            env: { ...process.env, ENV: envMapping[app][ENV] },
+          }
+        );
 
     childProcess.on('error', (err) => {
       console.error(`App start error for ${app}:`, err);
@@ -136,8 +209,13 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   });
 };
 
+// A run targets exactly one app, so only that app's dependencies, config and dev server are needed.
+// Setting up and serving the other one costs ~30s of startup and then leaves a Vite dev server
+// competing with the workers and the zambda server for the runner's cores for the whole run.
+const appsToPrepare = [appName] as const;
+
 const setupTestDeps = async (): Promise<void> => {
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     try {
       execSync(`node --experimental-vm-modules setup-test-deps.js`, {
         stdio: 'inherit',
@@ -153,7 +231,7 @@ const setupTestDeps = async (): Promise<void> => {
     }
   }
 
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
@@ -202,7 +280,7 @@ const startApps = async (): Promise<void> => {
     console.log('Zambdas are ready');
   }
 
-  for (const app of supportedApps) {
+  for (const app of appsToPrepare) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
   }
@@ -243,9 +321,14 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
     });
   }
 
+  // --log-order=stream: turbo's default in CI is "grouped", which withholds a task's output until it
+  // exits. That made every line of a five-minute Playwright run carry the same timestamp — the flush
+  // — so the job log could say what happened but never when, and a slow phase was indistinguishable
+  // from a slow run. Only one task produces output here, so there is no interleaving to avoid.
+  const logOrder = '--log-order=stream';
   const commands = {
-    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2'],
-    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2'],
+    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2', logOrder],
+    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2', logOrder],
   };
 
   const baseArgs = commands[testType];

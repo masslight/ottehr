@@ -1,5 +1,7 @@
-import { MISSING_REQUEST_SECRETS, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export interface SyncMailedStatementStatusesInput {
   secrets: Secrets;

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { practiceManagedQuestionnaireList } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { PracticeManagedQuestionnaireDTO } from 'utils';
+import { PracticeManagedQuestionnaireDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 // Deleted questionnaires are soft-deleted (status: 'retired') so existing patient responses stay viewable
 const isRetiredQuestionnaire = (q: PracticeManagedQuestionnaireDTO): boolean => q.status === 'retired';

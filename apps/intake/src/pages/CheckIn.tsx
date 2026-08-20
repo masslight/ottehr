@@ -6,17 +6,14 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  APIError,
-  APPOINTMENT_NOT_FOUND_ERROR,
-  CheckInZambdaOutput,
-  DATETIME_FULL_NO_YEAR,
-  FEATURE_FLAGS_CONFIG,
-  VisitType,
-} from 'utils';
+import { PageContainer } from 'src/components/CustomContainer';
 import { i18n } from 'utils/lib/frontend';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { CheckInZambdaOutput } from 'utils/lib/types/api/check-in.types';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import ottehrApi from '../api/ottehrApi';
-import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors, palette } from '../IntakeThemeProvider';

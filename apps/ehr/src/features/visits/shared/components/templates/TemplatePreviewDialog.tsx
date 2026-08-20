@@ -25,33 +25,32 @@ import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { groupExamFindingsBySection } from 'utils/lib/config-helpers/exam-observations';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { RosFindingState, RosFindingStateLabel } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import {
   AdminGetTemplateDetailOutput,
-  CreateLabCoverageInfo,
-  CreateLabPaymentMethod,
-  groupExamFindingsBySection,
   isTemplateCptCodeInfo,
-  LAB_PAYMENT_METHOD_DISPLAY,
-  LabPaymentMethod,
-  nameLabTest,
-  RosFindingState,
-  RosFindingStateLabel,
-  TEMPLATE_SECTION_DEFAULT_ACTIONS,
-  TEMPLATE_SECTIONS_IN_ORDER,
-  TEMPLATE_SECTIONS_NO_APPEND,
-  TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCodeInfo,
   TemplateCptCodeInfo,
   TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
   TemplateInHouseMedicationDetail,
-  TemplatePreviewApplyOptions,
   TemplateProcedurePlan,
+} from 'utils/lib/types/data/admin-template.types';
+import {
+  TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  TEMPLATE_SECTIONS_IN_ORDER,
+  TEMPLATE_SECTIONS_NO_APPEND,
+  TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplatePreviewApplyOptions,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
   TemplateSectionKey,
-} from 'utils';
+} from 'utils/lib/types/data/apply-template.types';
+import { LAB_PAYMENT_METHOD_DISPLAY } from 'utils/lib/types/data/labs/labs.constants';
+import { CreateLabCoverageInfo, CreateLabPaymentMethod, LabPaymentMethod } from 'utils/lib/types/data/labs/labs.types';
 import { useGetCreateExternalLabResources } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 
@@ -342,8 +341,6 @@ const SectionPreview: React.FC<{
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
-    case 'externalLabs':
-      return <ExternalLabPlansList plans={sections.externalLabs} />;
     case 'procedures':
       return <ProcedurePlansList plans={sections.procedures} />;
     case 'inHouseMedications':
@@ -469,7 +466,10 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
 // provider knows they'll be skipped at apply-time. The ordering office and
 // the (required) payment method selector live in the card's expanded
 // controls, not here - they're apply inputs, not template content.
-const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }> = ({ plans }) => (
+const ExternalLabPlansList: React.FC<{
+  plans: TemplateExternalLabPlanDetail[];
+  paymentMethod?: CreateLabPaymentMethod | '';
+}> = ({ plans, paymentMethod }) => (
   <Stack spacing={1.5}>
     {plans.map((plan) => (
       <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
@@ -492,6 +492,19 @@ const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }>
             />
           ))}
         </Stack>
+        {plan.cptCodes.length > 0 && paymentMethod === LabPaymentMethod.ClientBill ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {plan.cptCodes.map((c) => (
+              <Chip
+                key={`${plan.planId}-cpt-${formatCptCodeAndModifiersForDisplay(c)}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`CPT ${formatCptCodeAndModifiersForDisplay(c)}${c.display ? ` — ${c.display}` : ''}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
         {plan.note ? (
           <Typography
             variant="caption"
@@ -574,11 +587,11 @@ const SectionCard: React.FC<{
   // caller) - e.g. the external labs card shows the payment method that will
   // be used so the user gets a reminder without expanding the card.
   summaryPrefix?: string;
-  // Apply inputs rendered at the top of the expanded body, above the preview -
-  // e.g. the external labs ordering office + payment method selector. Most
-  // users never need to change these, so they live behind the expand toggle.
-  expandedContent?: React.ReactNode;
-}> = ({ descriptor, sections, action, onActionChange, disabled, summaryPrefix, expandedContent }) => {
+  // Section body content revealed on expand - constructed at the call site so
+  // visit-specific state stays in closure rather than being threaded through
+  // generic container components.
+  content: React.ReactNode;
+}> = ({ descriptor, sections, action, onActionChange, disabled, summaryPrefix, content }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
@@ -688,12 +701,7 @@ const SectionCard: React.FC<{
           id={`template-section-${descriptor.key}-body`}
           sx={{ px: 2, pb: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
         >
-          {expandedContent ? (
-            <Box data-testid={`template-section-${descriptor.key}-controls`} sx={{ mb: 2 }}>
-              {expandedContent}
-            </Box>
-          ) : null}
-          <SectionPreview sectionKey={descriptor.key} sections={sections} />
+          {content}
         </Box>
       </Collapse>
     </Box>
@@ -991,20 +999,30 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
                 summaryPrefix={section.key === 'externalLabs' ? externalLabsSummaryPrefix : undefined}
-                expandedContent={
+                content={
                   section.key === 'externalLabs' ? (
-                    <ExternalLabsApplyControls
-                      resourcesLoading={externalLabResourcesQuery.isLoading}
-                      resourcesError={externalLabResourcesQuery.isError}
-                      hasInsurance={hasInsurance}
-                      isWorkersComp={isWorkersComp}
-                      coverageInfo={coverageInfo}
-                      orderingOfficeName={orderingOfficeName}
-                      paymentMethod={externalLabPaymentMethod}
-                      onPaymentMethodChange={setExternalLabPaymentMethod}
-                      disabled={isApplying || actions.externalLabs === 'skip'}
-                    />
-                  ) : undefined
+                    <>
+                      <Box data-testid="template-section-externalLabs-controls" sx={{ mb: 2 }}>
+                        <ExternalLabsApplyControls
+                          resourcesLoading={externalLabResourcesQuery.isLoading}
+                          resourcesError={externalLabResourcesQuery.isError}
+                          hasInsurance={hasInsurance}
+                          isWorkersComp={isWorkersComp}
+                          coverageInfo={coverageInfo}
+                          orderingOfficeName={orderingOfficeName}
+                          paymentMethod={externalLabPaymentMethod}
+                          onPaymentMethodChange={setExternalLabPaymentMethod}
+                          disabled={isApplying || actions.externalLabs === 'skip'}
+                        />
+                      </Box>
+                      <ExternalLabPlansList
+                        plans={detailQuery.data!.sections.externalLabs}
+                        paymentMethod={externalLabPaymentMethod}
+                      />
+                    </>
+                  ) : (
+                    <SectionPreview sectionKey={section.key} sections={detailQuery.data!.sections} />
+                  )
                 }
               />
             ))}

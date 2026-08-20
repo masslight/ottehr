@@ -19,17 +19,15 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import {
-  ChargeItemDefinitionDefault,
-  ChargeItemDefinitionType,
-  CreateChargeItemDefinitionInputSchema,
-  getApiError,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { CreateChargeItemDefinitionInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { ChargeItemDefinitionDefault, ChargeItemDefinitionType } from 'utils/lib/types/data/billing/billing.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import z from 'zod';
 import { createChargeItemDefinition } from '../api/api';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';
+import { DateInput } from './DateInput';
 
 interface AddChargeItemDefinitionForm {
   name: string | null;
@@ -149,14 +147,12 @@ export function AddChargeItemDefinitionDialog({
                 name="effectiveDate"
                 control={control}
                 render={({ field, fieldState: { error: fieldError } }) => (
-                  <TextField
+                  <DateInput
                     label="Effective Date"
                     size="small"
                     fullWidth
-                    type="date"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    value={field.value ?? ''}
+                    onChange={(value) => field.onChange(value)}
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />

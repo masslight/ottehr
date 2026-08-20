@@ -2,16 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import {
-  DISCHARGE_SUMMARY_CODE,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
-  LAB_RESULT_DOC_REF_CODING_CODE,
+} from 'utils/lib/types/api/fax.types';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreatePresignedUrl = vi.fn();
@@ -34,7 +36,13 @@ vi.mock('../../src/shared/pdf/merge-pdfs', async (importOriginal) => {
   };
 });
 
-import { buildAndUploadPacketForRecipient, buildFaxPacketBody } from '../../src/shared/fax/build-fax-packet';
+import {
+  buildAndUploadPacketForRecipient,
+  buildFaxPacketSection,
+  createFaxPacketByteBudget,
+  faxPacketLimitGuidance,
+  interleaveFaxPacketSections,
+} from '../../src/shared/fax/build-fax-packet';
 import { collectFaxParts, resolveFaxDocumentAvailability } from '../../src/shared/fax/collect-visit-documents';
 import { FullAppointmentResourcePackage } from '../../src/shared/pdf/visit-details-pdf/types';
 
@@ -118,20 +126,20 @@ const makePdfBytes = async (pageCount: number): Promise<Uint8Array> => {
   return pdf.save();
 };
 
+/** Each section supplies its own subject; the sheet only carries what every section shares. */
+const subject = {
+  patientName: 'Black, Oliver',
+  patientId: 'patient-1',
+  visitId: APPOINTMENT_ID,
+  dateOfService: '07/14/2026',
+  visitTypeLabel: 'Urgent Care Visit',
+};
+
 const coverSheet = {
-  // Overwritten per recipient by buildAndUploadPacketForRecipient.
-  recipient: { faxNumber: '' },
   sender: {
     practitionerName: 'Dr. John Smith',
     organizationName: 'Ottehr Urgent Care',
     addressText: '123 Main St, New York, NY 10001',
-  },
-  subject: {
-    patientName: 'Black, Oliver',
-    patientId: 'patient-1',
-    visitId: APPOINTMENT_ID,
-    dateOfService: '07/14/2026',
-    visitTypeLabel: 'Urgent Care Visit',
   },
   generatedAt: '07/14/2026  03:45 PM',
 };
@@ -336,26 +344,151 @@ describe('collectFaxParts', () => {
   });
 });
 
-describe('buildFaxPacketBody', () => {
-  it('throws when nothing at all could be collected', async () => {
+describe('interleaveFaxPacketSections', () => {
+  it('places each visit cover immediately before that visit body', () => {
+    const bytes = interleaveFaxPacketSections(
+      [new Uint8Array([1]), new Uint8Array([2])],
+      [{ bytes: new Uint8Array([10]) }, { bytes: new Uint8Array([20]) }]
+    );
+
+    expect(bytes.map((part) => part[0])).toEqual([1, 10, 2, 20]);
+  });
+});
+
+describe('buildFaxPacketSection', () => {
+  it('replaces an unrenderable image with a notice page instead of silently omitting it', async () => {
+    const section = await buildFaxPacketSection({
+      token: 'token',
+      subject,
+      parts: [
+        {
+          title: 'scan.jpg',
+          contentType: 'image/jpeg',
+          bytes: new Uint8Array([0xff, 0xd8, 0xff]),
+        },
+      ],
+    });
+
+    const pdf = await PDFDocument.load(section.bytes);
+    expect(pdf.getPageCount()).toBe(1);
+    expect(section.pageCount).toBe(1);
+    expect(section.parts.map((part) => part.title)).toEqual(['scan.jpg']);
+  });
+
+  it('still fails the whole fax when a source document cannot be downloaded', async () => {
+    mockCreatePresignedUrl.mockResolvedValue('https://z3.example/missing.pdf');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' }));
+
     await expect(
-      buildFaxPacketBody({ oystehr, token: 'token', secrets: null, kinds: ['lab-results'], visitResources })
-    ).rejects.toThrow(/No documents could be collected/);
+      buildFaxPacketSection({
+        token: 'token',
+        subject,
+        parts: [{ title: 'missing.pdf', z3Url: 'https://z3.example/missing.pdf' }],
+      })
+    ).rejects.toThrow(/Fax packet part "missing\.pdf" Failed to download file.*The entire fax was not sent/);
+  });
+
+  it('downloads a section with bounded concurrency instead of all at once', async () => {
+    const pdf = await makePdfBytes(1);
+    let inFlight = 0;
+    let peakInFlight = 0;
+    mockCreatePresignedUrl.mockImplementation(async (_token: string, url: string) => {
+      inFlight++;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return url;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(pdf.buffer) })
+    );
+
+    await buildFaxPacketSection({
+      token: 'token',
+      subject,
+      parts: Array.from({ length: 25 }, (_unused, index) => ({
+        title: `Document ${index}`,
+        z3Url: `https://z3.example/doc-${index}.pdf`,
+      })),
+    });
+
+    // A record with hundreds of documents must not open one request per document at once.
+    expect(peakInFlight).toBeGreaterThan(1);
+    expect(peakInFlight).toBeLessThanOrEqual(5);
+  });
+
+  it('stops downloading once the source documents exceed the size limit', async () => {
+    // Each part is a quarter of the budget, so the fifth one crosses it and the rest are never fetched.
+    const chunk = new Uint8Array(FAX_PACKET_MAX_BYTES / 4);
+    let downloads = 0;
+    mockCreatePresignedUrl.mockImplementation(async (_token: string, url: string) => {
+      downloads++;
+      return url;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(chunk.buffer) })
+    );
+
+    await expect(
+      buildFaxPacketSection({
+        token: 'token',
+        subject,
+        budget: createFaxPacketByteBudget('medical-record'),
+        parts: Array.from({ length: 40 }, (_unused, index) => ({
+          title: `Document ${index}`,
+          z3Url: `https://z3.example/doc-${index}.pdf`,
+        })),
+      })
+    ).rejects.toThrow(/exceeds the 20 MB limit\. Fax the needed documents individually instead\./);
+
+    expect(downloads).toBeLessThan(40);
+  });
+
+  it('spends one budget across every section of a multi-visit packet', async () => {
+    const pdf = await makePdfBytes(1);
+    const budget = createFaxPacketByteBudget('visits');
+    mockCreatePresignedUrl.mockImplementation(async (_token: string, url: string) => url);
+    const oversized = new Uint8Array(FAX_PACKET_MAX_BYTES);
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => {
+        const bytes = call++ === 0 ? pdf : oversized;
+        return Promise.resolve({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(bytes.buffer) });
+      })
+    );
+
+    const section = (title: string): Parameters<typeof buildFaxPacketSection>[0] => ({
+      token: 'token',
+      subject,
+      budget,
+      parts: [{ title, z3Url: `https://z3.example/${title}.pdf` }],
+    });
+
+    await expect(buildFaxPacketSection(section('first'))).resolves.toBeDefined();
+    // The second visit draws down the same budget, so it is the one that reports the limit.
+    await expect(buildFaxPacketSection(section('second'))).rejects.toThrow(/exceeds the 20 MB limit/);
   });
 });
 
 describe('buildAndUploadPacketForRecipient', () => {
-  const runWithBody = async (body: { bytes: Uint8Array; pageCount: number }): Promise<unknown> =>
+  const runWithBody = async (
+    body: { bytes: Uint8Array; pageCount: number },
+    sourceType: 'visits' | 'medical-record' = 'visits'
+  ): Promise<unknown> =>
     buildAndUploadPacketForRecipient({
       oystehr,
       token: 'token',
       secrets: null,
-      body: { ...body, parts: [] },
+      body: { sections: [{ ...body, subject, parts: [] }], pageCount: body.pageCount, parts: [] },
       recipient: { faxNumber: '+12125551234' },
       coverSheet,
       patientId: 'patient-1',
       appointmentId: APPOINTMENT_ID,
       encounterId: ENCOUNTER_ID,
+      sourceType,
       listResources: [],
     });
 
@@ -363,7 +496,8 @@ describe('buildAndUploadPacketForRecipient', () => {
     const bytes = await makePdfBytes(FAX_PACKET_MAX_PAGES);
 
     await expect(runWithBody({ bytes, pageCount: FAX_PACKET_MAX_PAGES })).rejects.toThrow(
-      `Fax packet is ${FAX_PACKET_MAX_PAGES + 1} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit.`
+      `Fax packet is ${FAX_PACKET_MAX_PAGES + 1} pages, which exceeds the ${FAX_PACKET_MAX_PAGES} page limit. ` +
+        faxPacketLimitGuidance('visits')
     );
     expect(mockCreatePresignedUrl).not.toHaveBeenCalled();
     expect(mockUploadObjectToZ3).not.toHaveBeenCalled();
@@ -373,7 +507,9 @@ describe('buildAndUploadPacketForRecipient', () => {
     mergeOverride.bytes = new Uint8Array(FAX_PACKET_MAX_BYTES + 1);
     const bytes = await makePdfBytes(2);
 
-    await expect(runWithBody({ bytes, pageCount: 2 })).rejects.toThrow(/exceeds the 20 MB limit/);
+    await expect(runWithBody({ bytes, pageCount: 2 }, 'medical-record')).rejects.toThrow(
+      /exceeds the 20 MB limit\. Fax the needed documents individually instead\./
+    );
     expect(mockUploadObjectToZ3).not.toHaveBeenCalled();
   });
 });

@@ -26,81 +26,130 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import {
-  AllStates,
-  AVAILABLE_EMPLOYEE_ROLES,
-  EmployeeDetails,
-  formatDateForDisplay,
-  getApiError,
-  GetEmployeesResponse,
-  RoleType,
-  State,
-} from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { deleteUser, getEmployees, updateUser } from '../api/api';
-import { ConfirmationDialog } from '../components/ConfirmationDialog';
-import { CustomDialog } from '../components/dialogs/CustomDialog';
+import { State } from 'utils/lib/helpers/states';
+import {
+  EmployeeDetails,
+  GetEmployeesResponse,
+  isCustomerSupport,
+} from 'utils/lib/types/api/get-employees/get-employees.types';
+import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils/lib/types/api/user.types';
+import { AllStates } from 'utils/lib/types/common';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
-import { RoundedButton } from '../components/RoundedButton';
-import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
+import { EMPLOYEE_ROWS_PER_PAGE } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../hooks/useEvolveUser';
 
-export enum EmployeeTypes {
-  employees = 'employees',
-  providers = 'providers',
+/**
+ * Roles checked when the page is opened with no role filter in the URL.
+ *
+ * Customer Support is not a practice role — it's the internal support account used to configure a
+ * customer's instance — so it is left out here and, more importantly, out of the no-selection case
+ * in {@link matchesRoleFilter}. Selecting no roles means "no role filter", not "no results", and it
+ * still doesn't surface support accounts; only ticking Customer Support explicitly does that.
+ */
+export const DEFAULT_ROLE_FILTER: RoleType[] = AVAILABLE_EMPLOYEE_ROLES.map(({ value }) => value).filter(
+  (role) => role !== RoleType.CustomerSupport
+);
+
+/**
+ * Whether an employee survives the Role filter.
+ *
+ * Users awaiting review hold no role yet, so a role filter would hide exactly the rows an admin most
+ * needs to act on — they stay visible regardless of the selection.
+ */
+const matchesRoleFilter = (employee: EmployeeDetails, selectedRoles: RoleType[]): boolean => {
+  if (employee.needsReview) return true;
+  // No selection is an absent filter rather than an impossible one, so it reads as "everyone" — bar
+  // support accounts, which stay hidden until asked for by name.
+  if (selectedRoles.length === 0) return !isCustomerSupport(employee);
+  return employee.roles.some((role) => selectedRoles.includes(role));
+};
+
+/** Roles whose members carry state licenses, and so make the State filter meaningful. */
+const STATE_LICENSED_ROLES: RoleType[] = [RoleType.Provider, RoleType.Clinician];
+
+/**
+ * Filters live in the URL so a filtered list can be shared, and so returning from an employee's
+ * record (which unmounts this page) restores what you were looking at. Pagination deliberately
+ * stays in component state — page number is noise in a shared link and rows-per-page is a personal
+ * preference rather than a description of the view.
+ */
+export interface EmployeesFilters {
+  searchText: string;
+  lastLoginFilterChecked: boolean;
+  selectedRoles: RoleType[];
+  selectedState: State | null;
 }
 
-export default function EmployeesPage({ employeeType }: { employeeType: EmployeeTypes }): ReactElement {
+const getFiltersFromUrl = (searchParams: URLSearchParams): EmployeesFilters => {
+  const stateValue = searchParams.get('state');
+  return {
+    searchText: searchParams.get('name') ?? '',
+    lastLoginFilterChecked: searchParams.get('hideStaleLogins') === 'true',
+    // An absent param means "unset", so fall back to the default. An empty one means the user
+    // deliberately cleared every role, which must not silently re-tick them all in the picker —
+    // `matchesRoleFilter` is what makes the two behave alike for filtering purposes.
+    selectedRoles: searchParams.has('roles')
+      ? (searchParams.get('roles')!.split(',').filter(Boolean) as RoleType[])
+      : DEFAULT_ROLE_FILTER,
+    selectedState: stateValue ? AllStates.find((state) => state.value === stateValue) ?? null : null,
+  };
+};
+
+const writeFiltersToUrl = (params: URLSearchParams, filters: EmployeesFilters): URLSearchParams => {
+  const next = new URLSearchParams(params);
+  const setOrDelete = (key: string, value: string | undefined): void => {
+    if (value === undefined) next.delete(key);
+    else next.set(key, value);
+  };
+
+  setOrDelete('name', filters.searchText || undefined);
+  setOrDelete('hideStaleLogins', filters.lastLoginFilterChecked ? 'true' : undefined);
+  setOrDelete('state', filters.selectedState?.value || undefined);
+  setOrDelete(
+    'roles',
+    sameRoles(filters.selectedRoles, DEFAULT_ROLE_FILTER) ? undefined : filters.selectedRoles.join(',')
+  );
+
+  return next;
+};
+
+const sameRoles = (a: RoleType[], b: RoleType[]): boolean =>
+  a.length === b.length && a.every((role) => b.includes(role));
+
+export default function EmployeesPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const [employees, setEmployees] = useState<EmployeeDetails[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [pageStates, setPageStates] = useState<{
-    [key in EmployeeTypes]: {
-      pageNumber: number;
-      rowsPerPage: number;
-      searchText: string;
-      lastLoginFilterChecked: boolean;
-      selectedState?: State | null;
-    };
-  }>({
-    [EmployeeTypes.employees]: {
-      pageNumber: 0,
-      rowsPerPage: EMPLOYEE_ROWS_PER_PAGE,
-      searchText: '',
-      lastLoginFilterChecked: false,
+  const [pageNumber, setPageNumber] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(EMPLOYEE_ROWS_PER_PAGE);
+
+  const filters = useMemo(() => getFiltersFromUrl(searchParams), [searchParams]);
+
+  const handleFiltersChange = useCallback(
+    (changed: Partial<EmployeesFilters>) => {
+      // Any filter change invalidates the current page — page 3 of the old result set is rarely
+      // page 3 of the new one.
+      setPageNumber(0);
+      setSearchParams((prev) => writeFiltersToUrl(prev, { ...getFiltersFromUrl(prev), ...changed }), {
+        replace: true,
+      });
     },
-    [EmployeeTypes.providers]: {
-      pageNumber: 0,
-      rowsPerPage: PROVIDER_ROWS_PER_PAGE,
-      searchText: '',
-      lastLoginFilterChecked: false,
-      selectedState: null,
-    },
-  });
+    [setSearchParams]
+  );
 
   const emptyEmployeeList: EmployeeDetails[] = [];
-
-  const handlePageStateChange = useCallback(
-    (tab: EmployeeTypes, newPageState: Partial<(typeof pageStates)[EmployeeTypes.providers]>) => {
-      setPageStates((prev) => ({
-        ...prev,
-        [tab]: {
-          ...prev[tab],
-          ...newPageState,
-        },
-      }));
-    },
-    []
-  );
 
   const queryResult = useQuery({
     queryKey: ['get-employees'],
@@ -121,13 +170,15 @@ export default function EmployeesPage({ employeeType }: { employeeType: Employee
       <EmployeesTable
         employees={employees}
         currentUser={currentUser}
-        currentTab={employeeType}
-        pageNumber={pageStates[employeeType].pageNumber}
-        rowsPerPage={pageStates[employeeType].rowsPerPage}
-        searchText={pageStates[employeeType].searchText}
-        lastLoginFilterChecked={pageStates[employeeType].lastLoginFilterChecked}
-        selectedState={pageStates[employeeType].selectedState}
-        onPageStateChange={(newPageState) => handlePageStateChange(employeeType, newPageState)}
+        filters={filters}
+        pageNumber={pageNumber}
+        rowsPerPage={rowsPerPage}
+        onFiltersChange={handleFiltersChange}
+        onPageNumberChange={setPageNumber}
+        onRowsPerPageChange={(rows) => {
+          setRowsPerPage(rows);
+          setPageNumber(0);
+        }}
       />
     </Box>
   );
@@ -136,36 +187,32 @@ export default function EmployeesPage({ employeeType }: { employeeType: Employee
 interface EmployeesTableProps {
   employees: EmployeeDetails[];
   currentUser: EvolveUser | undefined;
-  currentTab: EmployeeTypes;
+  filters: EmployeesFilters;
   pageNumber: number;
   rowsPerPage: number;
-  searchText: string;
-  lastLoginFilterChecked: boolean;
-  selectedState?: State | null;
-  onPageStateChange: (newPageState: {
-    pageNumber?: number;
-    rowsPerPage?: number;
-    searchText?: string;
-    lastLoginFilterChecked?: boolean;
-    selectedState?: State | null;
-  }) => void;
+  onFiltersChange: (changed: Partial<EmployeesFilters>) => void;
+  onPageNumberChange: (pageNumber: number) => void;
+  onRowsPerPageChange: (rowsPerPage: number) => void;
 }
 
 function EmployeesTable({
   employees,
   currentUser,
-  currentTab,
+  filters,
   pageNumber,
   rowsPerPage,
-  searchText,
-  lastLoginFilterChecked,
-  selectedState,
-  onPageStateChange,
+  onFiltersChange,
+  onPageNumberChange,
+  onRowsPerPageChange,
 }: EmployeesTableProps): ReactElement {
   const theme = useTheme();
   const canEditRoles = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
+  const { searchText, lastLoginFilterChecked, selectedRoles, selectedState } = filters;
 
-  // Filter the employees based on the search text
+  // The State filter only means something for roles that carry state licenses, so it appears with
+  // them and is ignored when they're deselected.
+  const showStateFilter = selectedRoles.some((role) => STATE_LICENSED_ROLES.includes(role));
+
   const filteredEmployees: EmployeeDetails[] = useMemo(() => {
     const filtered = employees.filter((employee: EmployeeDetails) => {
       const name = (function () {
@@ -180,31 +227,27 @@ function EmployeesTable({
         else return false;
       })();
 
-      return (
-        name.toLowerCase().includes(searchText.toLowerCase()) &&
-        (currentTab === EmployeeTypes.providers ? employee.isProvider : true) &&
-        (currentTab === EmployeeTypes.providers && selectedState && selectedState.value !== ''
+      const roleFilter = matchesRoleFilter(employee, selectedRoles);
+
+      const stateFilter =
+        showStateFilter && selectedState && selectedState.value !== ''
           ? employee.licenses.some((license) => license.state === selectedState.value)
-          : true) &&
-        lastLoginFilter
-      );
+          : true;
+
+      return name.toLowerCase().includes(searchText.toLowerCase()) && roleFilter && stateFilter && lastLoginFilter;
     });
 
-    // On the Employees tab, surface pending-review users at the top while preserving existing order otherwise.
-    if (currentTab === EmployeeTypes.employees) {
-      return filtered
-        .map((employee, index) => ({ employee, index }))
-        .sort((a, b) => {
-          const aReview = a.employee.needsReview ? 0 : 1;
-          const bReview = b.employee.needsReview ? 0 : 1;
-          if (aReview !== bReview) return aReview - bReview;
-          return a.index - b.index;
-        })
-        .map(({ employee }) => employee);
-    }
-
-    return filtered;
-  }, [employees, searchText, currentTab, selectedState, lastLoginFilterChecked]);
+    // Surface pending-review users at the top while preserving existing order otherwise.
+    return filtered
+      .map((employee, index) => ({ employee, index }))
+      .sort((a, b) => {
+        const aReview = a.employee.needsReview ? 0 : 1;
+        const bReview = b.employee.needsReview ? 0 : 1;
+        if (aReview !== bReview) return aReview - bReview;
+        return a.index - b.index;
+      })
+      .map(({ employee }) => employee);
+  }, [employees, searchText, selectedRoles, selectedState, showStateFilter, lastLoginFilterChecked]);
 
   // For pagination, only include the rows that are on the current page
   const pageEmployees: EmployeeDetails[] = React.useMemo(
@@ -219,42 +262,47 @@ function EmployeesTable({
   // Handle pagination
   const handleChangePage = useCallback(
     (event: unknown, newPageNumber: number): void => {
-      onPageStateChange({ pageNumber: newPageNumber });
+      onPageNumberChange(newPageNumber);
     },
-    [onPageStateChange]
+    [onPageNumberChange]
   );
 
   // Handle changing the number of rows per page
   const handleChangeRowsPerPage = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
-      onPageStateChange({ rowsPerPage: parseInt(event.target.value), pageNumber: 0 });
+      onRowsPerPageChange(parseInt(event.target.value));
     },
-    [onPageStateChange]
+    [onRowsPerPageChange]
   );
 
   // Handle changing the search text
   const handleChangeSearchText = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
-      onPageStateChange({ searchText: event.target.value, pageNumber: 0 });
+      onFiltersChange({ searchText: event.target.value });
     },
-    [onPageStateChange]
+    [onFiltersChange]
+  );
+
+  const handleChangeRoleFilter = useCallback(
+    (value: string | string[]): void => {
+      onFiltersChange({ selectedRoles: (typeof value === 'string' ? value.split(',') : value) as RoleType[] });
+    },
+    [onFiltersChange]
   );
 
   const handleChangeStateSelect = useCallback(
     (_event: any, value: State | null): void => {
-      onPageStateChange({ selectedState: value });
+      onFiltersChange({ selectedState: value });
     },
-    [onPageStateChange]
+    [onFiltersChange]
   );
 
   const handleChangeLastLoginFilter = useCallback(
     (_event: any, value: boolean): void => {
-      onPageStateChange({ lastLoginFilterChecked: value, pageNumber: 0 });
+      onFiltersChange({ lastLoginFilterChecked: value });
     },
-    [onPageStateChange]
+    [onFiltersChange]
   );
-
-  const showReviewColumn = currentTab === EmployeeTypes.employees;
 
   return (
     <>
@@ -262,7 +310,7 @@ function EmployeesTable({
         {canEditRoles ? (
           <Link to={`/admin/employees/add`}>
             <Button variant="contained" startIcon={<Add />}>
-              Add user
+              New Employee
             </Button>
           </Link>
         ) : (
@@ -270,41 +318,47 @@ function EmployeesTable({
             <span>
               {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
               <Button variant="contained" startIcon={<Add />} disabled>
-                Add user
+                New Employee
               </Button>
             </span>
           </Tooltip>
         )}
       </AdminHeaderActionSlot>
       <TableContainer>
-        <Grid container direction="row" justifyContent="start" alignItems="center">
+        {/* Every column is a fixed width, so ticking Provider or Clinician — which is what shows and
+            hides the State filter — never resizes or repositions the controls around it. */}
+        <Grid container direction="row" justifyContent="start" alignItems="center" spacing={2} sx={{ my: 1 }}>
           {/* Employee Name Search Box */}
-          <Box sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
+          <Grid item xs={12} md={3}>
             <TextField
               id="outlined-basic"
-              label="Search by name"
+              label="Name"
+              placeholder="Last, First, Middle"
               variant="outlined"
               onChange={handleChangeSearchText}
               value={searchText}
               data-testid={dataTestIds.employeesPage.searchByName}
               InputProps={{ endAdornment: <SearchIcon /> }}
-              sx={{ width: '100%', paddingRight: 2 }}
+              sx={{ width: '100%' }}
             />
-          </Box>
-          {/* States drop-down */}
-          {currentTab === EmployeeTypes.providers && (
-            <Box sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
-              <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />
-            </Box>
-          )}
-          <Box sx={{ display: 'flex', flex: 1, maxWidth: '260px' }}>
+          </Grid>
+          {/* Role multi-select */}
+          <Grid item xs={12} md={3}>
+            <RoleSelect selectedRoles={selectedRoles} onChange={handleChangeRoleFilter} />
+          </Grid>
+          {/* States drop-down. The slot is held open when empty so the checkbox beside it stays put;
+              on narrow screens it collapses instead, where an empty row would just be a gap. */}
+          <Grid item xs={12} md={3} sx={showStateFilter ? undefined : { display: { xs: 'none', md: 'block' } }}>
+            {showStateFilter && <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />}
+          </Grid>
+          <Grid item xs={12} md={3}>
             <FormControlLabel
               name="last_login_filter"
               control={<Checkbox checked={lastLoginFilterChecked} onChange={handleChangeLastLoginFilter} />}
-              label="Hide last logins that occurred more than 90 days ago"
+              label="Hide last logins more than 90 days ago"
               sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
             />
-          </Box>
+          </Grid>
         </Grid>
 
         {/* Employees Table */}
@@ -312,17 +366,11 @@ function EmployeesTable({
           <TableHead>
             <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
               <TableCell sx={{ width: '25%' }}>Name (Last, First)</TableCell>
+              <TableCell>Role</TableCell>
               <TableCell>Phone</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Last Login</TableCell>
               <TableCell>Status</TableCell>
-              {currentTab === EmployeeTypes.providers && (
-                <>
-                  <TableCell sx={{ maxWidth: '150px' }}>Getting alerts</TableCell>
-                  <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
-                </>
-              )}
-              {showReviewColumn && <TableCell sx={{ width: '220px', whiteSpace: 'nowrap' }}>Actions</TableCell>}
             </TableRow>
           </TableHead>
 
@@ -335,11 +383,33 @@ function EmployeesTable({
               })();
 
               return (
-                <TableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
+                <TableRow
+                  key={employee.id}
+                  data-testid={dataTestIds.employeesPage.employeeRow(employee.id)}
+                  sx={{
+                    '& .MuiTableCell-body': { textAlign: 'left' },
+                    // Pending users are resolved on their own record page like anyone else, so the row
+                    // only has to say "look here" — an accent bar does that without a column of
+                    // buttons that sits empty for every other row.
+                    ...(employee.needsReview && {
+                      '& .MuiTableCell-body:first-of-type': {
+                        borderLeft: '3px solid',
+                        borderLeftColor: otherColors.orange800,
+                      },
+                    }),
+                  }}
+                >
                   <TableCell>
-                    {employee.needsReview ? (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <span>{name}</span>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Link
+                        to={`/admin/employee/${employee.id}`}
+                        style={{
+                          color: theme.palette.primary.main,
+                        }}
+                      >
+                        {name}
+                      </Link>
+                      {employee.needsReview && (
                         <Chip
                           label="NEEDS REVIEW"
                           data-testid={dataTestIds.employeesPage.needsReviewChip}
@@ -355,18 +425,16 @@ function EmployeesTable({
                             ...theme.typography.subtitle2,
                           }}
                         />
-                      </Stack>
-                    ) : (
-                      <Link
-                        to={`/admin/employee/${employee.id}`}
-                        style={{
-                          display: 'contents',
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        {name}
-                      </Link>
-                    )}
+                      )}
+                    </Stack>
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: otherColors.tableRow,
+                    }}
+                    data-testid={dataTestIds.employeesPage.roleCell}
+                  >
+                    {formatRoles(employee.roles)}
                   </TableCell>
                   <TableCell
                     sx={{
@@ -422,60 +490,6 @@ function EmployeesTable({
                       }}
                     />
                   </TableCell>
-                  {currentTab === EmployeeTypes.providers && (
-                    <>
-                      <TableCell
-                        sx={{
-                          color: otherColors.tableRow,
-                        }}
-                      >
-                        {employee.gettingAlerts && (
-                          <Chip
-                            label="GETTING ALERTS"
-                            color={'info'}
-                            sx={{
-                              borderRadius: '4px',
-                              bgcolor: 'info.light',
-                              color: 'info.dark',
-                              height: '18px',
-                              '& .MuiChip-label': {
-                                padding: '0 8px',
-                                lineHeight: '18px',
-                              },
-                              ...theme.typography.subtitle2,
-                            }}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          color: otherColors.tableRow,
-                        }}
-                      >
-                        {employee.seenPatientRecently && (
-                          <Chip
-                            label="BEEN SEEN"
-                            sx={{
-                              backgroundColor: otherColors.employeeBeenSeenChip,
-                              color: otherColors.employeeBeenSeenText,
-                              borderRadius: '4px',
-                              height: '18px',
-                              '& .MuiChip-label': {
-                                padding: '0 8px',
-                                lineHeight: '18px',
-                              },
-                              ...theme.typography.subtitle2,
-                            }}
-                          />
-                        )}
-                      </TableCell>
-                    </>
-                  )}
-                  {showReviewColumn && (
-                    <TableCell>
-                      {employee.needsReview && canEditRoles && <PendingReviewActions employee={employee} />}
-                    </TableCell>
-                  )}
                 </TableRow>
               );
             })}
@@ -497,142 +511,6 @@ function EmployeesTable({
   );
 }
 
-interface PendingReviewActionsProps {
-  employee: EmployeeDetails;
-}
-
-function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactElement {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<RoleType[]>([]);
-
-  const assignMutation = useMutation({
-    mutationFn: async (roles: RoleType[]) => {
-      if (!oystehrZambda) throw new Error('Zambda Client not found');
-      return updateUser(oystehrZambda, {
-        userId: employee.id,
-        selectedRoles: roles,
-      });
-    },
-    onSuccess: async () => {
-      enqueueSnackbar('Role assigned successfully.', { variant: 'success' });
-      setAssignOpen(false);
-      setSelectedRoles([]);
-      await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
-    },
-    onError: () => {
-      enqueueSnackbar('Failed to assign role. Please try again.', { variant: 'error' });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      if (!oystehrZambda) throw new Error('Zambda Client not found');
-      return deleteUser(oystehrZambda, { userId: employee.id });
-    },
-    onSuccess: async () => {
-      enqueueSnackbar('User deleted.', { variant: 'success' });
-      await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
-    },
-  });
-
-  return (
-    <>
-      <Stack direction="row" spacing={1}>
-        <RoundedButton
-          size="small"
-          data-testid={dataTestIds.employeesPage.assignRoleButton}
-          onClick={() => setAssignOpen(true)}
-        >
-          Assign Role
-        </RoundedButton>
-        <ConfirmationDialog
-          title="Delete user?"
-          description={`This will permanently delete ${
-            employee.email || employee.name
-          } and block EHR access. This cannot be undone.`}
-          response={async () => {
-            try {
-              await deleteMutation.mutateAsync();
-            } catch (error) {
-              enqueueSnackbar(getApiError({ error, defaultError: 'Failed to delete user.' }), { variant: 'error' });
-            }
-          }}
-          actionButtons={{
-            proceed: {
-              text: 'Delete',
-              color: 'error',
-              loading: deleteMutation.isPending,
-            },
-          }}
-        >
-          {(showDialog) => (
-            <RoundedButton
-              size="small"
-              color="error"
-              data-testid={dataTestIds.employeesPage.quickDeleteButton}
-              onClick={showDialog}
-            >
-              Delete
-            </RoundedButton>
-          )}
-        </ConfirmationDialog>
-      </Stack>
-      <CustomDialog
-        open={assignOpen}
-        handleClose={() => {
-          setAssignOpen(false);
-          setSelectedRoles([]);
-        }}
-        dataTestId={dataTestIds.employeesPage.assignRoleDialog}
-        title="Assign role"
-        description={
-          <Box sx={{ width: 360 }}>
-            <FormControl fullWidth sx={{ mt: 1 }}>
-              <InputLabel id="assign-role-label">Role</InputLabel>
-              <Select
-                labelId="assign-role-label"
-                label="Role"
-                multiple
-                value={selectedRoles}
-                inputProps={{ 'data-testid': dataTestIds.employeesPage.assignRoleSelect }}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedRoles(
-                    typeof value === 'string' ? (value.split(',') as RoleType[]) : (value as RoleType[])
-                  );
-                }}
-                renderValue={(selected) =>
-                  AVAILABLE_EMPLOYEE_ROLES.filter((role) => (selected as RoleType[]).includes(role.value))
-                    .map((role) => role.label)
-                    .join(', ')
-                }
-              >
-                {AVAILABLE_EMPLOYEE_ROLES.map((role) => (
-                  <MenuItem key={role.value} value={role.value}>
-                    <Checkbox checked={selectedRoles.includes(role.value)} />
-                    <ListItemText primary={role.label} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        }
-        closeButtonText="Cancel"
-        confirmText="Save"
-        disabled={selectedRoles.length === 0}
-        confirmLoading={assignMutation.isPending}
-        handleConfirm={() => {
-          if (selectedRoles.length > 0) {
-            assignMutation.mutate(selectedRoles);
-          }
-        }}
-      />
-    </>
-  );
-}
-
 /*
  * A general purpose US states select. Might be a good candidate for moving to a
  * separate file.
@@ -650,7 +528,7 @@ function StateSelect({ onChange, selectedState }: StateSelectProps): ReactElemen
     <Autocomplete
       value={selectedState || EMPTY_STATE}
       onChange={onChange}
-      data-testid={dataTestIds.employeesPage.providersStateFilter}
+      data-testid={dataTestIds.employeesPage.stateFilter}
       getOptionLabel={(state) => state.label || 'Unknown'}
       isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
       options={options}
@@ -664,5 +542,53 @@ function StateSelect({ onChange, selectedState }: StateSelectProps): ReactElemen
       fullWidth
       renderInput={(params) => <TextField name="state" {...params} label="State" />}
     />
+  );
+}
+
+/** Display label for a role, falling back to the raw value for roles not offered in the picker. */
+const roleLabel = (role: RoleType): string =>
+  AVAILABLE_EMPLOYEE_ROLES.find((entry) => entry.value === role)?.label ?? role;
+
+/**
+ * Users can hold several roles, so show all of them rather than an arbitrary first. Users awaiting
+ * review hold none yet — the NEEDS REVIEW chip in the name column already says so, so a dash here
+ * keeps the row from reading as though something failed to load.
+ */
+const formatRoles = (roles: RoleType[]): string => (roles.length > 0 ? roles.map(roleLabel).join(', ') : '-');
+
+interface RoleSelectProps {
+  selectedRoles: RoleType[];
+  onChange: (value: string | string[]) => void;
+}
+
+function RoleSelect({ selectedRoles, onChange }: RoleSelectProps): ReactElement {
+  // Customer Support is the internal support account used to configure a customer's instance, not
+  // one of their practice roles, so it isn't offered here. It remains reachable by asking for it
+  // deliberately (`?roles=Customer Support`); when it is selected the option is rendered so the
+  // picker can still display and untick a value it holds.
+  const options = AVAILABLE_EMPLOYEE_ROLES.filter(
+    (role) => role.value !== RoleType.CustomerSupport || selectedRoles.includes(RoleType.CustomerSupport)
+  );
+
+  return (
+    <FormControl fullWidth>
+      <InputLabel id="employees-role-filter-label">Role</InputLabel>
+      <Select
+        labelId="employees-role-filter-label"
+        label="Role"
+        multiple
+        value={selectedRoles}
+        inputProps={{ 'data-testid': dataTestIds.employeesPage.roleFilter }}
+        onChange={(event) => onChange(event.target.value)}
+        renderValue={(selected) => (selected as RoleType[]).map(roleLabel).join(', ')}
+      >
+        {options.map((role) => (
+          <MenuItem key={role.value} value={role.value}>
+            <Checkbox checked={selectedRoles.includes(role.value)} />
+            <ListItemText primary={role.label} />
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
   );
 }

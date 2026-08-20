@@ -1,4 +1,4 @@
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { primaryIcon } from './assets';
 
 export const PRIMARY_ICON_PAGE = {

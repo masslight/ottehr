@@ -3,7 +3,8 @@ import React from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { ExternalLabsStatus, LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
+import { PSC_LOCALE } from 'utils/lib/types/data/labs/labs.constants';
+import { ExternalLabsStatus, LabOrderDetailedPageDTO } from 'utils/lib/types/data/labs/labs.types';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { OrderCollection } from '../OrderCollection';
 

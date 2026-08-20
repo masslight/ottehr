@@ -17,10 +17,14 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { chooseJson, generateStatement, InvoiceablePatientReport, StatementDetails } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { generateStatement, StatementDetails } from 'utils/lib/statements/generate-statement';
+import { InvoiceablePatientReport } from 'utils/lib/types/api/invoicing.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { useApiClients } from '../../hooks/useAppClients';
 import { RoundedButton } from '../RoundedButton';
 
@@ -102,8 +106,13 @@ export default function SendStatementToPatientDialog({
         setGeneratedHtml(html);
       } catch (error) {
         console.error('Error generating statement preview:', error);
-        setPreviewError('Unable to load statement preview');
-        enqueueSnackbar('Error loading statement preview', { variant: 'error' });
+        const sdkError = error as Oystehr.OystehrSdkError;
+        const message =
+          sdkError?.code === APIErrorCode.STATEMENT_BILLING_CLAIM_NOT_FOUND
+            ? sdkError.message
+            : 'Unable to load statement preview';
+        setPreviewError(message);
+        enqueueSnackbar(message, { variant: 'error' });
       } finally {
         setIsPreviewLoading(false);
       }
@@ -144,9 +153,11 @@ export default function SendStatementToPatientDialog({
 
   const statementTypeLabel = getStatementTypeLabel(statementType);
   const printModeLabel = useColor ? 'color' : 'black & white';
+  const hasPreviewError = previewError !== '';
+  const mailDisabled = !FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED || hasPreviewError;
 
   const handleSendByMailClick = (): void => {
-    if (!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED) {
+    if (mailDisabled) {
       return;
     }
 
@@ -158,6 +169,10 @@ export default function SendStatementToPatientDialog({
   };
 
   const handleGenerateStatement = async (): Promise<void> => {
+    if (hasPreviewError) {
+      return;
+    }
+
     if (!oystehrZambda || !encounterId) {
       enqueueSnackbar('Missing encounter id for statement generation', { variant: 'error' });
       return;
@@ -265,7 +280,7 @@ export default function SendStatementToPatientDialog({
                   variant="contained"
                   color="primary"
                   onClick={() => void handleGenerateStatement()}
-                  disabled={isGeneratingStatement}
+                  disabled={isGeneratingStatement || hasPreviewError}
                 >
                   {isGeneratingStatement
                     ? 'Generating...'
@@ -277,7 +292,7 @@ export default function SendStatementToPatientDialog({
                   variant="contained"
                   color="primary"
                   onClick={handleSendByMailClick}
-                  disabled={!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED}
+                  disabled={mailDisabled}
                   sx={{
                     ...(hasMailedStatement
                       ? {
@@ -287,7 +302,7 @@ export default function SendStatementToPatientDialog({
                           },
                         }
                       : {}),
-                    ...(!FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED
+                    ...(mailDisabled
                       ? {
                           backgroundColor: '#e0e0e0',
                           color: '#888',

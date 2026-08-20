@@ -1,6 +1,8 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { AVAILABLE_EMPLOYEE_ROLES, formatPhoneNumberDisplay, PractitionerQualificationCode, RoleType } from 'utils';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 import {
@@ -63,7 +65,7 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
   // IN CASE EMPLOYEE IS A PROVIDER WE CHECKING CREDENTIALS AND NPI
   if (employee.roles.includes(RoleType.Provider)) {
     const providerTypeField = page
-      .getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeDropdown)
+      .getByTestId(dataTestIds.employeesPage.providerDetailsCredentialsDropdown)
       .locator('input');
 
     // Check selected value
@@ -73,7 +75,7 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
 
     if (employee.providerType === 'other') {
       const providerTypeOtherField = page
-        .getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeOtherText)
+        .getByTestId(dataTestIds.employeesPage.providerDetailsCredentialsOtherText)
         .locator('input');
 
       await expect.soft(providerTypeOtherField).toHaveValue(employee.providerTypeText || '');
@@ -115,7 +117,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
   // IN CASE EMPLOYEE IS A PROVIDER WE UPDATING CREDENTIALS AND NPI
   if (employee.roles.includes(RoleType.Provider)) {
-    const providerTypeField = page.getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeDropdown);
+    const providerTypeField = page.getByTestId(dataTestIds.employeesPage.providerDetailsCredentialsDropdown);
 
     // click the dropdown to open it
     await providerTypeField.click();
@@ -126,7 +128,7 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
     if (employee.providerType === 'other') {
       const providerTypeOtherField = page
-        .getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeOtherText)
+        .getByTestId(dataTestIds.employeesPage.providerDetailsCredentialsOtherText)
         .locator('input');
       await providerTypeOtherField.fill(employee.providerTypeText || '');
     }
@@ -195,11 +197,11 @@ test('Employees list is loading', async ({ page }) => {
   await expect(statusChips).not.toHaveCount(0);
 });
 
-test('Providers tab filters are working', async ({ page }) => {
-  await page.goto('admin/providers');
+test('Employees list filters are working', async ({ page }) => {
+  await page.goto('admin/employees');
   const table = page.getByTestId(dataTestIds.employeesPage.table);
 
-  await test.step('Check name search filed', async () => {
+  await test.step('Check name search field', async () => {
     await page
       .getByTestId(dataTestIds.employeesPage.searchByName)
       .getByRole('textbox')
@@ -209,23 +211,31 @@ test('Providers tab filters are working', async ({ page }) => {
     await expect(table.locator(`text=${resourceHandler.testEmployee2.familyName}`)).not.toBeVisible(DEFAULT_TIMEOUT);
   });
 
-  await test.step('Check name search filed', async () => {
-    await page
-      .getByTestId(dataTestIds.employeesPage.searchByName)
-      .getByRole('textbox')
-      .fill(testEmployeeGivenNamePattern);
+  await test.step('Filters are shareable via the URL', async () => {
+    await expect(page).toHaveURL(new RegExp(`name=${resourceHandler.testEmployee1.familyName}`));
+  });
+
+  await test.step('Check state filter, which appears once Provider is the only selected role', async () => {
+    // Narrow to Provider via the URL rather than driving the multi-select, so this step tests the
+    // state filter rather than re-testing role selection.
+    await page.goto(`admin/employees?roles=${RoleType.Provider}&name=${testEmployeeGivenNamePattern}`);
+    await waitUntilEmployeeProviderTableLoaded(page);
 
     // SELECT 'AK' STATE BY CLICKING TWO TIMES DOWN IN STATES DROPDOWN
-    await page
-      .getByTestId(dataTestIds.employeesPage.providersStateFilter)
-      .getByRole('button', { name: 'Open' })
-      .click();
+    await page.getByTestId(dataTestIds.employeesPage.stateFilter).getByRole('button', { name: 'Open' }).click();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     // CHECKING IF WE ARE RECEIVING OUR TEST EMPLOYEES
     await waitUntilEmployeeProviderTableLoaded(page);
     await expect(table.locator(`text=${testEmployeeGivenNamePattern}`).first()).toBeVisible(DEFAULT_TIMEOUT);
+  });
+
+  await test.step('Role filter hides Customer Support by default', async () => {
+    await page.goto('admin/employees');
+    await waitUntilEmployeeProviderTableLoaded(page);
+    const roleFilter = page.getByTestId(dataTestIds.employeesPage.roleFilter);
+    await expect(roleFilter).not.toHaveValue(new RegExp(RoleType.CustomerSupport));
   });
 });
 

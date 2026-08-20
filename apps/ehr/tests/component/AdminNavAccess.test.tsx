@@ -1,4 +1,4 @@
-import { RoleType } from 'utils';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it } from 'vitest';
 import { adminNavGroups, resolveAccessibleAdminNavGroups } from '../../src/features/admin/adminNav';
 
@@ -21,7 +21,7 @@ describe('resolveAccessibleAdminNavGroups', () => {
     expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/action-logs']);
   });
 
-  it.each([RoleType.Provider, RoleType.FrontDesk])('returns nothing for %s', (role) => {
+  it.each([RoleType.Provider, RoleType.Clinician])('returns nothing for %s', (role) => {
     expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]))).toEqual([]);
   });
 });

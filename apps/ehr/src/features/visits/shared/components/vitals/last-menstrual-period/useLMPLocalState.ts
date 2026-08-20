@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { VitalFieldNames, VitalsLastMenstrualPeriodObservationDTO } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsLastMenstrualPeriodObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LMPLocalState } from '../types';
 
 export function useLMPLocalState(): LMPLocalState {

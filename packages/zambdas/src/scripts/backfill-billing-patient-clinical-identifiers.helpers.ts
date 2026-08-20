@@ -1,10 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import { getAllFhirSearchPages } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   addClinicalPatientIdentifiers,
   clinicalPatientIdOfCopy,
-  EXCLUDE_WORKING_COPIES_PARAMS,
   missingClinicalPatientIdentifiers,
 } from '../billing/shared';
 
@@ -34,7 +33,7 @@ export async function backfillBillingPatientClinicalIdentifiers(
   const patients = await getAllFhirSearchPages<Patient>(
     {
       resourceType: 'Patient',
-      params: [...EXCLUDE_WORKING_COPIES_PARAMS],
+      params: [],
     },
     oystehr,
     BACKFILL_PAGE_SIZE

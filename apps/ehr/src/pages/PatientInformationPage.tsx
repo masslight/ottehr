@@ -13,6 +13,7 @@ import { FC, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } fro
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { updatePatientVisitDetails } from 'src/api/api';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
@@ -41,19 +42,13 @@ import {
   OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY,
 } from 'src/features/visits/shared/visitEmployer';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  AppointmentContext,
-  CoverageWithPriority,
-  extractFirstValueFromAnswer,
-  flattenItems,
-  OrderedCoveragesWithSubscribers,
-  PATIENT_RECORD_CONFIG,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  PatientAccountResponse,
-  prepopulatePatientRecordItems,
-  pruneEmptySections,
-} from 'utils';
-import { CustomDialog } from '../components/dialogs';
+import { AppointmentContext, prepopulatePatientRecordItems } from 'utils/lib/config-helpers/patient-record';
+import { pruneEmptySections } from 'utils/lib/helpers/paperwork/paperwork';
+import { extractFirstValueFromAnswer } from 'utils/lib/helpers/paperwork/prePopulation';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { PATIENT_RECORD_CONFIG, PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { CoverageWithPriority, OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
@@ -401,6 +396,11 @@ interface PatientAccountComponentProps {
    * patient-info page.
    */
   photoIdCardSlot?: ReactNode;
+  /**
+   * When set, "Save All" is disabled and this text explains why on hover. Used by the visit page to
+   * require the consent attestation before any of the visit's details can be saved.
+   */
+  submitBlockedReason?: string;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -415,6 +415,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   appointmentId,
   renderInsuranceCardThumbnail,
   photoIdCardSlot,
+  submitBlockedReason,
 }) => {
   const navigate = useNavigate();
 
@@ -697,6 +698,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
+            submitBlockedReason={submitBlockedReason}
             backButtonHidden={renderBackButton === false}
           />
         </Box>

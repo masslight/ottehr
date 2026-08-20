@@ -1,4 +1,4 @@
-import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from './chart-data';
+import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from './chart-data/chart-data.types';
 
 export interface ProcedureDetail extends ProcedureDTO {
   info?: string;

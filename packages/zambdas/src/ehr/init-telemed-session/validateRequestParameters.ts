@@ -1,6 +1,8 @@
-import { InitTelemedSessionRequestParams, MISSING_REQUEST_BODY } from 'utils';
+import { InitTelemedSessionRequestParams } from 'utils/lib/types/api/init-telemed-session/init-telemed-session.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const InitTelemedSessionSchema = z.object({
   appointmentId: z.string().uuid(),

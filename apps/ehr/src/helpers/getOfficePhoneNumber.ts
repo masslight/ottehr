@@ -1,5 +1,5 @@
 import { Location } from 'fhir/r4b';
-import { standardizePhoneNumber } from 'utils';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 
 const PLACEHOLDER_PHONE_NUMBER = '[office phone number]';
 

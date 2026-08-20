@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils';
+import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-provider';
 

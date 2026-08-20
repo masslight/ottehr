@@ -1,22 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  getOrCreateCandidApiClient,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   MISSING_REQUIRED_PARAMETERS,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import {
-  createClinicalOystehrClient,
-  getAuth0Token,
   getStatementDetails,
-  safeJsonParse,
+  resolveStatementAmountsSource,
   StatementType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from '../../../shared/statements/get-statement-details';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 const ZAMBDA_NAME = 'get-statement-details';
 
@@ -62,13 +62,17 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateRequestParameters(input);
   const oystehr = await createOystehr(validatedInput.secrets);
-  const candidApiClient = await getOrCreateCandidApiClient(oystehr, validatedInput.secrets);
+  const amountsSource = await resolveStatementAmountsSource({
+    secrets: validatedInput.secrets,
+    oystehr,
+    m2mToken: oystehrToken,
+  });
   const statementDetails = await getStatementDetails({
     encounterId: validatedInput.encounterId,
     statementType: validatedInput.statementType,
     secrets: validatedInput.secrets,
     oystehr,
-    candidApiClient,
+    amountsSource,
   });
 
   return {

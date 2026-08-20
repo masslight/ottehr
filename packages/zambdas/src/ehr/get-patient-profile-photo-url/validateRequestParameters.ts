@@ -1,9 +1,10 @@
 import {
   GetOrUploadPatientProfilePhotoInputSchema,
   GetOrUploadPatientProfilePhotoInputValidated,
-  MISSING_REQUEST_BODY,
-} from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/get-patient-profile-photo-url.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): GetOrUploadPatientProfilePhotoInputValidated {
   console.group('validateRequestParameters');

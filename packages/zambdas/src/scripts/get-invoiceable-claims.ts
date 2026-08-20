@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 interface PatientInfo {
   fullName: string;

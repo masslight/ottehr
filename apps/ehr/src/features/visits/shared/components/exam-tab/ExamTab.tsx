@@ -1,11 +1,13 @@
 import { CircularProgress, Stack } from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { examConfig, INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils';
+import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useExamObservationsInitializationStore } from '../../stores/appointment/exam-observations.store';
 import { PageTitle } from '../PageTitle';
 import { ExaminationContainer } from '../review-tab/components/ExaminationContainer';
+import { ClearExamButton } from './ClearExamButton';
 import { ExamMigrationWarning } from './ExamMigrationWarning';
 import { ExamTable } from './ExamTable';
 import { useExamConfigState } from './useExamConfigState';
@@ -38,7 +40,11 @@ export const ExamTab: FC = () => {
 
   return (
     <Stack direction="column" gap={1}>
-      <PageTitle label="Exam" showIntakeNotesButton={false} />
+      <PageTitle
+        label="Exam"
+        showIntakeNotesButton={false}
+        actions={hasInitialData && !isReadOnly ? <ClearExamButton /> : undefined}
+      />
       {!hasInitialData ? (
         <Stack direction="row" justifyContent="center">
           <CircularProgress />

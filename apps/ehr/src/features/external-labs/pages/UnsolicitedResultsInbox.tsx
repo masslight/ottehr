@@ -1,7 +1,7 @@
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { useGetUnsolicitedResultsTasks } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import PageContainer from 'src/layout/PageContainer';
-import { UnsolicitedResultsRequestType } from 'utils';
+import { UnsolicitedResultsRequestType } from 'utils/lib/types/data/labs/labs.types';
 import { UnsolicitedResultsTaskCard } from '../components/unsolicited-results/UnsolicitedResultsTaskCard';
 
 // this page is temporary and should be replaced/ absorbed by tasks dashboard

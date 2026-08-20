@@ -29,31 +29,30 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
-import { SendFaxDialog, useSendFax } from 'src/features/fax';
+import { useSendFax } from 'src/features/fax/hooks/useSendFax';
+import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
-import { formatLabelValue } from 'src/shared/utils';
+import { formatLabelValue } from 'src/shared/utils/formatLabelValue';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  FhirAppointmentType,
-  formatDateToMDYWithTime,
-  formatWeightKg,
-  getAdmitterPractitionerId,
   getAnnotationFollowupStatusLabel,
-  getAttendingPractitionerId,
-  getCoding,
   getEncounterLocationId,
-  getFullestAvailableName,
   getInitialEncounterIdForFollowUp,
-  getInsuranceNameFromCoverage,
-  isInPersonAppointment,
   PaymentVariant,
-  PRACTITIONER_CODINGS,
-  SERVICE_CATEGORY_SYSTEM,
-  VisitStatusLabel,
-  VitalFieldNames,
-  type VitalsWeightObservationDTO,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { getCoding, getInsuranceNameFromCoverage } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
@@ -330,7 +329,7 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
-  const sendFaxDialog = useSendFax(appointmentID);
+  const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,

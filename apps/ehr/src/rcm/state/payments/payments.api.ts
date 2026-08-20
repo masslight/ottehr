@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
-import { chooseJson } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 
 const GET_PAYMENT_LOCATIONS_ZAMBDA_ID = 'get-payment-locations';
 const GET_STRIPE_ACCOUNT_INFO_ZAMBDA_ID = 'get-stripe-account-info';

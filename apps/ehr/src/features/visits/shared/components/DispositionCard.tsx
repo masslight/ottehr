@@ -20,17 +20,19 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   dispositionCheckboxOptions,
+  mapDispositionTypeToLabel,
+  OTHER_SPECIALTY_TRANSFER_OPTION,
+  specialtyTransferOptions,
+} from 'utils/lib/fhir/disposition';
+import {
   DispositionType,
   followUpInOptions,
   getDefaultNote,
-  mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
-  OTHER_SPECIALTY_TRANSFER_OPTION,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
-  specialtyTransferOptions,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { ContainedPrimaryToggleButton } from '../../../../components/ContainedPrimaryToggleButton';
 import { RoundedButton } from '../../../../components/RoundedButton';

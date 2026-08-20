@@ -16,7 +16,9 @@ import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { FOLLOWUP_REASONS, FollowupReason, isFollowupEncounter, PatientFollowupDetails, ProviderDetails } from 'utils';
+import { FOLLOWUP_REASONS, FollowupReason, isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { PatientFollowupDetails, ProviderDetails } from 'utils/lib/types/api/encounter.types';
+import { isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;
@@ -120,7 +122,7 @@ export default function PatientFollowupForm({
   useEffect(() => {
     const getAndSetProviders = async (client: Oystehr): Promise<void> => {
       const getEmployeesRes = await getEmployees(client);
-      const providers = getEmployeesRes.employees.filter((employee) => employee.isProvider);
+      const providers = getEmployeesRes.employees.filter(isProvider);
       const formattedProviders: ProviderDetails[] = providers
         .map((prov) => {
           const id = prov.profile.split('/')[1];

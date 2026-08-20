@@ -17,20 +17,33 @@ import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetEr
 import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
+import { BillingSuggestionInput, CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { Icd10SearchRequestParams, Icd10SearchResponse } from 'utils/lib/types/api/icd-10-search/icd-10-search.types';
+import { CPTSearchRequestParams, IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import {
-  AISuggestionNotesInput,
-  APIError,
-  BillingSuggestionInput,
-  CancelMatchUnsolicitedResultTask,
-  CODE_SYSTEM_NDC,
-  CommunicationDTO,
-  CPTSearchRequestParams,
-  FinalizeUnsolicitedResultMatch,
-  GetCreateInHouseLabOrderResourcesInput,
-  GetCreateInHouseLabOrderResourcesOutput,
-  GetCreateLabOrderResources,
+  INVENTORY_MEDICATION_TYPE_CODE,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
+import {
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  UpdateMedicationOrderInput,
+} from 'utils/lib/types/api/medication-administration.types';
+import { InstructionType } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
+import { ProcedureDetail } from 'utils/lib/types/api/procedures.types';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
+import {
+  GetCreateInHouseLabOrderResourcesInput,
+  GetCreateInHouseLabOrderResourcesOutput,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  CancelMatchUnsolicitedResultTask,
+  FinalizeUnsolicitedResultMatch,
+  GetCreateLabOrderResources,
   GetUnsolicitedResultsDetailInput,
   GetUnsolicitedResultsDetailOutput,
   GetUnsolicitedResultsIconStatusInput,
@@ -43,20 +56,10 @@ import {
   GetUnsolicitedResultsRelatedRequestsOutput,
   GetUnsolicitedResultsTasksInput,
   GetUnsolicitedResultsTasksOutput,
-  Icd10SearchRequestParams,
-  Icd10SearchResponse,
-  IcdSearchResponse,
-  InstructionType,
-  INVENTORY_MEDICATION_TYPE_CODE,
   LabOrderResourcesRes,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
-  MeetingData,
-  ProcedureDetail,
-  PromiseReturnType,
-  UpdateMedicationOrderInput,
-} from 'utils';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+} from 'utils/lib/types/data/labs/labs.types';
+import { MeetingData } from 'utils/lib/types/data/telemed/join-call.types';
+import { APIError } from 'utils/lib/types/errors';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';

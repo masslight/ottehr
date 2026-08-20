@@ -2,8 +2,10 @@ import fontkit from '@pdf-lib/fontkit';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont } from 'pdf-lib';
-import { PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO, Secrets } from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
+import { Secrets } from 'utils/lib/secrets';
+import { PdfBulletPointItem, SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { getPdfLogo, handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 

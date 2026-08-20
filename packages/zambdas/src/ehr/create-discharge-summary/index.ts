@@ -2,20 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { Secrets } from 'utils/lib/secrets';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
-  PATIENT_EDUCATION_DOC_TYPE_CODE,
-  progressNoteChartDataRequestedFields,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
+import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchErxPharmacies } from '../../shared/erx';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
-import { countPdfPages, downloadPdfBytes, mergePdfDocuments } from '../../shared/pdf/merge-pdfs';
+import { countPdfPages, downloadFileBytes, mergePdfDocuments } from '../../shared/pdf/merge-pdfs';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
@@ -143,14 +146,14 @@ export const performEffect = async (
     if (educationDocRefs.length > 0) {
       console.log(`Found ${educationDocRefs.length} patient education PDF(s) to append`);
 
-      const dischargeBytes = await downloadPdfBytes(pdfInfo.uploadURL, m2mToken);
+      const dischargeBytes = await downloadFileBytes(pdfInfo.uploadURL, m2mToken);
       const parts: Uint8Array[] = [dischargeBytes];
 
       for (const docRef of educationDocRefs) {
         const z3Url = docRef.content?.[0]?.attachment?.url;
         if (!z3Url) continue;
         try {
-          const eduBytes = await downloadPdfBytes(z3Url, m2mToken);
+          const eduBytes = await downloadFileBytes(z3Url, m2mToken);
 
           // parses the document so a malformed PDF is caught (and skipped) here rather than at merge time
           await countPdfPages(eduBytes);

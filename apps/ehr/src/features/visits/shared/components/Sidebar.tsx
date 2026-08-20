@@ -1,6 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { aiIcon } from '@ehrTheme/icons';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import {
   alpha,
   Box,
@@ -16,7 +17,7 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getInPersonVisitStatus } from 'utils';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
@@ -61,6 +62,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  Documents: <FolderOutlinedIcon />,
   'Review & Sign': (
     <svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path

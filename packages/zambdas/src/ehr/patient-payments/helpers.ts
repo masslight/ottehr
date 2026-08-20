@@ -2,16 +2,13 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Account, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  CashPaymentDTO,
-  checkForStripeCustomerDeletedError,
-  convertPaymentNoticeListToCashPaymentDTOs,
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeCustomerIdFromAccount,
-  PatientPaymentDTO,
-  PAYMENT_METHOD_EXTENSION_URL,
-} from 'utils';
-import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../../shared';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
+import { CashPaymentDTO, PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../../shared/stripeIntegration';
 
 interface GetPaymentsForEncounterInput {
   oystehrClient: Oystehr;

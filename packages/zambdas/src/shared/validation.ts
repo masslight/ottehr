@@ -1,4 +1,4 @@
-import { INVALID_INPUT_ERROR } from 'utils';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z, ZodError, ZodSchema } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 

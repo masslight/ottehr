@@ -1,4 +1,4 @@
-import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils';
+import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils/lib/utils/convert';
 
 export const textToBloodPressureNumber = (text: string): number | undefined => {
   const bpVal = textToNumericValue(text);

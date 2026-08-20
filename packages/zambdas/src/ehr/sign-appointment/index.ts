@@ -2,32 +2,38 @@ import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   extractExtensionValue,
   findExtensionIndex,
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterLockMetaTagOperations,
-  getEncounterStatusHistoryUpdateOp,
-  getFullestAvailableName,
-  getInPersonVisitStatus,
-  getPatchBinary,
   getSkipEmailTaskInput,
   getTaskResource,
-  isAnnotationFollowupEncounter,
-  SignAppointmentInput,
-  SignAppointmentResponse,
-  TaskIndicator,
-  userMe,
+} from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
-} from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/appointment.types';
+import {
+  SignAppointmentInput,
+  SignAppointmentResponse,
+} from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

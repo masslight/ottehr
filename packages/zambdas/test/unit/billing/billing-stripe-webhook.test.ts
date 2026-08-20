@@ -2,14 +2,24 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, Secrets } from 'utils';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { Secrets } from 'utils/lib/secrets';
+import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
-vi.mock('../../../src/shared', async (importOriginal) => ({
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   wrapHandler: (_name: string, handler: unknown) => handler,
+}));
+
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
+}));
+
+vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   getStripeClient: vi.fn(),
 }));
 
@@ -21,14 +31,12 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient } from '../../../src/billing/shared';
-import {
-  checkOrCreateM2MClientToken,
-  getStripeClient,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  ZambdaInput,
-} from '../../../src/shared';
+import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
+import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
+import { ZambdaInput } from '../../../src/shared/types/common';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
+const PLATFORM_WEBHOOK_SECRET = 'whsec_platform_test_secret';
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const stripe = new Stripe('sk_test_123');
 
@@ -37,6 +45,7 @@ const secrets: Secrets = {
   STRIPE_SECRET_KEY: 'sk_test_123',
   STRIPE_PUBLIC_KEY: 'pk_test_123',
   STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
+  STRIPE_PLATFORM_WEBHOOK_SECRET: PLATFORM_WEBHOOK_SECRET,
   ORGANIZATION_ID: 'org-1',
   FHIR_API: 'https://fhir.example.com/r4',
   PROJECT_API: 'https://project.example.com/v1',
@@ -109,9 +118,9 @@ const makeOystehr = (
   return { oystehr: { fhir: { search, create, update, batch } } as unknown as Oystehr, create, update };
 };
 
-const signedInput = (event: Stripe.Event): ZambdaInput => {
+const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET): ZambdaInput => {
   const payload = JSON.stringify(event);
-  const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: WEBHOOK_SECRET });
+  const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: webhookSecret });
   return { body: payload, headers: { 'Stripe-Signature': signature }, secrets };
 };
 
@@ -126,10 +135,65 @@ describe('billing-stripe-webhook', () => {
     expect(params.event.type).toBe('charge.succeeded');
   });
 
+  it('verifies a platform destination signature with its separate secret', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const params = validateRequestParameters(
+      signedInput(makeEvent('charge.succeeded', makeCharge()), PLATFORM_WEBHOOK_SECRET)
+    );
+    expect(params.event.type).toBe('charge.succeeded');
+  });
+
+  it('keeps working when the optional platform destination secret is not configured', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
+    const { STRIPE_PLATFORM_WEBHOOK_SECRET: _, ...secretsWithoutPlatformWebhook } = input.secrets!;
+
+    const params = validateRequestParameters({ ...input, secrets: secretsWithoutPlatformWebhook });
+
+    expect(params.event.type).toBe('charge.succeeded');
+  });
+
+  it('works when only the platform destination secret is configured', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()), PLATFORM_WEBHOOK_SECRET);
+    const { STRIPE_WEBHOOK_SECRET: _, ...secretsWithoutConnectedWebhook } = input.secrets!;
+
+    const params = validateRequestParameters({ ...input, secrets: secretsWithoutConnectedWebhook });
+
+    expect(params.event.type).toBe('charge.succeeded');
+  });
+
+  it('rejects requests when no webhook signing secret is configured', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
+    const secretsWithoutWebhooks = { ...input.secrets };
+    delete secretsWithoutWebhooks.STRIPE_WEBHOOK_SECRET;
+    delete secretsWithoutWebhooks.STRIPE_PLATFORM_WEBHOOK_SECRET;
+
+    expect(() => validateRequestParameters({ ...input, secrets: secretsWithoutWebhooks })).toThrow(
+      expect.objectContaining(
+        MISCONFIGURED_ENVIRONMENT_ERROR(
+          'Neither "STRIPE_WEBHOOK_SECRET" nor "STRIPE_PLATFORM_WEBHOOK_SECRET" was set. Please ensure at least one is configured in project secrets.'
+        )
+      )
+    );
+  });
+
   it('rejects a body that does not match the signature', () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
     const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
-    expect(() => validateRequestParameters({ ...input, body: '{"tampered":true}' })).toThrow();
+    expect(() => validateRequestParameters({ ...input, body: '{"tampered":true}' })).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Invalid Stripe webhook signature'))
+    );
+  });
+
+  it('rejects a missing signature as invalid input', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()));
+
+    expect(() => validateRequestParameters({ ...input, headers: {} })).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Missing Stripe-Signature header'))
+    );
   });
 
   it('acks without processing when BILLING_INTEGRATION does not include ottehr', async () => {

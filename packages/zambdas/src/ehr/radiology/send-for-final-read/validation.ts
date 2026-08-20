@@ -1,5 +1,8 @@
-import { Secrets, SendForFinalReadZambdaInput, SendForFinalReadZambdaInputSchema } from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { SendForFinalReadZambdaInput, SendForFinalReadZambdaInputSchema } from 'utils/lib/types/api/radiology';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface ValidatedInput {
   body: SendForFinalReadZambdaInput;
@@ -25,7 +28,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     throw new Error('Secrets are required');
   }
 
-  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = secrets;
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, ENVIRONMENT } = secrets;
   if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE || !FHIR_API || !PROJECT_API) {
     throw new Error('Missing required secrets');
   }
@@ -36,5 +39,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    // Required by userMe(); see `resolveCallerPractitionerRef` in shared/practitioners.ts.
+    ENVIRONMENT,
   };
 };

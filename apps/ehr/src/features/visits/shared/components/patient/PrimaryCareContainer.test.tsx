@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React, { type InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { PATIENT_RECORD_CONFIG } from 'utils';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { describe, expect, it, vi } from 'vitest';
 import { createDynamicValidationResolver } from './patientRecordValidation';
 import { PrimaryCareContainer } from './PrimaryCareContainer';

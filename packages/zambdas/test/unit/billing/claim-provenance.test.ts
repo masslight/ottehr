@@ -2,18 +2,22 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import {
-  AR_STAGE,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
-  CLAIM_STATUS_DATE_EXTENSION_URLS,
   ClaimFieldChange,
+  ClaimHistoryRuleRef,
+} from 'utils/lib/types/data/billing/claim-history';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_DATE_EXTENSION_URLS,
   ClaimStatusValues,
   claimStatusValuesToTags,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  addErrorProvenanceForClaimSubmission,
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
@@ -318,6 +322,104 @@ describe('claimProvenanceRequest reference storage', () => {
       recorded: 't',
     });
     expect((req!.resource as Provenance).entity).toBeUndefined();
+  });
+});
+
+describe('claimProvenanceRequest rule attribution', () => {
+  const RULE_REF: ClaimHistoryRuleRef = { id: 'rule-1', name: 'Normalize member IDs', engine: 'claim-submission' };
+
+  it('annotates diff-derived changes whose field is attributed, and only those', () => {
+    const req = claimProvenanceRequest({
+      targetReference: 'Coverage/cov1',
+      claimReference: CLAIM_REF,
+      before: coverage(),
+      after: coverage({ subscriberId: 'M2', status: 'cancelled' }),
+      agent,
+      activity: 'update',
+      recorded: 't',
+      ruleAttribution: new Map([['memberId', RULE_REF]]),
+    });
+    const changes = parseChanges(req!.resource as Provenance);
+    expect(changes).toContainEqual({
+      field: 'memberId',
+      label: 'Member ID',
+      previousValue: 'M1',
+      newValue: 'M2',
+      rule: RULE_REF,
+    });
+    expect(changes.find((c) => c.field === 'status')?.rule).toBeUndefined();
+  });
+
+  it('keeps the rule in the stored JSON while refs still travel as entities', () => {
+    const withPayer = (reference: string, display: string): Coverage => coverage({ payor: [{ reference, display }] });
+    const req = claimProvenanceRequest({
+      targetReference: 'Coverage/cov1',
+      claimReference: CLAIM_REF,
+      before: withPayer('https://rcm.example/payer/1', 'Acme (1)'),
+      after: withPayer('https://rcm.example/payer/2', 'Zenith (2)'),
+      agent,
+      activity: 'update',
+      recorded: 't',
+      ruleAttribution: new Map([['payer', RULE_REF]]),
+    });
+    const prov = req!.resource as Provenance;
+    expect(parseChanges(prov)).toEqual([
+      { field: 'payer', label: 'Payer', previousValue: 'Acme (1)', newValue: 'Zenith (2)', rule: RULE_REF },
+    ]);
+    expect(prov.entity).toHaveLength(2);
+  });
+
+  it('annotates create diffs (no before), covering rule-minted working copies', () => {
+    const req = claimProvenanceRequest({
+      targetReference: 'urn:uuid:cov-copy',
+      claimReference: CLAIM_REF,
+      after: coverage(),
+      agent,
+      activity: 'create',
+      recorded: 't',
+      ruleAttribution: new Map([['memberId', RULE_REF]]),
+    });
+    const changes = parseChanges(req!.resource as Provenance);
+    expect(changes).toContainEqual({
+      field: 'memberId',
+      label: 'Member ID',
+      previousValue: null,
+      newValue: 'M1',
+      rule: RULE_REF,
+    });
+  });
+
+  it('passes extraChanges through untouched, preserving a rule they already carry', () => {
+    const req = claimProvenanceRequest({
+      targetReference: CLAIM_REF,
+      claimReference: CLAIM_REF,
+      agent,
+      activity: 'submit',
+      recorded: 't',
+      extraChanges: [
+        { field: 'error', label: 'Error', previousValue: null, newValue: 'boom', rule: RULE_REF },
+        { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' },
+      ],
+      ruleAttribution: new Map([['memberId', { ...RULE_REF, id: 'other' }]]),
+    });
+    const changes = parseChanges(req!.resource as Provenance);
+    expect(changes).toEqual([
+      { field: 'error', label: 'Error', previousValue: null, newValue: 'boom', rule: RULE_REF },
+      { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' },
+    ]);
+  });
+
+  it('addErrorProvenanceForClaimSubmission attributes the error change to the failing rule', async () => {
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    const oystehr = { fhir: { transaction } } as unknown as Oystehr;
+    const claim = { resourceType: 'Claim', id: 'c1', type: { coding: [] } } as unknown as Claim;
+
+    await addErrorProvenanceForClaimSubmission(oystehr, claim, new Error('Rule "R" failed'), agent, RULE_REF);
+
+    const provenance = transaction.mock.calls[0][0].requests[0].resource as Provenance;
+    expect(parseChanges(provenance)).toEqual([
+      { field: 'error', label: 'Error', previousValue: null, newValue: 'Rule "R" failed', rule: RULE_REF },
+    ]);
   });
 });
 

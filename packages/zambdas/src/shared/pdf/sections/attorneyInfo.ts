@@ -1,4 +1,5 @@
-import { ATTORNEY_FIRM_EXTENSION_URL, formatPhoneNumberDisplay } from 'utils';
+import { ATTORNEY_FIRM_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { AttorneyDataInput, AttorneyInfo, PdfSection } from '../types';
 

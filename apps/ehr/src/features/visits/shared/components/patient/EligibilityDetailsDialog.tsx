@@ -21,12 +21,9 @@ import {
   useTheme,
 } from '@mui/material';
 import { FC, Fragment, useState } from 'react';
-import {
-  CoverageCheckWithDetails,
-  EligibilityCheckSimpleStatus,
-  InsuranceEligibilityCheckStatus,
-  PatientPaymentBenefit,
-} from 'utils';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { EligibilityCheckSimpleStatus, PatientPaymentBenefit } from 'utils/lib/types/data/telemed/eligibility.types';
 
 const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, { bgColor: string; textColor: string }> = {
   ELIGIBLE: {

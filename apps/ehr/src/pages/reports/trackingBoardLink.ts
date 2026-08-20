@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { VisitStatusLabel } from 'utils';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 
 const IN_PERSON_VISIT_TYPES = ['in-person-walk-in', 'in-person-pre-booked', 'in-person-post-telemed'].join(',');
 

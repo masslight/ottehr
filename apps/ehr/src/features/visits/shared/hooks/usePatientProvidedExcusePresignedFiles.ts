@@ -1,6 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
-import { getPresignedURL, SCHOOL_WORK_NOTE } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
 export const usePatientProvidedExcusePresignedFiles = (): {

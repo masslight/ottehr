@@ -1,7 +1,8 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
-import { invoiceTaskSourceTag, PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils';
+import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { invoiceTaskSourceTag } from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -9,6 +10,7 @@ const mockClinicalClient = {
   fhir: {
     search: vi.fn(),
     patch: vi.fn(),
+    create: vi.fn(),
   },
 };
 const mockStripe = {
@@ -26,25 +28,67 @@ const mockStripe = {
 };
 const mockSendSmsForPatient = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(() => mockClinicalClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-    getStripeClient: () => mockStripe,
-    sendSmsForPatient: (...args: unknown[]) => mockSendSmsForPatient(...args),
-    resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),
     resolveTimezone: () => 'America/New_York',
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+  };
+});
+
+vi.mock('../../src/shared/stripeIntegration', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getStripeClient: () => mockStripe,
+  };
+});
+
+vi.mock('../../src/shared/communication', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    sendSmsForPatient: (...args: unknown[]) => mockSendSmsForPatient(...args),
+  };
+});
+
+vi.mock('../../src/shared/template-placeholders', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),
+  };
+});
+
+vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     getStripeCustomerIdFromAccount: () => 'cus_1',
+  };
+});
+
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue(undefined),
   };
 });
@@ -67,7 +111,7 @@ const invoiceInput = (): TaskInput[] =>
         },
       ],
     },
-    valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2026-08-01' : 'pay your invoice',
+    valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2099-12-31' : 'pay your invoice',
   }));
 
 const task = (overrides: Partial<Task> = {}): Task =>
@@ -150,6 +194,7 @@ describe('sub-send-invoice-to-patient source guard', () => {
       unbundle: () => [encounter, patient, account, appointment],
     });
     mockClinicalClient.fhir.patch.mockResolvedValue({});
+    mockClinicalClient.fhir.create.mockResolvedValue({});
     mockStripe.customers.retrieve.mockResolvedValue({
       deleted: false,
       email: 'Katie@example.com',
@@ -189,6 +234,34 @@ describe('sub-send-invoice-to-patient source guard', () => {
     expect(mockSendSmsForPatient).toHaveBeenCalled();
   });
 
+  it('creates a generate-statement task for Patient and Appointment after sending invoice', async () => {
+    const billingTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+    });
+
+    await runHandler(billingTask);
+
+    expect(mockClinicalClient.fhir.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        status: 'requested',
+        for: { reference: 'Patient/pat-1' },
+        focus: expect.objectContaining({
+          type: 'Appointment',
+          reference: 'Appointment/appt-1',
+        }),
+        code: {
+          coding: [
+            expect.objectContaining({
+              system: 'https://fhir.ottehr.com/CodeSystem/generate-patient-statement',
+              code: 'generate-statement',
+            }),
+          ],
+        },
+      })
+    );
+  });
+
   it('still rejects candid and legacy untagged tasks without a Candid encounter id', async () => {
     await expect(runHandler(task())).rejects.toThrow('CandidEncounterId is not found');
 
@@ -206,5 +279,31 @@ describe('sub-send-invoice-to-patient source guard', () => {
         }),
       ])
     );
+  });
+
+  it('rejects a task whose dueDate is in the past without calling Stripe', async () => {
+    const pastTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2000-01-01' : 'pay your invoice',
+      })),
+    });
+
+    await expect(runHandler(pastTask)).rejects.toThrow('Due date should be in the future');
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a task whose dueDate has an invalid format without calling Stripe', async () => {
+    const badFormatTask = task({
+      meta: { tag: [invoiceTaskSourceTag('ottehr-billing')] },
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? 'not-a-date' : 'pay your invoice',
+      })),
+    });
+
+    await expect(runHandler(badFormatTask)).rejects.toThrow();
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
   });
 });

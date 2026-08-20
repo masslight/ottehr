@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listTemplates } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ListTemplatesZambdaOutput } from 'utils';
+import { ListTemplatesZambdaOutput } from 'utils/lib/types/data/list-template.types';
 
 export interface TemplateOption {
   value: string;

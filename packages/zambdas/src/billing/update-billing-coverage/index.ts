@@ -2,8 +2,11 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
-import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, setCoveragePlanType } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
   BillingFhirResource,

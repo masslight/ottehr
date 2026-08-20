@@ -1,78 +1,46 @@
 import Oystehr from '@oystehr/sdk';
+import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   AddClaimNoteInputSchema,
-  apiErrorToThrow,
-  BillingChargeItemDefinition,
-  BillingCodeOption,
-  BillingProviderOption,
-  BillingRulesResponse,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
-  chooseJson,
-  ClaimDetailResponse,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
-  CreatedClaimResponse,
-  CreatedResourceResponse,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
-  DeletedResponse,
   DeleteServiceFacilityInputSchema,
-  EraDetailResponse,
+  ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
-  ExportClaimX12Response,
+  GetBillingClaimsExportStatusInputSchema,
+  GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
-  GetBillingPatientBalanceResponse,
   GetBillingProviderInputSchema,
-  GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
-  GetClaimHistoryResponse,
   GetEraDetailInputSchema,
   GetPatientCoveragesInputSchema,
-  GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
-  OkResponse,
-  PatientDetailResponse,
   RecordBillingManualPaymentInputSchema,
-  RecordBillingManualPaymentResponse,
-  RunBillingRulesEngineInputSchema,
-  RunBillingRulesEngineResponse,
-  SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
-  SavedResourceResponse,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
-  SearchBillingClaimsResponse,
-  SearchBillingErasResponse,
   SearchBillingLocationsInputSchema,
-  SearchBillingLocationsResponse,
   SearchBillingPatientARClaimsInputSchema,
-  SearchBillingPatientARClaimsResponse,
   SearchBillingPatientsInputSchema,
-  SearchBillingPatientsResponse,
   SearchBillingPayersInputSchema,
-  SearchBillingPayersResponse,
   SearchBillingProvidersInputSchema,
-  SearchBillingProvidersResponse,
   SearchBillingServicesInputSchema,
-  SearchBillingServicesResponse,
-  SearchBillingTagsResponse,
   SearchChargeItemDefinitionsInputSchema,
-  SearchChargeItemDefinitionsResponse,
-  SearchCodeResponse,
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
-  SearchServiceFacilitiesResponse,
-  ServiceFacilityItem,
   TagBillingClaimInputSchema,
   UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
@@ -80,7 +48,48 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingChargeItemDefinition,
+  BillingClaimsExportKickOffResponse,
+  BillingClaimsExportStatusResponse,
+  BillingCodeOption,
+  BillingProviderOption,
+  ClaimDetailResponse,
+  CreatedClaimResponse,
+  CreatedResourceResponse,
+  DeletedResponse,
+  EraDetailResponse,
+  ExportClaimX12Response,
+  GetBillingCoverageResponse,
+  GetBillingPatientBalanceResponse,
+  GetPatientCoveragesResponse,
+  OkResponse,
+  PatientDetailResponse,
+  RecordBillingManualPaymentResponse,
+  SavedResourceResponse,
+  SearchBillingClaimsResponse,
+  SearchBillingErasResponse,
+  SearchBillingLocationsResponse,
+  SearchBillingPatientARClaimsResponse,
+  SearchBillingPatientsResponse,
+  SearchBillingPayersResponse,
+  SearchBillingProvidersResponse,
+  SearchBillingServicesResponse,
+  SearchBillingTagsResponse,
+  SearchChargeItemDefinitionsResponse,
+  SearchCodeResponse,
+  SearchServiceFacilitiesResponse,
+  ServiceFacilityItem,
+} from 'utils/lib/types/data/billing/billing.types';
+import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
+import {
+  BillingRulesResponse,
+  GetBillingRulesInputSchema,
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+  SaveBillingRulesInputSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import z from 'zod';
 
 async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?: Record<string, unknown>): Promise<T> {
@@ -145,6 +154,16 @@ export const searchBillingClaims = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
+
+export const exportBillingClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportBillingClaimsInputSchema>
+): Promise<BillingClaimsExportKickOffResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
+
+export const getBillingClaimsExportStatus = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingClaimsExportStatusInputSchema>
+): Promise<BillingClaimsExportStatusResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
 
 export const searchBillingPatientARClaims = (
   oystehr: Oystehr,
@@ -246,6 +265,11 @@ export const updateBillingCoverage = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateBillingCoverageInputSchema>
 ): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-coverage', parameters);
+
+export const getBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingCoverageInputSchema>
+): Promise<GetBillingCoverageResponse> => executeBillingZambda(oystehr, 'get-billing-coverage', parameters);
 
 export const deleteBillingCoverage = (
   oystehr: Oystehr,

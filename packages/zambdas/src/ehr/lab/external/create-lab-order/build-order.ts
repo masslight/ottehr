@@ -19,35 +19,38 @@ import {
   SpecimenDefinition,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { flattenBundleResources } from 'utils/lib/fhir/helpers';
 import {
-  CreateLabPaymentMethod,
   createOrderNumber,
-  DiagnosisDTO,
-  EXTERNAL_LAB_ERROR,
-  EXTERNAL_LAB_ERROR_MISSING_WC_INFO,
-  flattenBundleResources,
   getOrderNumber,
   isExternalLabServiceRequest,
   isPSCOrder,
+  paymentMethodFromCoverage,
+  serviceRequestPaymentMethod,
+} from 'utils/lib/helpers/labs/helpers';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_ORG_TYPE_CODING,
-  LabPaymentMethod,
-  ModifiedOrderingLocation,
   ORDER_NUMBER_LEN,
-  OrderableItemSearchResult,
-  OrderableItemSpecimen,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  paymentMethodFromCoverage,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
-  serviceRequestPaymentMethod,
   SPECIMEN_CODING_CONFIG,
   STATIC_COMPENDIUM_LAB_GUID,
   WORKERS_COMP_SERVICE_REQUEST_CATEGORY,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
+  LabPaymentMethod,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+  OrderableItemSpecimen,
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR, EXTERNAL_LAB_ERROR_MISSING_WC_INFO } from 'utils/lib/types/errors';
 import { isOtherInsurance } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
@@ -56,6 +59,7 @@ import {
   formatClinicalInfoNoteCommunication,
   formatPreSubmissionTaskConfig,
   formatServiceRequestConfig,
+  getCptCodingFromOrderableItem,
   GetCreateOrderResourcesInput,
   GetCreateOrderResourcesReturn,
   groupTestsByKey,
@@ -381,6 +385,7 @@ const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchRes
           code: orderableItem.item.itemCode,
           display: orderableItem.item.itemName,
         },
+        ...(orderableItem.item.cptCodes.length ? getCptCodingFromOrderableItem(orderableItem) : []),
       ],
     },
     publisher: orderableItem.lab.labName,

@@ -1,5 +1,7 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { toVitalOxygenSatObservationMethod, VitalFieldNames, VitalsOxygenSatObservationDTO } from 'utils';
+import { toVitalOxygenSatObservationMethod } from 'utils/lib/fhir/vitals';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsOxygenSatObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { OxygenSatLocalState } from '../types';
 import { textToOxygenSatNumber } from './helpers';
 

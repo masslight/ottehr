@@ -9,25 +9,23 @@ import {
   Practitioner,
   ServiceRequest,
 } from 'fhir/r4b';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getTestItemCodeFromDr, getTestNameOrCodeFromDr } from 'utils/lib/helpers/labs/helpers';
+import { DR_CONTAINED_PRACTITIONER_REF, LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import {
-  compareDates,
   DiagnosticReportLabDetailPageDTO,
-  DR_CONTAINED_PRACTITIONER_REF,
-  getFullestAvailableName,
-  getTestItemCodeFromDr,
-  getTestNameOrCodeFromDr,
   GetUnsolicitedResultsDetailOutput,
   GetUnsolicitedResultsIconStatusOutput,
   GetUnsolicitedResultsMatchDataOutput,
   GetUnsolicitedResultsPatientListOutput,
   GetUnsolicitedResultsRelatedRequestsOutput,
   GetUnsolicitedResultsTasksOutput,
-  LAB_ORDER_TASK,
   UnsolicitedLabDTO,
   UnsolicitedLabListPageDTO,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import { getContainedPatientFromDiagnosticReport } from '../../shared/helpers';
 import {
   AllResources,

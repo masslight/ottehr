@@ -1,21 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HL7_HCPCS,
-  CODE_SYSTEM_NDC,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as createPerformEffect } from '../../src/ehr/configuration/in-house-medications/create-in-house-medication/index';
 import { validateRequestParameters as createValidate } from '../../src/ehr/configuration/in-house-medications/create-in-house-medication/validateRequestParameters';
 import { performEffect as updatePerformEffect } from '../../src/ehr/configuration/in-house-medications/update-in-house-medication/index';
 import { validateRequestParameters } from '../../src/ehr/configuration/in-house-medications/update-in-house-medication/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds

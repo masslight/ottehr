@@ -1,6 +1,5 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, Coverage, FhirResource, ProvenanceAgent } from 'fhir/r4b';
-import { CANDID_PLAN_TYPE_SYSTEM, EXTENSION_CLAIM_INSURANCE_TYPE, getPayerUrl } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
@@ -124,46 +123,6 @@ describe('update-billing-claim performEffect', () => {
     };
   };
 
-  it('mirrors the plan type onto the focal coverage extension and type', async () => {
-    const { oystehr, transaction } = makeOystehr();
-
-    await performEffect(
-      oystehr,
-      {
-        resourceType: 'Claim',
-        resourceId: CLAIM_ID,
-        claimId: CLAIM_ID,
-        fields: {
-          planType: '12',
-        },
-        secrets: {},
-      },
-      agent
-    );
-
-    const writtenCoverage = writtenResources(transaction).find((r) => r.resourceType === 'Coverage');
-    expect(writtenCoverage).toEqual(
-      expect.objectContaining({
-        resourceType: 'Coverage',
-        id: 'cov-1',
-        extension: expect.arrayContaining([
-          {
-            url: EXTENSION_CLAIM_INSURANCE_TYPE,
-            valueString: '12',
-          },
-        ]),
-        type: expect.objectContaining({
-          coding: expect.arrayContaining([
-            {
-              system: CANDID_PLAN_TYPE_SYSTEM,
-              code: '12',
-            },
-          ]),
-        }),
-      })
-    );
-  });
-
   it('applies payer and plan type to the focal coverage in a single fetch and write', async () => {
     const { oystehr, search, transaction } = makeOystehr();
 
@@ -182,34 +141,10 @@ describe('update-billing-claim performEffect', () => {
       agent
     );
 
-    // Focal coverage is read once and written once, carrying both the payer and the plan type.
-    expect(search).toHaveBeenCalledTimes(2);
+    // Focal coverage is not mutated by update claim
+    expect(search).toHaveBeenCalledTimes(1);
     const coverageWrites = writtenResources(transaction).filter((r) => r.resourceType === 'Coverage');
-    expect(coverageWrites).toHaveLength(1);
-    expect(coverageWrites[0]).toEqual(
-      expect.objectContaining({
-        id: 'cov-1',
-        payor: [
-          expect.objectContaining({
-            reference: getPayerUrl('PAYER1'),
-          }),
-        ],
-        extension: expect.arrayContaining([
-          {
-            url: EXTENSION_CLAIM_INSURANCE_TYPE,
-            valueString: '12',
-          },
-        ]),
-        type: expect.objectContaining({
-          coding: expect.arrayContaining([
-            {
-              system: CANDID_PLAN_TYPE_SYSTEM,
-              code: '12',
-            },
-          ]),
-        }),
-      })
-    );
+    expect(coverageWrites).toHaveLength(0);
   });
 
   it('does not touch any coverage when no insurance type is provided', async () => {

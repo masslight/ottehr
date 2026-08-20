@@ -1,6 +1,8 @@
-import { DeleteApprovedPatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { DeleteApprovedPatientEducationInput } from 'utils/lib/types/api/approved-patient-education.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const deleteApprovedPatientEducationInputSchema: z.ZodType<DeleteApprovedPatientEducationInput> = z.object({
   documentReferenceId: z.string().min(1, 'documentReferenceId is required'),

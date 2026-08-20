@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { patientScreeningQuestionsConfig } from '../../ottehr-config/screening-questions';
-import { Field } from '../../types/data/screening-questions';
+import { Field } from '../../types/data/screening-questions/types';
 
 /**
  * Format field value for display based on field configuration

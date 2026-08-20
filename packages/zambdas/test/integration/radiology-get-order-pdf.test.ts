@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, DomainResource, Observation, ServiceRequest } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   GetRadiologyOrderPdfZambdaOutput,
-  M2MClientMockType,
-} from 'utils';
+} from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE } from '../../src/shared/pdf/radiology-order-form-pdf';
 import {
   InsertFullAppointmentDataBaseResult,
@@ -149,8 +149,10 @@ describe('radiology get-order-pdf integration tests', () => {
     await oystehrTestUserM2M.zambda.execute({
       id: 'RADIOLOGY-UPDATE-ORDER',
       serviceRequestId: orderOutput.serviceRequestId,
-      consentObtained: false,
-      edit: { ...editableFields, clinicalHistory: 'Took a second arrow to the knee' },
+      update: {
+        type: 'content',
+        order: { ...editableFields, clinicalHistory: 'Took a second arrow to the knee' },
+      },
     });
 
     const afterEditOutput = (

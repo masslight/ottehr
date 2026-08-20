@@ -1,10 +1,12 @@
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
-  AllergyInteraction,
+  CODE_SYSTEM_ACT_CODE_V3,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HL7_HCPCS,
+  CODE_SYSTEM_NDC,
+} from '../helpers/rcm/constants';
+import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-  DrugInteraction,
-  ExtendedMedicationDataForResponse,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   ISSUE_TYPE_CODE_SYSTEM,
@@ -16,6 +18,15 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
+  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
+} from '../types/api/medication-administration.constants';
+import {
+  AllergyInteraction,
+  DrugInteraction,
+  ExtendedMedicationDataForResponse,
   MedicationApplianceLocation,
   medicationApplianceLocations,
   MedicationApplianceRoute,
@@ -23,12 +34,8 @@ import {
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
-  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_MEDICATION_CODE,
-  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
   UpdateMedicationOrderInput,
-} from '../types';
+} from '../types/api/medication-administration.types';
 import { getCoding } from './helpers';
 
 // Local const so that DEPRECATED system doesn't get imported from utils

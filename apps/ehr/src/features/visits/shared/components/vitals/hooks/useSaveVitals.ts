@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { autoAddVisionCptCodes } from './visionCptAutoAdd';

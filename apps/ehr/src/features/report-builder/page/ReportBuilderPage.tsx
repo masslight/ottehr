@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AdHocDateRangeFilter } from 'utils';
+import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import PageContainer from '../../../layout/PageContainer';
 import { AD_HOC_DATASETS } from '../datasets/registry';
 import { ReportFrame } from '../sandbox/ReportFrame';
@@ -150,12 +150,6 @@ export default function ReportBuilderPage(): React.ReactElement {
           {rb.error && (
             <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
               <Typography color="error">{rb.error}</Typography>
-            </Box>
-          )}
-
-          {rb.partialWarning && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-              <Typography variant="body2">{rb.partialWarning}</Typography>
             </Box>
           )}
 

@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { BillingProviderOption } from 'utils';
+import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingProviders } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useProviderOptionsSearch } from '../hooks/useOptionSearch';
@@ -97,7 +97,6 @@ function useProviderSearch(
         })
         .catch(() => undefined);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, known, oystehrZambda, providerRole]);
 
   return { options, known, search };

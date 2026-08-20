@@ -1,5 +1,9 @@
-import { CPTCodeDTO, isValidUUID, LateralityValue, Pagination, Task } from 'utils';
 import { z } from 'zod';
+import { LateralityValue } from '../../../fhir/radiology';
+import { isValidUUID } from '../../../validation/helper';
+import { Pagination } from '../../data/pagination.types';
+import { Task } from '../../data/tasks/types';
+import { CPTCodeDTO } from '../chart-data/chart-data.types';
 
 /** Patient-safety flags surfaced on an external radiology order. Form-only — never derived from chart data. */
 export const RADIOLOGY_SAFETY_FLAGS = ['implants', 'metal', 'pacemaker', 'pregnancy', 'contrast-allergy'] as const;
@@ -161,6 +165,11 @@ export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
   providerName: string;
   /** Practitioner id of the ordering provider (`providerName`); used to populate the "Performed by" options. */
   providerId: string;
+  /**
+   * Whether the caller may correct the final read. Decided by the order list rather than the client so the
+   * rule lives in one place; `radiology-update-report` enforces the same one on save.
+   */
+  canEditFinalReport: boolean;
   status: RadiologyOrderStatus;
   isStat: boolean;
   history?: RadiologyOrderHistoryRow[];
@@ -200,6 +209,27 @@ export type SavePreliminaryRadiologyReportZambdaInput = z.infer<typeof SavePreli
 
 export type SaveRadiologyReportZambdaOutput = Record<string, never>;
 
+/** Which of an order's two reads is meant. */
+export const RADIOLOGY_REPORT_TYPES = ['preliminary', 'final'] as const;
+export type RadiologyReportType = (typeof RADIOLOGY_REPORT_TYPES)[number];
+
+/**
+ * Corrects an already-saved read in place: the DiagnosticReport keeps its status and its place in the
+ * order's lifecycle, only the text changes. The caller names which read it meant rather than letting the
+ * zambda infer it, so an edit typed against the preliminary read can't land on a final read that arrived
+ * from teleradiology while the field was open.
+ */
+export const UpdateRadiologyReportZambdaInputSchema = z.object({
+  serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
+  report: z.string().min(1, 'report is required and must be a string'),
+  reportType: z.enum(RADIOLOGY_REPORT_TYPES, {
+    errorMap: () => ({ message: "reportType is required and must be 'preliminary' or 'final'" }),
+  }),
+});
+export type UpdateRadiologyReportZambdaInput = z.infer<typeof UpdateRadiologyReportZambdaInputSchema>;
+
+export type UpdateRadiologyReportZambdaOutput = Record<string, never>;
+
 export const SendForFinalReadZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
 });
@@ -207,14 +237,29 @@ export type SendForFinalReadZambdaInput = z.infer<typeof SendForFinalReadZambdaI
 
 export type SendForFinalReadZambdaOutput = Record<string, never>;
 
+/**
+ * Changes to a placed order, one mode per kind of change rather than a bag of optional fields — the modes
+ * carry opposite guards (a content rewrite is for external orders only, recording the performer is for
+ * in-house orders only), and a union keeps each contract exact instead of letting a missing field decide.
+ */
 export const UpdateRadiologyOrderZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required'),
-  consentObtained: z.boolean(),
-  /**
-   * When present, the order's editable content is fully rebuilt from this payload (external orders).
-   * When absent, only the consentObtained flag is patched (in-house consent toggle).
-   */
-  edit: CreateRadiologyZambdaOrderInputSchema.omit({ encounterId: true }).optional(),
+  update: z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('consent'),
+      consentObtained: z.boolean(),
+    }),
+    z.object({
+      type: z.literal('performed-by'),
+      /** Only the Practitioner id travels; the zambda resolves the display name. */
+      performedById: z.string().min(1, 'performedById is required and must be a string'),
+    }),
+    z.object({
+      type: z.literal('content'),
+      /** The order's editable content, rebuilt wholesale. External orders only. */
+      order: CreateRadiologyZambdaOrderInputSchema.omit({ encounterId: true }),
+    }),
+  ]),
 });
 export type UpdateRadiologyOrderZambdaInput = z.infer<typeof UpdateRadiologyOrderZambdaInputSchema>;
 

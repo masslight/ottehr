@@ -54,7 +54,14 @@ vi.mock('../../src/layout/PageContainer', () => ({
 
 const mockGetPresignedURL = vi.fn();
 
-vi.mock('utils', () => ({
+// Split per declaring module: InboundFaxMatch reaches these directly, not through the barrel.
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getPresignedURL: (...args: unknown[]) => mockGetPresignedURL(...args),
+}));
+
+vi.mock('utils/lib/types/data/tasks/types', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   FAX_TASK: {
     category: 'inbound-fax',
     system: 'inbound-fax-task',
@@ -67,7 +74,6 @@ vi.mock('utils', () => ({
       receivedDate: 'received-date',
     },
   },
-  getPresignedURL: (...args: unknown[]) => mockGetPresignedURL(...args),
   // The folder-List builders and synthetic-id helpers are intentionally absent: resolving and
   // creating folder Lists is the file-inbound-fax zambda's job, so this page never touches them.
 }));

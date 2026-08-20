@@ -2,42 +2,48 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
+import {
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
+  SERVICE_CATEGORY_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS, FollowupSubtype } from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { Secrets } from 'utils/lib/secrets';
+import { AppointmentTypeOptions, AppointmentTypeSchema } from 'utils/lib/types/api/appointment.types';
 import {
   AppointmentHistoryRow,
-  appointmentTypeForAppointment,
-  AppointmentTypeOptions,
-  AppointmentTypeSchema,
-  FHIR_RESOURCE_NOT_FOUND,
-  FOLLOWUP_SUBTYPE_SYSTEM,
-  FOLLOWUP_SYSTEMS,
-  FollowupSubtype,
   FollowUpVisitHistoryRow,
-  getAttendingPractitionerId,
-  getCoding,
-  getFirstName,
-  getInPersonVisitStatus,
-  getLastName,
   GetPatientVisitListInput,
-  getReasonForVisitFromAppointment,
-  getTelemedLength,
-  getVisitStatusHistory,
-  getVisitTotalTime,
+  PatientVisitListResponse,
+} from 'utils/lib/types/api/patient-visit-history.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
-  isTelemedAppointment,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  PatientVisitListResponse,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import {
+  getInPersonVisitStatus,
+  getTelemedLength,
+  getVisitStatusHistory,
+  getVisitTotalTime,
+} from 'utils/lib/utils/visitUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { z } from 'zod';
-import { createClinicalOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -227,9 +233,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
           .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
       : undefined;
 
-    let timezone = TIMEZONES[0]; // default timezone
-    if (slot && slot.start) {
-      // we can just grab the tz from the slot rather than getting the schedule resource
+    // Location owns the actual IANA zone (and therefore DST abbreviations such as ET/EDT). A Slot
+    // only preserves the offset, so retain that as a legacy fallback for Locations without a zone.
+    const locationTimezone = getLocationTimezone(location);
+    let timezone = locationTimezone ?? TIMEZONES[0];
+    if (!locationTimezone && slot?.start) {
       const slotDateTime = DateTime.fromISO(slot.start, { setZone: true });
       if (slotDateTime.isValid) {
         timezone = slotDateTime.zoneName;
@@ -258,6 +266,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
       visitReason: getReasonForVisitFromAppointment(appointment),
       office: location?.name,
       dateTime,
+      timezone: locationTimezone,
       provider,
       encounterId: encounter?.id,
       sendInvoiceTask,
@@ -457,6 +466,7 @@ const followUpVisitHistoryRowFromEncounter = (
   return {
     encounterId: encounter.id,
     dateTime: encounter.period?.start || ownAppointment?.start,
+    timezone: getLocationTimezone(location),
     type: followUpType,
     serviceCategory,
     visitReason: encounter.reasonCode?.[0]?.text || ownAppointment?.description,
@@ -469,6 +479,9 @@ const followUpVisitHistoryRowFromEncounter = (
     appointmentId: ownAppointmentId,
   };
 };
+
+const getLocationTimezone = (location: Location | undefined): string | undefined =>
+  location?.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
 const getProviderFromEncounter = (
   encounter: Encounter | undefined,

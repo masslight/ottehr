@@ -5,12 +5,14 @@ type StatelessExamCheckboxProps = {
   label?: string;
   abnormal?: boolean;
   checked?: boolean;
+  indeterminate?: boolean;
   onChange?: (value: boolean) => void;
   disabled?: boolean;
+  dataTestId?: string;
 };
 
 export const StatelessExamCheckbox: FC<StatelessExamCheckboxProps> = (props) => {
-  const { label, abnormal, checked, onChange, disabled } = props;
+  const { label, abnormal, checked, indeterminate, onChange, disabled, dataTestId } = props;
   const theme = useTheme();
   const labelRef = useRef<HTMLLabelElement>(null);
   const [isMultiline, setIsMultiline] = useState(false);
@@ -30,13 +32,15 @@ export const StatelessExamCheckbox: FC<StatelessExamCheckboxProps> = (props) => 
         <Checkbox
           size="small"
           disabled={disabled}
+          data-testid={dataTestId}
           sx={{
-            '&.Mui-checked': {
+            '&.Mui-checked, &.MuiCheckbox-indeterminate': {
               color: disabled ? undefined : abnormal ? theme.palette.error.main : theme.palette.success.main,
             },
             p: 0.5,
           }}
           checked={checked}
+          indeterminate={indeterminate}
           onChange={(e) => onChange && onChange(e.target.checked)}
         />
       }

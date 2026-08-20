@@ -3,8 +3,8 @@ import { Box, capitalize, Skeleton, Typography } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { formatDOB } from 'utils';
 import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
+import { formatDOB } from 'utils/lib/utils/dateUtils';
 import { getExtensionValue } from '../../../stores/appointment/parser/extractors';
 
 type Props = {

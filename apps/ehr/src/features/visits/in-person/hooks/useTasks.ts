@@ -6,27 +6,29 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  chooseJson,
-  CreateManualTaskRequest,
-  ERX_TASK,
-  FAX_TASK,
-  getCoding,
-  getExtension,
-  IN_HOUSE_LAB_TASK,
-  isFollowupEncounter,
-  LAB_ORDER_TASK,
-  LabType,
-  MANUAL_TASK,
-  PROVIDER_NOTIFICATION_TAG_SYSTEM,
-  RADIOLOGY_TASK,
-  Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
-  TaskAlertCode,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import {
+  CreateManualTaskRequest,
+  ERX_TASK,
+  FAX_TASK,
+  MANUAL_TASK,
+  RADIOLOGY_TASK,
+  Task,
+  TaskAlertCode,
+} from 'utils/lib/types/data/tasks/types';
+import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
@@ -74,6 +76,12 @@ export interface UnassignTaskRequest {
 
 export interface CompleteTaskRequest {
   taskId: string;
+  /**
+   * Records who completed the task, for callers whose history shows the completer (radiology dates its
+   * "reviewed" row from `Task.owner`). Replaces any existing owner, so pass it only when completing *is*
+   * the act being attributed; omit it to leave an assignment untouched.
+   */
+  owner?: FhirTask['owner'];
 }
 
 export interface TaskSearchStream {
@@ -421,6 +429,7 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
             path: '/status',
             value: 'completed',
           },
+          ...(input.owner ? [{ op: 'add' as const, path: '/owner', value: input.owner }] : []),
         ],
       });
     },
@@ -669,13 +678,15 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
   }
   if (category === FAX_TASK.category) {
     const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
-    const senderFaxNumber = getInputString(FAX_TASK.input.senderFaxNumber, task);
-    const pageCount = getInputString(FAX_TASK.input.pageCount, task);
     const receivedDate = getInputString(FAX_TASK.input.receivedDate, task);
     const communicationId = getInputString(FAX_TASK.input.communicationId, task);
 
     if (code === FAX_TASK.code.matchInboundFax) {
-      title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
+      // The fax subscription already wrote this sentence into the Task's description (`faxTaskTitle`), and
+      // the notification bell shows the same string — re-deriving it from the inputs here is how the three
+      // wordings drift apart. The fallback only covers a fax task written by something other than that
+      // subscription: a generic label beats a blank row in the queue, and it stays a single wording.
+      title = task.description || 'Inbound fax';
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       if (communicationId) {
         // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
@@ -683,7 +694,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
         const isActioned = task.status === 'completed' || task.status === 'cancelled';
         action = {
           name: isActioned ? VIEW_FAX : 'Match',
-          link: `/inbound-fax/${communicationId}/match`,
+          link: inboundFaxMatchPath(communicationId),
         };
       }
     }

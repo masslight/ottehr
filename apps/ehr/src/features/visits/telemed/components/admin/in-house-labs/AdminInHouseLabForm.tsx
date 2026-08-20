@@ -16,8 +16,9 @@ import {
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { AdminInHouseLabItemDefinition, APIError } from 'utils';
-import { AdminInHouseLabItemDefinitionSchema } from 'utils';
+import { AdminInHouseLabItemDefinitionSchema } from 'utils/lib/types/data/in-house/in-house.schema';
+import { AdminInHouseLabItemDefinition } from 'utils/lib/types/data/in-house/in-house.types';
+import { APIError } from 'utils/lib/types/errors';
 import CPTCodeList from './components/CPTCodeList';
 import TestComponentList from './components/TestComponentList';
 

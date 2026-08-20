@@ -10,17 +10,13 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import {
-  diffInMinutes,
-  getInPersonVisitStatus,
-  getQuestionnaireResponseByLinkId,
-  getSelectors,
-  getVirtualServiceResourceExtension,
-  getVisitStatusHistory,
-  INTERPRETER_PHONE_NUMBER,
-  TELEMED_VIDEO_ROOM_CODE,
-  VisitStatusHistoryEntry,
-} from 'utils';
+import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
+import { diffInMinutes } from 'utils/lib/helpers/helpers';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { getSelectors } from 'utils/lib/store';
+import { VisitStatusHistoryEntry } from 'utils/lib/types/api/appointment.types';
+import { INTERPRETER_PHONE_NUMBER, TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
+import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { useGetMeetingData } from '../../shared/stores/appointment/appointment.queries';
 import { useInitTelemedSessionMutation } from '../../shared/stores/tracking-board/tracking-board.queries';

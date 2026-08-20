@@ -1,16 +1,20 @@
 import { Practitioner } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
-  getAllNotificationRows,
-  getUiTaskCategoryForCode,
-  normalizeNotificationPreferencesV2,
-  notificationRowMatchesLocation,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
+} from '../types/api/practitioner.types';
+import {
+  getAllNotificationRows,
+  getUiTaskCategoryForCode,
+  normalizeNotificationPreferencesV2,
+  notificationRowMatchesLocation,
+  taskCategoryHasNoLocation,
   UI_TASK_CATEGORY_IDS,
-} from '../types';
+  UNLOCATED_TASK_CATEGORIES,
+} from '../types/api/provider-notifications';
 import { getProviderNotificationPreferencesV2 } from './patient';
 
 describe('getUiTaskCategoryForCode', () => {
@@ -80,6 +84,46 @@ describe('normalizeNotificationPreferencesV2', () => {
     });
     expect(normalized.waitingRoom.allLocations).toBe(false);
     expect(normalized.waitingRoom.locationIds).toEqual(['loc-1']);
+  });
+
+  // A stored selection like this silently muted the category outright: fax Tasks carry no location, so the
+  // row matched no task at all. Repairing it on read is what un-mutes anyone already in that state.
+  it('drops a stored location selection on a category whose tasks have no location', () => {
+    const normalized = normalizeNotificationPreferencesV2({
+      taskCategories: { inboundFax: { enabled: true, allLocations: false, locationIds: ['loc-1'] } } as any,
+    });
+    expect(normalized.taskCategories.inboundFax.allLocations).toBe(true);
+    expect(normalized.taskCategories.inboundFax.locationIds).toEqual([]);
+    // Only the filter is dropped — the rest of the row is the staffer's own choice and must survive.
+    expect(normalized.taskCategories.inboundFax.enabled).toBe(true);
+  });
+
+  it('leaves location filters on categories that do have locations alone', () => {
+    const normalized = normalizeNotificationPreferencesV2({
+      taskCategories: {
+        // eRX folds location-less DoseSpot tasks and always-located manual eRX tasks into one row, so its
+        // filter still does real work and must not be pinned.
+        erx: { enabled: true, allLocations: false, locationIds: ['loc-1'] },
+        coding: { enabled: true, allLocations: false, locationIds: ['loc-2'] },
+      } as any,
+    });
+    expect(normalized.taskCategories.erx.locationIds).toEqual(['loc-1']);
+    expect(normalized.taskCategories.coding.locationIds).toEqual(['loc-2']);
+  });
+});
+
+describe('taskCategoryHasNoLocation', () => {
+  it('covers inbound fax and nothing else', () => {
+    expect(UNLOCATED_TASK_CATEGORIES).toEqual(['inboundFax']);
+    expect(taskCategoryHasNoLocation('inboundFax')).toBe(true);
+    expect(taskCategoryHasNoLocation('erx')).toBe(false);
+    expect(taskCategoryHasNoLocation('externalLab')).toBe(false);
+  });
+
+  it('names only real categories', () => {
+    for (const id of UNLOCATED_TASK_CATEGORIES) {
+      expect(UI_TASK_CATEGORY_IDS).toContain(id);
+    }
   });
 });
 

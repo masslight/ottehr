@@ -1,6 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
-import { getPresignedURL, SchoolWorkNoteExcuseDocFileDTO } from 'utils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { SchoolWorkNoteExcuseDocFileDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 type SchoolWorkNoteExcuseDocFilePresigned = SchoolWorkNoteExcuseDocFileDTO & { presignedUrl?: string };
 

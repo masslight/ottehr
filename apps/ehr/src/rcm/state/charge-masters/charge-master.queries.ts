@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ChargeMasterDesignation } from 'utils';
+import { ChargeMasterDesignation } from 'utils/lib/fhir/constants';
 import {
   cmAddProcedureCode,
   CmAddProcedureCodeInput,

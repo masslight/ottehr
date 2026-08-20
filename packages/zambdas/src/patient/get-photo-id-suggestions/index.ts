@@ -1,14 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BUCKET_NAMES,
-  getAppointmentResourceById,
-  GetPhotoIdSuggestionsResponse,
-} from 'utils';
+import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { GetPhotoIdSuggestionsResponse } from 'utils/lib/types/api/get-photo-id-suggestions.types';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { downloadOcrSourceImage } from '../../ehr/card-extraction-shared/extraction-helpers';
 import { extractPhotoIdFieldsFromImage } from '../../ehr/extract-photo-id/helpers';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
-import { assertOwnedZ3Url } from '../card-suggestions-shared';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { assertOwnedZ3Url } from '../card-suggestions-shared/assert-owned-z3-url';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-photo-id-suggestions';

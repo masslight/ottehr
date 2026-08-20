@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { createBillingPatient } from '../api/api';
 import { emptyPatientForm, PatientForm, patientToCreateInput } from '../constants/patient';
 import { useApiClients } from '../hooks/useAppClients';

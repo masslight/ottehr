@@ -19,18 +19,17 @@ import {
 import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
-  ChartDataRequestedFields,
-  createUserResourcesForPatient,
-  flattenBundleResources,
-  flattenQuestionnaireAnswers,
-  getCoding,
   PARTICIPATION_CODE_SYSTEM,
-  PATIENT_FOLDERS_CODE,
-  PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
-  Secrets,
-} from 'utils';
-import { getStripeClient } from '../../shared';
+} from 'utils/lib/fhir/constants';
+import { flattenBundleResources, getCoding } from 'utils/lib/fhir/helpers';
+import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
+import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { Secrets } from 'utils/lib/secrets';
+import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { getStripeClient } from '../../shared/stripeIntegration';
 import { getChartData } from '../get-chart-data';
 import {
   accountMatchesType,

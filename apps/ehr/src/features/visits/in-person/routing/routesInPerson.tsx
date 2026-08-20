@@ -41,6 +41,7 @@ import ProceduresNew from '../pages/ProceduresNew';
 import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
+import { VisitDocuments } from '../pages/VisitDocuments';
 
 export enum ROUTER_PATH {
   CC_AND_INTAKE_NOTES = 'cc-and-intake-notes',
@@ -62,6 +63,7 @@ export enum ROUTER_PATH {
   EXAMINATION = 'examination',
   PLAN = 'plan',
   ERX = 'erx',
+  DOCUMENTS = 'documents',
   OTTEHR_AI = 'ottehr-ai',
 
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
@@ -435,6 +437,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ERXPage />,
     text: 'eRX',
     iconKey: 'eRX',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.DOCUMENTS]: {
+    path: ROUTER_PATH.DOCUMENTS,
+    modes: ['main', 'readonly', 'follow-up'],
+    element: <VisitDocuments />,
+    text: 'Documents',
+    iconKey: 'Documents',
     groupLabel: 'Provider',
   },
   [ROUTER_PATH.REVIEW_AND_SIGN]: {

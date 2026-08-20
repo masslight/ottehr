@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { ExtendedMedicationDataForResponse, GetChartDataResponse, ProcedureDTO } from 'utils';
+import { ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProgressNoteDetails } from '../../src/features/visits/in-person/components/progress-note/ProgressNoteDetails';
 

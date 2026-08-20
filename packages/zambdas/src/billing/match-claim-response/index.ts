@@ -1,14 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse } from 'fhir/r4b';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
-  getPatchBinary,
   MatchClaimResponseToClaimInput,
   MatchClaimResponseToClaimInputSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils';
-import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { validateJsonBody } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 import { createBillingClient } from '../shared';
 
 let m2mToken: string;
@@ -32,6 +35,9 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
     resourceType: 'Claim',
     id: params.claimId,
   });
+  if (!claim.insurer) {
+    throw INVALID_INPUT_ERROR('Claim has no insurer');
+  }
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,

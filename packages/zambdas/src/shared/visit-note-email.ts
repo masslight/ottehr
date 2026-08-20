@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
-import { InPersonCompletionTemplateData, Secrets, TelemedCompletionTemplateData } from 'utils';
+import { InPersonCompletionTemplateData, TelemedCompletionTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { Secrets } from 'utils/lib/secrets';
 import { getEmailClient, makeAddressUrl } from './communication';
 import {
   completeOutboundDeliveryAttempt,

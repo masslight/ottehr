@@ -19,7 +19,9 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { BOOKING_CONFIG, serviceCategorySupportsContext, SLUG_SYSTEM } from 'utils';
+import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { TestLocationManager } from '../utils/booking/TestLocationManager';
 
 // How many BOOKING_CONFIG entries qualify as in-person + prebook capable

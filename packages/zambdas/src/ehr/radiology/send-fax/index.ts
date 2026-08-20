@@ -5,21 +5,15 @@ import { DateTime } from 'luxon';
 import {
   EMPLOYEE_ID_SYSTEM,
   FAX_SENT_PROVENANCE_ACTIVITY_CODING,
-  getFullestAvailableName,
-  getSecret,
   PARTICIPATION_CODE_SYSTEM,
-  Secrets,
-  SecretsKeys,
-  SendRadiologyOrderFaxZambdaInput,
-  SendRadiologyOrderFaxZambdaOutput,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { SendRadiologyOrderFaxZambdaInput, SendRadiologyOrderFaxZambdaOutput } from 'utils/lib/types/api/radiology';
+import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
 

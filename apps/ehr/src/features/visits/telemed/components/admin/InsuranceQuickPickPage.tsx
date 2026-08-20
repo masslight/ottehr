@@ -34,7 +34,8 @@ import {
 } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { InsuranceQuickPickData, InsuranceQuickPickMetadataEntry, VALUE_SETS } from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { InsuranceQuickPickData, InsuranceQuickPickMetadataEntry } from 'utils/lib/types/api/quick-picks.types';
 import { InsuranceSearchField } from './InsuranceSearchField';
 
 // Mirror the mapping the patient insurance form uses (packages/utils/.../patient-record/index.ts) so

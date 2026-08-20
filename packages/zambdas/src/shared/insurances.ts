@@ -1,5 +1,10 @@
 import { Organization } from 'fhir/r4b';
-import { eligibilityRequirementKeys, getPayerId, InsurancePlanDTO, InsurancePlanRequirementKeyBooleans } from 'utils';
+import { getPayerId } from 'utils/lib/helpers/helpers';
+import {
+  eligibilityRequirementKeys,
+  InsurancePlanDTO,
+  InsurancePlanRequirementKeyBooleans,
+} from 'utils/lib/types/data/telemed/insurances.types';
 
 export const createInsurancePlanDto = (insuranceOrg: Organization): InsurancePlanDTO => {
   const { id, name } = insuranceOrg;

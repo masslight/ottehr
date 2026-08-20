@@ -13,25 +13,26 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
-  chartDataTagSystem,
-  chunkThings,
-  CODE_SYSTEM_ICD_10,
-  DiagnosisDTO,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   ResolvedSectionActions,
-  resourceHasTagSystem,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionKey,
   TemplateWarning,
-} from 'utils';
+} from 'utils/lib/types/data/apply-template.types';
 import { v4 as uuidV4 } from 'uuid';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,
@@ -39,7 +40,11 @@ import {
   isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
-import { applyExternalLabPlans, isExternalLabPlanServiceRequest } from './apply-external-labs';
+import {
+  applyExternalLabPlans,
+  collectExternalLabCptProcedures,
+  isExternalLabPlanServiceRequest,
+} from './apply-external-labs';
 import {
   applyInHouseLabPlans,
   canApplyActivityDefinition,
@@ -208,9 +213,18 @@ const performEffect = async (
 
   // The encounter bundle was already fetched in parallel with the template List search during
   // validation, so we don't re-fetch it here. We still need the latest in-house lab
-  // ActivityDefinitions, which depend on the template List (and short-circuit to an empty array,
-  // with no FHIR call, when the template has no in-house lab plans).
-  const latestInHouseLabAds = await getLatestInHouseLabActivityDefinitionsForTemplatePlan(oystehr, templateList);
+  // ActivityDefinitions and the live compendium items for any external lab plans, both of
+  // which depend on the template List. Run them in parallel.
+  const [latestInHouseLabAds, externalLabCptResult] = await Promise.all([
+    getLatestInHouseLabActivityDefinitionsForTemplatePlan(oystehr, templateList),
+    collectExternalLabCptProcedures(
+      templateList,
+      encounter,
+      actions.externalLabs,
+      m2mToken,
+      validatedInput.externalLabs?.paymentMethod
+    ),
+  ]);
 
   // Kick off in-house lab plan application in parallel with the chart-data
   // batches below - the two are independent (different resources, different
@@ -231,14 +245,14 @@ const performEffect = async (
   // create flow writes its own SR/Task/Provenance graph), so they run in
   // parallel too.
   const externalLabsPromise = applyExternalLabPlans({
-    templateList,
+    parsedPlans: externalLabCptResult.parsedPlans,
+    itemsByLabGuid: externalLabCptResult.itemsByLabGuid,
     encounter,
     encounterResources: encounterBundle,
     userToken: validatedInput.userToken,
     secrets: validatedInput.secrets,
     oystehr,
     m2mToken,
-    action: actions.externalLabs,
     selectedPaymentMethod: validatedInput.externalLabs?.paymentMethod,
   });
 
@@ -250,11 +264,14 @@ const performEffect = async (
     })
   );
 
-  // If an in-house lab plan is being applied AND the CPT Codes section is also
-  // being applied, the lab's create flow will materialize the lab's CPT
-  // Procedures on its own - we need to skip those CPT codes from the template's
-  // separate CPT Codes section so we don't end up with the same Procedure twice.
-  const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions);
+  // Build the CPT dedup set: codes already contributed by labs (in-house or external) that
+  // the template's standalone CPT Codes section must not re-create. In-house lab codes come
+  // from ADs fetched above; external lab codes come from the live compendium fetch above.
+  // Both sets are only relevant when the CPT Codes section is being applied (not 'skip')
+  const cptCodesFromLabsToSkip = new Set([
+    ...collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions),
+    ...(actions.cptCodes !== 'skip' ? externalLabCptResult.cptCodesToSkip : []),
+  ]);
   // Contained-resource ids the procedure section needs (its plans' linked
   // Conditions and CPT Procedures). makeCreateRequests force-creates these
   // even when their owning standalone section is set to 'skip', so the
@@ -338,8 +355,18 @@ const performEffect = async (
     })
   );
 
+  // Build POST requests for CPT Procedures contributed by external lab plans. These land in
+  // the same mini-transaction as the rest of the chart-data resources so they appear on the
+  // chart even when the standalone CPT Codes section is 'skip'.
+  const externalLabCptRequests: BatchInputPostRequest<Procedure>[] = externalLabCptResult.procedures.map((p) => ({
+    method: 'POST',
+    url: 'Procedure',
+    resource: p,
+    fullUrl: `urn:uuid:${uuidV4()}`,
+  }));
+
   const miniTransactionPromise = oystehr.fhir.transaction({
-    requests: [...miniTransactionRequests, ...inHouseMedicationsResult.requests],
+    requests: [...miniTransactionRequests, ...inHouseMedicationsResult.requests, ...externalLabCptRequests],
   });
 
   const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
@@ -351,7 +378,12 @@ const performEffect = async (
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
   return {
-    warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings, ...inHouseMedicationsResult.warnings],
+    warnings: [
+      ...externalLabCptResult.warnings,
+      ...inHouseLabsResult.warnings,
+      ...externalLabsResult.warnings,
+      ...inHouseMedicationsResult.warnings,
+    ],
   };
 };
 

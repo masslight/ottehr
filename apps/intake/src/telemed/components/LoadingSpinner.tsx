@@ -1,7 +1,7 @@
 import { Box, useTheme } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import { FC, useContext } from 'react';
-import { IntakeThemeContext } from '../../contexts';
+import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 
 interface LoadingSpinnerProps {
   transparent?: boolean;

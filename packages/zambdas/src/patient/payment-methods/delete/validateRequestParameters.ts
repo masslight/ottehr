@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { MISSING_REQUEST_BODY, PaymentMethodDeleteParameters, Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
+import { PaymentMethodDeleteParameters } from 'utils/lib/types/data/payment/payment-method-types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { getStripeCustomerId } from '../helpers';
 
 const PaymentMethodDeleteBodySchema = z.object({

@@ -2,17 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter } from 'fhir/r4b';
+import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
+import { getAppointmentMetaTagOpForStatusUpdate } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
-  CONCURRENT_UPDATE_WITH_MESSAGE,
-  getAppointmentMetaTagOpForStatusUpdate,
-  getEncounterStatusHistoryUpdateOp,
-  getPatchBinary,
-  PRACTITIONER_CODINGS,
-  User,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
   VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/types/api/appointment.types';
+import { User } from 'utils/lib/types/api/user.types';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { CONCURRENT_UPDATE_WITH_MESSAGE } from 'utils/lib/types/errors';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const changeInPersonVisitStatusIfPossible = async (

@@ -1,4 +1,4 @@
-import { ChargeItemDefinitionDefault, ChargeItemDefinitionType } from 'utils';
+import { ChargeItemDefinitionDefault, ChargeItemDefinitionType } from 'utils/lib/types/data/billing/billing.types';
 
 export type CIDDefaultInputValue = ChargeItemDefinitionDefault | '';
 

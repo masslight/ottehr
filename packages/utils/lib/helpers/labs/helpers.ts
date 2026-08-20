@@ -11,14 +11,13 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir';
+import { CPT_CODE_SYSTEM } from '../../fhir';
+import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir/patient';
+import { LabSetStatus } from '../../types/data/labs/lab-set.schema';
 import {
-  CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
   DYMO_30334_LABEL_CONFIG,
-  EXTERNAL_LAB_ERROR,
   EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
-  ExternalLabsLabelConfig,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
@@ -27,10 +26,6 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  LabPaymentMethod,
-  LabSetStatus,
-  LabsTableColumn,
-  LabType,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
   OYSTEHR_ABN_DOC_CATEGORY_CODING,
@@ -39,7 +34,15 @@ import {
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
-} from '../../types';
+} from '../../types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
+  ExternalLabsLabelConfig,
+  LabPaymentMethod,
+  LabsTableColumn,
+  LabType,
+} from '../../types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from '../../types/errors';
 import { isInHouseLabServiceRequest } from '../in-house-labs';
 
 export const nameLabTest = (
@@ -223,6 +226,18 @@ export const parseLabInfoFromServiceRequest = (
   );
 
   return getTestDetailsFromActivityDefinition(activityDefinition);
+};
+
+export const labOrderHasCptCodes = (serviceRequest: ServiceRequest): boolean => {
+  // CPT codes land in two places on an external lab SR: directly on SR.code.coding (current behaviour)
+  // and on the contained ActivityDefinition.code.coding. We check both so that historical SRs created
+  // before the ActivityDefinition was introduced are still recognised as having CPT codes.
+  const hasServiceRequestCptCodes = !!serviceRequest.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+  const hasActivityDefinitionCptCodes = !!activityDefinition?.code?.coding?.some((c) => c.system === CPT_CODE_SYSTEM);
+  return hasServiceRequestCptCodes || hasActivityDefinitionCptCodes;
 };
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {

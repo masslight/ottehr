@@ -4,12 +4,12 @@ import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { addContentTypeToAttachment } from 'utils/lib/helpers/paperwork/files-docs';
 import {
-  addContentTypeToAttachment,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
   PHOTO_ID_FRONT_ID,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { convertHeicToJpegIfNeeded } from '../../../../utils/heic';
 import { PaperworkContext } from '../../context';
 import CardDisplay from './CardDisplay';

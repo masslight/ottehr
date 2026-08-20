@@ -2,41 +2,40 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, DocumentReference, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
-  DATETIME_FULL_NO_YEAR,
-  FEATURE_FLAGS_CONFIG,
-  getAddressStringForScheduleResource,
-  getFullestAvailableName,
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
+  getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
-  getPresignedURL,
-  getSecret,
   makeOutboundDeliveryAttempt,
-  OTTEHR_MODULE,
-  OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/outbound-delivery';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import {
   PATIENT_ACTION_LOG_VIEWER_ROLES,
-  removePrefix,
   RetryActionLogInputValidated,
   RetryActionLogOutput,
-  SecretsKeys,
-  VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/api/action-logs.types';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
+import { getEmailClient } from '../../shared/communication';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
-  buildVisitNoteEmailTemplate,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
   createOutboundDeliveryAttemptIdempotently,
-  deliverFaxAttempt,
-  deliverVisitNoteEmailAttempt,
-  getEmailClient,
   requireOutboundDeliveryValue,
-  requireUserWithRole,
-  SendFaxAttemptInput,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from '../../shared/outbound-delivery';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { deliverFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { buildVisitNoteEmailTemplate, deliverVisitNoteEmailAttempt } from '../../shared/visit-note-email';
 import { getNameForOwner } from '../schedules/shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -81,11 +80,9 @@ export async function performEffect(
     removePrefix('Patient/', original.for?.reference ?? ''),
     'patient reference'
   );
-  const appointmentId = requireOutboundDeliveryValue(
-    removePrefix('Appointment/', original.focus?.reference ?? ''),
-    'appointment reference'
-  );
+  const appointmentId = removePrefix('Appointment/', original.focus?.reference ?? '') || undefined;
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
+  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
   const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
@@ -110,6 +107,10 @@ export async function performEffect(
       documentReferenceId,
       userPractitioner,
       recipientName,
+      recipientOrganization: recipient.organization,
+      recipientPhone: recipient.phone,
+      faxPacketPageCount: faxPacket.pageCount,
+      faxPacketParts: faxPacket.parts,
       parentAttemptId: originalId,
       senderId: user.id,
     };
@@ -121,6 +122,10 @@ export async function performEffect(
         appointmentId,
         recipientAddress,
         recipientName,
+        recipientOrganization: recipient.organization,
+        recipientPhone: recipient.phone,
+        faxPacketPageCount: faxPacket.pageCount,
+        faxPacketParts: faxPacket.parts,
         documentReferenceId,
         requesterReference,
         senderOrganizationReference: `Organization/${organizationId}`,
@@ -134,7 +139,8 @@ export async function performEffect(
     retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
-    const visit = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+    const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
+    const visit = await getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
     const visitNoteUrl = await getPresignedURL(media, accessToken);
     const locationName = getNameForOwner(visit.location);
@@ -154,7 +160,7 @@ export async function performEffect(
       oystehr,
       secrets: parameters.secrets,
       patientId,
-      appointmentId,
+      appointmentId: emailAppointmentId,
       recipientEmail: recipientAddress,
       recipientName,
       documentReferenceId,
@@ -168,7 +174,7 @@ export async function performEffect(
       makeOutboundDeliveryAttempt({
         channel,
         patientId,
-        appointmentId,
+        appointmentId: emailAppointmentId,
         recipientAddress,
         recipientName,
         documentReferenceId,
@@ -207,7 +213,7 @@ export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr:
 
 export async function resolveDocumentReference(
   task: Task,
-  appointmentId: string,
+  appointmentId: string | undefined,
   oystehr: Oystehr
 ): Promise<DocumentReference> {
   const storedReference = getOutboundDeliveryRecipientSnapshot(task).documentReferenceId;
@@ -218,11 +224,13 @@ export async function resolveDocumentReference(
     });
   }
 
+  const legacyAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
+
   const resources = (
     await oystehr.fhir.search<Appointment | DocumentReference>({
       resourceType: 'Appointment',
       params: [
-        { name: '_id', value: appointmentId },
+        { name: '_id', value: legacyAppointmentId },
         { name: '_revinclude', value: 'DocumentReference:related' },
       ],
     })

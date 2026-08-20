@@ -1,4 +1,6 @@
-import { ClaimRemitAdjustment, ERA_CLAIM_STATUS_CODE, EraClaimStatusCode, formatCurrency } from 'utils';
+import { ERA_CLAIM_STATUS_CODE, EraClaimStatusCode } from 'utils/lib/types/data/billing/billing.constants';
+import { ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency } from 'utils/lib/utils/convert';
 
 // Human labels for CLP02 claim status codes the ERA can carry.
 export const ERA_STATUS_LABELS: Record<EraClaimStatusCode, string> = {

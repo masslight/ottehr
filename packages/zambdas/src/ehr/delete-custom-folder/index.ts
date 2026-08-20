@@ -3,25 +3,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   CUSTOM_FOLDER_DELETED_FLAG_CODE,
   CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
-  DeleteCustomFolderInputValidated,
-  DeleteCustomFolderOutput,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getSecret,
   isCustomFolderCatalogEntryDeleted,
-  NOT_AUTHORIZED,
   parseCustomFoldersCatalogIncludingDeleted,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  loadCustomFoldersCatalog,
-  requireAdminUser,
-  topLevelCatch,
-  wrapHandler,
-  writeCustomFoldersCatalog,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/fhir/list';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { DeleteCustomFolderInputValidated, DeleteCustomFolderOutput } from 'utils/lib/types/data/custom-folder.types';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, requireAdminUser } from '../../shared/auth';
+import { loadCustomFoldersCatalog, writeCustomFoldersCatalog } from '../../shared/custom-folders';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

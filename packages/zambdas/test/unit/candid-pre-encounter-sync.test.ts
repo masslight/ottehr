@@ -1,4 +1,5 @@
-import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, PaymentVariant, SERVICE_CATEGORY_SYSTEM } from 'utils';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { PaymentVariant } from 'utils/lib/fhir/encounter';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────

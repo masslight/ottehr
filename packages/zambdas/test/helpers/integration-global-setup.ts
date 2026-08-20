@@ -3,10 +3,11 @@ import { randomUUID } from 'crypto';
 import { Patient, Practitioner } from 'fhir/r4b';
 import { Server } from 'http';
 import type { AddressInfo } from 'net';
-import { M2MClientMockType, RoleType } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import type { TestProject } from 'vitest/node';
 import app from '../../src/local-server/index';
-import { getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import { assertNoLeakedResourcesForRun } from './integration-leak-gate';
 import { addRunTagToResource } from './integration-tags';
@@ -91,9 +92,7 @@ async function provisionSharedClient(
         RoleType.Manager,
         RoleType.CustomerSupport,
         'CustomerSupport',
-        RoleType.FrontDesk,
         RoleType.Staff,
-        RoleType.Billing,
       ] as string[];
       const providerRoleIds = roles.filter((r) => providerRoleNames.includes(r.name)).map((r) => r.id);
       if (providerRoleIds.length === 0) throw new Error('No provider/staff roles found for shared M2M client');

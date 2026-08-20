@@ -1,11 +1,11 @@
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, Extension } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
 import {
   INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
   InsuranceCardExtraction,
   InsuranceCardExtractionFields,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/documents';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import {
   assertBooleanClassifier,

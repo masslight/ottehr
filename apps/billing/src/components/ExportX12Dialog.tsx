@@ -16,7 +16,7 @@ import {
   TextField,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { downloadTextFile } from '../utils/downloadTextFile';
 
 interface ExportX12DialogProps {

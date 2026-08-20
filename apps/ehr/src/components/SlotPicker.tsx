@@ -7,7 +7,9 @@ import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { getLocations } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { BOOKING_CONFIG, nextAvailableFrom, ScheduleType, ServiceCategoryCode } from 'utils';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { ScheduleType } from 'utils/lib/types/common';
+import { nextAvailableFrom } from 'utils/lib/utils/scheduleUtils';
 import { Slots } from './Slots';
 interface TabPanelProps {
   children?: ReactNode;

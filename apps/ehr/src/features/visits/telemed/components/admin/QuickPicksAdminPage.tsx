@@ -31,7 +31,7 @@ import {
   MedicationHistoryQuickPickData,
   PatientInstructionQuickPickData,
   QuickTextQuickPickData,
-} from 'utils';
+} from 'utils/lib/types/api/quick-picks.types';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import InsuranceQuickPickPage from './InsuranceQuickPickPage';

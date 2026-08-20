@@ -1,10 +1,12 @@
+import { Secrets } from 'utils/lib/secrets';
 import {
-  MISSING_REQUIRED_PARAMETERS,
   SavePreliminaryRadiologyReportZambdaInput,
   SavePreliminaryRadiologyReportZambdaInputSchema,
-  Secrets,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/radiology';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface ValidatedInput {
   body: SavePreliminaryRadiologyReportZambdaInput;
@@ -45,6 +47,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   } = secrets;
   if (
     !ADVAPACS_CLIENT_ID ||
@@ -67,5 +70,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    // Required by userMe(); see `resolveCallerPractitionerRef` in shared/practitioners.ts.
+    ENVIRONMENT,
   };
 };

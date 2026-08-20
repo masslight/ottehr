@@ -8,7 +8,7 @@ import {
   configAoeSingleChoiceEntryTestId,
   configAoeTextEntryTestId,
 } from 'src/features/external-labs/utils/test-ids';
-import { OrderableItemSpecimen } from 'utils';
+import { OrderableItemSpecimen } from 'utils/lib/types/data/labs/labs.types';
 import { MockLabResultAeoAnswerConfig } from './mock-data';
 
 const detailPgTestIds = dataTestIds.externalLabs.detailsPg;

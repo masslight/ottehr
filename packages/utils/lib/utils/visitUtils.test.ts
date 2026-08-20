@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
-import { VisitStatusHistoryEntry } from '../types';
+import { VisitStatusHistoryEntry } from '../types/api/appointment.types';
 import { getDurationOfStatus, getVisitTotalTime } from './visitUtils';
 
 const now = DateTime.fromISO('2026-04-15T12:00:00.000Z');

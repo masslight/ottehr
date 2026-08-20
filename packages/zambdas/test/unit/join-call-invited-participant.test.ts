@@ -1,5 +1,5 @@
 import { Encounter, RelatedPerson } from 'fhir/r4b';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { describe, expect, test, vi } from 'vitest';
 import { findInvitedParticipantRefBySubject } from '../../src/patient/join-call';
 import { addUserToVideoEncounterIfNeeded } from '../../src/patient/join-call/helpers';

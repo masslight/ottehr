@@ -8,7 +8,7 @@ import {
   Patient,
   PaymentReconciliation,
 } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,

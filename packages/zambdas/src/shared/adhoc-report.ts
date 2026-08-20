@@ -1,46 +1,131 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Address, Appointment, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
-import {
-  getAddressForIndividual,
-  getAttendingPractitionerId,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
-  isInPersonAppointment,
-  isTelemedAppointment,
-  OTTEHR_MODULE,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
-import { fetchAllPages } from './fhir';
+import { randomUUID } from 'crypto';
+import { Address, Appointment, Bundle, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
+import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getAddressForIndividual } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { createPresignedUrl } from './z3Utils';
 
-// The full appointment status set (incl. cancelled / no-show) so a report can include or exclude
-// them explicitly rather than having them silently pre-filtered.
+export async function uploadAdHocReportJsonToZ3(
+  oystehr: Oystehr,
+  secrets: Secrets | null,
+  json: string
+): Promise<string> {
+  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
+  const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
+  const objectPath = `adhoc-report-${randomUUID()}.json`;
+  await oystehr.z3.uploadFile({
+    bucketName,
+    'objectPath+': objectPath,
+    file: new Blob([json], { type: 'application/json' }),
+  });
+  return `${projectApi}/z3/${bucketName}/${objectPath}`;
+}
+
+export async function uploadAdHocReportDataToZ3(
+  oystehr: Oystehr,
+  secrets: Secrets | null,
+  token: string,
+  json: string
+): Promise<string> {
+  const z3Url = await uploadAdHocReportJsonToZ3(oystehr, secrets, json);
+  return createPresignedUrl(token, z3Url, 'download');
+}
+
+// Total time budget for one report's fetch, kept under the zambda's 900s (15 min) limit so the run
+// aborts with a clear error instead of being hard-killed mid-request. Headroom is left for the Z3
+// upload and the response.
+const REPORT_BUDGET_MS = 13 * 60 * 1000;
+
+// Per-job poll timeout used only when no budget was started (e.g. unit tests calling the fetch
+// directly). A real invocation uses the shared deadline below instead.
+const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000;
+
+// Set at the start of each zambda invocation (module-level, like m2mToken) so every async job in the
+// run shares one deadline.
+let reportDeadlineMs = 0;
+export function beginReportBudget(): void {
+  reportDeadlineMs = Date.now() + REPORT_BUDGET_MS;
+}
+
+// Poll settings for one async job, bounded by the time left in the report budget — so the sum of all
+// jobs (main + scoped searches, across pages) can never exceed it. Throws a clear error when the
+// budget is spent, rather than letting the zambda be hard-killed.
+function jobWait(): { pollIntervalMs: number; timeoutMs: number } {
+  if (reportDeadlineMs === 0) return { pollIntervalMs: 2000, timeoutMs: DEFAULT_JOB_TIMEOUT_MS };
+  const remaining = reportDeadlineMs - Date.now();
+  if (remaining <= 0) throw new Error('Ad-hoc report exceeded its time budget before all data was fetched');
+  return { pollIntervalMs: 2000, timeoutMs: remaining };
+}
+
+const ASYNC_PAGE_SIZE = 1000;
+
+function readSearchsets<T extends FhirResource>(completion: Bundle): { resources: T[]; matchedIds: string[] } {
+  const resources: T[] = [];
+  const matchedIds: string[] = [];
+  for (const outer of completion.entry ?? []) {
+    const searchset = outer.resource as Bundle | undefined;
+    if (!searchset || searchset.resourceType !== 'Bundle' || searchset.type !== 'searchset') continue;
+    for (const entry of searchset.entry ?? []) {
+      const resource = entry.resource;
+      const mode = entry.search?.mode ?? 'match';
+      if (!resource || mode === 'outcome') continue;
+      resources.push(resource as T);
+      if (mode === 'match' && resource.id) matchedIds.push(resource.id);
+    }
+  }
+  return { resources, matchedIds };
+}
+
+async function searchAllAsync<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  params: { name: string; value: string }[]
+): Promise<T[]> {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  let progressed = true;
+  while (progressed) {
+    const pageParams = [
+      ...params,
+      { name: '_count', value: String(ASYNC_PAGE_SIZE) },
+      { name: '_offset', value: String(offset) },
+    ];
+    const handle = await oystehr.fhir.search<T>({ resourceType, params: pageParams }, { mode: 'async-bundle' });
+    const status = await oystehr.fhir.waitForAsyncJob<T>(handle.jobId, jobWait());
+    if (status.status !== 200 || !('mode' in status) || status.mode !== 'bundle') {
+      throw new Error(`Async search for ${resourceType} did not complete in bundle mode`);
+    }
+    const { resources, matchedIds } = readSearchsets<T>(status.bundle as Bundle);
+    out.push(...resources);
+    const newMatched = matchedIds.filter((id) => !seen.has(id));
+    newMatched.forEach((id) => seen.add(id));
+    offset += matchedIds.length;
+    progressed = newMatched.length > 0;
+  }
+  return out;
+}
+
 const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
 
-// The attended/active subset (NO cancelled / no-show) — the set of visits the Recent Patients
-// report counts. Used by datasets whose rows carry no per-visit status a report could filter on
-// (the Patients dataset's per-patient rollups), so their counts agree with Recent Patients.
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
-// The main dataset search, shared by the Encounters / Billing / Patients ad-hoc datasets. Anchored
-// on Appointment in the date range, tagged to the in-person + telemed modules, with the bounded
-// per-appointment resources (patient, location, encounter, practitioner) riding along so a page
-// never approaches the FHIR response-size cap; heavier per-encounter/patient layers are pulled
-// afterward via fetchScopedResources. Paginated via fetchAllPages, which also halves the page size
-// on a FHIR 4130 response-size-cap error instead of failing the whole report. `extraParams` lets
-// a caller add dataset-specific revincludes (e.g. Encounter:part-of, patient-bound clinical layers);
-// `statuses` narrows the appointment status set (defaults to the full set incl. cancelled/no-show).
 export async function fetchAppointmentReportResources<T extends FhirResource>(
   oystehr: Oystehr,
   opts: {
     dateRange: { start: string; end: string };
     extraParams?: { name: string; value: string }[];
-    pageSize?: number;
     statuses?: string;
   }
 ): Promise<T[]> {
-  const pageSize = opts.pageSize ?? 1000;
-  const baseSearchParams = [
+  return searchAllAsync<T>(oystehr, 'Appointment', [
     { name: 'date', value: `ge${opts.dateRange.start}` },
     { name: 'date', value: `le${opts.dateRange.end}` },
     { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
@@ -51,56 +136,9 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
     { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
     ...(opts.extraParams ?? []),
     { name: '_sort', value: 'date' },
-  ];
-
-  const out: T[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<T>({
-      resourceType: 'Appointment',
-      params: [
-        ...baseSearchParams,
-        { name: '_count', value: count.toString() },
-        { name: '_offset', value: offset.toString() },
-      ],
-    });
-    out.push(...(bundle.unbundle() as T[]));
-    return bundle;
-  }, pageSize);
-  return out;
+  ]);
 }
 
-// Small OR-lists keep each search well under the per-request timeout (a large encounter OR-list over
-// a big table like Observation is slow); chunks run concurrently to keep total wall-clock down.
-const ENC_CHUNK = 25;
-const CONCURRENCY = 6;
-
-async function searchChunk<T extends FhirResource>(
-  oystehr: Oystehr,
-  resourceType: T['resourceType'],
-  paramName: string,
-  valueList: string,
-  extraParams: { name: string; value: string }[]
-): Promise<T[]> {
-  const acc: T[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<T>({
-      resourceType,
-      params: [
-        { name: paramName, value: valueList },
-        { name: '_count', value: count.toString() },
-        { name: '_offset', value: offset.toString() },
-        ...extraParams,
-      ],
-    });
-    acc.push(...(bundle.unbundle() as T[]));
-    return bundle;
-  }, 1000);
-  return acc;
-}
-
-// Fetch a resource type scoped to a list of values (e.g. encounter references) by splitting the values
-// into FHIR OR-list chunks, paginating each chunk, with bounded concurrency. Shared by the ad-hoc
-// Encounters and Billing datasets, which both pull per-encounter layer resources this way.
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -108,39 +146,20 @@ export async function fetchScopedResources<T extends FhirResource>(
   values: string[],
   extraParams: { name: string; value: string }[] = []
 ): Promise<T[]> {
-  const chunks: string[] = [];
-  for (let i = 0; i < values.length; i += ENC_CHUNK) chunks.push(values.slice(i, i + ENC_CHUNK).join(','));
-  const out: T[] = [];
-  let failedChunks = 0;
-  let firstError: unknown;
-  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-    const wave = await Promise.allSettled(
-      chunks
-        .slice(i, i + CONCURRENCY)
-        .map((valueList) => searchChunk<T>(oystehr, resourceType, paramName, valueList, extraParams))
-    );
-    for (const result of wave) {
-      if (result.status === 'fulfilled') {
-        out.push(...result.value);
-      } else {
-        failedChunks += 1;
-        firstError ??= result.reason;
-      }
-    }
-  }
-  if (failedChunks > 0) {
-    // Designed degradation (the layer's columns go empty for the affected encounters), but the
-    // failure itself must still surface so a persistent search problem doesn't go unnoticed.
+  if (values.length === 0) return [];
+  try {
+    return await searchAllAsync<T>(oystehr, resourceType, [
+      { name: paramName, value: values.join(',') },
+      ...extraParams,
+    ]);
+  } catch (error) {
     console.warn(
-      `fetchScopedResources: ${failedChunks} of ${chunks.length} ${resourceType} chunk searches failed; ` +
-        'continuing with partial layer data',
-      firstError
+      `fetchScopedResources: ${resourceType} async search failed; continuing with partial layer data`,
+      error
     );
-    captureException(firstError, {
-      extra: { resourceType, paramName, failedChunks, totalChunks: chunks.length },
-    });
+    captureException(error, { extra: { resourceType, paramName, valueCount: values.length } });
+    return [];
   }
-  return out;
 }
 
 // A follow-up encounter may carry no appointment reference of its own — resolve through its partOf

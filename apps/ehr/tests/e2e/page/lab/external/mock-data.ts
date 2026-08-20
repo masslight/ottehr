@@ -1,5 +1,5 @@
 import { QuestionnaireItem } from 'fhir/r4b';
-import { OrderableItemSearchResult } from 'utils';
+import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 
 export type MockLabResultAeoAnswerConfig = { [key: string]: { type: QuestionnaireItem['type']; answer: any } };
 

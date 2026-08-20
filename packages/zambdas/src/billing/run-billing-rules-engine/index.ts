@@ -1,14 +1,13 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Task } from 'fhir/r4b';
-import {
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  InternalError,
-  INVALID_INPUT_ERROR,
-  RulesEngineType,
-  RunBillingRulesEngineResponse,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { InternalError } from 'utils/lib/helpers/oystehrApi';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RunBillingRulesEngineResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
 import { createBillingClient, determineRulesEngineForClaim } from '../shared';
 import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
@@ -34,6 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export interface RulesEngineKickoff {
   claimId: string;
   engine: RulesEngineType;
+  skipRules: boolean;
 }
 
 // Confirm every claim exists (one search ORing the ids) and that an engine applies to each, so the
@@ -60,7 +60,7 @@ export async function complexValidation(
   const noEngine: string[] = [];
   for (const claimId of params.claimIds) {
     const engine = determineRulesEngineForClaim(claimsById.get(claimId)!);
-    if (engine) kickoffs.push({ claimId, engine });
+    if (engine) kickoffs.push({ claimId, engine, skipRules: params.skipRules });
     else noEngine.push(claimId);
   }
   if (noEngine.length > 0) {
@@ -78,10 +78,10 @@ export async function performEffect(
   oystehr: Oystehr,
   kickoffs: RulesEngineKickoff[]
 ): Promise<RunBillingRulesEngineResponse> {
-  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId }) => ({
+  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId, skipRules }) => ({
     method: 'POST',
     url: '/Task',
-    resource: buildRulesEngineKickoffTask(engine, claimId),
+    resource: buildRulesEngineKickoffTask(engine, claimId, skipRules),
   }));
   const result = await oystehr.fhir.transaction<Task>({ requests });
   const taskIds = (result.entry ?? [])

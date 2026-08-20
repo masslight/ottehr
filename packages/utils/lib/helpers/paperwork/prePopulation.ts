@@ -22,19 +22,15 @@ import {
 } from '../../config-helpers/shared-questionnaire';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
-  genderMap,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  getNameSuffix,
-  getPronounsFromExtension,
-  LANGUAGE_OPTIONS,
-  LanguageOption,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
-} from '../../fhir';
+} from '../../fhir/constants';
+import { genderMap } from '../../fhir/helpers';
+import { getFirstName, getLastName, getMiddleName, getNameSuffix, getPronounsFromExtension } from '../../fhir/patient';
+import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
+import { PatientAccountResponse } from '../../types/api/patient-account';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -42,14 +38,13 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
-  PatientAccountResponse,
-  PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
   RESPONSIBLE_PARTY_NO_EMAIL_URL,
-} from '../../types';
-import { isValidUUID } from '../../validation';
+} from '../../types/constants';
+import { PHARMACY_COLLECTION_LINK_IDS } from '../../types/data/search-places';
+import { isValidUUID } from '../../validation/helper';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
@@ -353,7 +348,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         });
       }
 
-      return [];
+      // No page-specific pre-fill logic (e.g. a custom form inside a paperwork flow): keep the page's
+      // child structure so the response mirrors the questionnaire, just without pre-filled answers.
+      return buildEmptyResponseItemSkeleton(itemItems);
     })();
     return {
       linkId: item.linkId,
@@ -365,6 +362,18 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
 
   return item;
 };
+
+// Builds an empty QuestionnaireResponse skeleton (linkIds only, no answers) mirroring the given
+// questionnaire items — recursing into nested groups and skipping display items. Used for a page with
+// no specific pre-fill logic (e.g. a practice-managed form bundled into a paperwork flow) so the
+// pre-populated response still mirrors the questionnaire's page -> item structure rather than an empty page.
+const buildEmptyResponseItemSkeleton = (items: QuestionnaireItem[]): QuestionnaireResponseItem[] =>
+  items
+    .filter((item) => item.type !== 'display')
+    .map((item) => {
+      const childItems = item.item ? buildEmptyResponseItemSkeleton(item.item) : [];
+      return childItems.length > 0 ? { linkId: item.linkId, item: childItems } : { linkId: item.linkId };
+    });
 
 const getPatientDOB = (patient?: Patient, newPatientDob?: string): string | undefined => {
   const dobStringToUse = patient?.birthDate ?? newPatientDob;
@@ -510,7 +519,9 @@ export const makePrepopulatedItemsFromPatientRecord = (
           attorneyRelatedPerson,
         });
       }
-      return [];
+      // No page-specific pre-fill logic (e.g. a custom form inside a paperwork flow): keep the page's
+      // child structure so the response mirrors the questionnaire, just without pre-filled answers.
+      return buildEmptyResponseItemSkeleton(itemItems);
     })();
     return {
       linkId: item.linkId,

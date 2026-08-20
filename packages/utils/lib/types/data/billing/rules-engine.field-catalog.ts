@@ -2,13 +2,15 @@ import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../../../helpers/rcm/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
-import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
+import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
   operatorIsMultiValue,
+  operatorIsRegex,
   operatorNeedsValue,
   operatorTakesFragment,
   RuleAction,
@@ -163,13 +165,18 @@ const SCALAR_OPS: RuleOperator[] = [
   'notContains',
   'startsWith',
   'notStartsWith',
+  'matches',
+  'notMatches',
   'exists',
   'notExists',
 ];
-const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
+const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'matches', 'notMatches', 'exists', 'notExists'];
+// Provider/facility reference values ("Practitioner/<id>") are opaque ids — pattern matching them
+// is meaningless, so ref-typed fields skip the regex operators.
+const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
-const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'exists', 'notExists'];
+const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatches', 'exists', 'notExists'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
@@ -183,6 +190,14 @@ const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map
 const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((relationship) => ({
   value: relationship,
   label: relationship,
+}));
+
+// The patient-coverage slots (primary / secondary / workers comp on the patient's billing
+// accounts) the "Coverage (from patient)" field can name — the same options the coverage screens
+// use.
+const PATIENT_COVERAGE_SLOT_OPTIONS: RuleFieldOption[] = BILLING_INSURANCE_TYPE_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
 }));
 
 // The same US state list the billing address forms use (AllStates labels are the bare codes; show
@@ -326,7 +341,7 @@ const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: s
       label: 'Provider (from list)',
       group,
       valueType: 'provider',
-      operators: ENUM_OPS,
+      operators: REF_OPS,
       settable: true,
       description:
         `Which ${noun} the claim uses, as a reference resource from the ${
@@ -517,6 +532,22 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
 
   // --- Primary insurance ---
   {
+    id: 'insurance.coverageFromPatient',
+    label: 'Coverage (from patient)',
+    group: 'insurance',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      "Which of the patient's coverages the claim uses as its primary coverage, looked up on the claim " +
+      "patient's reference record via the patient's billing accounts. Conditions compare against the coverage " +
+      "the claim's current primary coverage was copied from; setting it creates a fresh working copy of the " +
+      'chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new ' +
+      'copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held.',
+    requiredOnSet: true,
+    options: PATIENT_COVERAGE_SLOT_OPTIONS,
+  },
+  {
     id: 'insurance.memberId',
     label: 'Member ID',
     group: 'insurance',
@@ -594,7 +625,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     label: 'Facility (from list)',
     group: 'serviceFacility',
     valueType: 'facility',
-    operators: ENUM_OPS,
+    operators: REF_OPS,
     settable: true,
     description:
       "Which service facility the claim uses, as a reference resource from the Service Facilities page. Conditions compare against the resource the claim's current facility was copied from; " +
@@ -903,6 +934,23 @@ const NUMBER_VALUE_PROBLEM = 'Must be a number';
 const VALUE_REQUIRED_PROBLEM = 'Value is required';
 const SINGLE_VALUE_PROBLEM = 'This operator compares a single value, not a list';
 
+// Regex-operator values are patterns, not literals: instead of the strict format/options checks they
+// must compile (and stay small — a hard length cap bounds pathological patterns). The evaluator
+// still compiles defensively at run time, but this is the gate that keeps bad patterns out.
+export const MAX_REGEX_PATTERN_LENGTH = 500;
+
+export function regexPatternProblem(pattern: string): string | undefined {
+  if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+    return `Pattern must be at most ${MAX_REGEX_PATTERN_LENGTH} characters`;
+  }
+  try {
+    new RegExp(pattern);
+    return undefined;
+  } catch {
+    return 'Must be a valid regular expression';
+  }
+}
+
 // FHIR resource ids are 1-64 chars of letters, digits, '-' and '.'.
 const PROVIDER_REF_REGEX = /^(Practitioner|Organization)\/[A-Za-z0-9.-]{1,64}$/;
 const FACILITY_REF_REGEX = /^Location\/[A-Za-z0-9.-]{1,64}$/;
@@ -930,7 +978,8 @@ const strictValueProblem = (
 
 // One condition value's problem, or undefined. Operator-aware: exists/notExists take no value;
 // every other operator requires a non-empty value (in/notIn: a non-empty list of non-empty values);
-// fragment operators skip the strict checks; exact-match operators validate each value in full.
+// regex operators require a compilable pattern; fragment operators skip the strict checks;
+// exact-match operators validate each value in full.
 export function ruleConditionValueProblem(
   def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format'>,
   operator: RuleOperator,
@@ -942,6 +991,8 @@ export function ruleConditionValueProblem(
   if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  // Validate the raw (untrimmed) scalar: whitespace can be a meaningful part of a pattern.
+  if (operatorIsRegex(operator)) return regexPatternProblem(typeof value === 'string' ? value : '');
   if (operatorTakesFragment(operator)) return undefined;
   for (const v of values) {
     const problem = strictValueProblem(def, v);
@@ -971,6 +1022,7 @@ export function serviceLineMatchValueProblem(
   if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  if (operatorIsRegex(operator)) return regexPatternProblem(typeof value === 'string' ? value : '');
   if (operatorTakesFragment(operator)) return undefined;
   // List-valued line properties (modifiers) compare a single entry; no strict format applies.
   if (def.valueType === 'list') return undefined;
@@ -1043,6 +1095,43 @@ export function ruleUsesChargeMasterPrices(rule: { conditional: RuleConditional 
     if (action.type === 'applyChargeMasterPrices') uses = true;
   });
   return uses;
+}
+
+// Walk every condition in a rule's conditional tree (branch conditions, nested groups, and
+// conditionals reached through outcomes) in tree order — the condition-side counterpart of
+// forEachRuleAction.
+function forEachRuleCondition(rule: { conditional: RuleConditional }, visit: (condition: RuleCondition) => void): void {
+  const visitCondition = (condition: RuleCondition): void => {
+    visit(condition);
+    if (condition.type === 'group') condition.conditions.forEach(visitCondition);
+  };
+  const visitOutcome = (outcome: RuleOutcome): void => {
+    if (outcome.type === 'conditional') visitConditional(outcome.conditional);
+  };
+  const visitConditional = (conditional: RuleConditional): void => {
+    for (const branch of conditional.branches) {
+      visitCondition(branch.condition);
+      visitOutcome(branch.outcome);
+    }
+    if (conditional.otherwise) visitOutcome(conditional.otherwise);
+  };
+  visitConditional(rule.conditional);
+}
+
+export const PATIENT_COVERAGE_FIELD_ID = 'insurance.coverageFromPatient';
+
+// Whether the rule references the "Coverage (from patient)" field in any condition or setField
+// action. The field's reader and writer both need the reference patient's coverage context, which
+// the engine prefetches only for rule sets that use the field (like the charge-master prefetch).
+export function ruleReferencesPatientCoverage(rule: { conditional: RuleConditional }): boolean {
+  let references = false;
+  forEachRuleCondition(rule, (condition) => {
+    if (condition.type === 'field' && condition.field === PATIENT_COVERAGE_FIELD_ID) references = true;
+  });
+  forEachRuleAction(rule, (action) => {
+    if (action.type === 'setField' && action.field === PATIENT_COVERAGE_FIELD_ID) references = true;
+  });
+  return references;
 }
 
 // The provider/facility reference values a rule's setField actions assign (deduped, in tree

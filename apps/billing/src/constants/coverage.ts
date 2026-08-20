@@ -1,12 +1,11 @@
 import {
-  BillingCoverageOption,
   BillingInsuranceType,
   BillingSubscriberRelationship,
-  ClaimDetailResponse,
   CreateBillingCoverageInput,
   GenderOption,
   UpdateBillingCoverageInput,
-} from 'utils';
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingCoverageOption, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export interface CoverageForm {
@@ -98,13 +97,20 @@ export function defaultCoverageFormValues(
   };
 }
 
-export function coverageToCreateInput(data: CoverageForm, patientId: string): CreateBillingCoverageInput {
+type CoverageFormOptionalInsuranceType = Omit<CoverageForm, 'insuranceType'> & {
+  insuranceType?: CoverageForm['insuranceType'];
+};
+
+export function coverageToCreateInput(
+  data: CoverageFormOptionalInsuranceType,
+  patientId: string
+): CreateBillingCoverageInput {
   const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
   return {
     patientId,
     payerId: data.payerId!,
     memberId: data.memberId!.trim(),
-    insuranceType: data.insuranceType!,
+    insuranceType: data.insuranceType,
     planType: data.planType!,
     relationship: data.relationship!,
     ...(data.relationship !== 'Self'
@@ -122,13 +128,16 @@ export function coverageToCreateInput(data: CoverageForm, patientId: string): Cr
   };
 }
 
-export function coverageToUpdateInput(data: CoverageForm, coverageId: string): UpdateBillingCoverageInput {
+export function coverageToUpdateInput(
+  data: CoverageFormOptionalInsuranceType,
+  coverageId: string
+): UpdateBillingCoverageInput {
   const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
   return {
     coverageId,
     payerId: data.payerId!,
     memberId: data.memberId!.trim(),
-    insuranceType: data.insuranceType!,
+    insuranceType: data.insuranceType,
     planType: data.planType!,
     relationship: data.relationship!,
     ...(data.relationship !== 'Self'

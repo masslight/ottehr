@@ -4,38 +4,31 @@ import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
 import {
-  FHIR_RESOURCE_NOT_FOUND,
-  fillInvoiceTemplate,
-  formatDateToMDYWithTime,
   getPatientReferenceFromAccount,
-  getSecret,
-  getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
-  mapDisplayToInvoiceTaskStatus,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RcmTaskCodings,
-  removePrefix,
-  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+  getTaskResource,
+} from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
+import { getInvoiceTaskSource, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
-import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  ensureStripeCustomerId,
-  getCandidEncounterIdFromEncounter,
-  getStripeClient,
-  resolveTemplatePlaceholders,
-  resolveTimezone,
-  sendSmsForPatient,
-  stripeEncounterMetadata,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
+import { sendSmsForPatient } from '../../../shared/communication';
+import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
+import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -147,6 +140,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
     console.log('Task status and output updated');
 
+    // Trigger statement generation explicitly so it only runs on a real send, not on refreshes.
+    // Refreshes cycle the task through completed status too, which would retrigger the old
+    // subscription-based approach on every refresh.
+    try {
+      const appointmentDate = appointment.start
+        ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
+        : 'unknown-date';
+      const generateStatementTask: Task = {
+        ...getTaskResource(
+          TaskIndicator.generatePatientStatement,
+          `Generate statement for ${getFullestAvailableName(patient)} visit on ${appointmentDate}`,
+          appointment.id!,
+          encounterId
+        ),
+        for: { reference: `Patient/${patient.id}` },
+      };
+      await oystehr.fhir.create<Task>(generateStatementTask);
+      console.log('Generate-statement task created');
+    } catch (err) {
+      console.error('Failed to create generate-statement task:', err);
+    }
+
     // Produce outreach tasks triggered by invoice issuance
     try {
       await produceOutreachTasks({
@@ -165,6 +180,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('updating task status to failed and output');
     const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    if (isInvalidEmailError(error)) {
+      console.warn('Invoice not sent due to invalid patient email; task updated but error suppressed from Sentry');
+      return { statusCode: 200, body: JSON.stringify({ message: 'Invoice skipped: invalid patient email' }) };
+    }
     throw error;
   }
 
@@ -389,6 +408,14 @@ function addErrorToTaskOutput(task: Task, error: string): Task {
     valueString: error,
   });
   return taskCopy;
+}
+
+function isInvalidEmailError(error: unknown): boolean {
+  if (error instanceof Error && error.message.includes('must have a valid email')) {
+    return true;
+  }
+  const stripeError = error as any;
+  return stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email';
 }
 
 async function sendInvoiceSmsToPatient(

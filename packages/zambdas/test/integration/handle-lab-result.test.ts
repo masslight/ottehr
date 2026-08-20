@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference, Organization, ServiceRequest, Task } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
   DR_UNSOLICITED_PATIENT_REF,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  M2MClientMockType,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fetchRelatedResources } from '../../src/subscriptions/diagnostic-report/handle-lab-result/helpers';
 import {

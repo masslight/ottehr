@@ -1,5 +1,6 @@
-import { MISSING_AUTH_TOKEN, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { MISSING_AUTH_TOKEN } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../../shared/types/common';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   if (!input.headers?.Authorization) {

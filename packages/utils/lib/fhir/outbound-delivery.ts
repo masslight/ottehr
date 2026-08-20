@@ -1,6 +1,6 @@
 import { Communication, Task, TaskInput, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { removePrefix } from '../helpers';
+import { removePrefix } from '../helpers/helpers';
 import { ActionLogChannel, ActionLogStatus, OutboundDeliveryAttemptData } from '../types/api/action-logs.types';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
@@ -111,6 +111,8 @@ export function getOutboundDeliveryOutput(task: Task, code: string): TaskOutput 
 export interface OutboundDeliveryRecipientSnapshot {
   address?: string;
   name?: string;
+  organization?: string;
+  phone?: string;
   documentReferenceId?: string;
   communicationId?: string;
 }
@@ -119,6 +121,8 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
   return {
     address: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientAddress)?.valueString,
     name: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString,
+    organization: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization)?.valueString,
+    phone: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientPhone)?.valueString,
     documentReferenceId: removePrefix(
       'DocumentReference/',
       getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference ?? ''
@@ -126,6 +130,30 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
     communicationId: removePrefix(
       'Communication/',
       getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference ?? ''
+    ),
+  };
+}
+
+/** The organization the attempt was sent from, recorded on the attempt when it was created. */
+export function getOutboundDeliverySenderOrganizationId(task: Task): string | undefined {
+  return removePrefix(
+    'Organization/',
+    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference ?? ''
+  );
+}
+
+export interface OutboundDeliveryFaxPacketSnapshot {
+  pageCount?: number;
+  parts: string[];
+}
+
+export function getOutboundDeliveryFaxPacketSnapshot(task: Task): OutboundDeliveryFaxPacketSnapshot {
+  const rawPageCount = getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.faxPacketPageCount)?.valueString;
+  const pageCount = rawPageCount === undefined ? undefined : Number(rawPageCount);
+  return {
+    pageCount: pageCount !== undefined && Number.isFinite(pageCount) ? pageCount : undefined,
+    parts: getOutboundDeliveryInputs(task, OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts).flatMap((entry) =>
+      entry.valueString ? [entry.valueString] : []
     ),
   };
 }

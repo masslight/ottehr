@@ -1,7 +1,8 @@
 // import { DateTime } from 'luxon';
 // import { getDurationOfStatus, getVisitTotalTime } from 'utils';
 import { Encounter } from 'fhir/r4b';
-import { getVisitStatusHistory, PARTICIPATION_CODE_SYSTEM } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { describe, expect, test } from 'vitest';
 
 const finishedEncounter: Encounter = {

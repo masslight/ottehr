@@ -1,6 +1,6 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
 import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useState } from 'react';
-import { BillingPayerOption } from 'utils';
+import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingPayers } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';

@@ -1,4 +1,9 @@
-import { removePrefix, Secrets, userMe } from 'utils';
+import Oystehr from '@oystehr/sdk';
+import { Practitioner, Reference } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
 
 /**
  * Resolve the calling user's Practitioner id.
@@ -14,4 +19,27 @@ export async function getMyPractitionerId(token: string, secrets: Secrets | null
   const myPractitionerId = removePrefix('Practitioner/', (await userMe(token, secrets)).profile);
   if (!myPractitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
   return myPractitionerId;
+}
+
+/**
+ * The calling user as a FHIR Reference, named the way their Practitioner record names them.
+ *
+ * Anything that records "who did this" — a report's author, a task owner, an extension crediting an action —
+ * should build the reference here, so one person is spelled the same way wherever they appear.
+ *
+ * Note for callers that narrow `secrets`: `userMe` reads ENVIRONMENT through `getSecret`, which only falls
+ * back to `process.env` when the whole secrets object is null. A narrowed object that drops ENVIRONMENT
+ * makes this throw.
+ */
+export async function resolveCallerPractitionerRef(
+  token: string,
+  secrets: Secrets | null,
+  oystehr: Oystehr
+): Promise<Reference> {
+  const user = await userMe(token, secrets);
+  const practitionerId = removePrefix('Practitioner/', user.profile);
+  if (!practitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
+
+  const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
+  return { reference: user.profile, display: getFullestAvailableName(practitioner) ?? user.name };
 }

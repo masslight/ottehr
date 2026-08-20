@@ -2,12 +2,10 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deletePatientDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  ApprovedPatientEducationItem,
-  CommunicationDTO,
-  fitWrappedTextToBanner,
-  PatientEducationLanguage,
-} from 'utils';
+import { ApprovedPatientEducationItem } from 'utils/lib/types/api/approved-patient-education.types';
+import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
+import { fitWrappedTextToBanner } from 'utils/lib/utils/pdf';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
