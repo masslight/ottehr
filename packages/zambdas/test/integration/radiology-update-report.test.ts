@@ -149,12 +149,14 @@ describe('radiology-update-report integration', () => {
   // The author is what marks a read as ours. Strip it and the read reads as teleradiology's, so nobody may
   // correct it — not even the provider who ordered the study, who otherwise could.
   it('refuses a preliminary read that carries no author of ours', async () => {
-    const preliminary = (await getReports()).find((report) => report.status === 'preliminary');
-    // Says which precondition broke, rather than failing inside the patch with a confusing message.
-    expect(preliminary?.id).toBeDefined();
+    // Narrowed rather than asserted non-null: a changed fixture then says which precondition broke, instead
+    // of failing inside the patch call.
+    const preliminaryId = (await getReports()).find((report) => report.status === 'preliminary')?.id;
+    if (!preliminaryId) throw new Error('expected the seeded preliminary read to still be present');
+
     await oystehrAdmin.fhir.patch<DiagnosticReport>({
       resourceType: 'DiagnosticReport',
-      id: preliminary!.id!,
+      id: preliminaryId,
       operations: [{ op: 'remove', path: '/performer' }],
     });
 
@@ -180,10 +182,13 @@ describe('radiology-update-report integration', () => {
       })
     ).unbundle();
     // Saving the final read leaves the review task open; completing it is what locks the reads.
-    expect(tasks[0]?.status).toBe('ready');
+    const reviewTaskId = tasks[0]?.id;
+    if (!reviewTaskId) throw new Error('expected saving the final read to have created a review task');
+    expect(tasks[0].status).toBe('ready');
+
     await oystehrAdmin.fhir.patch<Task>({
       resourceType: 'Task',
-      id: tasks[0].id!,
+      id: reviewTaskId,
       operations: [{ op: 'replace', path: '/status', value: 'completed' }],
     });
 
