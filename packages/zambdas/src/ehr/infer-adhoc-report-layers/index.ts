@@ -33,10 +33,23 @@ const RESPONSE_SCHEMA = {
   required: ['layerIds', 'hint'],
 };
 
-const renderFields = (fields: { name: string; description?: string }[], indent: string): string =>
+type CatalogField = { name: string; description?: string; fields?: { name: string; description?: string }[] };
+
+// A record column's members are listed under it: "lot number" lives on vaccines[].lotNumber, and a
+// catalogue that showed only the column name made the classifier reject it as missing.
+const renderFields = (fields: CatalogField[], indent: string): string =>
   fields.length === 0
     ? `${indent}(none)`
-    : fields.map((f) => `${indent}- ${f.name}${f.description ? `: ${f.description}` : ''}`).join('\n');
+    : fields
+        .map((f) => {
+          const head = `${indent}- ${f.name}${f.description ? `: ${f.description}` : ''}`;
+          if (!f.fields?.length) return head;
+          const members = f.fields
+            .map((m) => `${indent}    ${f.name}[].${m.name}${m.description ? `: ${m.description}` : ''}`)
+            .join('\n');
+          return `${head}\n${members}`;
+        })
+        .join('\n');
 
 const renderCatalog = (datasets: CatalogDataset[], activeId: string): string =>
   datasets

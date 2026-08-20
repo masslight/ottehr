@@ -22,6 +22,8 @@ interface FieldRow {
   name: string;
   type: string;
   description: string;
+  /** Members of a record column, listed as their own rows so they are findable. */
+  fields?: { name: string; type: string; description: string }[];
 }
 
 interface LayerRow {
@@ -59,11 +61,20 @@ function FieldsTable({ fields }: { fields: FieldRow[] }): ReactElement {
       </TableHead>
       <TableBody>
         {fields.map((field) => (
-          <TableRow key={field.name}>
-            <TableCell sx={{ fontFamily: 'monospace' }}>{field.name}</TableCell>
-            <TableCell>{field.type}</TableCell>
-            <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{field.description}</TableCell>
-          </TableRow>
+          <Fragment key={field.name}>
+            <TableRow>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{field.name}</TableCell>
+              <TableCell>{field.type}</TableCell>
+              <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{field.description}</TableCell>
+            </TableRow>
+            {(field.fields ?? []).map((member) => (
+              <TableRow key={`${field.name}.${member.name}`}>
+                <TableCell sx={{ fontFamily: 'monospace', pl: 4 }}>{`${field.name}[].${member.name}`}</TableCell>
+                <TableCell>{member.type}</TableCell>
+                <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{member.description}</TableCell>
+              </TableRow>
+            ))}
+          </Fragment>
         ))}
       </TableBody>
     </Table>

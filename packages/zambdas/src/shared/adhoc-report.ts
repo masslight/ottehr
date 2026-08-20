@@ -1,7 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { randomUUID } from 'crypto';
-import { Address, Appointment, Bundle, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
+import {
+  Address,
+  Appointment,
+  Bundle,
+  Encounter,
+  FhirResource,
+  Location,
+  OperationOutcome,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -63,6 +74,15 @@ function readSearchsets<T extends FhirResource>(
   const matchedIds: string[] = [];
   let hasNext = false;
   for (const outer of completion.entry ?? []) {
+    // A failed search arrives as an entry with a non-2xx status and NO searchset. Skipping it
+    // silently is how a search answering "400 Internal Error" became a successful empty report.
+    const status = outer.response?.status;
+    if (status && !status.startsWith('2')) {
+      const issues = (outer.response?.outcome as OperationOutcome | undefined)?.issue
+        ?.map((issue) => issue.details?.text || issue.diagnostics || issue.code)
+        .join('; ');
+      throw new Error(`FHIR search failed with ${status}${issues ? `: ${issues}` : ''}`);
+    }
     const searchset = outer.resource as Bundle | undefined;
     if (!searchset || searchset.resourceType !== 'Bundle' || searchset.type !== 'searchset') continue;
     if (searchset.link?.some((link) => link.relation === 'next')) hasNext = true;
@@ -113,6 +133,31 @@ const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,c
 
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
+// The main search pulls a whole include graph per appointment, so its size follows the requested
+// date range, not a list we control. A five-month range came back empty; a one-month range over the
+// same data returned every row. Raise this only with a measurement to back it up.
+const REPORT_WINDOW_DAYS = 30;
+const REPORT_WINDOW_CONCURRENCY = 4;
+
+// Cuts a range into consecutive windows of at most REPORT_WINDOW_DAYS. A range that already fits,
+// or one whose bounds do not parse, is returned unchanged so the search behaves exactly as before.
+function reportWindows(dateRange: { start: string; end: string }): { start: string; end: string }[] {
+  const start = DateTime.fromISO(dateRange.start);
+  const end = DateTime.fromISO(dateRange.end);
+  if (!start.isValid || !end.isValid || end <= start) return [dateRange];
+
+  const windows: { start: string; end: string }[] = [];
+  let cursor = start;
+  while (cursor < end) {
+    const next = DateTime.min(cursor.plus({ days: REPORT_WINDOW_DAYS }), end);
+    windows.push({ start: cursor.toISO()!, end: next.toISO()! });
+    // The next window starts where this one ended; `date=ge`/`le` are inclusive on both sides, so
+    // step off the boundary by a millisecond to keep an appointment out of two windows.
+    cursor = next.plus({ milliseconds: 1 });
+  }
+  return windows;
+}
+
 export async function fetchAppointmentReportResources<T extends FhirResource>(
   oystehr: Oystehr,
   opts: {
@@ -121,21 +166,42 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
     statuses?: string;
   }
 ): Promise<T[]> {
-  return searchAllAsync<T>(oystehr, 'Appointment', [
-    { name: 'date', value: `ge${opts.dateRange.start}` },
-    { name: 'date', value: `le${opts.dateRange.end}` },
-    { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    ...(opts.extraParams ?? []),
-  ]);
+  const searchWindow = (window: { start: string; end: string }): Promise<T[]> =>
+    searchAllAsync<T>(oystehr, 'Appointment', [
+      { name: 'date', value: `ge${window.start}` },
+      { name: 'date', value: `le${window.end}` },
+      { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
+      { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+      { name: '_include', value: 'Appointment:patient' },
+      { name: '_include', value: 'Appointment:location' },
+      { name: '_revinclude', value: 'Encounter:appointment' },
+      { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
+      ...(opts.extraParams ?? []),
+    ]);
+
+  const windows = reportWindows(opts.dateRange);
+  if (windows.length === 1) return searchWindow(windows[0]);
+
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
+    const group = await Promise.all(windows.slice(i, i + REPORT_WINDOW_CONCURRENCY).map(searchWindow));
+    for (const resources of group) {
+      for (const resource of resources) {
+        // An included Patient or Location is shared between appointments in different windows.
+        const key = `${resource.resourceType}/${resource.id}`;
+        if (resource.id && seen.has(key)) continue;
+        if (resource.id) seen.add(key);
+        out.push(resource);
+      }
+    }
+  }
+  return out;
 }
 
-// One search per batch of scoping values. Measured: a single comma list of encounter references
-// comes back as an EMPTY searchset with no error, while batches of 100 return the data.
+// One search per batch of scoping values. Measured: a comma list of 1249 encounter references
+// (63891 bytes) answers "400 Bad Request / Internal Error", while 100 references answer 200. The
+// limit between the two is not documented, so the batch size stays conservative.
 const SCOPED_BATCH_SIZE = 100;
 const SCOPED_BATCH_CONCURRENCY = 4;
 
@@ -154,6 +220,8 @@ export async function fetchScopedResources<T extends FhirResource>(
     batches.push(values.slice(i, i + SCOPED_BATCH_SIZE));
   }
 
+  // A failed batch used to return an empty list, so the layer came back partly filled and the
+  // report looked complete. A report on missing data is worse than a report that says it failed.
   const searchBatch = async (batch: string[]): Promise<T[]> => {
     try {
       return await searchAllAsync<T>(oystehr, resourceType, [
@@ -161,12 +229,11 @@ export async function fetchScopedResources<T extends FhirResource>(
         ...extraParams,
       ]);
     } catch (error) {
-      console.warn(
-        `fetchScopedResources: ${resourceType} async search failed; continuing with partial layer data`,
-        error
-      );
       captureException(error, { extra: { resourceType, paramName, valueCount: batch.length } });
-      return [];
+      throw new Error(
+        `Could not load ${resourceType} for the report (${batch.length} of ${values.length} by ${paramName}): ` +
+          `${error instanceof Error ? error.message : String(error)}`
+      );
     }
   };
 
@@ -176,7 +243,7 @@ export async function fetchScopedResources<T extends FhirResource>(
     for (const resources of group) out.push(...resources);
   }
   console.log(
-    `[adhoc-scoped] ${resourceType} by ${paramName}: values=${values.length} batches=${batches.length} ` +
+    `[adhoc] ${resourceType} by ${paramName}: values=${values.length} batches=${batches.length} ` +
       `returned=${out.length}`
   );
   return out;

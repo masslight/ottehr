@@ -184,6 +184,37 @@ export const ENCOUNTER_LAYERS = {
       medicationSources: z.array(z.enum(['eRx', 'in-house'])).describe('Parallel: source per entry.'),
       medicationCodes: z.array(z.string()).describe('Medispan dispensable-drug-id codes (eRx).'),
       medicationCount: z.number().describe('Total medications on the visit. 0 when none.'),
+      drugs: z
+        .array(
+          z.object({
+            name: z.string().describe('Drug display with strength, same value as in medications[].'),
+            source: z.enum(['eRx', 'in-house']).describe('Prescribed (eRx) or given in the clinic (in-house).'),
+            dose: z.number().nullable().describe('Amount given. Null for eRx.'),
+            units: z.string().nullable().describe('Unit of dose, e.g. "mg"/"mL". Null for eRx.'),
+            route: z.string().nullable().describe('Route code of administration. Null for eRx.'),
+            ndc: z.string().nullable().describe('NDC code entered at administration. Null when not entered.'),
+            lotNumber: z.string().nullable().describe('Lot number of the vial used. Null when not recorded.'),
+            expirationDate: z
+              .string()
+              .nullable()
+              .describe('Expiry of the vial used (yyyy-MM-dd). Null when not recorded.'),
+            manufacturer: z.string().nullable().describe('Manufacturer entered at administration. Null when none.'),
+            administeredAt: z
+              .string()
+              .nullable()
+              .describe(
+                'Full ISO instant the drug was given — NOT the visit date. Format via new Date(administeredAt); ' +
+                  'do NOT slice the ISO string. Null for eRx.'
+              ),
+          })
+        )
+        .describe(
+          'One record per drug, with the detail a recall or an audit needs: lot number, NDC, manufacturer, ' +
+            'expiry, dose and the time it was given. Lot, NDC, manufacturer and expiry are recorded ONLY for ' +
+            'in-house administration, and only when staff entered them; they are always null for eRx. They are ' +
+            'also absent when the order was marked as not administered — nothing was given, so no vial is tied ' +
+            'to the patient. Empty when no drugs on the visit.'
+        ),
     }),
   },
   vitals: {
@@ -295,6 +326,14 @@ export const ENCOUNTER_LAYERS = {
                 'VIS date (yyyy-MM-dd). A date means the VIS was given for this vaccine; null means it ' +
                   'was not. Always null for "recorded" history.'
               ),
+            lotNumber: z
+              .string()
+              .nullable()
+              .describe('Lot number of the vial used, for a recall. Null when not recorded or for history.'),
+            expirationDate: z
+              .string()
+              .nullable()
+              .describe('Expiry of the vial used (yyyy-MM-dd). Null when not recorded or for history.'),
           })
         )
         .describe(

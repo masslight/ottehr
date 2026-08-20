@@ -8,14 +8,21 @@ import {
   MedicationAdministration,
   Observation,
   Patient,
+  PaymentNotice,
   Practitioner,
 } from 'fhir/r4b';
-import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
-import { VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { describe, expect, it } from 'vitest';
@@ -184,12 +191,13 @@ const observations: Observation[] = [
   bpObs('obs-bp-2', '2026-07-01T14:20:00.000Z', 122, undefined, 'LX'),
 ];
 
-// One vaccine with a VIS date, one administered without it (the compliance gap).
+// One vaccine with a VIS date and a vial (lot + expiry), one administered without either.
 const vaccineAdmin = (
   id: string,
   name: string,
   status: 'completed' | 'on-hold',
-  visDate?: string
+  visDate?: string,
+  batch?: { lotNumber: string; expirationDate: string }
 ): MedicationAdministration => ({
   resourceType: 'MedicationAdministration' as const,
   id,
@@ -202,15 +210,79 @@ const vaccineAdmin = (
     {
       resourceType: 'Medication' as const,
       id: `med-${id}`,
-      identifier: [{ system: 'https://fhir.ottehr.com/Identifier/medication-name', value: name }],
+      identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
+      ...(batch ? { batch } : {}),
       ...(visDate ? { extension: [{ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visDate }] } : {}),
     },
   ],
 });
 
+// In-house administration. The recall attributes live on the CONTAINED Medication copy, and an order
+// marked as not administered carries no batch at all — nothing was given, so no vial is tied to the
+// patient. `withVial: false` reproduces that.
+const inHouseAdmin = (
+  id: string,
+  name: string,
+  dose: number,
+  effectiveDateTime: string,
+  withVial: boolean
+): MedicationAdministration => ({
+  resourceType: 'MedicationAdministration' as const,
+  id,
+  status: withVial ? 'completed' : 'not-done',
+  meta: { tag: [{ code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE }] },
+  context: { reference: 'Encounter/enc-1' },
+  subject: { reference: 'Patient/pat-1' },
+  effectiveDateTime,
+  dosage: {
+    dose: { value: dose, unit: 'mg', system: 'http://unitsofmeasure.org' },
+    route: { coding: [{ system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM, code: 'IM' }] },
+  },
+  contained: [
+    {
+      resourceType: 'Medication' as const,
+      id: `med-${id}`,
+      identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
+      code: { coding: [{ system: CODE_SYSTEM_NDC, code: '0409-7337-01' }] },
+      ...(withVial
+        ? {
+            manufacturer: { display: 'Acme Pharma' },
+            // batch.expirationDate is a FHIR dateTime; the app writes a full instant with an offset.
+            batch: { lotNumber: 'LOT-4472', expirationDate: '2027-03-31T00:00:00.000+04:00' },
+          }
+        : {}),
+    },
+  ],
+});
+
 const medicationAdministrations: FhirResource[] = [
-  vaccineAdmin('ma-1', 'Influenza', 'completed', '2026-07-01'),
+  vaccineAdmin('ma-1', 'Influenza', 'completed', '2026-07-01', {
+    lotNumber: 'FLU-2026-A',
+    expirationDate: '2027-01-31',
+  }),
   vaccineAdmin('ma-2', 'MMR', 'on-hold'),
+  inHouseAdmin('ma-3', 'Ceftriaxone 1 g', 1000, '2026-07-01T15:30:00.000Z', true),
+  inHouseAdmin('ma-4', 'Ceftriaxone 500 mg', 500, '2026-07-01T16:00:00.000Z', false),
+];
+
+// Two payments on one visit, out of order, with different methods; one has no method recorded.
+const paymentNotice = (id: string, amount: number, created: string, method?: string): PaymentNotice => ({
+  resourceType: 'PaymentNotice' as const,
+  id,
+  status: 'active',
+  created,
+  request: { reference: 'Encounter/enc-1' },
+  payment: {},
+  recipient: {},
+  amount: { value: amount, currency: 'USD' },
+  paymentStatus: { coding: [{ code: 'paid' }] },
+  ...(method ? { extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: method }] } : {}),
+});
+
+const paymentNotices: FhirResource[] = [
+  paymentNotice('pay-2', 25.5, '2026-07-01T18:00:00.000Z', 'cash'),
+  paymentNotice('pay-1', 40, '2026-07-01T15:00:00.000Z', 'card'),
+  paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z'),
 ];
 
 const rootResources: FhirResource[] = [appointment, encounter, patient, location, practitioner];
@@ -218,6 +290,7 @@ const scopedByType: Record<string, FhirResource[]> = {
   Condition: [condition],
   Observation: observations,
   MedicationAdministration: medicationAdministrations,
+  PaymentNotice: paymentNotices,
 };
 const resourcesFor = (resourceType: string): FhirResource[] =>
   resourceType === 'Appointment' ? rootResources : scopedByType[resourceType] ?? [];
@@ -331,9 +404,53 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
     expect(row.vaccines).toEqual([
-      { name: 'Influenza', status: 'administered', visDate: '2026-07-01' },
-      { name: 'MMR', status: 'partially-administered', visDate: null },
+      {
+        name: 'Influenza',
+        status: 'administered',
+        visDate: '2026-07-01',
+        lotNumber: 'FLU-2026-A',
+        expirationDate: '2027-01-31',
+      },
+      { name: 'MMR', status: 'partially-administered', visDate: null, lotNumber: null, expirationDate: null },
     ]);
+  });
+
+  it('encounters medications layer: one record per drug carrying the recall attributes', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeMedications: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    // Immunization administrations belong to the vaccines field, not here.
+    expect(row.drugs?.map((d) => d.name)).toEqual(['Ceftriaxone 1 g', 'Ceftriaxone 500 mg']);
+
+    const given = row.drugs?.find((d) => d.name === 'Ceftriaxone 1 g');
+    expect(given).toEqual({
+      name: 'Ceftriaxone 1 g',
+      source: 'in-house',
+      dose: 1000,
+      units: 'mg',
+      route: 'IM',
+      ndc: '0409-7337-01',
+      lotNumber: 'LOT-4472',
+      // Kept as the calendar date that was entered — a zone conversion would report the 30th.
+      expirationDate: '2027-03-31',
+      manufacturer: 'Acme Pharma',
+      // The time the drug was given, NOT the visit date.
+      administeredAt: '2026-07-01T15:30:00.000Z',
+    });
+
+    // Marked as not administered: no vial is tied to the patient, so no lot, expiry or manufacturer.
+    const notGiven = row.drugs?.find((d) => d.name === 'Ceftriaxone 500 mg');
+    expect(notGiven?.lotNumber).toBeNull();
+    expect(notGiven?.expirationDate).toBeNull();
+    expect(notGiven?.manufacturer).toBeNull();
+    // The dose was still charted, and the NDC belongs to the catalogue entry rather than the vial.
+    expect(notGiven?.dose).toBe(500);
+    expect(notGiven?.ndc).toBe('0409-7337-01');
+
+    // The flat arrays stay in step with the records — they are what value sampling shows the model.
+    expect(row.medications).toEqual(['Ceftriaxone 1 g', 'Ceftriaxone 500 mg']);
+    expect(row.medicationCount).toBe(2);
   });
 
   it('billing: base rows match the schema; layer columns stay absent when not requested', async () => {
@@ -349,6 +466,24 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     // Opt-in layer fields must be ABSENT (not null/garbage) when the layer wasn't requested.
     expect('paymentsCollected' in row).toBe(false);
     expect('payerType' in row).toBe(false);
+  });
+
+  it('billing payments layer: one record per payment, oldest first, aggregates in step', async () => {
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includePayments: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+    // Charted out of order in the fixture; the records come back oldest first.
+    expect(row.payments).toEqual([
+      { date: '2026-07-01T15:00:00.000Z', amount: 40, method: 'card' },
+      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, method: 'cash' },
+      { date: '2026-07-01T19:00:00.000Z', amount: 10, method: '' },
+    ]);
+    // The aggregates must agree with the records, or a report mixing both contradicts itself.
+    expect(row.paymentsCollected).toBe(75.5);
+    expect(row.paymentCount).toBe(3);
+    expect(row.lastPaymentDate).toBe('2026-07-01T19:00:00.000Z');
+    expect(row.payments?.reduce((sum, p) => sum + p.amount, 0)).toBe(row.paymentsCollected);
   });
 
   it('patients: per-patient rollup rows match the schema', async () => {

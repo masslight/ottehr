@@ -27,6 +27,7 @@ export function datasetCatalog(): CatalogDataset[] {
         ? llmFieldsFromZodObject(dataset.baseSchema, dataset.internalFields ?? []).map((f) => ({
             name: f.name,
             description: f.description,
+            fields: f.fields,
           }))
         : [],
       layers: (dataset.options ?? []).map((layer) => ({
@@ -34,7 +35,11 @@ export function datasetCatalog(): CatalogDataset[] {
         label: layer.label,
         description: layer.description,
         fields: schemas[layer.id]
-          ? llmFieldsFromZodObject(schemas[layer.id]).map((f) => ({ name: f.name, description: f.description }))
+          ? llmFieldsFromZodObject(schemas[layer.id]).map((f) => ({
+              name: f.name,
+              description: f.description,
+              fields: f.fields,
+            }))
           : [],
       })),
     };

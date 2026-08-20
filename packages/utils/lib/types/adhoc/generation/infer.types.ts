@@ -3,9 +3,16 @@
 // is "produce a report" and the model substitutes a near-miss field instead of refusing.
 import { z } from 'zod';
 
+const CatalogNestedFieldSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+});
+
 const CatalogFieldSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
+  /** Members of a record column: without them the classifier cannot see e.g. vaccines.lotNumber. */
+  fields: z.array(CatalogNestedFieldSchema).optional(),
 });
 
 const CatalogLayerSchema = z.object({
