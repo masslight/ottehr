@@ -1,4 +1,4 @@
-import { QuestionnaireBaseSchema } from 'config-types';
+import { DynamicPopulationSchema, FormFieldTriggerSchema, QuestionnaireBaseSchema } from 'config-types';
 import z from 'zod';
 import {
   OTTEHR_DATA_TYPES,
@@ -10,6 +10,9 @@ import {
 export const DataTypeSchema = z.enum(OTTEHR_DATA_TYPES);
 export const InputWidthSchema = z.enum(OTTEHR_INPUT_WIDTHS);
 export const PreferredElementSchema = z.enum(OTTEHR_PREFERRED_ELEMENTS);
+// Only 'hidden'/'protected' actually render; the config DSL also allows 'disabled' but it is coerced to
+// 'protected' on emit and dropped on parse, so the builder does not offer it.
+export const DisabledDisplaySchema = z.enum(['hidden', 'protected']);
 
 export const PracticeManagedQuestionnaireItemSchema = z
   .object({
@@ -24,6 +27,12 @@ export const PracticeManagedQuestionnaireItemSchema = z
     preferredElement: PreferredElementSchema.optional(),
     attachmentText: z.string().optional(),
     minRows: z.number().int().positive().optional(),
+    // conditional-behavior fields, compiled to enableWhen + the *-when / disabled-display / fill-from-when-disabled
+    // extensions (see practice-managed-questionnaires/index.ts). Reuse the config DSL schemas.
+    triggers: z.array(FormFieldTriggerSchema).optional(),
+    dynamicPopulation: DynamicPopulationSchema.optional(),
+    disabledDisplay: DisabledDisplaySchema.optional(),
+    hideControlLabel: z.boolean().optional(),
     // custom field needed for react stability
     _key: z.string().length(8),
   })

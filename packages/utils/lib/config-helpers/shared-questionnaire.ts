@@ -35,7 +35,9 @@ const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireIte
   valueString: dataType,
 });
 
-const createDisabledDisplayExtension = (display: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+export const createDisabledDisplayExtension = (
+  display: string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display',
   valueString: display,
 });
@@ -45,14 +47,16 @@ const createHideControlLabelExtension = (): NonNullable<QuestionnaireItem['exten
   valueBoolean: true,
 });
 
-const createFillFromWhenDisabledExtension = (
+export const createFillFromWhenDisabledExtension = (
   sourceLinkId: string
 ): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled',
   valueString: sourceLinkId,
 });
 
-const createFilterWhenExtension = (trigger: FormFieldTrigger): NonNullable<QuestionnaireItem['extension']>[number] => ({
+export const createFilterWhenExtension = (
+  trigger: FormFieldTrigger
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when',
   extension: [
     {
@@ -82,7 +86,7 @@ const createFilterWhenExtension = (trigger: FormFieldTrigger): NonNullable<Quest
   ],
 });
 
-const createRequireWhenExtension = (
+export const createRequireWhenExtension = (
   trigger: FormFieldTrigger
 ): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when',
@@ -233,7 +237,7 @@ const createReviewTextExtension = (reviewText: string): NonNullable<Questionnair
   valueString: reviewText,
 });
 
-const createTextWhenExtension = (
+export const createTextWhenExtension = (
   textWhen: Omit<FormFieldTrigger, 'effect'>
 ): NonNullable<QuestionnaireItem['extension']>[number] => {
   const answerExtension: any = {
@@ -297,7 +301,7 @@ const createComplexValidationExtension = (
   ],
 });
 
-const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
+export const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
   const enableWhen: any = {
     question: trigger.targetQuestionLinkId,
     operator: trigger.operator,

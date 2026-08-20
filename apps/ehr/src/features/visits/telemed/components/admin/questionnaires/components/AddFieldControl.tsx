@@ -9,28 +9,22 @@ import {
   Menu,
   MenuItem,
   Tooltip,
-  Typography,
 } from '@mui/material';
 import { FC, useState } from 'react';
-import { DEVELOPED_FIELD_TEMPLATES, DevelopedFieldTemplate } from '../developedFieldTemplates';
+import { GROUPED_FIELD_TEMPLATES, GroupedFieldTemplate } from '../groupedFieldTemplates';
 import { ItemAction } from '../questionnaire.reducer';
 
 interface AddFieldControlProps {
   pageKey: string;
   dispatch: React.Dispatch<ItemAction>;
-  // linkIds already present in the form; a developed field whose reserved linkIds collide is single-use-blocked
-  usedLinkIds: ReadonlySet<string>;
 }
 
-export const AddFieldControl: FC<AddFieldControlProps> = ({ pageKey, dispatch, usedLinkIds }) => {
+export const AddFieldControl: FC<AddFieldControlProps> = ({ pageKey, dispatch }) => {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const isAlreadyUsed = (template: DevelopedFieldTemplate): boolean =>
-    template.reservedLinkIds.some((linkId) => usedLinkIds.has(linkId));
-
-  const addDeveloped = (template: DevelopedFieldTemplate): void => {
-    dispatch({ type: 'ADD_DEVELOPED_FIELD', key: pageKey, items: template.items });
+  const addGrouped = (template: GroupedFieldTemplate): void => {
+    dispatch({ type: 'ADD_GROUPED_FIELD', key: pageKey, items: template.items });
     setDialogOpen(false);
   };
 
@@ -56,27 +50,18 @@ export const AddFieldControl: FC<AddFieldControlProps> = ({ pageKey, dispatch, u
             setMenuAnchor(null);
           }}
         >
-          Developed field…
+          Grouped field…
         </MenuItem>
       </Menu>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add a developed field</DialogTitle>
+        <DialogTitle>Add a grouped field</DialogTitle>
         <DialogContent dividers>
-          {DEVELOPED_FIELD_TEMPLATES.map((template) => {
-            const used = isAlreadyUsed(template);
-            return (
-              <ListItemButton key={template.id} disabled={used} onClick={() => addDeveloped(template)}>
-                <ListItemText
-                  primary={template.label}
-                  secondary={used ? 'Already added to this form' : template.description}
-                />
-              </ListItemButton>
-            );
-          })}
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Developed fields are pre-built widgets with reserved question ids and can be added once per form.
-          </Typography>
+          {GROUPED_FIELD_TEMPLATES.map((template) => (
+            <ListItemButton key={template.id} onClick={() => addGrouped(template)}>
+              <ListItemText primary={template.label} secondary={template.description} />
+            </ListItemButton>
+          ))}
         </DialogContent>
       </Dialog>
     </>

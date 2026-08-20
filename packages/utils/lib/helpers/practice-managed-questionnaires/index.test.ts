@@ -367,21 +367,23 @@ describe('managed item extension round-trip (WS1.1 fields)', () => {
     expect(item.extension).toEqual([ext]);
   });
 
-  it('round-trips native enableWhen / enableBehavior untouched (passthrough)', () => {
-    const enableWhen = [{ question: 'has-address', operator: '=' as const, answerBoolean: true }];
+  it('parses a native enableWhen into an enable trigger and strips the native field', () => {
     const managed = fhirQuestionnaireItemToManaged({
       linkId: 'child-city',
       type: 'string',
-      enableWhen,
-      enableBehavior: 'all',
+      enableWhen: [{ question: 'has-address', operator: '=', answerBoolean: true }],
     });
 
-    expect(managed.enableWhen).toEqual(enableWhen);
-    expect(managed.enableBehavior).toBe('all');
+    // enableWhen is now owned by the triggers model: it is consumed on parse and regenerated on emit
+    expect(managed.enableWhen).toBeUndefined();
+    expect(managed.triggers).toEqual([
+      { targetQuestionLinkId: 'has-address', effect: ['enable'], operator: '=', answerBoolean: true },
+    ]);
 
     const back = practiceManagedQuestionnaireToFhir(baseManagedQuestionnaire({ item: [managed] })).item?.[0];
-    expect(back?.enableWhen).toEqual(enableWhen);
-    expect(back?.enableBehavior).toBe('all');
+    expect(back?.enableWhen).toEqual([{ question: 'has-address', operator: '=', answerBoolean: true }]);
+    // a single enable condition does not emit enableBehavior
+    expect(back?.enableBehavior).toBeUndefined();
   });
 
   it('round-trips an attachment item with an Image data type and attachment text', () => {
@@ -405,6 +407,156 @@ describe('managed item extension round-trip (WS1.1 fields)', () => {
     expect(roundTripped.type).toBe('attachment');
     expect(roundTripped.dataType).toBe('Image');
     expect(roundTripped.attachmentText).toBe('Take a picture of the front');
+  });
+});
+
+describe('conditional-behavior round-trip (triggers / dynamicPopulation / disabledDisplay / hideControlLabel)', () => {
+  const URLS = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS;
+  const emit = (
+    item: PracticeManagedQuestionnaireItem
+  ): ReturnType<typeof practiceManagedQuestionnaireToFhir>['item'] =>
+    practiceManagedQuestionnaireToFhir(baseManagedQuestionnaire({ item: [item] })).item;
+  const findExt = (item: any, url: string): any => (item?.extension ?? []).find((e: any) => e.url === url);
+
+  it('compiles multiple enable triggers to enableWhen + enableBehavior and back', () => {
+    const managed = managedItem({
+      type: 'string',
+      enableBehavior: 'any',
+      triggers: [
+        { targetQuestionLinkId: 'q1', effect: ['enable'], operator: '=', answerString: 'a' },
+        { targetQuestionLinkId: 'q2', effect: ['enable'], operator: '=', answerBoolean: true },
+      ],
+    });
+
+    const fhir = emit(managed)?.[0];
+    expect(fhir?.enableWhen).toEqual([
+      { question: 'q1', operator: '=', answerString: 'a' },
+      { question: 'q2', operator: '=', answerBoolean: true },
+    ]);
+    expect(fhir?.enableBehavior).toBe('any');
+    expect(fhir).not.toHaveProperty('triggers');
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.triggers).toEqual(managed.triggers);
+    expect(back.enableBehavior).toBe('any');
+    expect(back.enableWhen).toBeUndefined();
+  });
+
+  it('compiles a require trigger to a require-when extension and back', () => {
+    const managed = managedItem({
+      type: 'string',
+      triggers: [{ targetQuestionLinkId: 'q1', effect: ['require'], operator: '=', answerString: 'Yes' }],
+    });
+
+    const fhir = emit(managed)?.[0];
+    const requireExt = findExt(fhir, URLS.requireWhen.extension);
+    expect(requireExt?.extension).toEqual([
+      { url: URLS.requireWhen.question, valueString: 'q1' },
+      { url: URLS.requireWhen.operator, valueString: '=' },
+      { url: URLS.requireWhen.answer, valueString: 'Yes' },
+    ]);
+    expect(fhir?.enableWhen).toBeUndefined();
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.triggers).toEqual(managed.triggers);
+    expect(back.extension).toBeUndefined();
+  });
+
+  it('compiles a filter trigger to a filter-when extension and back', () => {
+    const managed = managedItem({
+      type: 'choice',
+      answerOption: [{ valueString: 'a' }],
+      triggers: [{ targetQuestionLinkId: 'q1', effect: ['filter'], operator: '=', answerString: 'a' }],
+    });
+
+    const fhir = emit(managed)?.[0];
+    const filterExt = findExt(fhir, URLS.filterWhen.extension);
+    expect(filterExt?.extension).toEqual([
+      { url: URLS.filterWhen.question, valueString: 'q1' },
+      { url: URLS.filterWhen.operator, valueString: '=' },
+      { url: URLS.filterWhen.answer, valueString: 'a' },
+    ]);
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.triggers).toEqual(managed.triggers);
+  });
+
+  it('compiles a sub-text trigger to a text-when extension (with substituteText) and back', () => {
+    const managed = managedItem({
+      type: 'string',
+      triggers: [
+        {
+          targetQuestionLinkId: 'q1',
+          effect: ['sub-text'],
+          operator: '=',
+          answerString: 'a',
+          substituteText: 'New helper copy',
+        },
+      ],
+    });
+
+    const fhir = emit(managed)?.[0];
+    const textWhenExt = findExt(fhir, URLS.textWhen.extension);
+    expect(textWhenExt?.extension).toEqual(
+      expect.arrayContaining([
+        { url: URLS.textWhen.question, valueString: 'q1' },
+        { url: URLS.textWhen.operator, valueString: '=' },
+        { url: URLS.textWhen.answer, valueString: 'a' },
+        { url: URLS.textWhen.substituteText, valueString: 'New helper copy' },
+      ])
+    );
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.triggers).toEqual(managed.triggers);
+  });
+
+  it('round-trips disabledDisplay: protected', () => {
+    const managed = managedItem({ type: 'string', disabledDisplay: 'protected' });
+
+    const fhir = emit(managed)?.[0];
+    expect(findExt(fhir, URLS.disabledDisplay)).toEqual({ url: URLS.disabledDisplay, valueString: 'protected' });
+    expect(fhir).not.toHaveProperty('disabledDisplay');
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.disabledDisplay).toBe('protected');
+  });
+
+  it('round-trips hideControlLabel: true (emitted only when true)', () => {
+    const managed = managedItem({ type: 'boolean', hideControlLabel: true });
+
+    const fhir = emit(managed)?.[0];
+    expect(findExt(fhir, URLS.hideControlLabel)).toEqual({ url: URLS.hideControlLabel, valueBoolean: true });
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.hideControlLabel).toBe(true);
+  });
+
+  it('compiles dynamicPopulation to fill-from-when-disabled and forces protected display', () => {
+    const managed = managedItem({ type: 'string', dynamicPopulation: { sourceLinkId: 'patient-dob' } });
+
+    const fhir = emit(managed)?.[0];
+    expect(findExt(fhir, URLS.autofillFromWhenDisabled)).toEqual({
+      url: URLS.autofillFromWhenDisabled,
+      valueString: 'patient-dob',
+    });
+    // the autofill runtime only copies while hidden/protected, so protected is forced when unset
+    expect(findExt(fhir, URLS.disabledDisplay)).toEqual({ url: URLS.disabledDisplay, valueString: 'protected' });
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.dynamicPopulation).toEqual({ sourceLinkId: 'patient-dob' });
+    expect(back.disabledDisplay).toBe('protected');
+  });
+
+  it('drops the stale native enableWhen when a form is re-saved from a triggers-based item', () => {
+    // an item that somehow still carries a native enableWhen alongside triggers must not double-emit
+    const managed = managedItem({
+      type: 'string',
+      enableWhen: [{ question: 'stale', operator: '=', answerBoolean: true }],
+      triggers: [{ targetQuestionLinkId: 'q1', effect: ['enable'], operator: '=', answerBoolean: true }],
+    } as Partial<PracticeManagedQuestionnaireItem>);
+
+    const fhir = emit(managed)?.[0];
+    expect(fhir?.enableWhen).toEqual([{ question: 'q1', operator: '=', answerBoolean: true }]);
   });
 });
 

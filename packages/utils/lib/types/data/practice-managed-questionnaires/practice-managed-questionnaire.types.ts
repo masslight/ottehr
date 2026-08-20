@@ -41,7 +41,7 @@ export const DATA_TYPES_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, Otte
   attachment: ['Image', 'PDF'],
   display: ['Call Out'],
 };
-export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l', 'max'] as const;
+export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l'] as const;
 export type OttehrInputWidth = (typeof OTTEHR_INPUT_WIDTHS)[number];
 
 // preferred-element values understood by the paperwork engine (packages/ui-components .../paperwork/utils.ts).

@@ -17,9 +17,9 @@ import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
-import { RESERVED_DEVELOPED_FIELD_LINK_IDS } from '../developedFieldTemplates';
+import { RESERVED_GROUPED_FIELD_LINK_IDS } from '../groupedFieldTemplates';
 import { itemsReducer } from '../questionnaire.reducer';
-import { AvailableQuestion } from './EnableWhenEditor';
+import { AvailableQuestion } from './FieldTriggersEditor';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
 import { QuestionnairePreview } from './QuestionnairePreview';
 import { QuestionnaireTestDialog } from './QuestionnaireTestDialog';
@@ -58,7 +58,7 @@ function ensureUniqueLinkIds(
 ): PracticeManagedQuestionnaireItem[] {
   return items.map((item) => {
     // Developed-field linkIds are load-bearing; keep them verbatim (never derive or dedupe-rename).
-    if (item.linkId && RESERVED_DEVELOPED_FIELD_LINK_IDS.has(item.linkId)) {
+    if (item.linkId && RESERVED_GROUPED_FIELD_LINK_IDS.has(item.linkId)) {
       seen.add(item.linkId);
       return {
         ...item,
@@ -132,7 +132,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
   const navigate = useNavigate();
 
-  const { questionnaire, fhirQuestionnaire, jsonPreview, availableQuestions, usedLinkIds } = useMemo(() => {
+  const { questionnaire, fhirQuestionnaire, jsonPreview, availableQuestions } = useMemo(() => {
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
     const version = initial?.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
@@ -154,16 +154,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
     const availableQuestions = collectAvailableQuestions(questionnaire.item);
 
-    const usedLinkIds = new Set<string>();
-    const gatherLinkIds = (list: PracticeManagedQuestionnaireItem[]): void => {
-      for (const it of list) {
-        if (it.linkId) usedLinkIds.add(it.linkId);
-        if (it.item) gatherLinkIds(it.item);
-      }
-    };
-    gatherLinkIds(questionnaire.item);
-
-    return { questionnaire, fhirQuestionnaire, jsonPreview, availableQuestions, usedLinkIds };
+    return { questionnaire, fhirQuestionnaire, jsonPreview, availableQuestions };
   }, [initial, title, description, items]);
 
   const handleCopyJson = useCallback(() => {
@@ -260,7 +251,6 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
                 item={item}
                 dispatch={dispatch}
                 availableQuestions={availableQuestions}
-                usedLinkIds={usedLinkIds}
               />
             ))}
           </Paper>

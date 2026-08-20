@@ -1,11 +1,21 @@
+import { FormFieldTrigger } from 'config-types';
 import {
   Extension,
   Questionnaire,
   QuestionnaireItem,
+  QuestionnaireItemEnableWhen,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
 } from 'fhir/r4b';
 import { cloneDeep, isEqual } from 'lodash-es';
+import {
+  createDisabledDisplayExtension,
+  createEnableWhen,
+  createFillFromWhenDisabledExtension,
+  createFilterWhenExtension,
+  createRequireWhenExtension,
+  createTextWhenExtension,
+} from '../../config-helpers/shared-questionnaire';
 import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
@@ -13,6 +23,7 @@ import {
 } from '../../fhir/constants';
 import {
   DataTypeSchema,
+  DisabledDisplaySchema,
   InputWidthSchema,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
@@ -23,7 +34,7 @@ import {
   PracticeManagedQuestionnaireItem,
   StandaloneFormDTO,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
+import { mapQuestionnaireAndValueSetsToItemsList, structureExtension } from '../paperwork/paperwork';
 import { slugify } from '../slugify';
 
 // Simple item fields that round-trip 1:1 with a valueString Ottehr item extension.
@@ -39,11 +50,102 @@ const STRING_ITEM_EXTENSION_FIELDS = [
 // `text-min-rows` is the one non-string simple extension (valuePositiveInt).
 const MIN_ROWS_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.minRows;
 
-// Every extension url the managed<->fhir mapping owns; stripped from preserved raw extensions to avoid duplicates.
+// Conditional-behavior extension roots compiled from the typed `triggers` / `dynamicPopulation` /
+// `disabledDisplay` / `hideControlLabel` fields on emit and rehydrated into them on parse. Unlike the simple
+// string fields (handled item-by-item in the parse switch, which preserves unrecognized values as raw
+// extensions), these are always owned by the mapping, so on parse they are dropped wholesale from the
+// leftover raw extensions.
+const CONDITIONAL_ITEM_EXTENSION_URLS = new Set<string>([
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen.extension,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen.extension,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.extension,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.autofillFromWhenDisabled,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel,
+]);
+
+// Every extension url the managed<->fhir mapping owns; on emit these are stripped from preserved raw
+// extensions before the compiled ones are re-added, to avoid duplicates.
 const MANAGED_ITEM_EXTENSION_URLS = new Set<string>([
   ...STRING_ITEM_EXTENSION_FIELDS.map((f) => f.url),
   MIN_ROWS_EXTENSION_URL,
+  ...CONDITIONAL_ITEM_EXTENSION_URLS,
 ]);
+
+// Map a parsed *-when condition (answerString | answerBoolean | answerInteger | answerDate) onto the FormFieldTrigger
+// answer shape (exactly one of answerBoolean | answerString | answerDateTime, per FormFieldTriggerSchema).
+const conditionAnswerToTriggerAnswer = (cond: {
+  answerString?: string;
+  answerBoolean?: boolean;
+  answerInteger?: string | number;
+  answerDate?: string;
+}): Pick<FormFieldTrigger, 'answerBoolean' | 'answerString' | 'answerDateTime'> => {
+  if (cond.answerBoolean !== undefined) return { answerBoolean: cond.answerBoolean };
+  if (cond.answerString !== undefined) return { answerString: cond.answerString };
+  if (cond.answerDate !== undefined) return { answerDateTime: cond.answerDate };
+  if (cond.answerInteger !== undefined) return { answerString: String(cond.answerInteger) };
+  // `exists` conditions with no explicit answer default to answerBoolean so exactly one answer is always present
+  return { answerBoolean: true };
+};
+
+// Map a native FHIR enableWhen answer onto the FormFieldTrigger answer shape.
+const enableWhenAnswerToTriggerAnswer = (
+  ew: QuestionnaireItemEnableWhen
+): Pick<FormFieldTrigger, 'answerBoolean' | 'answerString' | 'answerDateTime'> => {
+  if (ew.answerBoolean !== undefined) return { answerBoolean: ew.answerBoolean };
+  if (ew.answerString !== undefined) return { answerString: ew.answerString };
+  if (ew.answerDateTime !== undefined) return { answerDateTime: ew.answerDateTime };
+  if (ew.answerDate !== undefined) return { answerDateTime: ew.answerDate };
+  if (ew.answerInteger !== undefined) return { answerString: String(ew.answerInteger) };
+  if (ew.answerDecimal !== undefined) return { answerString: String(ew.answerDecimal) };
+  if (ew.answerCoding?.code !== undefined) return { answerString: ew.answerCoding.code };
+  return { answerBoolean: true };
+};
+
+// Compile the typed conditional-behavior fields (triggers / dynamicPopulation / disabledDisplay / hideControlLabel)
+// into the native FHIR enableWhen(+enableBehavior) plus the Ottehr *-when / disabled-display / fill-from-when-disabled /
+// hide-control-label extensions. Mirrors convertFormFieldToQuestionnaireItem in config-helpers/shared-questionnaire.ts.
+const compileConditionalFields = (
+  item: PracticeManagedQuestionnaireItem
+): {
+  enableWhen?: QuestionnaireItemEnableWhen[];
+  enableBehavior?: QuestionnaireItem['enableBehavior'];
+  extensions: Extension[];
+} => {
+  const extensions: Extension[] = [];
+  const triggers = item.triggers ?? [];
+
+  const enableTriggers = triggers.filter((t) => t.effect.includes('enable'));
+  const enableWhen = enableTriggers.length > 0 ? enableTriggers.flatMap((t) => createEnableWhen(t)!) : undefined;
+  // enableBehavior is only meaningful when more than one enableWhen condition is present
+  const enableBehavior = enableWhen && enableWhen.length > 1 ? item.enableBehavior ?? 'all' : undefined;
+
+  for (const t of triggers.filter((t) => t.effect.includes('require'))) {
+    extensions.push(createRequireWhenExtension(t));
+  }
+  for (const t of triggers.filter((t) => t.effect.includes('filter'))) {
+    extensions.push(createFilterWhenExtension(t));
+  }
+  for (const t of triggers.filter((t) => t.effect.includes('sub-text'))) {
+    extensions.push(createTextWhenExtension(t));
+  }
+
+  if (item.disabledDisplay) {
+    extensions.push(createDisabledDisplayExtension(item.disabledDisplay));
+  }
+  if (item.dynamicPopulation) {
+    extensions.push(createFillFromWhenDisabledExtension(item.dynamicPopulation.sourceLinkId));
+    // the autofill runtime only copies while the field is hidden/protected, so force protected when unset
+    if (!item.disabledDisplay) {
+      extensions.push(createDisabledDisplayExtension('protected'));
+    }
+  }
+  if (item.hideControlLabel === true) {
+    extensions.push({ url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel, valueBoolean: true });
+  }
+
+  return { enableWhen, enableBehavior, extensions };
+};
 
 export const PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION = '1.0.0';
 
@@ -89,6 +191,10 @@ const PracticeManagedQuestionnaireItemToFhir = (
     extension.push({ url: MIN_ROWS_EXTENSION_URL, valuePositiveInt: item.minRows });
   }
 
+  // compile triggers / dynamicPopulation / disabledDisplay / hideControlLabel into enableWhen + Ottehr extensions
+  const { enableWhen, enableBehavior, extensions: conditionalExtensions } = compileConditionalFields(item);
+  extension.push(...conditionalExtensions);
+
   const fhirItem = omitManagedFields(item, preview);
 
   if (!fhirItem) {
@@ -98,6 +204,8 @@ const PracticeManagedQuestionnaireItemToFhir = (
   return {
     ...fhirItem,
     item: managedNestedItems,
+    ...(enableWhen && enableWhen.length > 0 ? { enableWhen } : {}),
+    ...(enableBehavior ? { enableBehavior } : {}),
     ...(extension.length > 0 ? { extension } : { extension: undefined }),
   };
 };
@@ -125,6 +233,14 @@ const omitManagedFields = (item: PracticeManagedQuestionnaireItem, preview: bool
     preferredElement: _preferredElement,
     attachmentText: _attachmentText,
     minRows: _minRows,
+    // conditional-behavior fields are re-emitted by compileConditionalFields; strip them (and the native
+    // enableWhen/enableBehavior they own) so they are not duplicated or passed through stale
+    triggers: _triggers,
+    dynamicPopulation: _dynamicPopulation,
+    disabledDisplay: _disabledDisplay,
+    hideControlLabel: _hideControlLabel,
+    enableWhen: _enableWhen,
+    enableBehavior: _enableBehavior,
     ...fhirItem
   } = item;
 
@@ -237,12 +353,85 @@ export const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): Practic
     }
   }
 
+  // rehydrate conditional-behavior fields from native enableWhen + the Ottehr *-when / disabled-display /
+  // fill-from-when-disabled / hide-control-label extensions into the typed triggers / dynamicPopulation /
+  // disabledDisplay / hideControlLabel fields (inverse of compileConditionalFields)
+  const {
+    enableWhen: nativeEnableWhen,
+    enableBehavior: nativeEnableBehavior,
+    extension: _rawExtension,
+    ...restItem
+  } = item;
+  const structured = structureExtension(item);
+
+  const triggers: FormFieldTrigger[] = [];
+  for (const ew of nativeEnableWhen ?? []) {
+    triggers.push({
+      targetQuestionLinkId: ew.question,
+      effect: ['enable'],
+      operator: ew.operator,
+      ...enableWhenAnswerToTriggerAnswer(ew),
+    });
+  }
+  // only the first require-when is honored at runtime, and structureExtension already returns just that one
+  if (structured.requireWhen) {
+    triggers.push({
+      targetQuestionLinkId: structured.requireWhen.question,
+      effect: ['require'],
+      operator: structured.requireWhen.operator,
+      ...conditionAnswerToTriggerAnswer(structured.requireWhen),
+    });
+  }
+  for (const fw of structured.filterWhen ?? []) {
+    triggers.push({
+      targetQuestionLinkId: fw.question,
+      effect: ['filter'],
+      operator: fw.operator,
+      ...conditionAnswerToTriggerAnswer(fw),
+    });
+  }
+  for (const tw of structured.textWhen ?? []) {
+    triggers.push({
+      targetQuestionLinkId: tw.question,
+      effect: ['sub-text'],
+      operator: tw.operator,
+      substituteText: tw.substituteText,
+      ...conditionAnswerToTriggerAnswer(tw),
+    });
+  }
+
+  const conditionalFields: Pick<
+    PracticeManagedQuestionnaireItem,
+    'triggers' | 'enableBehavior' | 'dynamicPopulation' | 'disabledDisplay' | 'hideControlLabel'
+  > = {};
+  if (triggers.length > 0) {
+    conditionalFields.triggers = triggers;
+  }
+  if (nativeEnableBehavior && (nativeEnableWhen?.length ?? 0) > 1) {
+    conditionalFields.enableBehavior = nativeEnableBehavior;
+  }
+  if (structured.autofillFromWhenDisabled) {
+    conditionalFields.dynamicPopulation = { sourceLinkId: structured.autofillFromWhenDisabled };
+  }
+  const disabledDisplayResult = DisabledDisplaySchema.safeParse(structured.disabledDisplay);
+  if (disabledDisplayResult.success) {
+    conditionalFields.disabledDisplay = disabledDisplayResult.data;
+  }
+  if (structured.hideControlLabel === true) {
+    conditionalFields.hideControlLabel = true;
+  }
+
+  // drop the conditional-behavior extensions (now represented as typed triggers / dynamicPopulation /
+  // disabledDisplay / hideControlLabel); the simple-field switch above already consumed or preserved the rest
+  const rawExtension = extension.filter((ext) => !CONDITIONAL_ITEM_EXTENSION_URLS.has(ext.url));
+
   const itemWithKey = {
-    ...item,
+    ...restItem,
     _key: generatePracticeManagedQuestionnaireItemKey(),
     item: managedNestedItems,
     ...managedFields,
-    ...(extension.length > 0 ? { extension } : { extension: undefined }),
+    ...conditionalFields,
+    ...(rawExtension.length > 0 ? { extension: rawExtension } : { extension: undefined }),
   };
 
   const result = PracticeManagedQuestionnaireItemSchema.safeParse(itemWithKey);

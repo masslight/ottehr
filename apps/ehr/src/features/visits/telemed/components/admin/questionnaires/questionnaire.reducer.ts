@@ -11,7 +11,7 @@ import {
 export type ItemAction =
   | { type: 'ADD_PAGE' }
   | { type: 'ADD_CHILD_ITEM'; key: string }
-  | { type: 'ADD_DEVELOPED_FIELD'; key: string; items: QuestionnaireItem[] }
+  | { type: 'ADD_GROUPED_FIELD'; key: string; items: QuestionnaireItem[] }
   | { type: 'UPDATE_ITEM'; key: string; field: string; value: unknown }
   | { type: 'REMOVE_ITEM'; key: string }
   | { type: 'MOVE_ITEM_UP'; key: string }
@@ -98,7 +98,7 @@ export function itemsReducer(
         ],
       }));
 
-    case 'ADD_DEVELOPED_FIELD':
+    case 'ADD_GROUPED_FIELD':
       // Convert the raw template subtree(s) to managed items (fresh _keys, typed fields) and append.
       return updateItemInTree(state, action.key, (item) => ({
         ...item,

@@ -1,6 +1,6 @@
 import { PracticeManagedQuestionnaireItem } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { describe, expect, it } from 'vitest';
-import { DEVELOPED_FIELD_TEMPLATES, RESERVED_DEVELOPED_FIELD_LINK_IDS } from './developedFieldTemplates';
+import { GROUPED_FIELD_TEMPLATES, RESERVED_GROUPED_FIELD_LINK_IDS } from './groupedFieldTemplates';
 import { itemsReducer } from './questionnaire.reducer';
 
 const page = (key: string, children: PracticeManagedQuestionnaireItem[] = []): PracticeManagedQuestionnaireItem =>
@@ -37,13 +37,43 @@ describe('itemsReducer UPDATE_ITEM', () => {
   });
 });
 
-describe('itemsReducer ADD_DEVELOPED_FIELD', () => {
-  const pharmacy = DEVELOPED_FIELD_TEMPLATES.find((t) => t.id === 'pharmacy-search')!;
-  const photoId = DEVELOPED_FIELD_TEMPLATES.find((t) => t.id === 'photo-id-upload')!;
+describe('itemsReducer ADD_GROUPED_FIELD', () => {
+  const pharmacy = GROUPED_FIELD_TEMPLATES.find((t) => t.id === 'pharmacy-search')!;
+  const photoId = GROUPED_FIELD_TEMPLATES.find((t) => t.id === 'photo-id-upload')!;
+  const patientAddress = GROUPED_FIELD_TEMPLATES.find((t) => t.id === 'patient-address')!;
+
+  it('inserts the patient-address block with its six fields and typed extensions', () => {
+    const next = itemsReducer([page('page0001')], {
+      type: 'ADD_GROUPED_FIELD',
+      key: 'page0001',
+      items: patientAddress.items,
+    });
+    const inserted = next[0].item!;
+
+    expect(inserted.map((i) => i.linkId)).toEqual([
+      'contact-page-address-text',
+      'patient-street-address',
+      'patient-street-address-2',
+      'patient-city',
+      'patient-state',
+      'patient-zip',
+    ]);
+    // the state field keeps its full choice list and small width, ZIP keeps its typed data-type
+    const state = inserted.find((i) => i.linkId === 'patient-state')!;
+    expect(state.type).toBe('choice');
+    expect(state.answerOption?.length ?? 0).toBeGreaterThan(1);
+    expect(state.inputWidth).toBe('s');
+    const zip = inserted.find((i) => i.linkId === 'patient-zip')!;
+    expect(zip.dataType).toBe('ZIP');
+    // autocomplete rides along as a preserved raw extension
+    expect(inserted.find((i) => i.linkId === 'patient-street-address')!.extension).toEqual(
+      expect.arrayContaining([expect.objectContaining({ valueString: expect.stringContaining('address-line1') })])
+    );
+  });
 
   it('inserts the pharmacy search subtree with its group-type extension and fresh keys', () => {
     const next = itemsReducer([page('page0001')], {
-      type: 'ADD_DEVELOPED_FIELD',
+      type: 'ADD_GROUPED_FIELD',
       key: 'page0001',
       items: pharmacy.items,
     });
@@ -64,7 +94,7 @@ describe('itemsReducer ADD_DEVELOPED_FIELD', () => {
 
   it('inserts photo-id attachments with a typed Image dataType and attachment instructions', () => {
     const next = itemsReducer([page('page0001')], {
-      type: 'ADD_DEVELOPED_FIELD',
+      type: 'ADD_GROUPED_FIELD',
       key: 'page0001',
       items: photoId.items,
     });
@@ -78,15 +108,16 @@ describe('itemsReducer ADD_DEVELOPED_FIELD', () => {
 
   it('does not mutate the shared template constant', () => {
     const before = JSON.stringify(pharmacy.items);
-    itemsReducer([page('page0001')], { type: 'ADD_DEVELOPED_FIELD', key: 'page0001', items: pharmacy.items });
+    itemsReducer([page('page0001')], { type: 'ADD_GROUPED_FIELD', key: 'page0001', items: pharmacy.items });
     expect(JSON.stringify(pharmacy.items)).toBe(before);
   });
 });
 
-describe('RESERVED_DEVELOPED_FIELD_LINK_IDS', () => {
-  it('includes the load-bearing developed-field linkIds', () => {
-    expect(RESERVED_DEVELOPED_FIELD_LINK_IDS.has('pharmacy-collection')).toBe(true);
-    expect(RESERVED_DEVELOPED_FIELD_LINK_IDS.has('photo-id-front')).toBe(true);
-    expect(RESERVED_DEVELOPED_FIELD_LINK_IDS.has('insurance-card-back')).toBe(true);
+describe('RESERVED_GROUPED_FIELD_LINK_IDS', () => {
+  it('includes the load-bearing grouped-field linkIds', () => {
+    expect(RESERVED_GROUPED_FIELD_LINK_IDS.has('pharmacy-collection')).toBe(true);
+    expect(RESERVED_GROUPED_FIELD_LINK_IDS.has('photo-id-front')).toBe(true);
+    expect(RESERVED_GROUPED_FIELD_LINK_IDS.has('insurance-card-back')).toBe(true);
+    expect(RESERVED_GROUPED_FIELD_LINK_IDS.has('patient-state')).toBe(true);
   });
 });
