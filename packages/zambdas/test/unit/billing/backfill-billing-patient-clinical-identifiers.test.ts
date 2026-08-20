@@ -869,6 +869,53 @@ describe('backfillBillingPatientClinicalIdentifiers', () => {
       });
     });
   });
+
+  // Each skipped patient lands in exactly one bucket, and the buckets answer what the run still
+  // needs from the operator: nothing, another run with the flag, or a person.
+  describe('skip reporting', () => {
+    const copyOfDeletedMain = (identifier: Patient['identifier'], friendlyId?: string): Patient[] => [
+      workingCopyOf({
+        id: 'billing-copy',
+        extension: copyOf('billing-gone', friendlyId),
+        identifier,
+      }),
+    ];
+
+    it('reports a friendly source identifier that resolves to nothing as needing review', async () => {
+      const { oystehr, patch } = mockOystehr(copyOfDeletedMain([clinicalFriendlyIdIdentifier('1015')]));
+
+      const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
+
+      expect(stats.skipped).toBe(1);
+      expect(stats.skippedNeedingReview).toBe(1);
+      expect(stats.skippedWithNothingToIndex).toBe(0);
+      expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('counts a copy indexed only by its friendly id as nothing left to index', async () => {
+      const { oystehr, patch } = mockOystehr(copyOfDeletedMain([clinicalFriendlyIdIdentifier('1015')], '1015'));
+
+      const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
+
+      expect(stats.skipped).toBe(1);
+      expect(stats.skippedWithNothingToIndex).toBe(1);
+      expect(stats.skippedNeedingReview).toBe(0);
+      expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('counts a second friendly identifier as prunable', async () => {
+      const { oystehr, patch } = mockOystehr(
+        copyOfDeletedMain([clinicalFriendlyIdIdentifier('1015'), clinicalFriendlyIdIdentifier('1014')], '1015')
+      );
+
+      const stats = await backfillBillingPatientClinicalIdentifiers(runOptions(oystehr));
+
+      expect(stats.skipped).toBe(1);
+      expect(stats.skippedWithPrunableIdentifiers).toBe(1);
+      expect(stats.skippedWithNothingToIndex).toBe(0);
+      expect(patch).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('syncClinicalPatientIdentifiers', () => {
