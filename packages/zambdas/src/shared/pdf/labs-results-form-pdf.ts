@@ -1564,7 +1564,7 @@ export async function makeLabPdfDocumentReference({
   // this function is also called for creating order pdfs which will not have a DR
   const searchParams = diagnosticReportIds
     ? [{ name: 'related', value: `${diagnosticReportIds.map((drId) => `DiagnosticReport/${drId}`).join(',')}` }]
-    : [];
+    : [{ name: 'subject', value: `Patient/${patientUuid}` }];
 
   const docRefContext: DocumentReference['context'] = {
     related,
@@ -1597,6 +1597,11 @@ export async function makeLabPdfDocumentReference({
     searchParams,
     listResources: labListResource ? [labListResource] : [], // when passed as empty, the doc will not be added to the patient labs folder
   });
+
+  console.log(
+    'Got these lab DocRefs back from createFilesDocumentReferences: ',
+    docRefs.map((dr) => `DocumentReference/${dr.id}`)
+  );
   return docRefs[0];
 }
 
