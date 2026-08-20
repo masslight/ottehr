@@ -31,6 +31,7 @@ import {
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchClaimGraph,
@@ -153,6 +154,7 @@ export async function performEffect(
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
+  const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
 
   return {
     id: claim.id ?? '',
@@ -249,7 +251,7 @@ export async function performEffect(
       .map((t) => t.code ?? '')
       .filter(Boolean),
     pcn: getClaimPcn(claim),
-    billType: facilityTypeCode ? `0${facilityTypeCode}1` : '',
+    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
     patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
     admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',

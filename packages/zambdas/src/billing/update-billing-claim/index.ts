@@ -45,6 +45,7 @@ import {
   ensureClaimInsurance,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
@@ -371,6 +372,10 @@ async function attachClaimResources(
       {
         url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
         valueString: fields.billType.substring(1, 3),
+      },
+      {
+        url: EXTENSION_CLAIM_FREQUENCY_CODE,
+        valueString: fields.billType.substring(3, 4),
       },
     ];
   }
