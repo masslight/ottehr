@@ -365,7 +365,10 @@ async function attachClaimResources(
 
   if (fields.billType) {
     claim.extension = [
-      ...(claim.extension ?? []),
+      ...(claim.extension ?? []).filter(
+        (extension) =>
+          extension.url !== EXTENSION_CLAIM_FACILITY_TYPE_CODE && extension.url !== EXTENSION_CLAIM_FREQUENCY_CODE
+      ),
       {
         url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
         valueString: fields.billType.substring(1, 3),
@@ -379,7 +382,7 @@ async function attachClaimResources(
 
   if (fields.admissionType) {
     claim.extension = [
-      ...(claim.extension ?? []),
+      ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_ADMISSION_TYPE_CODE),
       {
         url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
         valueString: fields.admissionType,
@@ -389,7 +392,7 @@ async function attachClaimResources(
 
   if (fields.admissionSource) {
     claim.extension = [
-      ...(claim.extension ?? []),
+      ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE),
       {
         url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
         valueString: fields.admissionSource,
