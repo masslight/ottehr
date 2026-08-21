@@ -591,6 +591,39 @@ describe('conditional-behavior round-trip (triggers / dynamicPopulation / disabl
     expect(back.triggers).toEqual(managed.triggers);
     expect(back.enableWhen).toBeUndefined();
   });
+
+  it('round-trips a read-only logical item (readOnly + hidden + type + options preserved)', () => {
+    const managed = managedItem({
+      linkId: 'patient-birth-sex',
+      type: 'choice',
+      readOnly: true,
+      disabledDisplay: 'hidden',
+      answerOption: [{ valueString: 'Male' }, { valueString: 'Female' }, { valueString: 'Intersex' }],
+    });
+
+    const fhir = emit(managed)?.[0];
+    expect(fhir?.readOnly).toBe(true);
+    expect(fhir?.type).toBe('choice');
+    expect(fhir?.answerOption).toEqual([
+      { valueString: 'Male' },
+      { valueString: 'Female' },
+      { valueString: 'Intersex' },
+    ]);
+    // disabled-display: hidden rides as an Ottehr extension
+    expect(fhir?.extension).toEqual(
+      expect.arrayContaining([{ url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay, valueString: 'hidden' }])
+    );
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.readOnly).toBe(true);
+    expect(back.disabledDisplay).toBe('hidden');
+    expect(back.type).toBe('choice');
+    expect(back.answerOption).toEqual([
+      { valueString: 'Male' },
+      { valueString: 'Female' },
+      { valueString: 'Intersex' },
+    ]);
+  });
 });
 
 describe('isPracticeManagedQ', () => {

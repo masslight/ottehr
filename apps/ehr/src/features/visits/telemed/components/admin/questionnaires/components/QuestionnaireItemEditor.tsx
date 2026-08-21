@@ -21,6 +21,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   Collapse,
   FormControlLabel,
   Grid,
@@ -41,6 +42,7 @@ import {
   QUESTIONNAIRE_ITEM_TYPES,
   QuestionnaireItemType,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { isLogicalItem, logicalItemLabel } from '../logicalItems';
 import { ItemAction } from '../questionnaire.reducer';
 import { AddFieldControl } from './AddFieldControl';
 import { AnswerOptionEditor } from './AnswerOptionEditor';
@@ -565,6 +567,44 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({
 }) => {
   const isGroup = item.type === 'group';
   const [expanded, setExpanded] = useState(false);
+
+  // Logical items are system-defined, hidden read-only values (referenced by triggers). Render them as a
+  // simple read-only chip — no editing, no add/remove — regardless of depth or lock state.
+  if (isLogicalItem(item)) {
+    return (
+      <Box
+        sx={{
+          border: '1px solid #E0E0E0',
+          borderRadius: '6px',
+          p: 1.5,
+          mb: 1,
+          bgcolor: '#FAFAFA',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+        }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {logicalItemLabel(item.linkId)}
+        </Typography>
+        <Chip
+          label="Logical item"
+          size="small"
+          sx={{
+            borderRadius: '4px',
+            height: 18,
+            fontSize: 11,
+            fontWeight: 500,
+            backgroundColor: 'rgba(0,0,0,0.06)',
+            color: 'text.secondary',
+          }}
+        />
+        <Typography variant="caption" color="text.disabled" sx={{ ml: 'auto' }}>
+          read-only
+        </Typography>
+      </Box>
+    );
+  }
 
   // a locked page (harvested page) or locked item (harvested field) cannot be deleted
   const locked = Boolean(

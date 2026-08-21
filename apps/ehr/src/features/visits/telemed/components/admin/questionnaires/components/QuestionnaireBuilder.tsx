@@ -21,6 +21,7 @@ import {
   PracticeManagedQuestionnaireItem,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { RESERVED_GROUPED_FIELD_LINK_IDS } from '../groupedFieldTemplates';
+import { LOGICAL_ITEM_LABELS } from '../logicalItems';
 import { itemsReducer } from '../questionnaire.reducer';
 import { AvailableQuestion } from './FieldTriggersEditor';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
@@ -114,7 +115,8 @@ function collectAvailableQuestions(items: PracticeManagedQuestionnaireItem[]): A
           linkId: it.linkId,
           pageLinkId: page?.linkId ?? '',
           pageText: page?.text ?? '',
-          text: it.text ?? '',
+          // logical items have no `text`; show their friendly label so trigger pickers read cleanly
+          text: it.text || LOGICAL_ITEM_LABELS[it.linkId] || '',
           type: it.type,
           options: (it.answerOption ?? [])
             .map((o) => o.valueCoding?.code ?? o.valueString ?? '')
