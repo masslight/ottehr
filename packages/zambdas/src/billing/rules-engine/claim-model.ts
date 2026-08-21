@@ -45,6 +45,7 @@ import {
   buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
+  copySourceRef,
   getClaimService,
   getClaimType,
   getClaimTypeCoding,
@@ -55,7 +56,6 @@ import {
   setClia,
   setTaxId,
   setTaxonomy,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 
 // The rules' view of a claim: the working-copy Claim plus the working-copy resources its rules can
@@ -125,12 +125,6 @@ const primaryPolicyHolder = (m: RulesEngineClaimModel): RelatedPerson | undefine
 
 type Provider = Practitioner | Organization;
 type NamedResource = Patient | RelatedPerson | Practitioner;
-
-// The "ResourceType/id" of the reference resource a working copy was copied from (the
-// source-resource extension prepareWorkingCopy stamps). Copies made before the extension existed
-// read as absent.
-const sourceRef = (resource: Practitioner | Organization | Location | Coverage | undefined): string | undefined =>
-  resource?.extension?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
 
 const getProviderFamily = (p?: Provider): string | undefined => {
   if (!p) return undefined;
@@ -350,7 +344,7 @@ const READERS: Record<string, FieldReader> = {
   // The slot the claim's current primary coverage was copied from, when its source still occupies
   // a slot on the reference patient (context prefetched by the engine when a rule uses the field).
   'insurance.coverageFromPatient': (m) => {
-    const source = sourceRef(primaryCoverage(m));
+    const source = copySourceRef(primaryCoverage(m));
     return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
   },
   'insurance.memberId': (m) => primaryCoverage(m)?.subscriberId,
@@ -362,13 +356,13 @@ const READERS: Record<string, FieldReader> = {
   'secondaryInsurance.payerId': (m) => extractPayerIdFromUrl(secondaryCoverage(m)?.payor?.[0]?.reference),
   'secondaryInsurance.memberId': (m) => secondaryCoverage(m)?.subscriberId,
 
-  'renderingProvider.ref': (m) => sourceRef(m.renderingProvider),
+  'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
-  'billingProvider.ref': (m) => sourceRef(m.billingProvider),
+  'billingProvider.ref': (m) => copySourceRef(m.billingProvider),
   ...providerReaders('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m) => (m.billingProvider ? getTaxID(m.billingProvider) : undefined),
 
-  'serviceFacility.ref': (m) => sourceRef(m.serviceFacility),
+  'serviceFacility.ref': (m) => copySourceRef(m.serviceFacility),
   'serviceFacility.name': (m) => m.serviceFacility?.name,
   'serviceFacility.npi': (m) => (m.serviceFacility ? getNPI(m.serviceFacility) : undefined),
   'serviceFacility.clia': (m) => (m.serviceFacility ? getCLIA(m.serviceFacility) : undefined),

@@ -362,6 +362,14 @@
       "src": "src/ehr/create-resources-from-audio-recording/index",
       "zip": ".dist/zips/create-resources-from-audio-recording.zip"
     },
+    "PROCESS-AUDIO-RECORDING": {
+      "name": "process-audio-recording",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/subscriptions/document-reference/process-audio-recording/index",
+      "zip": ".dist/zips/process-audio-recording.zip"
+    },
     "CREATE-UPLOAD-DOCUMENT-URL": {
       "name": "create-upload-document-url",
       "type": "http_auth",
@@ -1825,6 +1833,13 @@
       "src": "src/ehr/retry-action-log/index",
       "zip": ".dist/zips/retry-action-log.zip"
     },
+    "SEARCH-PATIENTS": {
+      "name": "search-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/search-patients/index",
+      "zip": ".dist/zips/search-patients.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
@@ -2504,6 +2519,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-TELEMED-RECORDING/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "PROCESS_AUDIO_RECORDING_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "In-person ambient scribe audio recording uploaded - generate AI chart recommendations",
+        "criteria": "DocumentReference?type=https://fhir.ottehr.com/CodeSystem/document-type|ambient-scribe-recording-pending",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-AUDIO-RECORDING/id}"
         },
         "extension": [
           {

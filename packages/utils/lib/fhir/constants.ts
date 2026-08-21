@@ -1125,6 +1125,12 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
 
+export const AMBIENT_SCRIBE_RECORDING_PENDING_CODING = {
+  system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/document-type`,
+  code: 'ambient-scribe-recording-pending',
+  display: 'Ambient scribe recording pending transcription',
+};
+
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 
 export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
