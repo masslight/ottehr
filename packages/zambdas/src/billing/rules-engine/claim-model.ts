@@ -39,6 +39,7 @@ import {
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
+import { updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachPrimaryCoverageToClaim,
@@ -663,56 +664,41 @@ const setServiceDate = (claim: Claim, value: string | null): boolean => {
 
 const setBillType = (claim: Claim, value: string | null): boolean => {
   if (!value || value.length !== 4) return false;
-  claim.extension = [
-    ...(claim.extension ?? []).filter(
-      (extension) =>
-        extension.url !== EXTENSION_CLAIM_FACILITY_TYPE_CODE && extension.url !== EXTENSION_CLAIM_FREQUENCY_CODE
-    ),
-    {
-      url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
-      valueString: value.substring(1, 3),
-    },
-    {
-      url: EXTENSION_CLAIM_FREQUENCY_CODE,
-      valueString: value.substring(3, 4),
-    },
-  ];
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+    valueString: value.substring(1, 3),
+  });
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_FREQUENCY_CODE,
+    valueString: value.substring(3, 4),
+  });
   return true;
 };
 
 const setPatientDischargeStatusCode = (claim: Claim, value: string | null): boolean => {
   if (!value) return false;
-  claim.extension = [
-    ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS),
-    {
-      url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
-      valueString: value,
-    },
-  ];
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+    valueString: value,
+  });
   return true;
 };
 
 const setAdmissionType = (claim: Claim, value: string | null): boolean => {
   if (!value) return false;
-  claim.extension = [
-    ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_ADMISSION_TYPE_CODE),
-    {
-      url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
-      valueString: value,
-    },
-  ];
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+    valueString: value,
+  });
   return true;
 };
 
 const setAdmissionSource = (claim: Claim, value: string | null): boolean => {
   if (!value) return false;
-  claim.extension = [
-    ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE),
-    {
-      url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
-      valueString: value,
-    },
-  ];
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+    valueString: value,
+  });
   return true;
 };
 
