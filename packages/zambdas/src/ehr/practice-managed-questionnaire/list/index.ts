@@ -1,8 +1,9 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { PRACTICE_DEFAULT_QUESTIONNAIRE_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isPracticeDefaultQ } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
   PracticeManagedQuestionnaireDTO,
   PracticeManagedQuestionnaireListOutput,
@@ -40,7 +41,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput> {
   const searchParams: SearchParam[] = [
     { name: '_sort', value: 'title' },
-    { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code },
+    // both categories share the questionnaire-type code system, so a bare-code comma-OR returns both
+    {
+      name: '_tag',
+      value: `${PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code},${PRACTICE_DEFAULT_QUESTIONNAIRE_TAG.code}`,
+    },
     { name: '_elements', value: questionnaireElements.join(',') },
   ];
 
@@ -64,6 +69,8 @@ async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuesti
       title: questionnaire.title ?? '',
       status: questionnaire.status,
       url: questionnaire.url ?? '',
+      // presence of the practice-default tag wins even if a resource somehow also carries practice-managed
+      kind: isPracticeDefaultQ(questionnaire as Questionnaire) ? 'default' : 'managed',
     };
 
     return dto;

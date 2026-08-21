@@ -1,5 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
+import {
+  fhirQuestionnaireToPracticeManaged,
+  isPracticeDefaultQ,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
+import { validateEditsAgainstLocks } from 'utils/lib/helpers/practice-managed-questionnaires/lock-validation';
 import { Secrets } from 'utils/lib/secrets';
 import {
   PracticeManagedQuestionnaireSchema,
@@ -69,13 +74,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 export const validateQuestionnaire = async (input: ValidatedRequest, oystehr: Oystehr): Promise<void> => {
   const { updateType, data } = input;
 
-  let questionnaireId: string | undefined;
-
-  if (updateType === 'update-status') {
-    questionnaireId = data.questionnaireId;
-  } else {
-    questionnaireId = data.id;
-  }
+  const questionnaireId = updateType === 'update-status' ? data.questionnaireId : data.id;
 
   const questionnaire = await oystehr.fhir.get<Questionnaire>({
     resourceType: 'Questionnaire',
@@ -85,4 +84,20 @@ export const validateQuestionnaire = async (input: ValidatedRequest, oystehr: Oy
   if (!questionnaire) throw INVALID_INPUT_ERROR(`Could not get Questionnaire/${questionnaireId}`);
 
   validateQisPracticeManaged(questionnaire, questionnaireId ?? '');
+
+  // Extra guards for "default" (locked) questionnaires. The fetched resource is the current stored version
+  // (the base): it is non-deletable, and a content edit is validated against the harvest-lock manifest here
+  // server-side (anti-tamper — locks are recomputed from the manifest, never trusted from the client).
+  if (isPracticeDefaultQ(questionnaire)) {
+    if (updateType === 'update-status' && data.newStatus === 'retired') {
+      throw INVALID_INPUT_ERROR('Default paperwork questionnaires cannot be deleted.');
+    }
+    if (updateType === 'update-questionnaire') {
+      const base = fhirQuestionnaireToPracticeManaged(questionnaire);
+      const violations = validateEditsAgainstLocks(data, base);
+      if (violations.length > 0) {
+        throw INVALID_INPUT_ERROR(`This edit is not allowed on default paperwork: ${violations.join(' ')}`);
+      }
+    }
+  }
 };

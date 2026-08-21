@@ -2,6 +2,7 @@ import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
+  PRACTICE_DEFAULT_QUESTIONNAIRE_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
@@ -14,6 +15,8 @@ import {
   fhirQuestionnaireToPracticeManaged,
   formatQuestionnaireItemValueToString,
   generatePracticeManagedQuestionnaireItemKey,
+  isPortalManagedQ,
+  isPracticeDefaultQ,
   isPracticeManagedQ,
   makePracticeManagedUrl,
   makeStandaloneFormDTO,
@@ -581,6 +584,32 @@ describe('isPracticeManagedQ', () => {
     });
 
     expect(isPracticeManagedQ(questionnaire)).toBe(false);
+  });
+});
+
+describe('practice-default detection + tag preservation', () => {
+  it('isPracticeDefaultQ / isPortalManagedQ recognize the practice-default tag', () => {
+    const dflt = baseFhirQuestionnaire({ meta: { tag: [PRACTICE_DEFAULT_QUESTIONNAIRE_TAG] } });
+    expect(isPracticeDefaultQ(dflt)).toBe(true);
+    expect(isPracticeManagedQ(dflt)).toBe(false);
+    expect(isPortalManagedQ(dflt)).toBe(true);
+
+    const managed = baseFhirQuestionnaire({ meta: { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] } });
+    expect(isPracticeDefaultQ(managed)).toBe(false);
+    expect(isPortalManagedQ(managed)).toBe(true);
+
+    expect(isPortalManagedQ(baseFhirQuestionnaire())).toBe(false);
+  });
+
+  it('does not force-add the practice-managed tag onto a practice-default questionnaire on serialize', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      meta: { tag: [PRACTICE_DEFAULT_QUESTIONNAIRE_TAG] },
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.meta?.tag).toEqual([PRACTICE_DEFAULT_QUESTIONNAIRE_TAG]);
+    expect(fhir.meta?.tag?.some((t) => t.code === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code)).toBe(false);
   });
 });
 

@@ -8,11 +8,14 @@ import { FC, useCallback, useMemo, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
+  isPracticeDefaultQ,
   makePracticeManagedUrl,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
   practiceManagedQuestionnaireToFhir,
 } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { applyProtectedOptionCoding } from 'utils/lib/helpers/practice-managed-questionnaires/protected-options';
 import { slugify } from 'utils/lib/helpers/slugify';
+import { resolveLocksForQuestionnaire } from 'utils/lib/ottehr-config/harvest-lock-manifest';
 import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
@@ -120,9 +123,22 @@ function collectAvailableQuestions(items: PracticeManagedQuestionnaireItem[]): A
 }
 
 export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, onSave, isSaving }) => {
+  // A "default" (locked) questionnaire is edited under the harvest-lock model. Normalize its protected
+  // options to valueCoding up front so the code freezes while the label stays editable, and resolve the
+  // locks from the loaded base (not the live-edited tree) so they don't shift as the user edits.
+  const isLocked = isPracticeDefaultQ(initial);
+  const lockedInitial = useMemo(
+    () => (initial && isLocked ? applyProtectedOptionCoding(initial) : initial),
+    [initial, isLocked]
+  );
+  const locks = useMemo(
+    () => (lockedInitial && isLocked ? resolveLocksForQuestionnaire(lockedInitial) : undefined),
+    [lockedInitial, isLocked]
+  );
+
   const [title, setTitle] = useState(initial?.title || '');
   const [description, setDescription] = useState(initial?.description || '');
-  const [items, dispatch] = useReducer(itemsReducer, initial?.item || []);
+  const [items, dispatch] = useReducer(itemsReducer, lockedInitial?.item || []);
   const [titleError, setTitleError] = useState(false);
   const [pagesError, setPagesError] = useState(false);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -177,7 +193,9 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
     if (error) return;
 
-    await onSave(questionnaire);
+    // defensively re-freeze protected option codes on save (in case a protected option was re-added)
+    const toSave = isLocked ? applyProtectedOptionCoding(questionnaire) : questionnaire;
+    await onSave(toSave);
   };
 
   return (
@@ -251,6 +269,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
                 item={item}
                 dispatch={dispatch}
                 availableQuestions={availableQuestions}
+                locks={locks}
               />
             ))}
           </Paper>

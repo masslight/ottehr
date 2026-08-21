@@ -86,6 +86,9 @@ export type PracticeManagedQuestionnaireDTO = {
   title: string;
   status: Questionnaire['status'];
   url: string;
+  // 'managed' = admin-authored custom form; 'default' = an Ottehr-managed intake form brought into the
+  // portal for locked editing (non-deletable, harvest-locked). Derived from meta.tag by the list zambda.
+  kind: 'managed' | 'default';
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {

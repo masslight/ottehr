@@ -1,7 +1,10 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { PAPERWORK_FLOW_TAG } from 'utils/lib/fhir/constants';
+import {
+  isPortalManagedQ,
+  PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
 import {
   getCanonicalUrlFromQ,
@@ -46,13 +49,14 @@ export const patchQuestionnaireVersion = (version: string): string => {
   return `${major}.${minor}.${patch + 1}`;
 };
 
+// The portal edits two categories of Questionnaire: practice-managed (custom, admin-authored) and
+// practice-default (Ottehr-managed intake forms brought in for locked editing). Both are accepted here;
+// the locked-edit restrictions for defaults are enforced separately (see lock-validation).
 export const validateQisPracticeManaged = (questionnaire: Questionnaire, questionnaireId: string): void => {
-  const isPracticeManaged = questionnaire.meta?.tag?.some(
-    (t) => t.system === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.system && t.code === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code
-  );
-
-  if (!isPracticeManaged) {
-    throw new Error(`Attempting to get questionnaire that is not practice managed Questionnaire/${questionnaireId}`);
+  if (!isPortalManagedQ(questionnaire)) {
+    throw new Error(
+      `Attempting to access a questionnaire that is not practice-managed or practice-default Questionnaire/${questionnaireId}`
+    );
   }
 };
 

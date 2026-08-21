@@ -493,6 +493,17 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/**
+ * meta.tag identifying a Questionnaire as a practice "default" — an Ottehr-managed intake form that has
+ * been brought into the admin portal for locked editing. Shares the questionnaire-type code system with
+ * PRACTICE_MANAGED_QUESTIONNAIRE_TAG; the two are surfaced in the same portal but a default is edited
+ * under a harvest-lock model and is non-deletable.
+ */
+export const PRACTICE_DEFAULT_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'practice-default',
+};
+
 /** meta.tag identifying a paperwork flow Questionnaire. */
 export const PAPERWORK_FLOW_TAG = {
   system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,

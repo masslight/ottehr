@@ -8,6 +8,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LinkIcon from '@mui/icons-material/Link';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import NumbersIcon from '@mui/icons-material/Numbers';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -31,6 +32,7 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, useState } from 'react';
+import { ResolvedLocks } from 'utils/lib/ottehr-config/harvest-lock-manifest';
 import {
   DATA_TYPES_BY_ITEM_TYPE,
   OTTEHR_INPUT_WIDTHS,
@@ -82,6 +84,8 @@ interface QuestionnaireItemEditorProps {
   item: PracticeManagedQuestionnaireItem;
   dispatch: React.Dispatch<ItemAction>;
   availableQuestions: AvailableQuestion[];
+  /** resolved harvest locks (present only when editing a locked "default" questionnaire) */
+  locks?: ResolvedLocks;
   depth?: number;
 }
 
@@ -104,11 +108,12 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   reference: <LinkIcon sx={iconSx} />,
 };
 
-const ItemActions: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
-  item,
-  dispatch,
-}) => (
-  <Box sx={{ display: 'flex', gap: 0.25 }}>
+const ItemActions: FC<{
+  item: PracticeManagedQuestionnaireItem;
+  dispatch: React.Dispatch<ItemAction>;
+  locked?: boolean;
+}> = ({ item, dispatch, locked }) => (
+  <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
     <Tooltip title="Move up">
       <IconButton size="small" onClick={() => dispatch({ type: 'MOVE_ITEM_UP', key: item._key })}>
         <ArrowUpwardIcon fontSize="small" />
@@ -119,11 +124,18 @@ const ItemActions: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.
         <ArrowDownwardIcon fontSize="small" />
       </IconButton>
     </Tooltip>
-    <Tooltip title="Delete">
-      <IconButton size="small" color="error" onClick={() => dispatch({ type: 'REMOVE_ITEM', key: item._key })}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
-    </Tooltip>
+    {locked ? (
+      // harvested (locked) items and pages are non-removable — a change here would break data harvest
+      <Tooltip title="This field is required by default paperwork and can't be removed">
+        <LockOutlinedIcon fontSize="small" sx={{ color: 'text.disabled', mx: 0.5 }} />
+      </Tooltip>
+    ) : (
+      <Tooltip title="Delete">
+        <IconButton size="small" color="error" onClick={() => dispatch({ type: 'REMOVE_ITEM', key: item._key })}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    )}
   </Box>
 );
 
@@ -131,7 +143,8 @@ const ItemFields: FC<{
   item: PracticeManagedQuestionnaireItem;
   dispatch: React.Dispatch<ItemAction>;
   availableQuestions: AvailableQuestion[];
-}> = ({ item, dispatch, availableQuestions }) => {
+  locks?: ResolvedLocks;
+}> = ({ item, dispatch, availableQuestions, locks }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isChoice = item.type === 'choice' || item.type === 'open-choice';
@@ -141,6 +154,11 @@ const ItemFields: FC<{
   const isAttachment = item.type === 'attachment';
   const isMultilineText = item.type === 'text';
   const isInput = !isDisplay && !isGroup;
+
+  // harvest-lock: a locked item keeps its label/help text editable but cannot change type or required;
+  // its protected answer options keep frozen codes (display still editable, add/remove of them blocked)
+  const isItemLocked = Boolean(item.linkId && locks?.lockedItemLinkIds.has(item.linkId));
+  const protectedOptionCodes = item.linkId ? locks?.protectedOptionCodesByLinkId.get(item.linkId) : undefined;
   const showMaxLength = item.type === 'string' || item.type === 'text';
   const availableDataTypes = DATA_TYPES_BY_ITEM_TYPE[item.type] || [];
   const preferredElementOptions = PREFERRED_ELEMENT_OPTIONS[item.type] || [];
@@ -167,6 +185,7 @@ const ItemFields: FC<{
           <Select
             size="small"
             value={item.type}
+            disabled={isItemLocked}
             onChange={(e) => dispatch({ type: 'UPDATE_ITEM', key: item._key, field: 'type', value: e.target.value })}
             fullWidth
           >
@@ -195,6 +214,7 @@ const ItemFields: FC<{
               <Checkbox
                 size="small"
                 checked={item.required || false}
+                disabled={isItemLocked}
                 onChange={(e) =>
                   dispatch({
                     type: 'UPDATE_ITEM',
@@ -212,7 +232,12 @@ const ItemFields: FC<{
 
       {isChoice && (
         <Grid item xs={12}>
-          <AnswerOptionEditor itemKey={item._key} options={item.answerOption || []} dispatch={dispatch} />
+          <AnswerOptionEditor
+            itemKey={item._key}
+            options={item.answerOption || []}
+            dispatch={dispatch}
+            protectedOptionCodes={protectedOptionCodes}
+          />
         </Grid>
       )}
 
@@ -528,19 +553,25 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({
   item,
   dispatch,
   availableQuestions,
+  locks,
   depth = 0,
 }) => {
   const isGroup = item.type === 'group';
   const [expanded, setExpanded] = useState(false);
+
+  // a locked page (harvested page) or locked item (harvested field) cannot be deleted
+  const locked = Boolean(
+    item.linkId && (isGroup ? locks?.lockedPageLinkIds.has(item.linkId) : locks?.lockedItemLinkIds.has(item.linkId))
+  );
 
   // Child items render as plain boxes, no accordion
   if (depth > 0) {
     return (
       <Box sx={{ border: '1px solid #999', borderRadius: '6px', p: 1.5, mb: 1, bgcolor: '#F8F9FA' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 0.5 }}>
-          <ItemActions item={item} dispatch={dispatch} />
+          <ItemActions item={item} dispatch={dispatch} locked={locked} />
         </Box>
-        <ItemFields item={item} dispatch={dispatch} availableQuestions={availableQuestions} />
+        <ItemFields item={item} dispatch={dispatch} availableQuestions={availableQuestions} locks={locks} />
       </Box>
     );
   }
@@ -598,12 +629,12 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({
           )}
           {expanded && <Box sx={{ flexGrow: 1 }} />}
           <Box onClick={(e) => e.stopPropagation()}>
-            <ItemActions item={item} dispatch={dispatch} />
+            <ItemActions item={item} dispatch={dispatch} locked={locked} />
           </Box>
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0 }}>
-        <ItemFields item={item} dispatch={dispatch} availableQuestions={availableQuestions} />
+        <ItemFields item={item} dispatch={dispatch} availableQuestions={availableQuestions} locks={locks} />
         {isGroup && (
           <Box sx={{ mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
@@ -616,6 +647,7 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({
                 item={child}
                 dispatch={dispatch}
                 availableQuestions={availableQuestions}
+                locks={locks}
                 depth={1}
               />
             ))}

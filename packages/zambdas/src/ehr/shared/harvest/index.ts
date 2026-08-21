@@ -1583,13 +1583,21 @@ function extractValueFromItem(item: QuestionnaireResponseItem): string | boolean
 
   const answer = item.answer?.[0];
 
+  // Coded options harvest by their frozen `code` (the label may be relabeled in the admin portal); plain
+  // options still harvest by `valueString`. Backward-compatible: existing valueString responses are
+  // unaffected. NOTE: the per-section sub-extractors below (coverage/guarantor/emergency/employer/attorney)
+  // still read valueString only — that is harmless until the patient app submits valueCoding for these
+  // fields, which ships with the deferred consumption / patient-fill half of the valueCoding migration.
+  const codedOrString = answer?.valueCoding?.code ?? answer?.valueString;
+
   // Handle gender answers
-  if (item.linkId.includes('-birth-sex') && answer?.valueString) {
-    return BIRTH_SEX_MAP[answer.valueString];
+  if (item.linkId.includes('-birth-sex') && codedOrString) {
+    return BIRTH_SEX_MAP[codedOrString];
   }
 
   // Handle regular answers
   if (!answer) return undefined;
+  if (answer.valueCoding?.code !== undefined) return answer.valueCoding.code;
   if ('valueString' in answer) return answer.valueString;
   if ('valueBoolean' in answer) return answer.valueBoolean;
   if ('valueDateTime' in answer) return answer.valueDateTime;

@@ -866,4 +866,32 @@ describe('Patient Master Record Tests', () => {
       relatedPerson: {},
     });
   });
+
+  test('reads a coded (valueCoding) answer identically to its valueString equivalent (birth sex)', () => {
+    const patient: Patient = { resourceType: 'Patient', name: [{ given: ['Jane'], family: 'Smith' }] };
+    const makeItems = (answer: QuestionnaireResponseItem['answer']): QuestionnaireResponseItem[] => [
+      { linkId: 'contact-information-page', item: [{ linkId: 'patient-birth-sex', answer }] },
+    ];
+
+    // valueString 'Male' (legacy) and valueCoding {code:'Male'} (relabeled option, frozen code) must harvest
+    // to the same Patient patch — the migration freezes the code, only the display label changes
+    const viaString = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: makeItems([{ valueString: 'Male' }]),
+        options: { includeSections: ['contact-information-page'] },
+      },
+      patient
+    );
+    const viaCoding = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: makeItems([{ valueCoding: { code: 'Male', display: 'Man' } }]),
+        options: { includeSections: ['contact-information-page'] },
+      },
+      patient
+    );
+
+    expect(viaCoding).toEqual(viaString);
+    // and it actually mapped through BIRTH_SEX_MAP to the FHIR gender value
+    expect(JSON.stringify(viaCoding)).toContain('male');
+  });
 });

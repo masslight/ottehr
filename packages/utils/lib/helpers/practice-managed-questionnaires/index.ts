@@ -18,6 +18,7 @@ import {
 } from '../../config-helpers/shared-questionnaire';
 import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
+  PRACTICE_DEFAULT_QUESTIONNAIRE_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
@@ -253,6 +254,17 @@ const addPracticeManagedQuestionnaireTag = (
   const existingMeta = questionnaire.meta || { tag: [] };
   const existingTags = existingMeta.tag ?? [];
 
+  // a practice-default questionnaire is a distinct, tag-preserving category: never force-add the
+  // practice-managed tag onto it (that would dual-list it and confuse the managed/default discriminator)
+  if (
+    existingTags.some(
+      (t) =>
+        t.system === PRACTICE_DEFAULT_QUESTIONNAIRE_TAG.system && t.code === PRACTICE_DEFAULT_QUESTIONNAIRE_TAG.code
+    )
+  ) {
+    return questionnaire;
+  }
+
   // if the tag is already there just return
   if (existingTags.some((t) => isEqual(t, PRACTICE_MANAGED_QUESTIONNAIRE_TAG))) {
     return questionnaire;
@@ -447,6 +459,19 @@ export function isPracticeManagedQ(q: Questionnaire | undefined): boolean {
 
   const { system, code } = PRACTICE_MANAGED_QUESTIONNAIRE_TAG;
   return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
+}
+
+/** A practice "default" — an Ottehr-managed intake form brought into the portal for locked editing. */
+export function isPracticeDefaultQ(q: Questionnaire | undefined): boolean {
+  if (!q) return false;
+
+  const { system, code } = PRACTICE_DEFAULT_QUESTIONNAIRE_TAG;
+  return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
+}
+
+/** Either portal-editable category: practice-managed (custom) or practice-default (locked intake). */
+export function isPortalManagedQ(q: Questionnaire | undefined): boolean {
+  return isPracticeManagedQ(q) || isPracticeDefaultQ(q);
 }
 
 export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {

@@ -38,11 +38,16 @@ export const QuestionnaireAdminPage: FC = () => {
 
   const deletedCount = deletedQuestionnaires.length;
 
-  const allQuestionnaires = [...active, ...deletedQuestionnaires].sort((a, b) =>
-    (a.title || '').localeCompare(b.title || '')
-  );
+  // pin "default" (locked intake) questionnaires to the top, then sort by title
+  const byDefaultThenTitle = (a: (typeof active)[number], b: (typeof active)[number]): number => {
+    if (a.kind !== b.kind) return a.kind === 'default' ? -1 : 1;
+    return (a.title || '').localeCompare(b.title || '');
+  };
 
-  const visibleQuestionnaires = showDeleted ? allQuestionnaires : active;
+  const activeSorted = [...active].sort(byDefaultThenTitle);
+  const allQuestionnaires = [...active, ...deletedQuestionnaires].sort(byDefaultThenTitle);
+
+  const visibleQuestionnaires = showDeleted ? allQuestionnaires : activeSorted;
 
   const toggleStatus = useCallback(
     async (input: PracticeManagedQuestionnaireUpdateStatusData) => {
@@ -136,6 +141,7 @@ export const QuestionnaireAdminPage: FC = () => {
             <TableBody>
               {visibleQuestionnaires.map((q) => {
                 const deleted = q.status === 'retired';
+                const isDefault = q.kind === 'default';
                 return (
                   <TableRow
                     key={q.id}
@@ -146,6 +152,21 @@ export const QuestionnaireAdminPage: FC = () => {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {q.title || '(untitled)'}
+                        {isDefault && (
+                          <Chip
+                            label="Default paperwork"
+                            size="small"
+                            sx={{
+                              borderRadius: '4px',
+                              height: '17px',
+                              '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+                              fontSize: 12,
+                              fontWeight: 500,
+                              backgroundColor: 'rgba(15, 52, 124, 0.12)',
+                              color: '#0F347C',
+                            }}
+                          />
+                        )}
                         {deleted && (
                           <Chip
                             label="Deleted"
@@ -182,16 +203,19 @@ export const QuestionnaireAdminPage: FC = () => {
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              disabled={isUpdating}
-                              onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {/* default (locked intake) questionnaires are non-deletable */}
+                          {!isDefault && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={isUpdating}
+                                onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </>
                       )}
                     </TableCell>
