@@ -1,7 +1,18 @@
-import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, PDFPageDrawTextOptions, StandardFonts } from 'pdf-lib';
+import {
+  Color,
+  PageSizes,
+  PDFDocument,
+  PDFFont,
+  PDFImage,
+  PDFPage,
+  PDFPageDrawTextOptions,
+  StandardFonts,
+} from 'pdf-lib';
+import { detectMimeTypeFromBytes, MIME_TYPES } from 'utils/lib/utils/file';
 import { assertDefined } from '../../shared/helpers';
 import { rgbNormalized } from '../../shared/pdf/pdf-utils';
-import { Document, ImageItem, ImageType, Item, PatientInfo, Section, VisitInfo } from './document';
+// type-only: keeps the renderer free of document.ts's Oystehr/questionnaire module graph
+import type { Document, ImageItem, Item, PatientInfo, Section, VisitInfo } from './document';
 
 const PAGE_WIDTH = PageSizes.A4[0];
 const PAGE_HEIGHT = PageSizes.A4[1];
@@ -22,6 +33,7 @@ const ITEM_MAX_CHARS_PER_LINE = 20;
 const IMAGE_MAX_HEIGHT = PAGE_HEIGHT / 4;
 const PAGE_NUMBER_COLOR = rgbNormalized(0x66, 0x66, 0x66);
 const PAGE_NUMBER_FONT_SIZE = 10;
+const IMAGE_PLACEHOLDER_COLOR = rgbNormalized(0x99, 0x33, 0x33);
 
 export async function generatePdf(document: Document): Promise<PDFDocument> {
   const pdfDocument = await PDFDocument.create();
@@ -244,9 +256,19 @@ async function drawImageItem(
     font: titleFont,
     size: ITEM_FONT_SIZE,
   });
-  const imageBytes = await imageItem.imageBytes;
-  const image =
-    imageItem.imageType === ImageType.JPG ? await page.doc.embedJpg(imageBytes) : await page.doc.embedPng(imageBytes);
+  const image = await embedImage(imageItem, page.doc);
+  if (!image) {
+    // One unreadable attachment must not cost the staff member the whole document, so the slot
+    // says so in place of the image and the rest of the paperwork still renders.
+    drawTextLeftAligned('Image could not be rendered', page, {
+      x,
+      y,
+      font: titleFont,
+      size: ITEM_FONT_SIZE,
+      color: IMAGE_PLACEHOLDER_COLOR,
+    });
+    return y - IMAGE_MAX_HEIGHT - 2 * DEFAULT_MARGIN;
+  }
   const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
   const drawWidth = scale > 1 ? image.width / scale : image.width;
   const drawHeight = scale > 1 ? image.height / scale : image.height;
@@ -257,6 +279,42 @@ async function drawImageItem(
     height: drawHeight,
   });
   return y - IMAGE_MAX_HEIGHT - 2 * DEFAULT_MARGIN;
+}
+
+/**
+ * Embeds a card/photo attachment, choosing the decoder from the BYTES rather than from the
+ * attachment's declared contentType (see ImageItem): the declared type comes from the file
+ * extension, so a JPEG stored as "card.png" would otherwise be handed to embedPng, which throws
+ * "The input is not a PNG file!" and used to fail the whole PDF.
+ *
+ * Returns undefined when the bytes cannot be downloaded, are not a PNG/JPEG (HEIC, a Z3 error
+ * document, a truncated upload), or fail to decode — the caller draws a placeholder instead.
+ */
+async function embedImage(imageItem: ImageItem, document: PDFDocument): Promise<PDFImage | undefined> {
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await imageItem.imageBytes);
+  } catch (error) {
+    console.error(`paperwork-to-pdf: failed to download image '${imageItem.title}'`, error);
+    return undefined;
+  }
+
+  const detectedType = detectMimeTypeFromBytes(bytes);
+  if (detectedType !== MIME_TYPES.PNG && detectedType !== MIME_TYPES.JPEG) {
+    console.error(
+      `paperwork-to-pdf: image '${imageItem.title}' is not a renderable image (detected: ${
+        detectedType ?? 'unknown'
+      }, ${bytes.length} bytes)`
+    );
+    return undefined;
+  }
+
+  try {
+    return detectedType === MIME_TYPES.PNG ? await document.embedPng(bytes) : await document.embedJpg(bytes);
+  } catch (error) {
+    console.error(`paperwork-to-pdf: failed to embed image '${imageItem.title}' (${detectedType})`, error);
+    return undefined;
+  }
 }
 
 function drawPageNumbers(pdfDocument: PDFDocument, font: PDFFont): void {
