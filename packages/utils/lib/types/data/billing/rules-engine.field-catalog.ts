@@ -38,6 +38,11 @@ export type RuleFieldGroup =
   | 'insurance'
   | 'policyHolder'
   | 'secondaryInsurance'
+  | 'secondaryPolicyHolder'
+  | 'tertiaryInsurance'
+  | 'tertiaryPolicyHolder'
+  | 'quaternaryInsurance'
+  | 'quaternaryPolicyHolder'
   | 'renderingProvider'
   | 'billingProvider'
   | 'serviceFacility'
@@ -51,6 +56,11 @@ export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
   'insurance',
   'policyHolder',
   'secondaryInsurance',
+  'secondaryPolicyHolder',
+  'tertiaryInsurance',
+  'tertiaryPolicyHolder',
+  'quaternaryInsurance',
+  'quaternaryPolicyHolder',
   'renderingProvider',
   'billingProvider',
   'serviceFacility',
@@ -62,8 +72,13 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
   status: 'Claim status',
   patient: 'Patient',
   insurance: 'Primary insurance',
-  policyHolder: 'Policy holder',
+  policyHolder: 'Primary insurance policy holder',
   secondaryInsurance: 'Secondary insurance',
+  secondaryPolicyHolder: 'Secondary insurance policy holder',
+  tertiaryInsurance: 'Tertiary insurance',
+  tertiaryPolicyHolder: 'Tertiary insurance policy holder',
+  quaternaryInsurance: 'Quaternary insurance',
+  quaternaryPolicyHolder: 'Quaternary insurance policy holder',
   renderingProvider: 'Rendering provider',
   billingProvider: 'Billing provider',
   serviceFacility: 'Service facility',
@@ -230,7 +245,11 @@ const STATUS_FIELDS: RuleFieldDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
 
 // A person-shaped resource (patient or policy holder) contributes the same name / birth date /
 // gender / address fields; the ids differ only by prefix.
-const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable: boolean): RuleFieldDef[] => {
+const personFields = (
+  prefix: 'patient' | 'policyHolder' | 'secondaryPolicyHolder' | 'tertiaryPolicyHolder' | 'quaternaryPolicyHolder',
+  noun: string,
+  settable: boolean
+): RuleFieldDef[] => {
   const group: RuleFieldGroup = prefix;
   return [
     {
@@ -326,6 +345,74 @@ const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable
       settable,
       description: `The postal code of the ${noun}'s address.`,
       format: 'zip',
+    },
+  ];
+};
+
+// Coverage resources differ only by prefix.
+const coverageFields = (
+  prefix: 'insurance' | 'secondaryInsurance' | 'tertiaryInsurance' | 'quaternaryInsurance',
+  countingWord: string,
+  settable: boolean
+): RuleFieldDef[] => {
+  const group: RuleFieldGroup = prefix;
+  return [
+    {
+      id: `${prefix}.coverageFromPatient`,
+      label: 'Coverage (from patient)',
+      group,
+      valueType: 'select',
+      operators: ENUM_OPS,
+      settable,
+      description:
+        `Which of the patient's coverages the claim uses as its ${countingWord} coverage, looked up on the claim ` +
+        "patient's reference record via the patient's billing accounts. Conditions compare against the coverage " +
+        `the claim's current ${countingWord} coverage was copied from; setting it creates a fresh working copy of the ` +
+        'chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new ' +
+        'copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held.',
+      requiredOnSet: true,
+      options: PATIENT_COVERAGE_SLOT_OPTIONS,
+    },
+    {
+      id: `${prefix}.payerId`,
+      label: 'Payer ID',
+      group,
+      valueType: 'payer',
+      operators: SCALAR_OPS,
+      settable,
+      description: `The ${countingWord} payer's ID. Setting it re-points the ${countingWord} coverage's payer.`,
+      requiredOnSet: true,
+    },
+    {
+      id: `${prefix}.memberId`,
+      label: 'Member ID',
+      group,
+      valueType: 'string',
+      operators: SCALAR_OPS,
+      settable,
+      description: `The ${countingWord} coverage's member/subscriber ID.`,
+    },
+    {
+      id: `${prefix}.planType`,
+      label: 'Plan type',
+      group,
+      valueType: 'select',
+      operators: ENUM_OPS,
+      settable,
+      description: `The ${countingWord} coverage's plan type (X12 insurance type code).`,
+      requiredOnSet: true,
+      options: PLAN_TYPE_OPTIONS,
+    },
+    {
+      id: `${prefix}.relationship`,
+      label: 'Relationship to subscriber',
+      group,
+      valueType: 'select',
+      operators: ENUM_OPS,
+      // Explicitly false, since this requires also mutating another resource
+      settable: false,
+      description: `The patient's relationship to the ${countingWord} policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.`,
+      options: RELATIONSHIP_OPTIONS,
     },
   ];
 };
@@ -567,77 +654,28 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
   ...personFields('patient', 'patient', true),
 
   // --- Primary insurance ---
-  {
-    id: 'insurance.coverageFromPatient',
-    label: 'Coverage (from patient)',
-    group: 'insurance',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: true,
-    description:
-      "Which of the patient's coverages the claim uses as its primary coverage, looked up on the claim " +
-      "patient's reference record via the patient's billing accounts. Conditions compare against the coverage " +
-      "the claim's current primary coverage was copied from; setting it creates a fresh working copy of the " +
-      'chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new ' +
-      'copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held.',
-    requiredOnSet: true,
-    options: PATIENT_COVERAGE_SLOT_OPTIONS,
-  },
-  {
-    id: 'insurance.memberId',
-    label: 'Member ID',
-    group: 'insurance',
-    valueType: 'string',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The primary coverage's member/subscriber ID.",
-  },
-  {
-    id: 'insurance.planType',
-    label: 'Plan type',
-    group: 'insurance',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: true,
-    description: "The primary coverage's plan type (X12 insurance type code).",
-    requiredOnSet: true,
-    options: PLAN_TYPE_OPTIONS,
-  },
-  {
-    id: 'insurance.relationship',
-    label: 'Relationship to subscriber',
-    group: 'insurance',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: false,
-    description:
-      "The patient's relationship to the primary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.",
-    options: RELATIONSHIP_OPTIONS,
-  },
+  ...coverageFields('insurance', 'primary', true),
 
-  // --- Policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  // --- Primary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
   ...personFields('policyHolder', 'primary policy holder', true),
 
   // --- Secondary insurance ---
-  {
-    id: 'secondaryInsurance.payerId',
-    label: 'Secondary payer ID',
-    group: 'secondaryInsurance',
-    valueType: 'payer',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The secondary payer's ID. Setting it re-points the secondary coverage's payer.",
-    requiredOnSet: true,
-  },
-  {
-    id: 'secondaryInsurance.memberId',
-    label: 'Secondary member ID',
-    group: 'secondaryInsurance',
-    valueType: 'string',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The secondary coverage's member/subscriber ID.",
-  },
+  ...coverageFields('secondaryInsurance', 'secondary', true),
+
+  // --- Secondary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  ...personFields('secondaryPolicyHolder', 'secondary policy holder', true),
+
+  // --- Tertiary insurance ---
+  ...coverageFields('tertiaryInsurance', 'tertiary', true),
+
+  // --- Tertiary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  ...personFields('tertiaryPolicyHolder', 'tertiary policy holder', true),
+
+  // --- Quaternary insurance ---
+  ...coverageFields('quaternaryInsurance', 'quaternary', true),
+
+  // --- Quaternary insurance policy holder (primary coverage subscriber; present when the relationship is not Self) ---
+  ...personFields('quaternaryPolicyHolder', 'quaternary policy holder', true),
 
   // --- Rendering provider ---
   ...providerFields('renderingProvider', 'rendering provider'),
