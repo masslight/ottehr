@@ -402,7 +402,7 @@ async function attachClaimResources(
 
   if (fields.patientDischargeStatusCode) {
     claim.extension = [
-      ...(claim.extension ?? []),
+      ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS),
       {
         url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
         valueString: fields.patientDischargeStatusCode,
