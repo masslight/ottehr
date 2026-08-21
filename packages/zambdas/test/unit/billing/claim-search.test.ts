@@ -1,10 +1,6 @@
 import { Claim, ClaimResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import {
-  claimMatchesServiceDateRange,
-  getClaimServiceDate,
-  mapClaimToItem,
-} from '../../../src/billing/search-billing-claims';
+import { claimMatchesServiceDateRange, getClaimServiceDate, mapClaimToItem } from '../../../src/billing/claim-search';
 
 type Lookups = Parameters<typeof mapClaimToItem>[1];
 
@@ -147,7 +143,7 @@ describe('mapClaimToItem: rendering provider', () => {
   });
 });
 
-describe('search-billing-claims service date', () => {
+describe('claim search service date', () => {
   it('derives the service date from the first service line, not the creation date', () => {
     expect(getClaimServiceDate(makeServiceDatedClaim('2026-07-21', '2026-07-19'))).toBe('2026-07-19');
   });

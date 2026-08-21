@@ -1,11 +1,8 @@
-import { isPhoneNumberValid, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { formatPhoneNumber, isPhoneNumberValid, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { SendFaxPacketInput, SendFaxPacketInputSchema } from 'utils/lib/types/api/fax.types';
 import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-
-/** Dialable form: `+1` followed by the last ten digits. Matches what `send-fax` stores. */
-const toDialableFaxNumber = (faxNumber: string): string => `+1${faxNumber.replace(/\D/g, '').slice(-10)}`;
 
 export function validateRequestParameters(input: ZambdaInput): SendFaxPacketInput & Pick<ZambdaInput, 'secrets'> {
   if (input.headers.Authorization === undefined) {
@@ -22,9 +19,13 @@ export function validateRequestParameters(input: ZambdaInput): SendFaxPacketInpu
     if (!isPhoneNumberValid(recipient.faxNumber)) {
       throw INVALID_INPUT_ERROR(`"${recipient.faxNumber}" is not a valid fax number`);
     }
+    const faxNumber = formatPhoneNumber(recipient.faxNumber);
+    if (!faxNumber) {
+      throw INVALID_INPUT_ERROR(`"${recipient.faxNumber}" is not a valid fax number`);
+    }
     return {
       ...recipient,
-      faxNumber: toDialableFaxNumber(recipient.faxNumber),
+      faxNumber,
       // The follow-up phone is printed on the cover sheet and never dialled, so a number we cannot
       // standardize is passed through as typed rather than rejected.
       phoneNumber: recipient.phoneNumber
@@ -34,7 +35,7 @@ export function validateRequestParameters(input: ZambdaInput): SendFaxPacketInpu
   });
 
   return {
-    appointmentId: parsed.appointmentId,
+    source: parsed.source,
     recipients,
     secrets: input.secrets,
   };

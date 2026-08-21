@@ -971,6 +971,13 @@
       "src": "src/ehr/radiology/save-final-report/index",
       "zip": ".dist/zips/radiology-save-final-report.zip"
     },
+    "RADIOLOGY-UPDATE-REPORT": {
+      "name": "radiology-update-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/update-report/index",
+      "zip": ".dist/zips/radiology-update-report.zip"
+    },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",
@@ -2685,7 +2692,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "paperwork harvest",
-        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
+        "criteria": "QuestionnaireResponse?status=completed,amended",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-INTAKE-HARVEST/id}"
@@ -2815,28 +2822,6 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          },
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "update"
-          }
-        ]
-      }
-    },
-    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Generate statement on invoice creation",
-        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
         },
         "extension": [
           {

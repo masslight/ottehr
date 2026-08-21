@@ -329,7 +329,7 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
-  const sendFaxDialog = useSendFax(appointmentID);
+  const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,

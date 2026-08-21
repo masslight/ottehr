@@ -55,6 +55,11 @@ import {
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   PROVIDER_ROLE_TAG,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
@@ -84,6 +89,28 @@ const makeModel = (): RulesEngineClaimModel => ({
       },
     ],
     total: { value: 125.5, currency: 'USD' },
+    extension: [
+      {
+        url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+        valueString: '79',
+      },
+      {
+        url: EXTENSION_CLAIM_FREQUENCY_CODE,
+        valueString: '1',
+      },
+      {
+        url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+        valueString: '12',
+      },
+      {
+        url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+        valueString: '3',
+      },
+      {
+        url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+        valueString: '4',
+      },
+    ],
   } as Claim,
   patient: {
     resourceType: 'Patient',
@@ -290,6 +317,10 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'diagnosisCodes')).toEqual(['J06.9']);
     expect(readField(m, 'cptCodes')).toEqual(['99213']);
     expect(readField(m, 'placeOfServiceCodes')).toEqual(['20']);
+    expect(readField(m, 'billType')).toBe('0791');
+    expect(readField(m, 'patientDischargeStatusCode')).toBe('12');
+    expect(readField(m, 'admissionType')).toBe('3');
+    expect(readField(m, 'admissionSource')).toBe('4');
   });
 
   it('reads insurance, policy holder, secondary insurance, and billing provider fields', () => {
@@ -320,7 +351,7 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'status.adjudicationStatus')).toBeUndefined();
   });
 
-  it('writes claim type, service category, and service date', () => {
+  it('writes claim type, service category, service date and other properties', () => {
     const m = makeModel();
     expect(writeField(m, 'type', 'institutional')).toBe(true);
     expect(readField(m, 'type')).toBe('institutional');
@@ -335,6 +366,18 @@ describe('rules-engine evaluator', () => {
     // A claim with no service lines has nothing to date — the write must fail, not no-op.
     m.claim.item = [];
     expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(false);
+
+    expect(writeField(m, 'billType', '0782')).toBe(true);
+    expect(readField(m, 'billType')).toBe('0782');
+
+    expect(writeField(m, 'patientDischargeStatusCode', '56')).toBe(true);
+    expect(readField(m, 'patientDischargeStatusCode')).toBe('56');
+
+    expect(writeField(m, 'admissionType', '7')).toBe(true);
+    expect(readField(m, 'admissionType')).toBe('7');
+
+    expect(writeField(m, 'admissionSource', '8')).toBe(true);
+    expect(readField(m, 'admissionSource')).toBe('8');
   });
 
   it('writes coverage fields (member id, plan type) and the secondary payer', () => {
@@ -629,6 +672,7 @@ describe('service line actions', () => {
           placeOfService: '11',
           serviceDate: '2026-02-02',
           diagnosisPointers: '1',
+          revenueCode: '12345',
         },
       },
       m
@@ -643,6 +687,7 @@ describe('service line actions', () => {
     expect(readServiceLineProperty(added, 'charges')).toBe('45.25');
     expect(readServiceLineProperty(added, 'placeOfService')).toBe('11');
     expect(readServiceLineProperty(added, 'serviceDate')).toBe('2026-02-02');
+    expect(readServiceLineProperty(added, 'revenueCode')).toBe('12345');
     expect(added.diagnosisSequence).toEqual([1]);
     expect(m.claim.total?.value).toBe(170.75);
     expect(readField(m, 'billed')).toBe('170.75');

@@ -26,10 +26,12 @@ import {
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
   advaPacsFetch,
+  AllRadTaskResources,
   configReviewResultTask,
   parseRadiologyResourcesForTask,
   ResourcesForTask,
@@ -154,12 +156,13 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
     },
   ];
 
-  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time that the order was performed.
+  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time
+  // that the order was performed. Keyed on the extension alone, which is what makes it exactly-once: also
+  // requiring our status to still be pre-completed meant an order that reached `completed` by any other route
+  // (a direct patch, a seeded fixture, a callback whose patch landed while the response was lost) could never
+  // pick the stamp up afterwards, and with no stamp the order history has no `performed` row at all.
   if (advaPacsServiceRequest.status === 'completed') {
-    if (
-      srToUpdate.status !== 'completed' &&
-      srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null
-    ) {
+    if (srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null) {
       operations.push({
         op: 'add',
         path: '/extension/-',
@@ -229,14 +232,33 @@ const handleDiagnosticReport = async (
   const { diagnosticReports, ...additionalResources } = parseRadiologyResourcesForTask(drSearchResults);
 
   if (diagnosticReports.length > 1) {
-    throw new Error('Multiple DiagnosticReports found with the given ID');
+    console.log(
+      `Found ${diagnosticReports.length} DiagnosticReports with the given advaPacs DR id: ${advaPacsDiagnosticReport.id}; updating the most recent and retiring the rest`
+    );
+
+    const [drToUpdate, ...drsToRetire] = [...diagnosticReports].sort((a, b) => {
+      const aLastIssued = a.issued ? DateTime.fromISO(a.issued).toMillis() : 0;
+      const bLastIssued = b.issued ? DateTime.fromISO(b.issued).toMillis() : 0;
+      return bLastIssued - aLastIssued;
+    });
+
+    const retireRequests = drsToRetire.map(buildRetireDiagnosticReportRequest);
+
+    const updateRequests = handleUpdateDiagnosticReportRequests(
+      drToUpdate,
+      advaPacsDiagnosticReport,
+      additionalResources
+    );
+
+    console.log('making transaction request to update DiagnosticReport and retire its duplicate(s)');
+    await oystehr.fhir.transaction({ requests: [...updateRequests, ...retireRequests] });
   } else if (diagnosticReports.length === 1) {
     const drToUpdate = diagnosticReports[0];
-    if (drToUpdate.id == null) {
-      throw new Error('DiagnosticReport ID is required');
-    }
-    const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
-    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, resourcesForTask, oystehr);
+
+    const requests = handleUpdateDiagnosticReportRequests(drToUpdate, advaPacsDiagnosticReport, additionalResources);
+
+    console.log('making transaction request for handleUpdateDiagnosticReport');
+    await oystehr.fhir.transaction({ requests });
   } else if (drSearchResults.length === 0) {
     await handleCreateDiagnosticReport(advaPacsDiagnosticReport, oystehr, secrets);
   }
@@ -274,14 +296,25 @@ const handleCreateDiagnosticReport = async (
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
-const handleUpdateDiagnosticReport = async (
+/** returns requests to update our diagnostic report and potentially also a request to post review task */
+const handleUpdateDiagnosticReportRequests = (
+  drToUpdate: DiagnosticReport,
+  advaPacsDiagnosticReport: DiagnosticReport,
+  additionalResources: Omit<AllRadTaskResources, 'diagnosticReports'>
+): BatchInputRequest<FhirResource>[] => {
+  if (drToUpdate.id == null) throw new Error('DiagnosticReport ID is required');
+
+  const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
+  const requests = buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask);
+
+  return requests;
+};
+
+const buildUpdateDiagnosticReportRequests = (
   advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
-  resourcesForTask: ResourcesForTask,
-  oystehr: Oystehr
-): Promise<void> => {
-  console.log('processing DiagnosticReport update');
-
+  resourcesForTask: ResourcesForTask
+): BatchInputRequest<FhirResource>[] => {
   console.log('Updating our DiagnosticReport with ID: ', ourDiagnosticReport.id);
 
   const requests: BatchInputRequest<FhirResource>[] = [];
@@ -330,6 +363,24 @@ const handleUpdateDiagnosticReport = async (
     };
     console.log('task config to be made', JSON.stringify(reviewTaskPostRequest.resource));
     requests.push(reviewTaskPostRequest);
+
+    // Teleradiology's read replaces the text in `presentedForm`, so keep a copy of the preliminary read the
+    // provider treated on. Guarded by the same preliminary -> final transition check, so a re-delivered
+    // callback (AdvaPACS retries) finds the report already `final` and takes no second snapshot.
+    if (ourDiagnosticReport.status === 'preliminary' && ourDiagnosticReport.presentedForm?.length) {
+      requests.push({
+        method: 'POST',
+        url: 'DiagnosticReport/',
+        resource: buildPreliminaryReportSnapshot(ourDiagnosticReport),
+      } as BatchInputPostRequest<DiagnosticReport>);
+    }
+
+    // The report is no longer the one our provider wrote, so it must stop naming them as its author — the
+    // snapshot above took the preliminary read's `performer` with it. Left behind, it would credit
+    // teleradiology's read to them and let them edit it.
+    if (ourDiagnosticReport.performer?.length) {
+      diagnosticReportPathOps.push({ op: 'remove', path: '/performer' });
+    }
   }
 
   console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(diagnosticReportPathOps, null, 2));
@@ -340,8 +391,25 @@ const handleUpdateDiagnosticReport = async (
     operations: diagnosticReportPathOps,
   });
 
-  console.log(`making transaction request for handleUpdateDiagnosticReport`);
-  await oystehr.fhir.transaction({ requests });
+  return requests;
+};
+
+const buildRetireDiagnosticReportRequest = (diagnosticReport: DiagnosticReport): BatchInputRequest<FhirResource> => {
+  if (diagnosticReport.id == null) {
+    throw new Error('DiagnosticReport ID is required');
+  }
+  console.log('Retiring duplicate DiagnosticReport with ID: ', diagnosticReport.id);
+  return {
+    method: 'PATCH',
+    url: `DiagnosticReport/${diagnosticReport.id}`,
+    operations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'entered-in-error',
+      },
+    ],
+  };
 };
 
 const handleImagingStudy = async (

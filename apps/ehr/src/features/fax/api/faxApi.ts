@@ -20,6 +20,14 @@ export const fetchFaxPacketPreview = async (
   appointmentId: string
 ): Promise<GetFaxPacketPreviewOutput> => apiClient.getFaxPacketPreview({ appointmentId });
 
+/**
+ * The number outbound faxes are sent from. It is the one part of the preview that does not depend on a
+ * visit, so it is asked for without one — the patient-level dialogs have no visit to name.
+ * `null` rather than `undefined` because a query function may not resolve to `undefined`.
+ */
+export const fetchFaxSenderFaxNumber = async (apiClient: FaxApiClient): Promise<string | null> =>
+  (await apiClient.getFaxPacketPreview({})).senderFaxNumber ?? null;
+
 export const sendFaxPacket = async (apiClient: FaxApiClient, input: SendFaxPacketInput): Promise<SendFaxPacketOutput> =>
   apiClient.sendFaxPacket(input);
 

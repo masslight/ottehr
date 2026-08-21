@@ -74,6 +74,7 @@ import {
   BillingProviderOption,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  ClaimCoverageType,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -254,6 +255,14 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
+export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
+export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
+  'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
+export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
+export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
@@ -1079,7 +1088,6 @@ export function buildBillingCoverage(params: {
   payerOrg: Organization;
   memberId: string;
   status: Coverage['status'];
-  insuranceType: BillingInsuranceType;
   planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
@@ -1125,19 +1133,22 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's primary (focal) coverage slot at `coverageReference` and its insurer at the
+// Point the claim's coverage slot at `coverageReference` and its insurer at the
 // coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
 // ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
-export function attachPrimaryCoverageToClaim(params: {
+export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
+  type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
 }): void {
   const { claim, coverageReference, display, payerReference } = params;
+  const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
+  const focal = params.type === 'primary';
   claim.insurance = ensureClaimInsurance([
-    { sequence: 1, focal: true, coverage: { reference: coverageReference, display } },
-    ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
+    { sequence, focal, coverage: { reference: coverageReference, display } },
+    ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
   ]);
   if (payerReference) claim.insurer = { reference: payerReference, display };
 }
@@ -1147,6 +1158,8 @@ export function attachPrimaryCoverageToClaim(params: {
 const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
   primary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 1 },
   secondary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 2 },
+  tertiary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 3 },
+  quaternary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 4 },
   workersComp: { type: WORKERS_COMP_ACCOUNT_TYPE, code: 'WCOMPACCT', priority: 1 },
 };
 
@@ -1183,6 +1196,8 @@ export function getCoverageInsuranceType(
   const pbillEntry = pbillAccount?.coverage?.find((c) => c.coverage?.reference === ref);
   if (pbillEntry?.priority === 1) return 'primary';
   if (pbillEntry?.priority === 2) return 'secondary';
+  if (pbillEntry?.priority === 3) return 'tertiary';
+  if (pbillEntry?.priority === 4) return 'quaternary';
   return undefined;
 }
 

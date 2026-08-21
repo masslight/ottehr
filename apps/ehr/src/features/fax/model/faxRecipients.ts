@@ -1,5 +1,5 @@
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
-import { FAX_MAX_RECIPIENTS, FaxRecipient, SendFaxPacketInput } from 'utils/lib/types/api/fax.types';
+import { FAX_MAX_RECIPIENTS, FaxPacketSource, FaxRecipient, SendFaxPacketInput } from 'utils/lib/types/api/fax.types';
 import { FaxFormValues, FaxRecipientFormValue } from './types';
 
 export const emptyRecipient = (): FaxRecipientFormValue => ({
@@ -40,7 +40,7 @@ export const canAddRecipient = (recipients: FaxRecipientFormValue[]): boolean =>
 export const isRecipientFaxNumberValid = (recipient: FaxRecipientFormValue): boolean =>
   isPhoneNumberValid(recipient.faxNumber);
 
-/** Every recipient needs a valid fax number, and the visit must have something to send. */
+/** Every recipient needs a valid fax number, and there must be something to send. */
 export const canSend = (recipients: FaxRecipientFormValue[], hasDocuments: boolean): boolean => {
   if (!hasDocuments || recipients.length === 0) return false;
   return recipients.every(isRecipientFaxNumberValid);
@@ -51,14 +51,19 @@ const trimmedOrUndefined = (value: string): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-/** The whole visit package is always sent, so the request carries only the appointment and recipients. */
-export const toSendFaxPacketInput = (appointmentId: string, values: FaxFormValues): SendFaxPacketInput => ({
-  appointmentId,
+/** Whatever the source names is sent in full; only the choice of visits comes from the form. */
+export const toSendFaxPacketInput = (source: FaxPacketSource, values: FaxFormValues): SendFaxPacketInput => ({
+  source:
+    source.type === 'visits' && values.selectedAppointmentIds
+      ? { ...source, appointmentIds: values.selectedAppointmentIds }
+      : source,
   recipients: values.recipients.map((recipient) => ({
     name: trimmedOrUndefined(recipient.name),
     organization: trimmedOrUndefined(recipient.organization),
     faxNumber: recipient.faxNumber.trim(),
     phoneNumber: trimmedOrUndefined(recipient.phoneNumber),
-    ...(recipient.saveAsPcp ? { saveAsPcp: true } : {}),
+    // PCP management belongs to the original single-visit flow. Patient-level dialogs do not expose
+    // that control, and stale form state must not make those sends mutate generalPractitioner.
+    ...(source.type === 'visit' && recipient.saveAsPcp ? { saveAsPcp: true } : {}),
   })),
 });

@@ -1,21 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import {
-  CodeableConcept,
-  DiagnosticReport as DiagnosticReport4B,
-  Practitioner,
-  Reference as Reference4B,
-  ServiceRequest,
-} from 'fhir/r4b';
+import { CodeableConcept, DiagnosticReport as DiagnosticReport4B, ServiceRequest } from 'fhir/r4b';
 import { DiagnosticReport, Reference } from 'fhir/r5';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { getExtension } from 'utils/lib/fhir/helpers';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   createOurDiagnosticReport,
+  encodeRadiologyReport,
   fetchServiceRequestFromAdvaPACS,
 } from 'utils/lib/fhir/radiology';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -23,6 +17,8 @@ import { SaveRadiologyReportZambdaOutput } from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
+import { savePerformedBy } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateICD10Codes } from '../create-order/validation';
@@ -61,12 +57,12 @@ async function performEffect(
   // validateInput). Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
   const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
 
-  // Get the existing service request from Oystehr
+  // Both fetched up front, so a failure here happens before the single-shot AdvaPACS report POST.
   console.group('Fetching service request from Oystehr');
-  const serviceRequest: ServiceRequest = await oystehr.fhir.get({
-    resourceType: 'ServiceRequest',
-    id: serviceRequestId,
-  });
+  const [serviceRequest, author] = await Promise.all([
+    oystehr.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: serviceRequestId }),
+    resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr),
+  ]);
   console.groupEnd();
   console.debug('Service request fetched successfully');
 
@@ -128,9 +124,10 @@ async function performEffect(
   console.groupEnd();
   console.debug('DiagnosticReport created successfully in AdvaPACS');
 
-  // Create a DiagnosticReport in Oystehr with the preliminary report
+  // Credited to whoever wrote it — the report's own author, distinct from `ServiceRequest.performer` (who
+  // performed the study), so the "preliminary" and "performed" history rows never read the same field.
   console.group('Creating DiagnosticReport in Oystehr');
-  await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, preliminaryReport, oystehr);
+  await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, preliminaryReport, oystehr, author);
   console.groupEnd();
   console.debug('DiagnosticReport created successfully in Oystehr');
 
@@ -170,43 +167,6 @@ const validateOrderAcceptsPreliminaryReport = async (
 };
 
 /**
- * Records the practitioner who performed the study on `ServiceRequest.performer`, taking the display name
- * from the Practitioner (which also verifies it exists). Any non-Practitioner performer (an external order's
- * contained performing Organization) is preserved.
- */
-const savePerformedBy = async (
-  serviceRequest: ServiceRequest,
-  performedById: string,
-  oystehr: Oystehr
-): Promise<void> => {
-  let practitioner: Practitioner;
-  try {
-    practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: performedById });
-  } catch (error) {
-    console.error(`Could not fetch Practitioner/${performedById} for performedBy`, error);
-    throw RADIOLOGY_ERROR('The selected performer could not be found.');
-  }
-
-  const otherPerformers = (serviceRequest.performer ?? []).filter((ref) => !ref.reference?.startsWith('Practitioner/'));
-  const performer: Reference4B[] = [
-    ...otherPerformers,
-    { reference: `Practitioner/${practitioner.id}`, display: getFullestAvailableName(practitioner) },
-  ];
-
-  await oystehr.fhir.patch<ServiceRequest>({
-    resourceType: 'ServiceRequest',
-    id: serviceRequest.id!,
-    operations: [
-      {
-        op: serviceRequest.performer ? 'replace' : 'add',
-        path: '/performer',
-        value: performer,
-      },
-    ],
-  });
-};
-
-/**
  * Creates a DiagnosticReport in AdvaPACS for a ServiceRequest with preliminary findings
  * @param advaPacsServiceRequestId The ServiceRequest ID in AdvaPACS
  * @param preliminaryReport The preliminary report text
@@ -222,7 +182,7 @@ const createDiagnosticReportInAdvaPACS = async (
   const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
   const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
-  const reportAsBase64 = Buffer.from(preliminaryReport.replace(/\n/g, '<br>')).toString('base64');
+  const reportAsBase64 = encodeRadiologyReport(preliminaryReport);
   const reportAsBase64Size = Buffer.byteLength(reportAsBase64);
 
   const diagnosticReport: DiagnosticReport = {
