@@ -14,12 +14,14 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { useCompleteIntake } from '../../in-person/hooks/useCompleteIntake';
+import { userHasRouteRoles } from '../../in-person/routing/route-access';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
@@ -97,6 +99,7 @@ const StyledButton = styled(Button, {
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
+  const currentUser = useEvolveUser();
   const { interactionMode } = useInPersonNavigationContext();
   const { id: appointmentID } = useParams();
   const { visitState } = useAppointmentData();
@@ -152,6 +155,12 @@ export const Sidebar = (): JSX.Element => {
           chartData?.aiChat?.documents?.[0] ||
           chartData?.aiChat?.hasPendingRecording
       )
+      // Role-gated tabs. This menu is built from the route RECORDS rather than from the navigation
+      // context's `availableRoutes` (which would make the whole sidebar disappear while the chart loads),
+      // so a role gate is not applied for it by anything upstream. No route currently needs this — the
+      // one that declares `requiredRoles` is also skipped in navigation — but the next role-gated tab
+      // would otherwise appear here for everyone, silently and in the permissive direction.
+      .filter((route) => userHasRouteRoles(route, currentUser))
   );
 
   return (

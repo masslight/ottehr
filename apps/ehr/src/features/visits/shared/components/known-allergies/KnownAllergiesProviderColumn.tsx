@@ -1,6 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
 import {
-  Autocomplete,
   Box,
   Card,
   CircularProgress,
@@ -28,11 +27,7 @@ import { AllergyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import {
-  ExtractObjectType,
-  useGetAllergiesSearch,
-  useTriggerErxPatientSync,
-} from '../../stores/appointment/appointment.queries';
+import { ExtractObjectType, useTriggerErxPatientSync } from '../../stores/appointment/appointment.queries';
 import {
   ChartDataState,
   useAppointmentData,
@@ -42,6 +37,7 @@ import {
 } from '../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../QuickPicksButton';
+import { AllergyField } from './AllergyField';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
@@ -278,37 +274,7 @@ const AddAllergyField: FC<{ onAllergyChange: () => void }> = ({ onAllergyChange 
   });
 
   const { control, reset, handleSubmit } = methods;
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
-  const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
-
-  const allergiesSearchOptions = useMemo(() => {
-    if (!data || isSearching) return [];
-
-    // Process the data to include brand name
-    const allergiesWithBrand = data.map((allergy) => {
-      const brandName = allergy.brandName;
-      if (brandName && brandName !== allergy.name) {
-        return {
-          ...allergy,
-          name: `${allergy.name} (${brandName})`,
-        };
-      }
-      return allergy;
-    });
-
-    return [...allergiesWithBrand, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
-  }, [data, isSearching]);
-
-  const debouncedHandleInputChange = useMemo(
-    () =>
-      debounce((data) => {
-        if (data.length > 2) {
-          setDebouncedSearchTerm(data);
-        }
-      }, 800),
-    []
-  );
 
   const handleSelectOption = async (data: ExtractObjectType<ErxSearchAllergensResponse> | null): Promise<void> => {
     if (data) {
@@ -406,10 +372,13 @@ const AddAllergyField: FC<{ onAllergyChange: () => void }> = ({ onAllergyChange 
           control={control}
           rules={{ required: true }}
           render={({ field: { value, onChange } }) => (
-            <Autocomplete
-              value={value || null}
-              onChange={(_e, data) => {
+            <AllergyField
+              value={value}
+              disabled={isChartDataLoading || isLoading}
+              onChange={(data) => {
                 onChange((data || '') as any);
+                // "Other" is this form's own branch: it reveals a free-text name and an Add button, so it
+                // must NOT go straight to the write.
                 if (data?.name === 'Other') {
                   setIsOtherOptionSelected(true);
                 } else {
@@ -417,36 +386,6 @@ const AddAllergyField: FC<{ onAllergyChange: () => void }> = ({ onAllergyChange 
                   void handleSelectOption(data);
                 }
               }}
-              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
-              fullWidth
-              size="small"
-              loading={isSearching}
-              filterOptions={(options) => options}
-              isOptionEqualToValue={(option, value) => option.name === value.name}
-              disablePortal
-              blurOnSelect
-              disabled={isChartDataLoading || isLoading}
-              options={allergiesSearchOptions}
-              noOptionsText={
-                debouncedSearchTerm && debouncedSearchTerm.length > 2 && allergiesSearchOptions.length === 0
-                  ? 'Nothing found for this search criteria'
-                  : 'Start typing to load results'
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                  data-testid={dataTestIds.allergies.knownAllergiesInput}
-                  label="Agent/Substance"
-                  placeholder="Search"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputLabel-root': {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                />
-              )}
             />
           )}
         />

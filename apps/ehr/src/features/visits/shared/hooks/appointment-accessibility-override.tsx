@@ -1,10 +1,14 @@
-// A way to tell the chart's own components whether the visit is locked, on a page that does not populate
-// the appointment store.
+// A way to pin the chart's own components to ONE caller's answer about whether the visit is locked.
 //
-// `useGetAppointmentAccessibility` derives the lock from the appointment in that store, and an EMPTY
-// store yields `isLocked: false` — so on a route keyed by encounter, every component that reads it
-// concludes the visit is editable. For a signed visit that is not a cosmetic problem: ten vitals cards,
-// the note list and the disposition card would all render live inputs on a locked chart.
+// `useGetAppointmentAccessibility` normally derives the lock from the appointment in the appointment
+// store. The override exists for a surface that has decided the question itself and must not let a
+// component below it reach a different conclusion — Easy Chart's note pane pins every card it hosts to
+// the page's own read-only state. On a locked visit the difference is not cosmetic: ten vitals cards, the
+// note list and the disposition card would otherwise render live inputs.
+//
+// It was introduced for a page with an EMPTY store, where the derivation answers `false` (editable) for a
+// visit that may well be signed. Easy Chart no longer has that problem — it is a chart tab now, so the
+// store is populated — but the guarantee is still worth having: one decision, applied to everything below.
 //
 // WHY A CONTEXT AND NOT A PROP. Ten vitals cards, plus the note list, read this hook internally. Adding
 // an `isReadOnly` prop to each is ten edits that the next reused card repeats, and each one is a place

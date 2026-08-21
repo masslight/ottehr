@@ -1,4 +1,5 @@
 import { ChartReviewRequest } from 'utils/lib/easy-chart/api';
+import { pickNoteContext } from 'utils/lib/easy-chart/note-fields';
 import { ZambdaInput } from '../../shared/types/common';
 
 /** A whole ambient transcript is a legitimate narrative to review a note against. */
@@ -23,7 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): ChartReviewReques
 
   return {
     narrative: body.narrative,
-    noteContext: body.noteContext,
+    noteContext: pickNoteContext(body.noteContext),
     chartState: typeof body.chartState === 'string' ? body.chartState : undefined,
     chartedExamFindings: asStringArray(body.chartedExamFindings),
     templateTitles: asStringArray(body.templateTitles),

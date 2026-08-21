@@ -26,6 +26,8 @@ export const dataTestIds = {
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
     weight: 'header-weight',
+    chartViewModeToggle: 'chart-view-mode-toggle',
+    chartViewModeOption: (mode: 'chart' | 'easy') => `chart-view-mode-${mode}`,
   },
   inPersonLayout: {
     selectProviderAlert: 'select-provider-alert',

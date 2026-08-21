@@ -645,6 +645,24 @@ const OPTIONAL_FIELDS_BY_KIND: Partial<Record<ActionKind, readonly ActionField[]
 };
 
 /**
+ * The fields `kind` is allowed to carry — its required ones, its optional ones, and the two every
+ * action has. Anything else the model attached is a LEAK from another action's shape, and leaks are not
+ * harmless: `strength` has arrived on a diagnosis (as `"true"`, apparently to fake primacy), and an
+ * `updates: [{field:'code', …}]` array — `update-procedure`'s shape — has arrived on an add-diagnosis
+ * carrying the code the model actually meant. Both silently change what gets charted.
+ */
+export function allowedFields(kind: ActionKind): ActionField[] {
+  return [
+    ...new Set<ActionField>([
+      'kind',
+      'sourceText',
+      ...CAPABILITIES[kind].required,
+      ...(OPTIONAL_FIELDS_BY_KIND[kind] ?? []),
+    ]),
+  ];
+}
+
+/**
  * THE single runtime gate between a raw model action and a typed one. A string counts only when
  * non-blank, an array only when non-empty — the model routinely emits `display: ""` and `searchTerms:
  * []`, and treating those as present is how an unexecutable action reaches the provider as a silent

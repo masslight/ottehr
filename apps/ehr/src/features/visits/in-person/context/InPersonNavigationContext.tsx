@@ -1,10 +1,13 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { sidebarMenuIcons } from '../../shared/components/Sidebar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { InPersonModal } from '../components/InPersonModal';
+import { userHasRouteRoles } from '../routing/route-access';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
 
 export type InteractionMode = 'main' | 'readonly' | 'follow-up';
@@ -21,6 +24,11 @@ export interface RouteInPerson {
   iconKey: keyof typeof sidebarMenuIcons;
   isSkippedInNavigation?: boolean;
   groupLabel?: string;
+  /**
+   * Roles required to reach this tab, when it is not open to everyone who can open the visit. Applied by
+   * `userHasRouteRoles` — see route-access.ts for why it cannot be resolved here, next to `modes`.
+   */
+  requiredRoles?: readonly RoleType[];
 }
 
 interface InPersonNavigationContextType {
@@ -65,6 +73,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
+  const currentUser = useEvolveUser();
   const { isAppointmentLoading, visitState } = useAppointmentData();
   const { visitType } = useGetAppointmentAccessibility();
   const { encounter } = visitState;
@@ -178,9 +187,15 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
     _setDisabledNavigationState({});
   };
 
+  // The role gate belongs HERE and not only at the <Route> set: `availableRoutes` is also what drives
+  // next/previous, so a tab the user cannot open must not be a step in the linear flow either.
   const availableRoutes = Object.values(routesInPerson).filter(
     (route) =>
-      !isAppointmentLoading && !isChartDataLoading && isModeInitialized && route.modes.includes(interactionMode)
+      !isAppointmentLoading &&
+      !isChartDataLoading &&
+      isModeInitialized &&
+      route.modes.includes(interactionMode) &&
+      userHasRouteRoles(route, currentUser)
   );
   const availableRoutesForBottomNavigation = availableRoutes.filter((route) => !route.isSkippedInNavigation);
 

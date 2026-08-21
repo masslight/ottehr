@@ -8,7 +8,7 @@ import {
   MeetingProvider,
 } from 'amazon-chime-sdk-component-library-react';
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useMatch } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -30,6 +30,7 @@ import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
 import { VirtualAppointmentFooter } from '../components/VirtualAppointmentFooter';
+import { ROUTER_PATH } from '../routing/routesInPerson';
 import { BottomNavigation } from './BottomNavigation';
 
 const layoutStyle: React.CSSProperties = {
@@ -60,6 +61,11 @@ export const InPersonLayout: React.FC = () => {
   const recordingOpen = Boolean(recordingAnchorElement);
   const { visitType, isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
+  // Easy Chart gets the header and nothing else around it. It is a two-column layout in its own right —
+  // the note beside the assistant, each with its own scroll — and it needs every pixel of width for that;
+  // a section list down the left is also the wrong navigation for it, which is why it is reached from the
+  // header switch instead. Match on the splat, the same way the navigation context reads the current tab.
+  const isEasyChart = useMatch('/in-person/:id/*')?.params['*'] === ROUTER_PATH.EASY_CHARTING;
 
   useResetAppointmentStore();
   useAiSuggestionsPolling();
@@ -102,7 +108,7 @@ export const InPersonLayout: React.FC = () => {
       <CommandPaletteInPersonRegistrations />
       <Header />
       <div style={mainBlocksStyle}>
-        <Sidebar />
+        {!isEasyChart && <Sidebar />}
         <div style={contentWrapperStyle}>
           {/* Telemed visits record audio automatically via the Oystehr telemed service, so the manual
               start/pause/stop Ambient Scribe recorder is only shown for in-person visits. */}

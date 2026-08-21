@@ -31,18 +31,6 @@ export const PROCEDURE_REVIEW_FIELDS = [
 
 export type ProcedureReviewField = (typeof PROCEDURE_REVIEW_FIELDS)[number];
 
-/**
- * Fields whose pre-filled value is an ASSERTION rather than a description. These must never be
- * accepted implicitly — not by a whole-item confirm, and not by the provider simply not noticing.
- */
-export const PROCEDURE_ASSERTION_FIELDS: readonly ProcedureReviewField[] = [
-  'complications',
-  'patientResponse',
-  'timeSpent',
-  'consentObtained',
-  'specimenSent',
-];
-
 const LABELS: Record<ProcedureReviewField, string> = {
   bodySite: 'Body site',
   bodySide: 'Side',

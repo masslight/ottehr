@@ -22,12 +22,22 @@ type VitalHistoryElementProps<T extends VitalsObservationDTO = VitalsObservation
   historyEntry: T;
   onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
   dataTestId?: string;
+  /**
+   * Drop the "when, by whom" prefix and print the reading alone.
+   *
+   * For a surface that already says who and when some other way — Easy Chart's note wraps each reading in a
+   * row that carries its own provenance and hover detail, so repeating the timestamp and author inline would
+   * be the same fact twice on one line. The VALUE formatting is the point of reusing this component: the
+   * unit conversions, the critical/abnormal colour and its icon, and the observation method all stay.
+   */
+  hideAttribution?: boolean;
 };
 
 export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
   historyEntry,
   onDelete,
   dataTestId,
+  hideAttribution,
 }): JSX.Element => {
   const theme = useTheme();
 
@@ -56,8 +66,12 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid={dataTestId}>
         <Typography color="textPrimary" component="div">
-          {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
-          &nbsp;
+          {!hideAttribution && (
+            <>
+              {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
+              &nbsp;
+            </>
+          )}
           {observationValueElements.map((value, index) => {
             if (typeof value === 'string') {
               return (

@@ -1,23 +1,11 @@
 import { otherColors } from '@ehrTheme/colors';
-import {
-  Autocomplete,
-  Box,
-  Button,
-  Card,
-  Checkbox,
-  debounce,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Card, Checkbox, FormControlLabel, Radio, RadioGroup, TextField, Typography } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
@@ -26,12 +14,13 @@ import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { MedicationHistoryQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
-import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
+import { ExtractObjectType } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
 import { ExternalMedicationSelection } from './ExternalRxSuggestions';
+import { MedicationField } from './MedicationField';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -72,28 +61,12 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
 
   const { control, reset, handleSubmit, setValue } = methods;
 
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-
-  const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medSearchOptions = data || [];
-
   const medicationsMap: { scheduled: MedicationDTO[]; asNeeded: MedicationDTO[] } = useMemo(
     () => ({
       scheduled: medications.filter((med) => med.type === 'scheduled'),
       asNeeded: medications.filter((med) => med.type === 'as-needed'),
     }),
     [medications]
-  );
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleInputChange = useCallback(
-    debounce((data) => {
-      console.log(data);
-      if (data.length > 2) {
-        setDebouncedSearchTerm(data);
-      }
-    }, 800),
-    []
   );
 
   const handleFormSubmitted = async (data: CurrentMedicationsProviderColumnForm): Promise<void> => {
@@ -253,47 +226,15 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
                 control={control}
                 rules={{ required: true }}
                 render={({ field: { value, onChange }, fieldState: { error } }) => (
-                  <Autocomplete
-                    value={value}
-                    getOptionLabel={(option) =>
-                      typeof option === 'string'
-                        ? option
-                        : `${option.name} ${option.strength ? `(${option.strength})` : ''}`
-                    }
-                    fullWidth
-                    isOptionEqualToValue={(option, value) => value.id === option.id}
-                    loading={isSearching}
-                    size="small"
-                    disablePortal
-                    disabled={isLoading || isChartDataLoading}
-                    noOptionsText={
-                      debouncedSearchTerm && debouncedSearchTerm.length > 2 && medSearchOptions.length === 0
-                        ? 'Nothing found for this search criteria'
-                        : 'Start typing to load results'
-                    }
-                    options={medSearchOptions}
-                    onChange={(_e, data) => {
-                      onChange(data);
-                    }}
-                    sx={{ gridColumn: 'span 2' }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                        data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput}
-                        label="Medication"
-                        placeholder="Search"
-                        required={true}
-                        error={!!error}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{
-                          '& .MuiInputLabel-root': {
-                            fontWeight: 'bold',
-                          },
-                        }}
-                      />
-                    )}
-                  />
+                  <Box sx={{ gridColumn: 'span 2' }}>
+                    <MedicationField
+                      value={value}
+                      required
+                      error={!!error}
+                      disabled={isLoading || isChartDataLoading}
+                      onChange={onChange}
+                    />
+                  </Box>
                 )}
               />
               <Controller

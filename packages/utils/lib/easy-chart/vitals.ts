@@ -361,3 +361,78 @@ export const VITAL_READING_PATTERNS: RegExp[] = [
 export function countVitalReadings(message: string): number {
   return VITAL_READING_PATTERNS.filter((re) => re.test(message)).length;
 }
+
+// ── Deterministic narrative sweep ───────────────────────────────────────────────────────────────
+// Find vital readings stated in the narrative so the caller can append any the model failed to emit. It
+// reliably reports the FIRST reading and drops rechecks — "a repeat manual blood pressure dropped
+// slightly to 176 over 92" — and sometimes whole vitals. Keyword-anchored patterns with physiologic
+// range checks keep false positives out: "20/20 vision" has no BP keyword, "pulses 2+" fails the
+// two-digit requirement.
+
+export interface SniffedVital {
+  field: string;
+  display: string;
+  systolic?: number;
+  diastolic?: number;
+  value?: number;
+  unit?: string;
+  sourceText: string;
+}
+export function sniffVitalsFromNarrative(narrative: string): SniffedVital[] {
+  const out: SniffedVital[] = [];
+  const sentences = narrative.split(/(?<=[.!?])\s+/);
+  const push = (v: SniffedVital): void => {
+    // one entry per field+value signature — identical restatements collapse
+    const sig = (x: SniffedVital): string => `${x.field}|${x.systolic ?? ''}/${x.diastolic ?? ''}|${x.value ?? ''}`;
+    if (!out.some((x) => sig(x) === sig(v))) out.push(v);
+  };
+  for (const sentence of sentences) {
+    const src = sentence.trim();
+    // Instruction/threshold sentences ("return precautions for saturation readings below 90 at
+    // home") state LIMITS, not measurements — never sweep numbers out of them.
+    if (
+      /\b(?:return precautions?|advis|instruct|counsel|call 911|seek emergency|go straight|below|above|less than|greater than|drops? under|exceed)\b/i.test(
+        sentence
+      )
+    ) {
+      continue;
+    }
+    for (const m of sentence.matchAll(/(?:blood pressure|\bbp\b)[^.;]{0,60}?(\d{2,3})\s*(?:\/|over)\s*(\d{2,3})/gi)) {
+      const sys = parseInt(m[1], 10);
+      const dia = parseInt(m[2], 10);
+      if (sys >= 60 && sys <= 260 && dia >= 30 && dia <= 160 && sys > dia) {
+        push({
+          field: 'vital-blood-pressure',
+          display: `${sys}/${dia}`,
+          systolic: sys,
+          diastolic: dia,
+          sourceText: src,
+        });
+      }
+    }
+    for (const m of sentence.matchAll(/(?:heart rate|\bpulse\b|\bhr\b)[^.;\d]{0,40}?(\d{2,3})\b/gi)) {
+      const hr = parseInt(m[1], 10);
+      if (hr >= 30 && hr <= 250) push({ field: 'vital-heartbeat', display: `${hr}`, value: hr, sourceText: src });
+    }
+    for (const m of sentence.matchAll(
+      /(?:oxygen saturation|o2 sat(?:uration)?|\bspo2\b|\bsats?\b)[^.;\d]{0,30}?(\d{2,3})\s*(?:%|percent)?/gi
+    )) {
+      const sat = parseInt(m[1], 10);
+      if (sat >= 50 && sat <= 100) push({ field: 'vital-oxygen-sat', display: `${sat}%`, value: sat, sourceText: src });
+    }
+    for (const m of sentence.matchAll(
+      /(?:temperature|\btemp\b)[^.;\d]{0,30}?(\d{2,3}(?:\.\d)?)\s*(f|c|fahrenheit|celsius)?\b/gi
+    )) {
+      const t = parseFloat(m[1]);
+      const unit = m[2] ? (m[2][0].toLowerCase() === 'c' ? 'C' : 'F') : t >= 90 ? 'F' : t >= 34 && t <= 44 ? 'C' : '';
+      if ((unit === 'F' && t >= 90 && t <= 110) || (unit === 'C' && t >= 34 && t <= 44)) {
+        push({ field: 'vital-temperature', display: `${t} ${unit}`, value: t, unit, sourceText: src });
+      }
+    }
+    for (const m of sentence.matchAll(/(?:respiratory rate|respirations?\b|\brr\b)[^.;\d]{0,30}?(\d{1,2})\b/gi)) {
+      const rr = parseInt(m[1], 10);
+      if (rr >= 6 && rr <= 60) push({ field: 'vital-respiration-rate', display: `${rr}`, value: rr, sourceText: src });
+    }
+  }
+  return out;
+}

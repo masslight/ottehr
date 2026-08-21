@@ -27,6 +27,7 @@ const visibility = (
     chartData: chartData as GetChartDataResponse,
     editable: false,
     canSaveVital: false,
+    vitalCount: 0,
     inHouseMedications: [],
     immunizations: [],
     labOrders: [],
@@ -92,7 +93,9 @@ describe('vitals, whose empty state is narrower than the free-text fields', () =
   });
 
   it('appears with a charted vital even on a read-only note', () => {
-    expect(visibility({ vitalsObservations: [{ field: 'vital-temperature' }] as never }).vitals).toBe(true);
+    // Counted by the caller from the get-vitals response, not read off chart data: only get-vitals carries
+    // the criticality flags, so the note does not read `vitalsObservations` at all.
+    expect(visibility({}, { vitalCount: 1 }).vitals).toBe(true);
   });
 
   it('appears for a vitals note with no measurements', () => {

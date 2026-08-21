@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Autocomplete, Box, Card, Stack, TextField, Typography } from '@mui/material';
+import { Box, Card, Stack, TextField, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ActionsList } from 'src/components/ActionsList';
@@ -10,9 +10,7 @@ import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
-import { SURGICAL_HISTORY_OPTIONS } from './surgicalHistoryOptions';
-
-const surgicalHistoryOptions = SURGICAL_HISTORY_OPTIONS;
+import { SurgicalHistoryField } from './SurgicalHistoryField';
 
 export const ProceduresForm: FC = () => {
   const methods = useForm<{
@@ -96,10 +94,13 @@ export const ProceduresForm: FC = () => {
             control={control}
             rules={{ required: true }}
             render={({ field: { value, onChange } }) => (
-              <Autocomplete
-                value={value || null}
-                onChange={(_e, data) => {
+              <SurgicalHistoryField
+                value={value}
+                disabled={isLoading || isChartDataLoading}
+                onChange={(data) => {
                   onChange(data);
+                  // "Other" is the page's own branch: it reveals a free-text name and an Add button, so it
+                  // must NOT go straight to the write.
                   if (data?.display === 'Other') {
                     setIsOtherOptionSelected(true);
                   } else {
@@ -107,34 +108,6 @@ export const ProceduresForm: FC = () => {
                     handleSelectOption(data);
                   }
                 }}
-                fullWidth
-                size="small"
-                disabled={isLoading || isChartDataLoading}
-                options={surgicalHistoryOptions}
-                noOptionsText="Nothing found for this search criteria"
-                getOptionLabel={(option) => `${option.code} ${option.display}`}
-                renderOption={(props, option) => (
-                  <li data-testid={dataTestIds.surgicalHistory.surgicalHistoryOption} {...props}>
-                    <Typography component="span">
-                      {option.code} {option.display}
-                    </Typography>
-                  </li>
-                )}
-                isOptionEqualToValue={(option, value) => option.code === value.code}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Surgery"
-                    placeholder="Search"
-                    InputLabelProps={{ shrink: true }}
-                    data-testid={dataTestIds.surgicalHistory.surgicalHistoryInput}
-                    sx={{
-                      '& .MuiInputLabel-root': {
-                        fontWeight: 'bold',
-                      },
-                    }}
-                  />
-                )}
               />
             )}
           />

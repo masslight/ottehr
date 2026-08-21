@@ -38,7 +38,6 @@ import {
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { getEasyChartUrl } from 'utils/lib/easy-chart/access';
 import { LOCATION_REVIEW_LINK_EXTENSION_URL, ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -1164,7 +1163,10 @@ export default function AppointmentTableRow({
           {FEATURE_FLAGS.EASY_CHART_ENABLED && encounterId && (
             <GoToButton
               text="Easy Chart"
-              onClick={() => navigate(getEasyChartUrl(encounterId))}
+              // Easy Chart is a TAB of the in-person chart, so it is linked exactly like Review & Sign:
+              // by appointment id, through the helper that resolves a follow-up to its parent
+              // appointment and carries the follow-up encounter id in the query string.
+              onClick={() => navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.EASY_CHARTING))}
               dataTestId={dataTestIds.dashboard.easyChartButton}
             >
               <AutoAwesomeIcon />

@@ -230,6 +230,222 @@ describe('a signed visit reaches the chart’s own components as locked', () => 
   });
 });
 
+// The billing rows behave like every other charted row: read as text, click to edit, and the editor is the
+// Assessment page's own field. Both directions of that are easy to lose — a bespoke picker on this side, or
+// a permanently mounted dropdown that turns the note into a form.
+describe('the billing rows are click-to-edit with the chart’s own fields', () => {
+  const cptSection = NOTE_PANE.slice(NOTE_PANE.indexOf("id: 'cpt-codes'"), NOTE_PANE.indexOf("id: 'labs-ordered'"));
+  const emSection = NOTE_PANE.slice(NOTE_PANE.indexOf("id: 'em-code'"), NOTE_PANE.indexOf("id: 'cpt-codes'"));
+
+  it('edits a CPT code with the Billing card’s own search field', () => {
+    // Not a local picker: `correctionFor('cptCodes')` used to sit here and always returned undefined,
+    // because corrections.ts has no CPT catalogue — so the row was not clickable at all.
+    expect(cptSection).toContain('<CptCodeField');
+    expect(cptSection).not.toMatch(/correction:\s*correctionFor\('cptCodes'\)/);
+  });
+
+  it('opens the CPT field on the charted code, focused', () => {
+    // A field that opens empty makes the provider retype what is already on the note.
+    expect(cptSection).toContain('autoFocus');
+    expect(cptSection).toMatch(
+      /value=\{charted\?\.code \? \{ code: charted\.code, display: charted\.display \} : null\}/
+    );
+  });
+
+  it('closes the CPT editor BEFORE writing', () => {
+    // The row is controlled from chart data: an editor left open re-renders with the pre-write value and
+    // reads as the pick having been thrown away.
+    const onChange = cptSection.slice(cptSection.indexOf('onChange={(code)'));
+    expect(onChange.indexOf('close();')).toBeLessThan(onChange.indexOf('onEditCptCode(item, code)'));
+  });
+
+  it('renders a SET E&M level as text with an editor, not as a permanent dropdown', () => {
+    // The level is a billing decision the provider owns, but one they agree with should be readable rather
+    // than sitting in an input — this was the only section of the note that was always a form.
+    expect(emSection).toContain('editor={(close) => (');
+    expect(emSection).toMatch(/<Typography variant="body2">\{coded\(chartData\.emCode\.code/);
+  });
+
+  it('keeps an UNSET E&M level as a field', () => {
+    // There is no row to click, and the level is required to sign — the readiness banner reports it as a
+    // blocker, so hiding the only way to set it behind a click on nothing leaves that blocker unfixable.
+    const unset = emSection.slice(emSection.lastIndexOf(') : ('));
+    expect(unset).toContain('<EMCodeField encounterId={encounterId}');
+  });
+
+  it('reports a failed swap instead of dropping it into an unhandled rejection', () => {
+    // NotePane calls these as `void onEdit…(…)`: without a catch the row stays as it was, nothing is said,
+    // and the provider cannot tell whether the pick landed.
+    const helper = PAGE.slice(PAGE.indexOf('const replaceRow = useCallback('));
+    expect(helper).toContain('catch (error)');
+    expect(helper).toContain('enqueueSnackbar');
+    // Remove BEFORE write: both versions on the note is worse than a brief gap.
+    expect(helper.indexOf('writer.remove(field, item)')).toBeLessThan(helper.indexOf('writer.save(write)'));
+  });
+});
+
+// An in-row editor returns the row to text by itself. Four ways, and the focus one is the load-bearing
+// case: the other three all require the provider to notice the editor is still open.
+describe('an in-row editor closes itself', () => {
+  const item = readFileSync(join(HERE, '../../src/features/easy-chart/components/AiChartedItem.tsx'), 'utf8');
+  const hosted = item.slice(item.indexOf('if (editing && editor)'));
+
+  it('closes when focus leaves it', () => {
+    expect(hosted).toContain('onBlur={closeOnFocusLeaving}');
+  });
+
+  it('asks activeElement rather than trusting relatedTarget', () => {
+    // relatedTarget is null for plenty of legitimate transitions inside the editor, so closing on it alone
+    // would dismiss the field mid-edit.
+    const close = item.slice(item.indexOf('const closeOnFocusLeaving'));
+    expect(close).toContain('requestAnimationFrame');
+    expect(close).toContain('node.contains(active)');
+  });
+
+  it('does NOT use a ClickAwayListener', () => {
+    // MUI renders an Autocomplete's dropdown in a portal, so every option is "away": a click-away listener
+    // would close the editor before the option's click landed, and picking a value would appear to do
+    // nothing.
+    expect(item).not.toContain('ClickAwayListener');
+  });
+
+  it('closes on Escape', () => {
+    expect(hosted).toMatch(/event\.key === 'Escape'/);
+  });
+});
+
+// EVERY searchable row now opens a real field from the page that owns that section. The bespoke
+// catalogue-search editor is gone with them: those catalogues are the assistant's own fuzzy matchers, built
+// for whole phrases from the model, so a partially typed query matched nothing and the row looked editable
+// and did nothing.
+describe('every searchable row opens the chart’s own field', () => {
+  const item = readFileSync(join(HERE, '../../src/features/easy-chart/components/AiChartedItem.tsx'), 'utf8');
+
+  it.each([
+    ['allergies', 'AllergyField'],
+    ['medications', 'MedicationField'],
+    ['medical conditions', 'DiagnosesField'],
+    ['surgical history', 'SurgicalHistoryField'],
+    ['hospitalizations', 'HospitalizationField'],
+    ['CPT codes', 'CptCodeField'],
+    ['the E&M level', 'EMCodeField'],
+  ])('edits %s with %s', (_section, component) => {
+    expect(NOTE_PANE).toContain(`<${component}`);
+  });
+
+  it('has no bespoke search editor left in the row component', () => {
+    for (const gone of ['ItemCorrection', 'CorrectionEditor', 'CorrectionOption']) {
+      expect(item, `${gone} is unreachable now that every row opens a real field`).not.toContain(gone);
+    }
+    expect(NOTE_PANE).not.toContain('buildCorrection');
+  });
+
+  it('opens each field on the charted value, focused', () => {
+    // A field that opens empty makes the provider retype what is already on the note; one that opens closed
+    // reads as the click having done nothing.
+    const editors = NOTE_PANE.match(/editor: \(item, close\) => \{/g) ?? [];
+    expect(editors.length, 'one hosted editor per searchable section').toBeGreaterThanOrEqual(6);
+    for (const field of [
+      'AllergyField',
+      'MedicationField',
+      'SurgicalHistoryField',
+      'HospitalizationField',
+      'CptCodeField',
+    ]) {
+      const opening = NOTE_PANE.slice(NOTE_PANE.indexOf(`<${field}`));
+      expect(opening.slice(0, 200), `${field} must autofocus`).toContain('autoFocus');
+    }
+  });
+
+  it('does not offer "Other" in a row editor', () => {
+    // That branch needs a follow-up text field and an Add button, which a note row has nowhere to put.
+    // Offering a dead end is worse than sending the provider to the page that can finish it.
+    const withOther = ['AllergyField', 'SurgicalHistoryField', 'HospitalizationField'];
+    for (const field of withOther) {
+      const opening = NOTE_PANE.slice(NOTE_PANE.indexOf(`<${field}`));
+      expect(opening.slice(0, 300), `${field} must not offer Other here`).toContain('includeOther={false}');
+    }
+  });
+
+  it('carries the per-row qualifiers across a swap', () => {
+    // Correcting WHAT the row names must not silently change what else it says.
+    const allergy = NOTE_PANE.slice(NOTE_PANE.indexOf('<AllergyField'));
+    expect(allergy.slice(0, 1200), 'an inactive allergy must not be reactivated').toContain('charted?.current');
+    const medication = NOTE_PANE.slice(NOTE_PANE.indexOf('<MedicationField'));
+    expect(medication.slice(0, 1400), 'an unconfirmed dose must stay unconfirmed').toContain('charted?.intakeInfo');
+  });
+});
+
+// The Vitals section prints the progress note's own rows. Two things were wrong before, and only one of them
+// was visible: the values were re-formatted locally, and the criticality warnings were missing entirely
+// because they are not in the data Easy Chart was reading.
+describe('vitals are the progress note’s rows', () => {
+  const DATA_HOOK = readFileSync(join(HERE, '../../src/features/easy-chart/hooks/useEasyChartData.ts'), 'utf8');
+  const PROGRESS_NOTE_VITALS = readFileSync(
+    join(HERE, '../../src/features/visits/in-person/components/progress-note/PatientVitalsContainer.tsx'),
+    'utf8'
+  );
+  const ENTRY = readFileSync(
+    join(HERE, '../../src/features/visits/shared/components/vitals/components/VitalsHistoryEntry.tsx'),
+    'utf8'
+  );
+
+  it('renders each reading with the chart’s own VitalHistoryElement', () => {
+    expect(NOTE_PANE).toContain('<VitalHistoryElement');
+  });
+
+  it('drops only the "when, by whom" prefix', () => {
+    // The VALUE formatting is the point of reusing it: unit conversions, the abnormal colour and its icon.
+    expect(NOTE_PANE).toContain('hideAttribution');
+    const attribution = ENTRY.slice(
+      ENTRY.indexOf('{!hideAttribution && ('),
+      ENTRY.indexOf('observationValueElements.map')
+    );
+    expect(attribution).toContain('formatDateTimeToLocalTimezone');
+    expect(attribution).toContain('authorName');
+  });
+
+  it('reads vitals from get-vitals, which is the only source of the criticality flags', () => {
+    // `chartData.vitalsObservations` carries the same values with NO alertCriticality — only the get-vitals
+    // zambda stamps it. A note built from chart data prints a critical temperature in plain black.
+    expect(DATA_HOOK).toContain('useGetVitals');
+    expect(DATA_HOOK).toMatch(/UNREQUESTED_BY_DESIGN[\s\S]*vitalsObservations/);
+    expect(DATA_HOOK).not.toMatch(/^\s*vitalsObservations: \{\},$/m);
+  });
+
+  it('refetches vitals with the rest of the note', () => {
+    // Left out, the assistant charts a reading and the section stays a step behind until a reload.
+    expect(DATA_HOOK).toContain('vitalsRefetch()');
+  });
+
+  it('groups the sections through the SAME helper the progress note uses', () => {
+    // Two lists would mean a vital printed on one note and not the other.
+    expect(NOTE_PANE).toContain('groupVitalsBySection(vitals)');
+    expect(PROGRESS_NOTE_VITALS).toContain('groupVitalsBySection(encounterVitals)');
+  });
+});
+
+// One CPT search in the codebase, not two. Two that rank the same query differently is a bug a provider
+// experiences as the app disagreeing with itself.
+describe('the CPT search has exactly one implementation', () => {
+  const billing = readFileSync(
+    join(HERE, '../../src/features/visits/shared/components/assessment-tab/BillingCodesContainer.tsx'),
+    'utf8'
+  );
+
+  it('has the Billing card using the extracted field too', () => {
+    expect(billing).toContain('<CptCodeField');
+    expect(billing).not.toContain('useGetCPTHCPCSSearch');
+  });
+
+  it('still lets the Billing card offer the setup link when the NLM key is missing', () => {
+    // The error moved inside the field with the query, so it has to be handed back or the card silently
+    // shows an empty dropdown for a practice that has no terminology key.
+    expect(billing).toContain('onSearchError={setCptSearchError}');
+    expect(billing).toContain('MISSING_NLM_API_KEY_ERROR');
+  });
+});
+
 describe('the reuse does not change the in-person pages', () => {
   const optional = (path: string, prop: string): void => {
     const source = readFileSync(join(HERE, '../..', path), 'utf8');
@@ -247,6 +463,11 @@ describe('the reuse does not change the in-person pages', () => {
   it('keeps the injected ids optional on the shared components', () => {
     optional('src/features/visits/shared/components/DispositionCard.tsx', 'encounterId');
     optional('src/features/visits/shared/components/assessment-tab/EMCodeField.tsx', 'encounterId');
+    // autoFocus is opt-in on all three pickers: the Assessment page renders them permanently, so a default
+    // of true would steal the caret every time that page opened.
+    optional('src/features/visits/shared/components/assessment-tab/EMCodeField.tsx', 'autoFocus');
+    optional('src/features/visits/shared/components/assessment-tab/CptCodeField.tsx', 'autoFocus');
+    optional('src/features/visits/shared/components/assessment-tab/DiagnosesField.tsx', 'autoFocus');
     optional('src/features/visits/shared/components/assessment-tab/MedicalDecisionField.tsx', 'encounterId');
     // `loading` and `setIsUpdating` became optional too — the Assessment card still passes both.
     optional('src/features/visits/shared/components/assessment-tab/MedicalDecisionField.tsx', 'setIsUpdating');

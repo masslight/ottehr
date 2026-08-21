@@ -15,6 +15,7 @@ import {
   roundTemperatureForSave,
 } from '../helpers/vitals/vitals-temperature.helper';
 import { formatWeightKg, formatWeightLbs, LBS_IN_KG } from '../helpers/vitals/vitals-weight.helper';
+import { VitalFieldNames } from '../types/api/chart-data/chart-data.constants';
 import { PlannableVitalField } from './actions';
 
 /** Short labels, as a provider reads them on the note. */
@@ -29,6 +30,28 @@ export const VITAL_LABEL: Record<string, string> = {
   'vital-vision': 'Vision',
   'vital-last-menstrual-period': 'LMP',
 };
+
+/**
+ * The note's vitals sections, in the order they are printed, with the FULL name.
+ *
+ * Two label maps, on purpose. `VITAL_LABEL` above is for the quick-add chips, where the row is one button
+ * wide and "Temp" is all that fits; these are the headings above a group of readings, where the abbreviation
+ * would read as terse. What matters is that the ORDER and the SET live in one place: the progress note and
+ * Easy Chart print the same sections, and a vital added to one list and not the other is a reading that
+ * silently never appears on that note.
+ */
+export const VITAL_SECTION_ORDER: readonly { field: VitalFieldNames; label: string }[] = [
+  { field: VitalFieldNames.VitalTemperature, label: 'Temperature' },
+  { field: VitalFieldNames.VitalHeartbeat, label: 'Heartbeat' },
+  { field: VitalFieldNames.VitalRespirationRate, label: 'Respiration rate' },
+  { field: VitalFieldNames.VitalBloodPressure, label: 'Blood pressure' },
+  { field: VitalFieldNames.VitalOxygenSaturation, label: 'Oxygen saturation' },
+  { field: VitalFieldNames.VitalWeight, label: 'Weight' },
+  { field: VitalFieldNames.VitalHeight, label: 'Height' },
+  { field: VitalFieldNames.VitalBMI, label: 'BMI' },
+  { field: VitalFieldNames.VitalVision, label: 'Vision' },
+  { field: VitalFieldNames.VitalLastMenstrualPeriod, label: 'Last Menstrual Period' },
+];
 
 /** Vitals whose unit is fixed, so their row shows it as a suffix rather than an editable box. */
 export const VITAL_FIXED_UNIT: Record<string, string> = {

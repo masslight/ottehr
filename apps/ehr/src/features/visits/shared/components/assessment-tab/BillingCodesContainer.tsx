@@ -10,13 +10,11 @@ import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { useEMCodes } from '../../hooks/useEMCodes';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -24,6 +22,7 @@ import {
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
 import { AiSectionContainer } from '../AiSection';
+import { CptCodeField } from './CptCodeField';
 
 export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {
   const { chartData, setPartialChartData } = useChartData();
@@ -223,13 +222,9 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
   const cptCodes = chartData?.cptCodes || [];
   const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
 
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const {
-    isFetching: isSearching,
-    data,
-    error: icdSearchError,
-  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
-  const cptSearchOptions = data?.codes || [];
+  // The CPT search itself lives in CptCodeField now; only its error still concerns this card, which
+  // answers a missing NLM key with a setup link rather than an empty dropdown.
+  const [cptSearchError, setCptSearchError] = useState<unknown>(null);
 
   const { emCodes, isLoading: emCodesLoading } = useEMCodes();
   const { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading } = useUpdateEMCode();
@@ -238,20 +233,6 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
   const { onAdd, isPending: isSaveCPTLoading } = useAddCptCode();
   const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || emCodesLoading || (emCode && !emCode.resourceId));
   const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
-
-  const { debounce } = useDebounce(800);
-
-  const debouncedHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setDebouncedSearchTerm(data);
-    });
-  };
-
-  const onInternalChange = (_e: unknown, data: CPTCodeOption | null): void => {
-    if (data) {
-      onAdd(data);
-    }
-  };
 
   const onDelete = async (resourceId: string): Promise<void> => {
     const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
@@ -291,7 +272,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
     );
   };
 
-  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+  const nlmApiKeyMissing = (cptSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const handleSetup = (): void => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
@@ -336,36 +317,8 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
                 <Typography color="secondary.light">No suggestions</Typography>
               )}
             </AiSectionContainer>
-            <Autocomplete
-              fullWidth
-              blurOnSelect
-              disabled={disabledCPT}
-              options={cptSearchOptions}
-              noOptionsText={
-                debouncedSearchTerm && cptSearchOptions.length === 0
-                  ? 'Nothing found for this search criteria'
-                  : 'Start typing to load results'
-              }
-              autoComplete
-              includeInputInList
-              disableClearable
-              filterOptions={(x) => x}
-              value={null as unknown as undefined}
-              isOptionEqualToValue={(option, value) => value.code === option.code}
-              loading={isSearching}
-              onChange={onInternalChange}
-              getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Additional CPT codes"
-                  placeholder="Search CPT code"
-                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                  data-testid={dataTestIds.assessmentCard.cptCodeField}
-                />
-              )}
-            />
+            {/* No `value`: this one ADDS, so it must come back empty after each pick. */}
+            <CptCodeField disabled={disabledCPT} onChange={onAdd} onSearchError={setCptSearchError} />
           </>
         )}
       </Box>
