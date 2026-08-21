@@ -1222,6 +1222,7 @@
       "type": "subscription",
       "runtime": "nodejs22.x",
       "timeout": "900",
+      "memorySize": "3008",
       "src": "src/subscriptions/sub-adhoc-report/index",
       "zip": ".dist/zips/sub-adhoc-report.zip"
     },

@@ -31,6 +31,7 @@ import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import PageContainer from '../../../layout/PageContainer';
 import { AD_HOC_DATASETS } from '../datasets/registry';
 import { ReportFrame } from '../sandbox/ReportFrame';
+import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
 import { useReportBuilder } from './useReportBuilder';
 
 export default function ReportBuilderPage(): React.ReactElement {
@@ -197,6 +198,41 @@ export default function ReportBuilderPage(): React.ReactElement {
             </Box>
           )}
 
+          {rb.unavailableRequest && (
+            <Paper variant="outlined" sx={{ mb: 3, p: 2, borderColor: 'error.main' }}>
+              <Typography color="error" variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                This report can&apos;t be built from the available data
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Not found in any dataset: <strong>{rb.unavailableRequest.concepts.join(', ')}</strong>
+              </Typography>
+              {rb.unavailableRequest.hint && (
+                <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic' }}>
+                  {rb.unavailableRequest.hint}
+                </Typography>
+              )}
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                What you can do
+              </Typography>
+              <Box component="ul" sx={{ mt: 0, mb: 2, pl: 3 }}>
+                <Typography component="li" variant="body2">
+                  Remove {rb.unavailableRequest.concepts.length > 1 ? 'those parts' : 'that part'} from your request and
+                  generate the rest.
+                </Typography>
+                <Typography component="li" variant="body2">
+                  If you meant a different field, use its exact name from the list below.
+                </Typography>
+                <Typography component="li" variant="body2">
+                  Another dataset may hold what you need — check the list below.
+                </Typography>
+              </Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                What the datasets do contain
+              </Typography>
+              <AllDatasetsInfo />
+            </Paper>
+          )}
+
           {rb.schema && rb.rows && (
             <>
               <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -237,6 +273,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                       ))}
                     </TableBody>
                   </Table>
+                  <DatasetLayersInfo datasetId={rb.datasetId} datasetOptions={rb.datasetOptions} />
                 </Paper>
               </Collapse>
 
