@@ -672,6 +672,7 @@ describe('service line actions', () => {
           placeOfService: '11',
           serviceDate: '2026-02-02',
           diagnosisPointers: '1',
+          revenueCode: '12345',
         },
       },
       m
@@ -686,6 +687,7 @@ describe('service line actions', () => {
     expect(readServiceLineProperty(added, 'charges')).toBe('45.25');
     expect(readServiceLineProperty(added, 'placeOfService')).toBe('11');
     expect(readServiceLineProperty(added, 'serviceDate')).toBe('2026-02-02');
+    expect(readServiceLineProperty(added, 'revenueCode')).toBe('12345');
     expect(added.diagnosisSequence).toEqual([1]);
     expect(m.claim.total?.value).toBe(170.75);
     expect(readField(m, 'billed')).toBe('170.75');

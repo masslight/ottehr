@@ -13,7 +13,7 @@ import {
 } from 'fhir/r4b';
 import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
 import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import {
@@ -45,6 +45,7 @@ import {
   buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
@@ -180,6 +181,7 @@ const SERVICE_LINE_READERS: Record<string, ServiceLineReader> = {
   charges: (line) => (line.net?.value != null ? String(line.net.value) : undefined),
   placeOfService: (line) => line.locationCodeableConcept?.coding?.[0]?.code,
   serviceDate: (line) => line.servicedPeriod?.start ?? line.servicedDate,
+  revenueCode: (line) => getCoding(line.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code,
 };
 
 export const readServiceLineProperty = (line: ClaimServiceLine, propertyId: string): string | string[] | undefined =>
@@ -238,6 +240,11 @@ const SERVICE_LINE_WRITERS: Record<string, ServiceLineWriter> = {
     if (!value || !isoDateRegex.test(value)) return false;
     delete line.servicedDate;
     line.servicedPeriod = { ...line.servicedPeriod, start: value };
+    return true;
+  },
+  revenueCode: (line, value) => {
+    if (!value) return false;
+    line.revenue = codeableConcept(value, CODE_SYSTEM_NUBC_REVENUE);
     return true;
   },
 };

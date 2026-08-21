@@ -858,6 +858,14 @@ export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
     settable: true,
     description: "The line's date of service (YYYY-MM-DD).",
   },
+  {
+    id: 'revenueCode',
+    label: 'Rev Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Revenue code of the procedure.',
+  },
 ];
 
 const SERVICE_LINE_PROPERTIES_BY_ID = new Map(SERVICE_LINE_PROPERTY_CATALOG.map((p) => [p.id, p]));
