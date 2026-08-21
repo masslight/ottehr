@@ -34,9 +34,15 @@ type CategoryFilter = InvoiceReportCategory | 'all';
 const CATEGORY_META: Record<InvoiceReportCategory, { label: string; color: string }> = {
   upcoming: { label: 'Coming Due', color: '#2E7D32' },
   'past-due-no-card': { label: 'Past Due: No Card on File', color: '#ED6C02' },
+  'past-due-not-attempted': { label: 'Past Due: Charge Not Attempted', color: '#7B61D9' },
   'past-due-failed': { label: 'Past Due: Charge Failed', color: '#D32F2F' },
 };
-const CATEGORY_ORDER: InvoiceReportCategory[] = ['upcoming', 'past-due-no-card', 'past-due-failed'];
+const CATEGORY_ORDER: InvoiceReportCategory[] = [
+  'upcoming',
+  'past-due-no-card',
+  'past-due-not-attempted',
+  'past-due-failed',
+];
 
 interface AgingBucket {
   key: string;

@@ -591,12 +591,28 @@ function WaterfallMatrix({
                 {checkMonths.map((checkMonth) => {
                   const paid = paidByKey.get(`${serviceMonth}|${checkMonth}`);
                   return (
-                    <td
-                      key={checkMonth}
-                      style={paid === undefined ? cellSx : { ...cellSx, cursor: 'pointer', color: '#2169F5' }}
-                      onClick={paid === undefined ? undefined : () => onCellClick(serviceMonth, checkMonth)}
-                    >
-                      {paid === undefined ? '' : formatCurrency(paid)}
+                    <td key={checkMonth} style={cellSx}>
+                      {paid === undefined ? (
+                        ''
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onCellClick(serviceMonth, checkMonth)}
+                          aria-label={`View ERAs for ${monthLabel(serviceMonth)} service, ${monthLabel(
+                            checkMonth
+                          )} checks`}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            cursor: 'pointer',
+                            color: '#2169F5',
+                          }}
+                        >
+                          {formatCurrency(paid)}
+                        </button>
+                      )}
                     </td>
                   );
                 })}

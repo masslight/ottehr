@@ -9,6 +9,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Chip,
   CircularProgress,
   Drawer,
@@ -555,6 +556,8 @@ export default function PipelineReport(): ReactElement {
         <StatCard label="Total Claims" value={(report?.totals.claims ?? 0).toLocaleString('en-US')} />
         <StatCard label="Total Billed" value={formatCurrency(report?.totals.totalBilled ?? 0)} />
         <Box
+          component={ButtonBase}
+          focusRipple
           onClick={() =>
             setDrilldown({
               title: 'No AR Stage Claims',
@@ -565,6 +568,8 @@ export default function PipelineReport(): ReactElement {
           }
           sx={{
             flex: 1,
+            display: 'block',
+            textAlign: 'left',
             bgcolor: 'background.paper',
             border: `1px solid ${otherColors.lightDivider}`,
             borderRadius: 2,
@@ -612,6 +617,8 @@ export default function PipelineReport(): ReactElement {
           return (
             <Box
               key={group.key}
+              component={ButtonBase}
+              focusRipple
               onClick={() =>
                 setDrilldown({
                   title: `${arStageLabel(group.arStageCode)} Claims`,
@@ -624,6 +631,8 @@ export default function PipelineReport(): ReactElement {
               sx={{
                 flex: 1,
                 minWidth: 0,
+                display: 'block',
+                textAlign: 'left',
                 bgcolor: 'background.paper',
                 border: `1px solid ${otherColors.lightDivider}`,
                 borderRadius: 2,
@@ -734,6 +743,8 @@ export default function PipelineReport(): ReactElement {
           ).map((bucket) => (
             <Box
               key={bucket.key}
+              component={ButtonBase}
+              focusRipple
               onClick={() =>
                 setDrilldown({
                   ...bucket.drilldown,
@@ -743,6 +754,8 @@ export default function PipelineReport(): ReactElement {
               }
               sx={{
                 flex: 1,
+                display: 'block',
+                textAlign: 'left',
                 border: `1px solid ${otherColors.lightDivider}`,
                 borderRadius: 2,
                 px: 2.5,

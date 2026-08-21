@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   GetBillingInvoiceReportResponse,
@@ -30,7 +31,7 @@ const PATIENT_BATCH_SIZE = 100;
 const PM_LOOKUP_CONCURRENCY = 8;
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
-const CACHE_KEY = 'invoice-report:v2';
+const CACHE_KEY = 'invoice-report:v3';
 // stay well under FHIR resource size limits
 const MAX_CACHE_BYTES = 4 * 1024 * 1024;
 
@@ -102,10 +103,18 @@ export async function performEffect(
     const customerId = customerIdOf(invoice) ?? '';
     const card = cardByCustomerId.get(customerId);
     const pastDue = isPastDue(invoice, nowSeconds);
-    const category: InvoiceReportCategory = !pastDue ? 'upcoming' : card ? 'past-due-failed' : 'past-due-no-card';
+    const charge = typeof invoice.charge === 'string' ? undefined : invoice.charge;
+    // 'failed' requires evidence of an attempt — send_invoice invoices may never be auto-charged
+    const attempted = (invoice.attempt_count ?? 0) > 0 || !!charge?.failure_message;
+    const category: InvoiceReportCategory = !pastDue
+      ? 'upcoming'
+      : !card
+      ? 'past-due-no-card'
+      : attempted
+      ? 'past-due-failed'
+      : 'past-due-not-attempted';
     const patientId = patientIdOf(invoice) ?? '';
     const patient = isValidUUID(patientId) ? patientsById.get(patientId) : undefined;
-    const charge = typeof invoice.charge === 'string' ? undefined : invoice.charge;
     const encounterId = encounterIdFromStripeMetadata(invoice.metadata) ?? '';
     const visit = isValidUUID(encounterId) ? visitByEncounterId.get(encounterId) : undefined;
     return {
@@ -136,6 +145,7 @@ export async function performEffect(
   const totals: GetBillingInvoiceReportResponse['totals'] = {
     upcoming: { count: 0, amountDue: 0 },
     'past-due-no-card': { count: 0, amountDue: 0 },
+    'past-due-not-attempted': { count: 0, amountDue: 0 },
     'past-due-failed': { count: 0, amountDue: 0 },
   };
   for (const row of rows) {
@@ -299,15 +309,11 @@ const customerNameOf = (invoice: Stripe.Invoice): string => {
 
 // platform account plus connected accounts stamped on billing provider organizations
 async function listStripeAccounts(oystehr: Oystehr): Promise<(string | undefined)[]> {
-  const orgs = (
-    await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        { name: '_elements', value: 'id,identifier' },
-        { name: '_count', value: '200' },
-      ],
-    })
-  ).unbundle();
+  // paged: connected accounts must not fall off a single-page result
+  const orgs = await getAllFhirSearchPages<Organization>(
+    { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
+    oystehr
+  );
   const connectedAccounts = [
     ...new Set(
       orgs

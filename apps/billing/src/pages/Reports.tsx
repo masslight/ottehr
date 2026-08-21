@@ -6,7 +6,7 @@ import {
   Paid as PaidIcon,
   ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { otherColors } from '../themes/ottehr/colors';
@@ -23,8 +23,12 @@ export default function Reports(): ReactElement {
       </Box>
 
       <Box
+        component={ButtonBase}
+        focusRipple
         onClick={() => navigate('/reports/payments')}
         sx={{
+          width: '100%',
+          textAlign: 'left',
           bgcolor: 'background.paper',
           border: `1px solid ${otherColors.lightDivider}`,
           borderRadius: 2,
@@ -66,8 +70,12 @@ export default function Reports(): ReactElement {
       </Box>
 
       <Box
+        component={ButtonBase}
+        focusRipple
         onClick={() => navigate('/reports/cards-on-file')}
         sx={{
+          width: '100%',
+          textAlign: 'left',
           bgcolor: 'background.paper',
           border: `1px solid ${otherColors.lightDivider}`,
           borderRadius: 2,
@@ -110,8 +118,12 @@ export default function Reports(): ReactElement {
       </Box>
 
       <Box
+        component={ButtonBase}
+        focusRipple
         onClick={() => navigate('/reports/invoices')}
         sx={{
+          width: '100%',
+          textAlign: 'left',
           bgcolor: 'background.paper',
           border: `1px solid ${otherColors.lightDivider}`,
           borderRadius: 2,
@@ -153,8 +165,12 @@ export default function Reports(): ReactElement {
       </Box>
 
       <Box
+        component={ButtonBase}
+        focusRipple
         onClick={() => navigate('/reports/pipeline')}
         sx={{
+          width: '100%',
+          textAlign: 'left',
           bgcolor: 'background.paper',
           border: `1px solid ${otherColors.lightDivider}`,
           borderRadius: 2,
@@ -196,8 +212,12 @@ export default function Reports(): ReactElement {
       </Box>
 
       <Box
+        component={ButtonBase}
+        focusRipple
         onClick={() => navigate('/reports/productivity')}
         sx={{
+          width: '100%',
+          textAlign: 'left',
           bgcolor: 'background.paper',
           border: `1px solid ${otherColors.lightDivider}`,
           borderRadius: 2,

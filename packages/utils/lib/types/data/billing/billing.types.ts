@@ -697,7 +697,7 @@ export interface GetBillingCardsOnFileReportResponse {
   fromCache: boolean;
 }
 
-export type InvoiceReportCategory = 'upcoming' | 'past-due-no-card' | 'past-due-failed';
+export type InvoiceReportCategory = 'upcoming' | 'past-due-no-card' | 'past-due-not-attempted' | 'past-due-failed';
 
 export interface InvoiceReportRow {
   stripeInvoiceId: string;

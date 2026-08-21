@@ -26,11 +26,15 @@ const ZAMBDA_NAME = 'get-billing-patient-payments-report';
 
 const NOTICE_PAGE_SIZE = 200;
 const RESOURCE_BATCH_SIZE = 100;
+// conservative parallelism for per-invoice Stripe retrieves in the drill-down
+const INVOICE_LOOKUP_CONCURRENCY = 8;
 const UNKNOWN_LOCATION = 'Unknown Location';
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
-const CACHE_KEY_PREFIX = 'patient-payments:v2';
+const LOCATION_CODING_SYSTEM = ottehrIdentifierSystem('billing-report-location');
+const METHOD_CODING_SYSTEM = ottehrIdentifierSystem('billing-report-method');
+const CACHE_KEY_PREFIX = 'patient-payments:v3';
 const MEASURE_URL = 'https://fhir.ottehr.com/billing/measures/patient-payments';
 const ROW_METRIC_KEYS = ['collected', 'refunded', 'net'] as const;
 // locationId filter value selecting payments with no resolvable location
@@ -329,9 +333,12 @@ async function saveCachedRollup(
     period: { start: params.dateFrom ?? generatedAt, ...(params.dateTo ? { end: params.dateTo } : {}) },
     group: rows.map((row) => ({
       code: {
-        text: `${row.locationName}|${row.paymentMethod}`,
-        // locationId travels in the coding so cached rows keep the definitive key
-        ...(row.locationId ? { coding: [{ system: REPORT_IDENTIFIER_SYSTEM, code: row.locationId }] } : {}),
+        // display only; the definitive keys travel in codings (location names may contain '|')
+        text: row.locationName,
+        coding: [
+          ...(row.locationId ? [{ system: LOCATION_CODING_SYSTEM, code: row.locationId }] : []),
+          { system: METHOD_CODING_SYSTEM, code: row.paymentMethod },
+        ],
       },
       population: [{ code: { text: 'payments' }, count: row.paymentCount }],
       stratifier: [
@@ -359,8 +366,9 @@ async function saveCachedRollup(
 
 function rowsFromCache(report: MeasureReport): PatientPaymentsReportRow[] {
   return (report.group ?? []).map((group) => {
-    const [locationName = UNKNOWN_LOCATION, paymentMethod = 'unknown'] = (group.code?.text ?? '').split('|');
-    const locationId = group.code?.coding?.find((c) => c.system === REPORT_IDENTIFIER_SYSTEM)?.code ?? '';
+    const locationName = group.code?.text || UNKNOWN_LOCATION;
+    const locationId = group.code?.coding?.find((c) => c.system === LOCATION_CODING_SYSTEM)?.code ?? '';
+    const paymentMethod = group.code?.coding?.find((c) => c.system === METHOD_CODING_SYSTEM)?.code ?? 'unknown';
     const metrics = new Map(
       (group.stratifier?.[0]?.stratum ?? []).map((stratum) => [
         stratum.value?.text ?? '',
@@ -426,6 +434,22 @@ async function resolveStripeStatuses(
     }
     return invoiceCache.get(invoiceId);
   };
+
+  // warm the cache for unique invoices with bounded concurrency so a broad drill-down
+  // can't fire one uncapped Stripe request per notice
+  const noticeByInvoiceId = new Map<string, PaymentNotice>();
+  for (const notice of notices) {
+    const invoiceId = invoiceIdOf(notice);
+    if (invoiceId && !noticeByInvoiceId.has(invoiceId)) noticeByInvoiceId.set(invoiceId, notice);
+  }
+  const invoiceEntries = [...noticeByInvoiceId.entries()];
+  for (let i = 0; i < invoiceEntries.length; i += INVOICE_LOOKUP_CONCURRENCY) {
+    await Promise.all(
+      invoiceEntries
+        .slice(i, i + INVOICE_LOOKUP_CONCURRENCY)
+        .map(([invoiceId, notice]) => fetchInvoice(invoiceId, notice))
+    );
+  }
 
   return Promise.all(
     notices.map(async (notice) => {

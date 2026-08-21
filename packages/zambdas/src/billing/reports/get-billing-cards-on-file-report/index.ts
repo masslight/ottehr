@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -251,15 +252,11 @@ async function saveCachedReport(oystehr: Oystehr, state: CachedReportState): Pro
 
 // platform account plus connected accounts stamped on billing provider organizations
 async function listStripeAccounts(oystehr: Oystehr): Promise<(string | undefined)[]> {
-  const orgs = (
-    await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        { name: '_elements', value: 'id,identifier' },
-        { name: '_count', value: '200' },
-      ],
-    })
-  ).unbundle();
+  // paged: connected accounts must not fall off a single-page result
+  const orgs = await getAllFhirSearchPages<Organization>(
+    { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
+    oystehr
+  );
   const connectedAccounts = [
     ...new Set(
       orgs
@@ -447,12 +444,15 @@ async function fetchLastVisits(
   for (let i = 0; i < patientIds.length; i += APPOINTMENT_BATCH_SIZE) {
     const batch = patientIds.slice(i, i + APPOINTMENT_BATCH_SIZE);
     const appointments: Appointment[] = [];
+    // upper-bounded so a future booked appointment can't show as the last visit
+    const nowISO = DateTime.now().toUTC().toISO() ?? '';
     await fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<Appointment>({
         resourceType: 'Appointment',
         params: [
           { name: 'patient', value: batch.map((id) => `Patient/${id}`).join(',') },
           { name: 'status:not', value: 'cancelled' },
+          { name: 'date', value: `le${nowISO}` },
           { name: '_elements', value: 'id,start,participant,status' },
           { name: '_count', value: String(count) },
           { name: '_offset', value: String(offset) },
