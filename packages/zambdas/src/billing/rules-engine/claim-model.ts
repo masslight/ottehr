@@ -13,7 +13,7 @@ import {
 } from 'fhir/r4b';
 import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
 import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import {
@@ -39,13 +39,20 @@ import {
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
+import { updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachCoverageToClaim,
   buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
   copySourceRef,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   getClaimService,
   getClaimType,
   getClaimTypeCoding,
@@ -175,6 +182,7 @@ const SERVICE_LINE_READERS: Record<string, ServiceLineReader> = {
   charges: (line) => (line.net?.value != null ? String(line.net.value) : undefined),
   placeOfService: (line) => line.locationCodeableConcept?.coding?.[0]?.code,
   serviceDate: (line) => line.servicedPeriod?.start ?? line.servicedDate,
+  revenueCode: (line) => getCoding(line.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code,
 };
 
 export const readServiceLineProperty = (line: ClaimServiceLine, propertyId: string): string | string[] | undefined =>
@@ -233,6 +241,11 @@ const SERVICE_LINE_WRITERS: Record<string, ServiceLineWriter> = {
     if (!value || !isoDateRegex.test(value)) return false;
     delete line.servicedDate;
     line.servicedPeriod = { ...line.servicedPeriod, start: value };
+    return true;
+  },
+  revenueCode: (line, value) => {
+    if (!value) return false;
+    line.revenue = codeableConcept(value, CODE_SYSTEM_NUBC_REVENUE);
     return true;
   },
 };
@@ -357,6 +370,14 @@ const READERS: Record<string, FieldReader> = {
   placeOfServiceCodes: (m) =>
     (m.claim.item ?? []).map((item) => item.locationCodeableConcept?.coding?.[0]?.code).filter((c): c is string => !!c),
   serviceLineCount: (m) => String(m.claim.item?.length ?? 0),
+  billType: (m) => {
+    const facilityTypeCode = getExtension(m.claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
+    const frequencyCode = getExtension(m.claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
+    return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
+  },
+  patientDischargeStatusCode: (m) => getExtension(m.claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
+  admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
+  admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
 
   ...statusFieldReaders(),
 
@@ -651,6 +672,46 @@ const setServiceDate = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
+const setBillType = (claim: Claim, value: string | null): boolean => {
+  if (!value || value.length !== 4) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+    valueString: value.substring(1, 3),
+  });
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_FREQUENCY_CODE,
+    valueString: value.substring(3, 4),
+  });
+  return true;
+};
+
+const setPatientDischargeStatusCode = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+    valueString: value,
+  });
+  return true;
+};
+
+const setAdmissionType = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+    valueString: value,
+  });
+  return true;
+};
+
+const setAdmissionSource = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  updateExtension(claim, {
+    url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+    valueString: value,
+  });
+  return true;
+};
+
 const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string | null): boolean => {
   const code = value ?? '';
   if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key], code)) return false;
@@ -818,6 +879,10 @@ const WRITERS: Record<string, FieldWriter> = {
   type: (m, v) => setClaimType(m.claim, v),
   service: (m, v) => setClaimService(m.claim, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),
+  billType: (m, v) => setBillType(m.claim, v),
+  patientDischargeStatusCode: (m, v) => setPatientDischargeStatusCode(m.claim, v),
+  admissionType: (m, v) => setAdmissionType(m.claim, v),
+  admissionSource: (m, v) => setAdmissionSource(m.claim, v),
 
   ...statusFieldWriters(),
 
