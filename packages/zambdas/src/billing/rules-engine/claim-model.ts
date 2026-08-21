@@ -683,7 +683,7 @@ const setBillType = (claim: Claim, value: string | null): boolean => {
 const setPatientDischargeStatusCode = (claim: Claim, value: string | null): boolean => {
   if (!value) return false;
   claim.extension = [
-    ...(claim.extension ?? []),
+    ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS),
     {
       url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
       valueString: value,
