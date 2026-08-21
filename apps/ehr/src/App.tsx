@@ -46,6 +46,7 @@ import { UnsolicitedResultsReview } from './features/external-labs/pages/Unsolic
 import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
 import { Tasks } from './features/tasks/pages/Tasks';
+import { TeamChatDrawer, TeamChatManager } from './features/team-chat';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
@@ -85,7 +86,6 @@ import ProviderDetailPage from './pages/ProviderDetailPage';
 import Reports from './pages/Reports';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
-import TeamChatSpike from './pages/TeamChatSpike';
 import VisitDetailsPage from './pages/VisitDetailsPage';
 import { useNavStore } from './state/nav.store';
 
@@ -213,7 +213,6 @@ function App(): ReactElement {
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
-                {FEATURE_FLAGS.TEAM_CHAT_ENABLED && <Route path="/team-chat-spike" element={<TeamChatSpike />} />}
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
@@ -348,6 +347,12 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
+        {FEATURE_FLAGS.TEAM_CHAT_ENABLED && (
+          <>
+            <TeamChatManager />
+            <TeamChatDrawer />
+          </>
+        )}
       </BrowserRouter>
     </CustomThemeProvider>
   );

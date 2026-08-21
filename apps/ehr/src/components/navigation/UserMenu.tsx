@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import { ProviderNotifications } from 'src/features/notifications/ProviderNotifications';
+import { TeamChatButton } from 'src/features/team-chat';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
@@ -30,6 +31,7 @@ import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { PendingErxEnrollmentDialog } from '../dialogs/PendingErxEnrollmentDialog';
 
@@ -107,6 +109,7 @@ export const UserMenu: FC = () => {
     <>
       <CommandPaletteSearchButton sx={{ mr: 2 }} />
       <UnsolicitedResultsIcon />
+      {FEATURE_FLAGS.TEAM_CHAT_ENABLED && <TeamChatButton />}
       {showProviderNotifications && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>
