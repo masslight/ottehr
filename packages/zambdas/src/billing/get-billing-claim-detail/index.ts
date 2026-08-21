@@ -4,7 +4,7 @@ import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } fr
 import { DateTime } from 'luxon';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
-import { getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -26,9 +26,15 @@ import {
 } from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
+  CODE_SYSTEM_NUBC_REVENUE,
   createBillingClient,
   createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchClaimGraph,
   fhirName,
   formatAddress,
@@ -156,6 +162,8 @@ export async function performEffect(
     });
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
+  const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
+  const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
 
   return {
     id: claim.id ?? '',
@@ -243,6 +251,7 @@ export async function performEffect(
       serviceDate: item.servicedPeriod?.start ?? item.servicedDate ?? claim.created ?? '',
       placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
       diagnosisPointers: item.diagnosisSequence ?? [],
+      revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
     })),
     billed,
     allowed: payments.allowed,
@@ -260,6 +269,10 @@ export async function performEffect(
       .map((t) => t.code ?? '')
       .filter(Boolean),
     pcn: getClaimPcn(claim),
+    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
+    patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
+    admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
+    admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
   };
 }
 
