@@ -203,6 +203,7 @@ export const AddServiceLineInputSchema = z.object({
   serviceDate: z.string().optional(),
   // Comma-separated 1-based pointers into the claim's diagnosis list.
   diagnosisPointers: z.string().optional(),
+  revenueCode: z.string().optional(),
 });
 export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
 

@@ -45,7 +45,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../shared/auth';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
@@ -144,10 +144,6 @@ async function performEffect(
       id: orderId,
     };
   } else if (orderData) {
-    // Ordering (creating) an in-house medication order is an NPI-gated action — block callers without
-    // an NPI (e.g. Clinician role). Administering / changing the status of an existing order (handled by
-    // the branches above) stays allowed, since that is a routine nurse/MA task.
-    await requirePractitionerNPI(oystehr, practitionerIdCalledZambda);
     const medicationAdministrationId = await createOrder(
       oystehr,
       orderData,

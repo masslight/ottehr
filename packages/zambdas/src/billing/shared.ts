@@ -74,6 +74,7 @@ import {
   BillingProviderOption,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  ClaimCoverageType,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -254,6 +255,14 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
+export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
+export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
+  'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
+export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
+export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
@@ -1124,26 +1133,13 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's primary (focal) coverage slot at `coverageReference` and its insurer at the
+// Point the claim's coverage slot at `coverageReference` and its insurer at the
 // coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
 // ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
-export function attachPrimaryCoverageToClaim(params: {
-  claim: Claim;
-  coverageReference: string;
-  display?: string;
-  payerReference?: string;
-}): void {
-  const { claim, coverageReference, display, payerReference } = params;
-  claim.insurance = ensureClaimInsurance([
-    { sequence: 1, focal: true, coverage: { reference: coverageReference, display } },
-    ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-  ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
-}
 export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
-  type: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
 }): void {

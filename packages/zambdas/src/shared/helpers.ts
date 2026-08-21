@@ -4,7 +4,9 @@ import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Attachment,
+  DomainResource,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Meta,
@@ -292,4 +294,8 @@ export function resolveTimezone(schedule?: Schedule, location?: Location, fallba
     return getTimezone(location);
   }
   return fallback;
+}
+
+export function updateExtension(resource: DomainResource, extension: Extension): void {
+  resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
 }

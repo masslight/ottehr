@@ -279,6 +279,10 @@ const applyAddServiceLine = (
   // Mirror the claim editor: tie the line to the rendering provider (careTeam sequence 1) when set.
   if ((claim.careTeam ?? []).some((member) => member.sequence === 1)) line.careTeamSequence = [1];
 
+  if (input.revenueCode?.trim() && !set('revenueCode', input.revenueCode?.trim())) {
+    return `could not add service line — invalid revenue code "${input.revenueCode}"`;
+  }
+
   claim.item = [...existing, line];
   recomputeClaimTotal(claim);
   return undefined;

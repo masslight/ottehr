@@ -25,6 +25,7 @@ import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetEr
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useChartFields } from '../../hooks/useChartFields';
@@ -199,15 +200,15 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
           </Stack>
           <Tooltip
             placement="top"
-            title="You need an NPI on file to access eRX. Please contact your administrator."
-            open={openTooltip && !isReadOnly && !user?.hasNPI}
+            title="You don't have the necessary role to access ERX. Please contact your administrator."
+            open={openTooltip && !isReadOnly && !user?.hasRole([RoleType.Provider])}
             onClose={handleCloseTooltip}
             onOpen={handleOpenTooltip}
           >
             <Stack>
               {isERXOpen && erxStatus !== ERXStatus.LOADING ? (
                 <RoundedButton
-                  disabled={isReadOnly || !user?.hasNPI}
+                  disabled={isReadOnly || !user?.hasRole([RoleType.Provider])}
                   variant="contained"
                   onClick={() => {
                     setIsERXOpen(false);
@@ -218,7 +219,10 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
               ) : (
                 <RoundedButton
                   disabled={
-                    isReadOnly || erxStatus === ERXStatus.LOADING || !user?.hasNPI || !erxConfigData?.configured
+                    isReadOnly ||
+                    erxStatus === ERXStatus.LOADING ||
+                    !user?.hasRole([RoleType.Provider]) ||
+                    !erxConfigData?.configured
                   }
                   variant="contained"
                   onClick={() => onNewOrderClick()}

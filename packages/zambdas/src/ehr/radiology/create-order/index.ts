@@ -46,7 +46,7 @@ import {
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
 } from 'utils/lib/types/api/radiology';
-import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { makeCptModifierExtension } from '../../../shared/candid';
 import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
@@ -126,9 +126,6 @@ const performEffect = async (
     resourceType: 'Practitioner',
     id: practitionerRelativeReference.split('/')[1],
   });
-
-  // Ordering imaging is an NPI-gated action — block callers without an NPI (e.g. Clinician role).
-  assertPractitionerHasNPI(ourPractitioner);
 
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
