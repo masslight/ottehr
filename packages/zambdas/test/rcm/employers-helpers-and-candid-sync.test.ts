@@ -1,4 +1,5 @@
 import { Address, Organization } from 'fhir/r4b';
+import { EMPLOYER_NOTES_EXTENSION_URL } from 'utils/lib/fhir/organization';
 import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +24,6 @@ const {
 } = await import('../../src/rcm/employers/candid-sync');
 
 const {
-  EMPLOYER_NOTES_EXTENSION_URL,
   buildEmployerType,
   getCandidPayerIdFromOrganization,
   isEmployerOrganization,

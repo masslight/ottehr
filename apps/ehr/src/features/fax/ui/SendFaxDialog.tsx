@@ -4,18 +4,25 @@ import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { UseSendFaxResult } from '../hooks/useSendFax';
 import { hasNothingToSend } from '../model/faxDocuments';
+import { FaxVisitOption } from '../model/types';
 import { FaxSendResultDialog } from './FaxSendResultDialog';
 import { SendFaxForm } from './SendFaxForm';
 
 interface SendFaxDialogProps {
   controller: UseSendFaxResult;
+  /** Names what is being faxed, e.g. "Fax Medical Record". Defaults to the plain send title. */
+  title?: string;
+  /** When given, the user picks which of these visits to fax. */
+  visits?: FaxVisitOption[];
 }
 
 /** Dialog shell: shows the loading/error/empty states, and mounts the form once the preview has loaded. */
-export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller }) => {
+export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Send Fax', visits }) => {
   const theme = useTheme();
   const { preview } = controller;
   const nothingToSend = Boolean(preview) && hasNothingToSend(preview!.documents);
+  // Sources without a document checklist have nothing to wait for, so the form mounts immediately.
+  const showForm = preview ? !nothingToSend : !controller.isLoadingPreview && !controller.previewError;
 
   return (
     <>
@@ -27,7 +34,7 @@ export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller }) => {
         data-testid={dataTestIds.faxDialog.root}
       >
         <DialogTitle sx={{ color: theme.palette.primary.dark, fontWeight: 600, fontSize: '24px' }}>
-          Send Fax
+          {title}
           <IconButton aria-label="Close" onClick={controller.close} sx={{ position: 'absolute', right: 8, top: 8 }}>
             <CloseIcon />
           </IconButton>
@@ -53,9 +60,11 @@ export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller }) => {
           </DialogContent>
         )}
 
-        {preview && !nothingToSend && (
+        {showForm && (
           <SendFaxForm
             preview={preview}
+            senderFaxNumber={controller.senderFaxNumber}
+            visits={visits}
             isSending={controller.isSending}
             onSubmit={controller.send}
             onCancel={controller.close}

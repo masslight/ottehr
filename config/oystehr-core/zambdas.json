@@ -971,6 +971,13 @@
       "src": "src/ehr/radiology/save-final-report/index",
       "zip": ".dist/zips/radiology-save-final-report.zip"
     },
+    "RADIOLOGY-UPDATE-REPORT": {
+      "name": "radiology-update-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/update-report/index",
+      "zip": ".dist/zips/radiology-update-report.zip"
+    },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",
@@ -1195,26 +1202,20 @@
       "src": "src/ehr/infer-adhoc-report-layers/index",
       "zip": ".dist/zips/infer-adhoc-report-layers.zip"
     },
-    "ADHOC-ENCOUNTERS": {
-      "name": "adhoc-encounters",
+    "ADHOC-REPORT": {
+      "name": "adhoc-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/adhoc-encounters/index",
-      "zip": ".dist/zips/adhoc-encounters.zip"
+      "src": "src/ehr/adhoc-report/index",
+      "zip": ".dist/zips/adhoc-report.zip"
     },
-    "ADHOC-PATIENTS": {
-      "name": "adhoc-patients",
-      "type": "http_auth",
+    "SUB-ADHOC-REPORT": {
+      "name": "sub-adhoc-report",
+      "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/adhoc-patients/index",
-      "zip": ".dist/zips/adhoc-patients.zip"
-    },
-    "ADHOC-BILLING": {
-      "name": "adhoc-billing",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/adhoc-billing/index",
-      "zip": ".dist/zips/adhoc-billing.zip"
+      "timeout": "900",
+      "src": "src/subscriptions/sub-adhoc-report/index",
+      "zip": ".dist/zips/sub-adhoc-report.zip"
     },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
@@ -2691,7 +2692,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "paperwork harvest",
-        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
+        "criteria": "QuestionnaireResponse?status=completed,amended",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-INTAKE-HARVEST/id}"
@@ -2776,6 +2777,24 @@
         ]
       }
     },
+    "ADHOC_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate ad-hoc report data asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/adhoc-report-task|adhoc-report&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ADHOC-REPORT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "AI_INTERVIEW_SUMMARY_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
@@ -2803,28 +2822,6 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          },
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "update"
-          }
-        ]
-      }
-    },
-    "SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Generate statement on invoice creation",
-        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
         },
         "extension": [
           {

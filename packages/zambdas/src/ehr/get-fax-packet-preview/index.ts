@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { FaxRecipient, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
@@ -22,7 +24,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateRequestParameters(input);
-  console.log('get-fax-packet-preview for appointment', validatedInput.appointmentId);
+  console.log('get-fax-packet-preview for appointment', validatedInput.appointmentId ?? '(none)');
 
   const authorization = input.headers.Authorization;
   await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
@@ -30,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
-  const output = await performEffect(validatedInput.appointmentId, oystehr);
+  const output = await performEffect(validatedInput.appointmentId, oystehr, validatedInput.secrets);
   return { statusCode: 200, body: JSON.stringify(output) };
 });
 
@@ -54,7 +56,39 @@ export const mapPcpToRecipient = (pcp: Practitioner | undefined): FaxRecipient |
   };
 };
 
-export const performEffect = async (appointmentId: string, oystehr: Oystehr): Promise<GetFaxPacketPreviewOutput> => {
+/**
+ * The number outbound faxes are transmitted from: the fax telecom of the organization
+ * `sub-send-fax-packet` hands to the fax service as the sender. Never fails the preview — the dialog is
+ * still usable when the number cannot be resolved, it just cannot name the sender.
+ */
+export const resolveSenderFaxNumber = async (
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<string | undefined> => {
+  try {
+    const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+    const organization = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId });
+    return getOrganizationFaxNumber(organization);
+  } catch (error) {
+    console.error('Could not resolve the sending organization fax number', error);
+    return undefined;
+  }
+};
+
+export const performEffect = async (
+  appointmentId: string | undefined,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<GetFaxPacketPreviewOutput> => {
+  // Started up front so it overlaps the visit lookups below. It never rejects, so awaiting it late is safe.
+  const senderFaxNumber = resolveSenderFaxNumber(oystehr, secrets);
+
+  // No visit in scope: the patient-level dialogs send a fixed set of documents and do not manage the
+  // PCP, so the sender's number is the only part of the preview they need.
+  if (!appointmentId) {
+    return { documents: [], hasSavedPcp: false, senderFaxNumber: await senderFaxNumber };
+  }
+
   const resources = (
     await oystehr.fhir.search<Encounter | Appointment | Patient>({
       resourceType: 'Encounter',
@@ -88,5 +122,6 @@ export const performEffect = async (appointmentId: string, oystehr: Oystehr): Pr
     documents,
     pcp: hasSavedPcp ? mapPcpToRecipient(containedPcp) : undefined,
     hasSavedPcp,
+    senderFaxNumber: await senderFaxNumber,
   };
 };

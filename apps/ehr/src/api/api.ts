@@ -2,11 +2,13 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { HealthcareService, Location, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { AdHocBillingInput, AdHocBillingOutput } from 'utils/lib/types/adhoc/datasets/billing';
-import { AdHocEncountersInput, AdHocEncountersOutput } from 'utils/lib/types/adhoc/datasets/encounters';
-import { AdHocPatientsInput, AdHocPatientsOutput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GenerateAdHocReportInput, GenerateAdHocReportOutput } from 'utils/lib/types/adhoc/generation/generate.types';
 import { InferAdHocLayersInput, InferAdHocLayersOutput } from 'utils/lib/types/adhoc/generation/infer.types';
+import {
+  AdHocReportStatus,
+  StartAdHocReportInput,
+  StartAdHocReportResponse,
+} from 'utils/lib/types/adhoc/generation/report-task';
 import {
   DeleteAdHocReportInput,
   DeleteAdHocReportOutput,
@@ -199,6 +201,8 @@ import {
   SendRadiologyOrderFaxZambdaOutput,
   UpdateRadiologyOrderZambdaInput,
   UpdateRadiologyOrderZambdaOutput,
+  UpdateRadiologyReportZambdaInput,
+  UpdateRadiologyReportZambdaOutput,
   UploadRadiologyResultZambdaInput,
   UploadRadiologyResultZambdaOutput,
 } from 'utils/lib/types/api/radiology';
@@ -384,7 +388,7 @@ const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
 const INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID = 'infer-adhoc-report-layers';
-const ADHOC_ENCOUNTERS_ZAMBDA_ID = 'adhoc-encounters';
+const ADHOC_REPORT_ZAMBDA_ID = 'adhoc-report';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
@@ -639,13 +643,13 @@ export const inferAdHocReportLayers = async (
   }
 };
 
-export const getAdHocEncounters = async (
+export const startAdHocReport = async (
   oystehr: Oystehr,
-  parameters: AdHocEncountersInput
-): Promise<AdHocEncountersOutput> => {
+  parameters: StartAdHocReportInput
+): Promise<StartAdHocReportResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADHOC_ENCOUNTERS_ZAMBDA_ID,
+      id: ADHOC_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -655,29 +659,11 @@ export const getAdHocEncounters = async (
   }
 };
 
-const ADHOC_PATIENTS_ZAMBDA_ID = 'adhoc-patients';
-export const getAdHocPatients = async (
-  oystehr: Oystehr,
-  parameters: AdHocPatientsInput
-): Promise<AdHocPatientsOutput> => {
+export const getAdHocReportStatus = async (oystehr: Oystehr, taskId: string): Promise<AdHocReportStatus> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADHOC_PATIENTS_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-const ADHOC_BILLING_ZAMBDA_ID = 'adhoc-billing';
-export const getAdHocBilling = async (oystehr: Oystehr, parameters: AdHocBillingInput): Promise<AdHocBillingOutput> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: ADHOC_BILLING_ZAMBDA_ID,
-      ...parameters,
+      id: ADHOC_REPORT_ZAMBDA_ID,
+      taskId,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -1535,6 +1521,22 @@ export const saveFinalReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-save-final-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateRadiologyReport = async (
+  oystehr: Oystehr,
+  parameters: UpdateRadiologyReportZambdaInput
+): Promise<UpdateRadiologyReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-update-report',
       ...parameters,
     });
     return chooseJson(response);

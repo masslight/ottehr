@@ -20,6 +20,7 @@ import { VitalsPage } from 'tests/e2e/page/VitalsPage';
 import {
   captureAllCheckboxStates,
   ComponentTestResult,
+  normalFindingCheckboxes,
   testCheckboxComponent,
   testDropdownComponent,
   testFormComponent,
@@ -925,7 +926,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           preReloadAbnormalStates.push(await abnormalCheckboxes.nth(i).isChecked());
         }
 
-        const normalCheckboxes = normalCell.getByRole('checkbox');
+        const normalCheckboxes = normalFindingCheckboxes(normalCell);
         const normalCount = await normalCheckboxes.count();
         for (let i = 0; i < normalCount; i++) {
           preReloadNormalStates.push(await normalCheckboxes.nth(i).isChecked());
@@ -950,7 +951,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         const normalCell = row.getByRole('cell').nth(1);
 
         const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
-        const normalCheckboxes = normalCell.getByRole('checkbox');
+        const normalCheckboxes = normalFindingCheckboxes(normalCell);
 
         // Verify ALL abnormal checkboxes match expected states IN THE TESTED ROW
         const abnormalCount = await abnormalCheckboxes.count();

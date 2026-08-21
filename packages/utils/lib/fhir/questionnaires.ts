@@ -91,6 +91,10 @@ export const isIntakePaperworkQuestionnaireResponse = (qr: QuestionnaireResponse
   if (!questionnaireUrl) {
     return false;
   }
+  return isOttehrManagedIntakeQuestionnaire(questionnaireUrl);
+};
+
+export const isOttehrManagedIntakeQuestionnaire = (questionnaireUrl: string): boolean => {
   return (
     questionnaireUrl.startsWith(IN_PERSON_INTAKE_PAPERWORK_URL) ||
     questionnaireUrl.startsWith(VIRTUAL_INTAKE_PAPERWORK_URL)

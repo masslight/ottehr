@@ -9,7 +9,6 @@ import pdfmakeModule from 'pdfmake';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { Secrets } from 'utils/lib/secrets';
 import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -17,7 +16,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody, validateString } from '../../../shared/helpers';
 import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStatementDetails } from '../../../shared/statements/get-statement-details';
+import { getStatementDetails, resolveStatementAmountsSource } from '../../../shared/statements/get-statement-details';
 import { getJSONStatementTemplate } from '../../../shared/statements/get-statement-template';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
@@ -49,7 +48,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { task, encounterId, secrets } = validateInput(input);
   const oystehr = await createOystehr(secrets);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+  const amountsSource = await resolveStatementAmountsSource({
+    secrets,
+    oystehr,
+    m2mToken,
+  });
 
   const encounterReference = `Encounter/${encounterId}`;
   const encounter = await oystehr.fhir.get<Encounter>({
@@ -63,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     statementType: 'standard',
     secrets,
     oystehr,
-    candidApiClient,
+    amountsSource,
   });
 
   const pdfTemplateContext = {

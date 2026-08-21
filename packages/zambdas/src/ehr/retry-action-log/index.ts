@@ -8,6 +8,7 @@ import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
+  getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
@@ -79,11 +80,9 @@ export async function performEffect(
     removePrefix('Patient/', original.for?.reference ?? ''),
     'patient reference'
   );
-  const appointmentId = requireOutboundDeliveryValue(
-    removePrefix('Appointment/', original.focus?.reference ?? ''),
-    'appointment reference'
-  );
+  const appointmentId = removePrefix('Appointment/', original.focus?.reference ?? '') || undefined;
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
+  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
   const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
@@ -108,6 +107,10 @@ export async function performEffect(
       documentReferenceId,
       userPractitioner,
       recipientName,
+      recipientOrganization: recipient.organization,
+      recipientPhone: recipient.phone,
+      faxPacketPageCount: faxPacket.pageCount,
+      faxPacketParts: faxPacket.parts,
       parentAttemptId: originalId,
       senderId: user.id,
     };
@@ -119,6 +122,10 @@ export async function performEffect(
         appointmentId,
         recipientAddress,
         recipientName,
+        recipientOrganization: recipient.organization,
+        recipientPhone: recipient.phone,
+        faxPacketPageCount: faxPacket.pageCount,
+        faxPacketParts: faxPacket.parts,
         documentReferenceId,
         requesterReference,
         senderOrganizationReference: `Organization/${organizationId}`,
@@ -132,7 +139,8 @@ export async function performEffect(
     retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
-    const visit = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+    const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
+    const visit = await getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
     const visitNoteUrl = await getPresignedURL(media, accessToken);
     const locationName = getNameForOwner(visit.location);
@@ -152,7 +160,7 @@ export async function performEffect(
       oystehr,
       secrets: parameters.secrets,
       patientId,
-      appointmentId,
+      appointmentId: emailAppointmentId,
       recipientEmail: recipientAddress,
       recipientName,
       documentReferenceId,
@@ -166,7 +174,7 @@ export async function performEffect(
       makeOutboundDeliveryAttempt({
         channel,
         patientId,
-        appointmentId,
+        appointmentId: emailAppointmentId,
         recipientAddress,
         recipientName,
         documentReferenceId,
@@ -205,7 +213,7 @@ export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr:
 
 export async function resolveDocumentReference(
   task: Task,
-  appointmentId: string,
+  appointmentId: string | undefined,
   oystehr: Oystehr
 ): Promise<DocumentReference> {
   const storedReference = getOutboundDeliveryRecipientSnapshot(task).documentReferenceId;
@@ -216,11 +224,13 @@ export async function resolveDocumentReference(
     });
   }
 
+  const legacyAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
+
   const resources = (
     await oystehr.fhir.search<Appointment | DocumentReference>({
       resourceType: 'Appointment',
       params: [
-        { name: '_id', value: appointmentId },
+        { name: '_id', value: legacyAppointmentId },
         { name: '_revinclude', value: 'DocumentReference:related' },
       ],
     })

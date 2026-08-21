@@ -90,7 +90,9 @@ async function performEffect(oystehr: Oystehr, secrets: Secrets | null): Promise
 
         const serviceIds = servicesByFlowUrlMap.get(flowUrl);
         const ottehrManagedServiceIds = ottehrManagedServicesFromQ(flow);
-        const services = [...ottehrManagedServiceIds, ...(serviceIds ? Array.from(serviceIds) : [])];
+        const servicesAll = [...ottehrManagedServiceIds, ...(serviceIds ? Array.from(serviceIds) : [])];
+        // dedupe, flows that have both inperson and virtual will pick up the service twice
+        const services = Array.from(new Map(servicesAll.map((service) => [service.id, service])).values());
 
         const paperworkFlow: PaperworkFlow = {
           ...paperworkFlowQuestionnaire,

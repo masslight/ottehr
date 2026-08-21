@@ -23,7 +23,7 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
-import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM } from 'utils';
+import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM, isCustomerSupport, isProvider } from 'utils';
 import {
   AuthoredResultsByTest,
   finalizeInHouseLabs,
@@ -198,11 +198,11 @@ async function resolveStaff(at: string, projectId: string): Promise<{ providers:
   );
   const nameOf = (e: any): string => `${e.firstName} ${e.lastName}`.trim();
   const providers = employees
-    .filter((e) => e.isProvider)
+    .filter((e) => isProvider(e))
     .map(nameOf)
     .filter(Boolean);
   let mas = employees
-    .filter((e) => !e.isProvider && !e.isCustomerSupport)
+    .filter((e) => !isProvider(e) && !isCustomerSupport(e))
     .map(nameOf)
     .filter(Boolean);
   if (!mas.length) mas = providers; // small clinic: providers double as intake

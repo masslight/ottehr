@@ -222,44 +222,50 @@ export const handleMatchUnsolicitedRequest = async ({
   practitionerIdFromCurrentUser: string;
   srToMatchId?: string;
 }): Promise<void> => {
-  console.log('getting the diagnostic report', diagnosticReportId);
-  const { diagnosticReports, documentReferences } = (
-    await oystehr.fhir.search<DiagnosticReport | DocumentReference>({
-      resourceType: 'DiagnosticReport',
-      params: [
-        {
-          name: '_id',
-          value: diagnosticReportId,
-        },
-        {
-          name: '_revinclude',
-          value: 'DocumentReference:related', // grab any attachments
-        },
-      ],
-    })
-  )
-    .unbundle()
-    .reduce(
-      (acc, res) => {
-        if (res.resourceType === 'DiagnosticReport') acc.diagnosticReports.push(res);
-        if (res.resourceType === 'DocumentReference') acc.documentReferences.push(res);
-        return acc;
-      },
-      { diagnosticReports: [], documentReferences: [] } as {
-        diagnosticReports: DiagnosticReport[];
-        documentReferences: DocumentReference[];
-      }
-    );
+  const [{ diagnosticReports, documentReferences }, task, serviceRequest] = await Promise.all([
+    (async (): Promise<{ diagnosticReports: DiagnosticReport[]; documentReferences: DocumentReference[] }> => {
+      console.log('getting the diagnostic report', diagnosticReportId);
+      return (
+        await oystehr.fhir.search<DiagnosticReport | DocumentReference>({
+          resourceType: 'DiagnosticReport',
+          params: [
+            {
+              name: '_id',
+              value: diagnosticReportId,
+            },
+            {
+              name: '_revinclude',
+              value: 'DocumentReference:related', // grab any attachments
+            },
+          ],
+        })
+      )
+        .unbundle()
+        .reduce(
+          (acc, res) => {
+            if (res.resourceType === 'DiagnosticReport') acc.diagnosticReports.push(res);
+            if (res.resourceType === 'DocumentReference') acc.documentReferences.push(res);
+            return acc;
+          },
+          { diagnosticReports: [], documentReferences: [] } as {
+            diagnosticReports: DiagnosticReport[];
+            documentReferences: DocumentReference[];
+          }
+        );
+    })(),
+    oystehr.fhir.get<Task>({
+      resourceType: 'Task',
+      id: taskId,
+    }),
+    ...(srToMatchId
+      ? [oystehr.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: srToMatchId })]
+      : [(async () => undefined)()]),
+  ]);
 
   if (!diagnosticReports.length) throw new Error(`Unable to find DiagnosticReport/${diagnosticReportId}`);
   const diagnosticReportResource = diagnosticReports[0];
 
   console.log('formatting fhir patch requests to handle matching unsolicited results');
-  const task = await oystehr.fhir.get<Task>({
-    resourceType: 'Task',
-    id: taskId,
-  });
-
   const taskOperations: Operation[] = [{ op: 'replace', path: '/status', value: 'completed' }];
 
   if (!task.owner) {
@@ -309,6 +315,9 @@ export const handleMatchUnsolicitedRequest = async ({
         operations: [{ op: 'replace', path: '/status', value: 'completed' }],
       });
     }
+
+    // this will allow us to make the proper task information, like location, down the line
+    if (serviceRequest) updatedDiagnosticReport.encounter = serviceRequest.encounter;
   }
 
   const diagnosticReportPutRequest: BatchInputRequest<DiagnosticReport> = {

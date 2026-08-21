@@ -3,7 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
-import { RCM_TASK_SYSTEM, RcmTaskCode, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
+  SERVICE_CATEGORY_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS, FollowupSubtype } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
@@ -228,9 +233,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
           .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
       : undefined;
 
-    let timezone = TIMEZONES[0]; // default timezone
-    if (slot && slot.start) {
-      // we can just grab the tz from the slot rather than getting the schedule resource
+    // Location owns the actual IANA zone (and therefore DST abbreviations such as ET/EDT). A Slot
+    // only preserves the offset, so retain that as a legacy fallback for Locations without a zone.
+    const locationTimezone = getLocationTimezone(location);
+    let timezone = locationTimezone ?? TIMEZONES[0];
+    if (!locationTimezone && slot?.start) {
       const slotDateTime = DateTime.fromISO(slot.start, { setZone: true });
       if (slotDateTime.isValid) {
         timezone = slotDateTime.zoneName;
@@ -259,6 +266,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
       visitReason: getReasonForVisitFromAppointment(appointment),
       office: location?.name,
       dateTime,
+      timezone: locationTimezone,
       provider,
       encounterId: encounter?.id,
       sendInvoiceTask,
@@ -458,6 +466,7 @@ const followUpVisitHistoryRowFromEncounter = (
   return {
     encounterId: encounter.id,
     dateTime: encounter.period?.start || ownAppointment?.start,
+    timezone: getLocationTimezone(location),
     type: followUpType,
     serviceCategory,
     visitReason: encounter.reasonCode?.[0]?.text || ownAppointment?.description,
@@ -470,6 +479,9 @@ const followUpVisitHistoryRowFromEncounter = (
     appointmentId: ownAppointmentId,
   };
 };
+
+const getLocationTimezone = (location: Location | undefined): string | undefined =>
+  location?.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
 const getProviderFromEncounter = (
   encounter: Encounter | undefined,
