@@ -7,16 +7,31 @@ import { PracticeManagedQuestionnaireItem } from 'utils/lib/types/data/practice-
 import { ItemAction } from '../questionnaire.reducer';
 
 // A conditionable target question, resolved with its generated (derived) linkId so a trigger can
-// reference it. Built in QuestionnaireBuilder from the linkId-resolved questionnaire.
+// reference it. Built in QuestionnaireBuilder from the linkId-resolved questionnaire. `pageLinkId`/`pageText`
+// record the owning top-level page so a page-level trigger can build the cross-page dotted reference.
 export interface AvailableQuestion {
   key: string;
   linkId: string;
+  pageLinkId: string;
+  pageText: string;
   text: string;
   type: string;
   options: string[];
 }
 
+// A resolved picker option: `value` is exactly what gets stored in the trigger's targetQuestionLinkId —
+// a plain linkId for same-form field triggers, or the dotted `pageLinkId.fieldLinkId` for page triggers.
+interface TriggerTarget {
+  key: string;
+  value: string;
+  label: string;
+  type: string;
+  options: string[];
+}
+
 type Effect = 'enable' | 'require' | 'filter' | 'sub-text';
+
+type TriggerMode = 'field' | 'page';
 
 const EFFECTS: { value: Effect; label: string }[] = [
   { value: 'enable', label: 'Show this field when…' },
@@ -33,13 +48,13 @@ type Operator = (typeof DATE_ENABLE_OPERATORS)[number];
 
 type AnswerPatch = Pick<FormFieldTrigger, 'answerBoolean' | 'answerString' | 'answerDateTime'>;
 
-const operatorsFor = (effect: Effect, target: AvailableQuestion | undefined): readonly Operator[] =>
+const operatorsFor = (effect: Effect, target: TriggerTarget | undefined): readonly Operator[] =>
   effect === 'enable' && target?.type === 'date' ? DATE_ENABLE_OPERATORS : BASE_OPERATORS;
 
 // Build the default (single) answer field for a freshly (re)configured trigger, so exactly one answer[x]
 // is ever set (per FormFieldTriggerSchema). Date answers only round-trip for enable triggers, so require/
 // filter/sub-text triggers fall through to answerString even for a date target.
-const defaultAnswerFor = (target: AvailableQuestion | undefined, operator: Operator, effect: Effect): AnswerPatch => {
+const defaultAnswerFor = (target: TriggerTarget | undefined, operator: Operator, effect: Effect): AnswerPatch => {
   if (operator === 'exists') return { answerBoolean: true };
   if (target?.type === 'boolean') return { answerBoolean: true };
   if (target?.type === 'date' && effect === 'enable') return { answerDateTime: '' };
@@ -54,12 +69,12 @@ const pickAnswer = (trigger: FormFieldTrigger): AnswerPatch => {
 
 const makeTrigger = (
   effect: Effect,
-  target: AvailableQuestion | undefined,
+  target: TriggerTarget | undefined,
   operator: Operator,
   answer: AnswerPatch,
   substituteText?: string
 ): FormFieldTrigger => ({
-  targetQuestionLinkId: target?.linkId ?? '',
+  targetQuestionLinkId: target?.value ?? '',
   effect: [effect],
   operator,
   ...answer,
@@ -70,15 +85,41 @@ interface FieldTriggersEditorProps {
   item: PracticeManagedQuestionnaireItem;
   dispatch: React.Dispatch<ItemAction>;
   availableQuestions: AvailableQuestion[];
+  // 'field' (default): condition this field on any other question (same form), stored as a plain linkId.
+  // 'page': condition this whole page on a field from another page, stored as `pageLinkId.fieldLinkId`.
+  mode?: TriggerMode;
 }
 
-export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispatch, availableQuestions }) => {
+export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({
+  item,
+  dispatch,
+  availableQuestions,
+  mode = 'field',
+}) => {
   const triggers = (item.triggers ?? []) as FormFieldTrigger[];
   const enableBehavior = (item.enableBehavior as 'all' | 'any' | undefined) ?? 'all';
-  // never let a field condition on itself
-  const targets = availableQuestions.filter((q) => q.key !== item._key);
-  const targetFor = (linkId: string): AvailableQuestion | undefined => targets.find((t) => t.linkId === linkId);
+  const isPageMode = mode === 'page';
 
+  // page triggers reference a field on ANOTHER page (dotted value); field triggers reference any other
+  // question by plain linkId. Never let an item condition on itself, and never let a page condition on its
+  // own child (it would depend on a field it hides).
+  const targets: TriggerTarget[] = isPageMode
+    ? availableQuestions
+        .filter((q) => q.pageLinkId && q.pageLinkId !== item.linkId)
+        .map((q) => ({
+          key: q.key,
+          value: `${q.pageLinkId}.${q.linkId}`,
+          label: `${q.pageText || q.pageLinkId} → ${q.text || q.linkId}`,
+          type: q.type,
+          options: q.options,
+        }))
+    : availableQuestions
+        .filter((q) => q.key !== item._key)
+        .map((q) => ({ key: q.key, value: q.linkId, label: q.text || q.linkId, type: q.type, options: q.options }));
+
+  const targetFor = (value: string): TriggerTarget | undefined => targets.find((t) => t.value === value);
+
+  const effectOptions = isPageMode ? EFFECTS.filter((e) => e.value === 'enable') : EFFECTS;
   const requireTriggerCount = triggers.filter((t) => t.effect.includes('require')).length;
   const enableTriggerCount = triggers.filter((t) => t.effect.includes('enable')).length;
 
@@ -91,7 +132,7 @@ export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispat
   };
 
   const addTrigger = (): void => {
-    // new triggers default to the always-allowed 'enable' effect
+    // new triggers default to the always-allowed 'enable' effect (the only effect in page mode)
     commit([...triggers, makeTrigger('enable', targets[0], '=', defaultAnswerFor(targets[0], '=', 'enable'))]);
   };
 
@@ -108,10 +149,10 @@ export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispat
     replaceTrigger(index, makeTrigger(effect, target, operator, answer, trigger.substituteText));
   };
 
-  const changeTarget = (index: number, linkId: string): void => {
+  const changeTarget = (index: number, value: string): void => {
     const trigger = triggers[index];
     const effect = (trigger.effect[0] ?? 'enable') as Effect;
-    const target = targetFor(linkId);
+    const target = targetFor(value);
     const allowed = operatorsFor(effect, target);
     const operator = allowed.includes(trigger.operator as Operator) ? (trigger.operator as Operator) : '=';
     replaceTrigger(
@@ -151,12 +192,14 @@ export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispat
   return (
     <Box sx={{ mt: 0.5 }}>
       <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-        Field trigger(s)
+        {isPageMode ? 'Show this page when…' : 'Field trigger(s)'}
       </Typography>
 
       {triggers.length === 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-          No triggers. Add one to show, require, filter, or re-word this field based on another answer.
+          {isPageMode
+            ? 'This page is always shown. Add a condition to show it only when an earlier answer matches.'
+            : 'No triggers. Add one to show, require, filter, or re-word this field based on another answer.'}
         </Typography>
       )}
 
@@ -182,37 +225,40 @@ export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispat
               pl: 1,
             }}
           >
-            <Select
-              size="small"
-              value={effect}
-              onChange={(e) => changeEffect(index, e.target.value as Effect)}
-              sx={{ minWidth: 190 }}
-            >
-              {EFFECTS.map((ef) => (
-                <MenuItem
-                  key={ef.value}
-                  value={ef.value}
-                  // only the first require-when is honored at runtime, so allow at most one require trigger
-                  disabled={ef.value === 'require' && effect !== 'require' && requireTriggerCount >= 1}
-                >
-                  {ef.label}
-                </MenuItem>
-              ))}
-            </Select>
+            {/* page triggers only enable, so the effect selector is redundant (the heading says "Show this page when…") */}
+            {!isPageMode && (
+              <Select
+                size="small"
+                value={effect}
+                onChange={(e) => changeEffect(index, e.target.value as Effect)}
+                sx={{ minWidth: 190 }}
+              >
+                {effectOptions.map((ef) => (
+                  <MenuItem
+                    key={ef.value}
+                    value={ef.value}
+                    // only the first require-when is honored at runtime, so allow at most one require trigger
+                    disabled={ef.value === 'require' && effect !== 'require' && requireTriggerCount >= 1}
+                  >
+                    {ef.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
 
             <Select
               size="small"
-              value={targets.some((t) => t.linkId === trigger.targetQuestionLinkId) ? trigger.targetQuestionLinkId : ''}
+              value={targets.some((t) => t.value === trigger.targetQuestionLinkId) ? trigger.targetQuestionLinkId : ''}
               displayEmpty
               onChange={(e) => changeTarget(index, e.target.value)}
-              sx={{ minWidth: 170 }}
+              sx={{ minWidth: isPageMode ? 240 : 170 }}
             >
               <MenuItem value="" disabled>
                 Select a question
               </MenuItem>
               {targets.map((t) => (
-                <MenuItem key={t.key} value={t.linkId}>
-                  {t.text || t.linkId}
+                <MenuItem key={t.key} value={t.value}>
+                  {t.label}
                 </MenuItem>
               ))}
             </Select>
@@ -313,7 +359,15 @@ export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispat
       })}
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Tooltip title={targets.length === 0 ? 'Add another question to the form first' : 'Add trigger'}>
+        <Tooltip
+          title={
+            targets.length === 0
+              ? isPageMode
+                ? 'Add a field on another page first'
+                : 'Add another question to the form first'
+              : 'Add condition'
+          }
+        >
           <span>
             <IconButton size="small" color="primary" onClick={addTrigger} disabled={targets.length === 0}>
               <AddIcon fontSize="small" />
@@ -329,8 +383,8 @@ export const FieldTriggersEditor: FC<FieldTriggersEditorProps> = ({ item, dispat
             }
             sx={{ minWidth: 200 }}
           >
-            <MenuItem value="all">All "show" triggers must match</MenuItem>
-            <MenuItem value="any">Any "show" trigger can match</MenuItem>
+            <MenuItem value="all">All "show" conditions must match</MenuItem>
+            <MenuItem value="any">Any "show" condition can match</MenuItem>
           </Select>
         )}
       </Box>

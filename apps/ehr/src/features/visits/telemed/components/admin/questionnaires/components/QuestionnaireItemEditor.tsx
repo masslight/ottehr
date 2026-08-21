@@ -207,6 +207,13 @@ const ItemFields: FC<{
         />
       </Grid>
 
+      {/* page-level visibility: condition the whole page on an answer from another page (dotted reference) */}
+      {isGroup && (
+        <Grid item xs={12}>
+          <FieldTriggersEditor mode="page" item={item} dispatch={dispatch} availableQuestions={availableQuestions} />
+        </Grid>
+      )}
+
       {isInput && (
         <Grid item xs={12}>
           <FormControlLabel

@@ -100,14 +100,20 @@ function ensureUniqueLinkIds(
 
 // Flattens the linkId-resolved items into the answerable questions an enableWhen condition can target.
 // Uses the derived linkIds (post-ensureUniqueLinkIds) so a stored condition references a real linkId.
+// Each question also carries its owning top-level page (linkId + title) so a page-level trigger can build
+// the cross-page dotted `pageLinkId.fieldLinkId` reference and group the picker by page.
 function collectAvailableQuestions(items: PracticeManagedQuestionnaireItem[]): AvailableQuestion[] {
   const out: AvailableQuestion[] = [];
-  const walk = (list: PracticeManagedQuestionnaireItem[]): void => {
+  const walk = (list: PracticeManagedQuestionnaireItem[], page: PracticeManagedQuestionnaireItem | undefined): void => {
     for (const it of list) {
+      // the first group encountered on a branch is the page the descendants belong to
+      const currentPage = page ?? (it.type === 'group' ? it : undefined);
       if (it.type !== 'group' && it.type !== 'display') {
         out.push({
           key: it._key,
           linkId: it.linkId,
+          pageLinkId: page?.linkId ?? '',
+          pageText: page?.text ?? '',
           text: it.text ?? '',
           type: it.type,
           options: (it.answerOption ?? [])
@@ -115,10 +121,10 @@ function collectAvailableQuestions(items: PracticeManagedQuestionnaireItem[]): A
             .filter((v): v is string => Boolean(v)),
         });
       }
-      if (it.item) walk(it.item);
+      if (it.item) walk(it.item, currentPage);
     }
   };
-  walk(items);
+  walk(items, undefined);
   return out;
 }
 

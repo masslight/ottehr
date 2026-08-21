@@ -561,6 +561,36 @@ describe('conditional-behavior round-trip (triggers / dynamicPopulation / disabl
     const fhir = emit(managed)?.[0];
     expect(fhir?.enableWhen).toEqual([{ question: 'q1', operator: '=', answerBoolean: true }]);
   });
+
+  it('round-trips a page-level (group) enable trigger with a dotted cross-page target', () => {
+    const managed = managedItem({
+      linkId: 'attorney-mva-page',
+      type: 'group',
+      text: 'Attorney for Motor Vehicle Accident',
+      item: [managedItem({ linkId: 'attorney-mva-firm', type: 'string', text: 'Firm' })],
+      triggers: [
+        {
+          targetQuestionLinkId: 'contact-information-page.reason-for-visit',
+          effect: ['enable'],
+          operator: '=',
+          answerString: 'Auto accident',
+        },
+      ],
+    });
+
+    const fhir = emit(managed)?.[0];
+    // the page's trigger compiles to a group-level enableWhen keeping the dotted cross-page question verbatim
+    expect(fhir?.type).toBe('group');
+    expect(fhir?.enableWhen).toEqual([
+      { question: 'contact-information-page.reason-for-visit', operator: '=', answerString: 'Auto accident' },
+    ]);
+    expect(fhir?.item?.[0].linkId).toBe('attorney-mva-firm');
+    expect(fhir).not.toHaveProperty('triggers');
+
+    const back = fhirQuestionnaireItemToManaged(fhir!);
+    expect(back.triggers).toEqual(managed.triggers);
+    expect(back.enableWhen).toBeUndefined();
+  });
 });
 
 describe('isPracticeManagedQ', () => {
