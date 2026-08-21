@@ -25,9 +25,11 @@ const PATIENT_BATCH_SIZE = 100;
 const APPOINTMENT_BATCH_SIZE = 50;
 // conservative: Stripe rate limits kicked in at higher parallelism
 const PM_LOOKUP_CONCURRENCY = 8;
+// fallback paymentMethods.list calls per invocation; the rest queue up for continueLookups calls
+const PM_LOOKUPS_PER_RUN = 500;
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
-const CACHE_KEY = 'cards-on-file:v2';
+const CACHE_KEY = 'cards-on-file:v4';
 // stay well under FHIR resource size limits
 const MAX_CACHE_BYTES = 4 * 1024 * 1024;
 
@@ -47,15 +49,34 @@ interface CustomerWithAccount {
   stripeAccount: string | undefined;
 }
 
+interface PendingLookup {
+  customerId: string;
+  stripeAccount: string | undefined;
+}
+
+// the saved report plus the queue of customers still awaiting a fallback card lookup
+type CachedReportState = GetBillingCardsOnFileReportResponse & { pendingLookups?: PendingLookup[] };
+
+const stripState = (state: CachedReportState, fromCache: boolean): GetBillingCardsOnFileReportResponse => {
+  const { pendingLookups: _pendingLookups, ...response } = state;
+  return { ...response, fromCache };
+};
+
 export async function performEffect(
   oystehr: Oystehr,
   untaggedClient: Oystehr,
   params: GetBillingCardsOnFileReportParams
 ): Promise<GetBillingCardsOnFileReportResponse> {
+  if (params.continueLookups) {
+    const resumed = await continueCardLookups(oystehr, params);
+    // nothing saved to resume; fall through to a full computation
+    if (resumed) return resumed;
+  }
+
   // latest saved report is served as-is; a new computation only happens on explicit refresh
-  if (!params.refresh) {
-    const cached = await loadCachedReport(oystehr);
-    if (cached) return { ...cached, fromCache: true };
+  if (!params.refresh && !params.continueLookups) {
+    const cached = await loadCachedState(oystehr);
+    if (cached) return stripState(cached, true);
   }
 
   const stripe = getStripeClient(params.secrets);
@@ -71,13 +92,15 @@ export async function performEffect(
     return {
       rows: [],
       totals: { customers: 0, withCard: 0, withoutCard: 0, withOpenInvoices: 0 },
+      pendingCardLookups: 0,
       truncated,
       generatedAt,
       fromCache: false,
     };
   }
 
-  const cardByCustomerId = await resolveCards(stripe, customers);
+  // customers with open invoices get their fallback lookups in the first batch
+  const { cardByCustomerId, pending } = await resolveCards(stripe, customers, new Set(openInvoicesByCustomerId.keys()));
 
   const patientIds = [
     ...new Set(
@@ -119,15 +142,50 @@ export async function performEffect(
 
   const withCard = rows.filter((row) => row.cardId).length;
   const withOpenInvoices = rows.filter((row) => row.openInvoiceCount > 0).length;
-  const response: GetBillingCardsOnFileReportResponse = {
+  const state: CachedReportState = {
     rows,
     totals: { customers: rows.length, withCard, withoutCard: rows.length - withCard, withOpenInvoices },
+    pendingCardLookups: pending.length,
     truncated,
     generatedAt,
     fromCache: false,
+    ...(pending.length > 0 ? { pendingLookups: pending } : {}),
   };
-  await saveCachedReport(oystehr, response);
-  return response;
+  await saveCachedReport(oystehr, state);
+  return stripState(state, false);
+}
+
+// One batch of queued fallback lookups against the saved report; undefined when there is no saved report.
+async function continueCardLookups(
+  oystehr: Oystehr,
+  params: GetBillingCardsOnFileReportParams
+): Promise<GetBillingCardsOnFileReportResponse | undefined> {
+  const state = await loadCachedState(oystehr);
+  if (!state) return undefined;
+  const pending = state.pendingLookups ?? [];
+  if (pending.length === 0) return stripState(state, true);
+
+  const stripe = getStripeClient(params.secrets);
+  const batch = pending.slice(0, PM_LOOKUPS_PER_RUN);
+  const rest = pending.slice(PM_LOOKUPS_PER_RUN);
+  const cards = await lookupCards(stripe, batch);
+
+  const rowByCustomerId = new Map(state.rows.map((row) => [row.stripeCustomerId, row]));
+  for (const [customerId, card] of cards) {
+    const row = rowByCustomerId.get(customerId);
+    if (row) {
+      row.cardId = card.id;
+      row.cardBrand = card.brand;
+      row.cardLast4 = card.last4;
+    }
+  }
+
+  const withCard = state.rows.filter((row) => row.cardId).length;
+  state.totals = { ...state.totals, withCard, withoutCard: state.rows.length - withCard };
+  state.pendingCardLookups = rest.length;
+  state.pendingLookups = rest;
+  await saveCachedReport(oystehr, state);
+  return stripState(state, false);
 }
 
 async function findCacheDocument(oystehr: Oystehr): Promise<DocumentReference | undefined> {
@@ -142,7 +200,7 @@ async function findCacheDocument(oystehr: Oystehr): Promise<DocumentReference | 
   return bundle.unbundle()[0];
 }
 
-async function loadCachedReport(oystehr: Oystehr): Promise<GetBillingCardsOnFileReportResponse | undefined> {
+async function loadCachedState(oystehr: Oystehr): Promise<CachedReportState | undefined> {
   try {
     const document = await findCacheDocument(oystehr);
     const data = document?.content?.[0]?.attachment?.data;
@@ -157,9 +215,9 @@ async function loadCachedReport(oystehr: Oystehr): Promise<GetBillingCardsOnFile
 
 // gzipped JSON in a DocumentReference attachment: the full row set is too large for a readable
 // FHIR structure, and this project's M2M has FHIR write access where z3 is forbidden
-async function saveCachedReport(oystehr: Oystehr, response: GetBillingCardsOnFileReportResponse): Promise<void> {
+async function saveCachedReport(oystehr: Oystehr, state: CachedReportState): Promise<void> {
   try {
-    const data = gzipSync(new Uint8Array(Buffer.from(JSON.stringify(response), 'utf8'))).toString('base64');
+    const data = gzipSync(new Uint8Array(Buffer.from(JSON.stringify(state), 'utf8'))).toString('base64');
     if (data.length > MAX_CACHE_BYTES) {
       console.warn(`Cards-on-file report too large to cache (${data.length} bytes); skipping save`);
       return;
@@ -168,7 +226,7 @@ async function saveCachedReport(oystehr: Oystehr, response: GetBillingCardsOnFil
       resourceType: 'DocumentReference',
       status: 'current',
       identifier: [{ system: REPORT_IDENTIFIER_SYSTEM, value: CACHE_KEY }],
-      date: response.generatedAt,
+      date: state.generatedAt,
       content: [
         {
           attachment: {
@@ -236,7 +294,10 @@ async function fetchOpenInvoices(
         const summary = byCustomerId.get(customerId) ?? { count: 0, amountDue: 0, pastDue: false };
         summary.count += 1;
         summary.amountDue += (invoice.amount_due ?? 0) / 100;
-        if (invoice.due_date && invoice.due_date < nowSeconds) summary.pastDue = true;
+        // no due_date = automatic collection; an open invoice with attempts means the charge failed
+        if (invoice.due_date ? invoice.due_date < nowSeconds : (invoice.attempt_count ?? 0) > 0) {
+          summary.pastDue = true;
+        }
         byCustomerId.set(customerId, summary);
       }
     } catch (err) {
@@ -280,8 +341,13 @@ interface CardSummary {
   last4: string;
 }
 
-// default payment method, else legacy default card source, else the first attached card
-async function resolveCards(stripe: Stripe, customers: CustomerWithAccount[]): Promise<Map<string, CardSummary>> {
+// default payment method, else legacy default card source, else the first attached card (first
+// batch now, the rest queued for continueLookups calls)
+async function resolveCards(
+  stripe: Stripe,
+  customers: CustomerWithAccount[],
+  priorityCustomerIds: Set<string>
+): Promise<{ cardByCustomerId: Map<string, CardSummary>; pending: PendingLookup[] }> {
   const cardByCustomerId = new Map<string, CardSummary>();
   const needLookup: CustomerWithAccount[] = [];
 
@@ -308,18 +374,34 @@ async function resolveCards(stripe: Stripe, customers: CustomerWithAccount[]): P
     needLookup.push(entry);
   }
 
-  for (let i = 0; i < needLookup.length; i += PM_LOOKUP_CONCURRENCY) {
+  // open-invoice customers go in the first batch; the rest queue up in order
+  const prioritized: PendingLookup[] = [
+    ...needLookup.filter((entry) => priorityCustomerIds.has(entry.customer.id)),
+    ...needLookup.filter((entry) => !priorityCustomerIds.has(entry.customer.id)),
+  ].map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount }));
+  const batch = prioritized.slice(0, PM_LOOKUPS_PER_RUN);
+  const pending = prioritized.slice(PM_LOOKUPS_PER_RUN);
+
+  const looked = await lookupCards(stripe, batch);
+  for (const [customerId, card] of looked) cardByCustomerId.set(customerId, card);
+  return { cardByCustomerId, pending };
+}
+
+// batched paymentMethods.list per customer, with rate-limit retries
+async function lookupCards(stripe: Stripe, entries: PendingLookup[]): Promise<Map<string, CardSummary>> {
+  const cardByCustomerId = new Map<string, CardSummary>();
+  for (let i = 0; i < entries.length; i += PM_LOOKUP_CONCURRENCY) {
     await Promise.all(
-      needLookup.slice(i, i + PM_LOOKUP_CONCURRENCY).map(async ({ customer, stripeAccount }) => {
+      entries.slice(i, i + PM_LOOKUP_CONCURRENCY).map(async ({ customerId, stripeAccount }) => {
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
             const methods = await stripe.paymentMethods.list(
-              { customer: customer.id, type: 'card', limit: 1 },
+              { customer: customerId, type: 'card', limit: 1 },
               { stripeAccount }
             );
             const method = methods.data[0];
             if (method) {
-              cardByCustomerId.set(customer.id, {
+              cardByCustomerId.set(customerId, {
                 id: method.id,
                 brand: method.card?.brand ?? '',
                 last4: method.card?.last4 ?? '',
@@ -332,7 +414,7 @@ async function resolveCards(stripe: Stripe, customers: CustomerWithAccount[]): P
               await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
               continue;
             }
-            console.warn(`Failed to list payment methods for ${customer.id}:`, (err as Error)?.message);
+            console.warn(`Failed to list payment methods for ${customerId}:`, (err as Error)?.message);
             return;
           }
         }

@@ -687,6 +687,8 @@ export interface CardOnFileReportRow {
 export interface GetBillingCardsOnFileReportResponse {
   rows: CardOnFileReportRow[];
   totals: { customers: number; withCard: number; withoutCard: number; withOpenInvoices: number };
+  // customers whose fallback card lookup hasn't run yet; call again with continueLookups until 0
+  pendingCardLookups: number;
   // true when the Stripe customer list was cut off at the safety cap
   truncated: boolean;
   generatedAt: string;

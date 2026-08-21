@@ -57,8 +57,12 @@ const AGING_BUCKETS: AgingBucket[] = [
 
 type AgingFilter = string | 'all';
 
-const daysPastDue = (row: InvoiceReportRow): number =>
-  Math.max(0, Math.floor(DateTime.now().diff(DateTime.fromISO(row.dueDate), 'days').days));
+// automatic-collection invoices have no dueDate; age from creation like the backend's aging anchor
+const daysPastDue = (row: InvoiceReportRow): number => {
+  const anchor = DateTime.fromISO(row.dueDate || row.createdDate);
+  if (!anchor.isValid) return 0;
+  return Math.max(0, Math.floor(DateTime.now().diff(anchor, 'days').days));
+};
 
 const bucketOf = (days: number): AgingBucket =>
   AGING_BUCKETS.find((bucket) => days >= bucket.minDays && days < bucket.maxDays) ?? AGING_BUCKETS[0];

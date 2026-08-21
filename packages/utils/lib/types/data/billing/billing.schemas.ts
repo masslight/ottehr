@@ -692,6 +692,8 @@ export const GetBillingPatientPaymentsReportInputSchema = z.object({
 export const GetBillingCardsOnFileReportInputSchema = z.object({
   // recompute instead of returning the latest saved report
   refresh: z.boolean().optional(),
+  // resume pending fallback card lookups from the saved report (one batch per call)
+  continueLookups: z.boolean().optional(),
 });
 
 export const GetBillingInvoiceReportInputSchema = z.object({
