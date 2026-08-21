@@ -10,7 +10,7 @@
 // ProgressNoteDetails, which reads the displayed chief complaint from
 // `chartFields.historyOfPresentIllness.text` and the displayed HPI from `chartFields.chiefComplaint.text`.
 
-import { NoteTextField } from './actions';
+import { NOTE_TEXT_FIELDS, NoteTextField } from './actions';
 
 /** Chart-data keys the free-text note fields are stored under. */
 export type NoteChartKey =
@@ -38,6 +38,31 @@ const CLINICAL_FIELD_TO_CHART_KEY: Record<NoteTextField, NoteChartKey> = {
 export function chartKeyForNoteField(field: NoteTextField): NoteChartKey {
   return CLINICAL_FIELD_TO_CHART_KEY[field];
 }
+
+/**
+ * Whitelist-copy a caller-supplied note snapshot down to the fields that actually exist.
+ *
+ * Passing the caller's object through verbatim looks harmless and is not: the tail builder renders every
+ * entry as `key: value` INSIDE the prompt, so an unknown key is caller-controlled text landing in the
+ * model's instructions, with no size bound. Whitelisting also keeps a new note section from being
+ * silently visible to one surface and not another.
+ */
+export function pickNoteContext(value: unknown): Partial<Record<NoteTextField, string>> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const source = value as Record<string, unknown>;
+  const out: Partial<Record<NoteTextField, string>> = {};
+  for (const field of NOTE_TEXT_FIELDS) {
+    const text = source[field];
+    if (typeof text === 'string' && text.trim()) out[field] = text.slice(0, MAX_NOTE_FIELD_CHARS);
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
+ * Per-field cap. A note field is prose a provider typed, so this is generous — it exists so a
+ * malformed or hostile caller cannot push the prompt past the model's context on its own.
+ */
+export const MAX_NOTE_FIELD_CHARS = 20_000;
 
 const CHART_KEY_TO_CLINICAL_FIELD = Object.fromEntries(
   Object.entries(CLINICAL_FIELD_TO_CHART_KEY).map(([clinical, storage]) => [storage, clinical])

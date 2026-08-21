@@ -15,6 +15,7 @@
 
 import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { ProcedureQuickPickContext } from './procedure-quick-pick';
 import { describeQuery, resolvePick } from './resolve';
 import {
@@ -325,12 +326,21 @@ export const HANDLERS = {
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.rosFindings(q),
       noun: 'review-of-systems finding',
-      write: (match) =>
-        context.writer.save({
-          // Polarity travels with the finding: the server already normalised it from the display
-          // verb, and filing a denial as a positive asserts the opposite of what the provider said.
-          rosObservations: [{ field: match.id, value: action.finding !== 'denies', ...(match.payload as object) }],
-        }),
+      write: (match) => {
+        // POLARITY IS IN THE FIELD KEY, NOT IN THE BOOLEAN.
+        //
+        // ROS storage gives each symptom two fields — `…-denies` and `…-reports` — and records the one
+        // that applies with `value: true`. This wrote the BASE key instead, with the boolean carrying the
+        // polarity, which produced a shape nothing reads: Review & Sign looks up the suffixed keys and
+        // found none, so the signed note's ROS section was empty; Easy Chart's own snapshot keeps only
+        // `value === true`, so a denial was invisible here too and could not be removed.
+        const { deniesKey, reportsKey } = getRosFindingFieldKeys(match.id);
+        return context.writer.save({
+          rosObservations: [
+            { field: action.finding === 'denies' ? deniesKey : reportsKey, value: true, ...(match.payload as object) },
+          ],
+        });
+      },
     }),
   'remove-ros-finding': async (action, context) =>
     removeCharted(action, context, {
@@ -383,7 +393,15 @@ export const HANDLERS = {
       noun: 'procedure',
       unsupported: !context.writer.supports.procedures,
       write: async (match) => {
-        const written = await context.writer.addProcedure(match.payload as ProcedureQuickPickContext);
+        const payload = match.payload as ProcedureQuickPickContext;
+        // A quick-pick whose template names no procedureType writes a row with NO NAME — the note then
+        // shows a "Procedure" heading with a body site under it and nothing identifying what was done.
+        // The provider named it, so fall back to that: an identifiable row beats a blank one, and the
+        // catalogue display is the same text the plan step reported.
+        const named = payload.dto.procedureType?.trim()
+          ? payload
+          : { ...payload, dto: { ...payload.dto, procedureType: match.display } };
+        const written = await context.writer.addProcedure(named);
         return {
           createdResourceIds: written.createdResourceIds,
           inferredResourceIds: written.inferredResourceIds,

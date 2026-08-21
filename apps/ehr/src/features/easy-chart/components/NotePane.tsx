@@ -10,14 +10,18 @@
 //
 // The two attestations live ABOVE the sections, not among them.
 
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Box, Collapse, Divider, Link, Stack, Typography } from '@mui/material';
+import { Box, Collapse, Divider, IconButton, Link, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, Fragment, ReactNode, useState } from 'react';
 import { ChiefComplaintField, ChiefComplaintFieldReadOnly } from 'src/features/visits/ChiefComplaintField';
 import { HistoryOfPresentIllnessField, HistoryOfPresentIllnessFieldReadOnly } from 'src/features/visits/HpiField';
+import { HospitalizationField } from 'src/features/visits/in-person/components/hospitalization/HospitalizationField';
 import { MechanismOfInjuryField, MechanismOfInjuryFieldReadOnly } from 'src/features/visits/MechanismOfInjuryField';
+import { CptCodeField } from 'src/features/visits/shared/components/assessment-tab/CptCodeField';
+import { DiagnosesField } from 'src/features/visits/shared/components/assessment-tab/DiagnosesField';
 import { EMCodeField } from 'src/features/visits/shared/components/assessment-tab/EMCodeField';
 import {
   MedicalDecisionField,
@@ -29,7 +33,15 @@ import {
   dispositionTypeLabel,
   SubspecialtyFollowUpList,
 } from 'src/features/visits/shared/components/DispositionSummary';
+import { AllergenOption, AllergyField } from 'src/features/visits/shared/components/known-allergies/AllergyField';
+import {
+  MedicationField,
+  MedicationOption,
+} from 'src/features/visits/shared/components/medical-history-tab/CurrentMedications/MedicationField';
+import { SurgicalHistoryField } from 'src/features/visits/shared/components/medical-history-tab/SurgicalHistory/SurgicalHistoryField';
 import { AddendumCard } from 'src/features/visits/shared/components/review-tab/AddendumCard';
+import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
+import { groupVitalsBySection } from 'src/features/visits/shared/components/vitals/groupVitalsBySection';
 import { AppointmentAccessibilityOverrideProvider } from 'src/features/visits/shared/hooks/appointment-accessibility-override';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { groupExamFindingsBySection } from 'utils/lib/config-helpers/exam-observations';
@@ -39,6 +51,7 @@ import { createMedicationString } from 'utils/lib/fhir/medication-administration
 import { formatHeightObservationValue } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { ASQ_FIELD, ASQKeys, asqLabels, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   DiagnosisDTO,
@@ -50,11 +63,13 @@ import {
   VitalsObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { buildChartSnapshot } from '../executor/chartSnapshot';
 import { ProvenanceRecord, ProvenanceState } from '../provenance/provenance';
-import { AiChartedItem, ItemCorrection } from './AiChartedItem';
+import { AiChartedItem } from './AiChartedItem';
+import { ChartEditorSection } from './ChartEditorDialog';
 import { buildScreeningQuestionRows, computeSectionVisibility } from './note-visibility';
 import { PROCEDURE_REVIEW_FIELDS, procedureFieldLabel } from './procedure-fields';
 import { VitalAddChips } from './VitalEntry';
@@ -83,12 +98,50 @@ export interface NotePaneProps {
    * write, or undefined for a row with nothing to search against. Kept as a callback so the note pane
    * owns no catalogue knowledge.
    */
-  buildCorrection?: (field: string, item: { resourceId: string; display: string }) => ItemCorrection | undefined;
+  /**
+   * Open the real section editor. Exam and ROS are not single-row swaps — the provider ticks several boxes
+   * in a system, adds a comment, clears a template's normals — so the section heading opens the page's own
+   * editor instead of putting a search box on one row.
+   */
+  onEditSection?: (section: ChartEditorSection, field?: string) => void;
+  /** Replace a charted diagnosis with the row the provider picked from the ICD-10 search. */
+  /**
+   * Swap one charted row for what the provider picked: remove, write, refetch, and SAY SO if any of that
+   * fails. The payload is built here, where the charted row is in hand; the caller owns the sequencing and
+   * the error reporting. Absent means these rows are not editable.
+   *
+   * Diagnosis and CPT have their own props because each carries something extra across the swap — the
+   * primary flag, and the rest of a billing line.
+   */
+  onReplaceItem?: (
+    field: string,
+    item: { resourceId: string; display: string },
+    write: Record<string, unknown>,
+    picked: string
+  ) => Promise<void>;
+  /**
+   * Replace a charted CPT code with one the provider picked, the same remove-then-write the diagnosis row
+   * does. Absent means the row is not editable.
+   */
+  onEditCptCode?: (
+    item: { resourceId: string; display: string },
+    code: { code: string; display: string }
+  ) => Promise<void>;
+  onEditDiagnosis?: (
+    item: { resourceId: string; display: string },
+    code: { code: string; display: string }
+  ) => void | Promise<void>;
   /**
    * Lab orders placed at this encounter, in-house and send-out. Not chart data — chart data carries lab
    * RESULTS. Both sections exist and the same test legitimately appears in each: one says it was
    * ordered, the other says what came back.
    */
+  /**
+   * Vitals from get-vitals, already grouped by field. NOT `chartData.vitalsObservations`: only this response
+   * carries `alertCriticality`, which is what makes an out-of-range reading red or amber with a warning icon
+   * beside it — see the `vitals` field on EasyChartData.
+   */
+  vitals?: GetVitalsResponseData;
   labOrders?: EasyChartLabOrder[];
   /** Cancel a placed order. Absent on a signed visit. */
   onRemoveLabOrder?: (order: EasyChartLabOrder) => void;
@@ -126,11 +179,19 @@ const EmptyValue: FC<{ text?: string }> = ({ text }) => (
   </Typography>
 );
 
-const Section: FC<{ label: string; children: ReactNode }> = ({ label, children }) => (
+const Section: FC<{ label: string; children: ReactNode; onEdit?: () => void }> = ({ label, children, onEdit }) => (
   <Stack spacing={0.5}>
-    <Typography variant="subtitle2" color="primary.dark">
-      {label}
-    </Typography>
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <Typography variant="subtitle2" color="primary.dark">
+        {label}
+      </Typography>
+      {/* On the HEADING, not on a row: what this opens edits the whole section. */}
+      {onEdit && (
+        <IconButton onClick={onEdit} size="small" aria-label={`edit ${label}`}>
+          <EditOutlinedIcon fontSize="inherit" color="primary" />
+        </IconButton>
+      )}
+    </Stack>
     {children}
   </Stack>
 );
@@ -140,8 +201,12 @@ const Section: FC<{ label: string; children: ReactNode }> = ({ label, children }
  * the label, so the heading still states that the content EXISTS — a hidden section and a collapsed one
  * say very different things to a provider skimming for what they have not done yet.
  */
-const CollapsibleSection: FC<{ label: string; children: ReactNode }> = ({ label, children }) => {
-  const [open, setOpen] = useState(false);
+const CollapsibleSection: FC<{ label: string; children: ReactNode; defaultOpen?: boolean }> = ({
+  label,
+  children,
+  defaultOpen = false,
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <Stack spacing={0.5}>
       <Stack
@@ -238,7 +303,11 @@ export const NotePane: FC<NotePaneProps> = ({
   onConfirmProcedureField,
   inHouseMedications = [],
   immunizations = [],
-  buildCorrection,
+  onEditSection,
+  onEditCptCode,
+  onEditDiagnosis,
+  onReplaceItem,
+  vitals,
   labOrders = [],
   onRemoveLabOrder,
   appointmentStart,
@@ -247,17 +316,13 @@ export const NotePane: FC<NotePaneProps> = ({
   onNoteFieldSaved,
   addendumResources,
 }) => {
-  const correctionFor =
-    (field: string) =>
-    (item: { resourceId: string; display: string }): ItemCorrection | undefined =>
-      buildCorrection?.(field, item);
-  const snapshot = buildChartSnapshot(chartData);
-  const record = (resourceId: string | undefined): ProvenanceRecord | undefined =>
-    resourceId ? provenance.byResourceId.get(resourceId) : undefined;
-
   // The ENUM, not a string literal. Hand-written strings silently mismatched five of these — the notes
   // were fetched and then filtered out by a typo, which looks exactly like a patient with no notes.
   const notesOfType = (type: NOTE_TYPE): NoteDTO[] => (chartData?.notes ?? []).filter((note) => note.type === type);
+
+  const snapshot = buildChartSnapshot(chartData);
+  const record = (resourceId: string | undefined): ProvenanceRecord | undefined =>
+    resourceId ? provenance.byResourceId.get(resourceId) : undefined;
 
   /** A code-first line: the code in bold, then what it means. How a coder reads the note. */
   const coded = (code: string | undefined, display: string): ReactNode => (
@@ -277,8 +342,8 @@ export const NotePane: FC<NotePaneProps> = ({
       notes?: NoteDTO[];
       extra?: (item: { resourceId: string; display: string }) => ReactNode;
       emptyText?: string;
-      /** Click-to-correct: search the catalogue and swap this row for what the provider picks. */
-      correction?: (item: { resourceId: string; display: string }) => ItemCorrection | undefined;
+      /** Click-to-edit with the app's OWN field for this section, rendered in place. */
+      editor?: (item: { resourceId: string; display: string }, close: () => void) => ReactNode;
     } = {}
   ): ReactNode => (
     <Section label={label}>
@@ -289,7 +354,7 @@ export const NotePane: FC<NotePaneProps> = ({
           <AiChartedItem
             key={item.resourceId}
             provenance={record(item.resourceId)}
-            correction={readOnly ? undefined : options.correction?.(item)}
+            editor={readOnly || !options.editor ? undefined : (close) => options.editor!(item, close)}
             onConfirm={() => onConfirmItem(item.resourceId)}
             onDelete={readOnly ? undefined : () => onDeleteItem(field, item.resourceId, item.display)}
             dataTestId={`easy-chart-${field}-${item.resourceId}`}
@@ -305,15 +370,31 @@ export const NotePane: FC<NotePaneProps> = ({
     </Section>
   );
 
-  const vitals = (chartData?.vitalsObservations ?? []) as VitalsObservationDTO[];
+  // Grouped exactly as the progress note groups them, by the shared helper.
+  const vitalGroups = groupVitalsBySection(vitals);
+  const vitalCount = vitalGroups.reduce((total, group) => total + group.readings.length, 0);
   const instructions = chartData?.instructions ?? [];
   const prescriptions = chartData?.prescribedMedications ?? [];
   const radiologyOrders = chartData?.radiologyOrders ?? [];
   const procedures = chartData?.procedures ?? [];
 
-  // ROS states only what the patient REPORTED. A recorded "denies" is a negative the section does not
-  // assert, and listing it reads as a positive finding to anyone skimming.
-  const positiveRos = snapshot.rosFindings.filter((finding) =>
+  // BOTH polarities, exactly as Review & Sign lists them (RosReviewContainer): a charted "Denies fever"
+  // is part of the note the provider signs, and hiding it here made the two views disagree about what the
+  // note contains. It cannot be mistaken for a positive because the snapshot's display carries the word —
+  // "Denies fever" / "Reports fever" — which is also what a removal is matched against.
+  /**
+   * The BASE symptom key for a charted ROS row. The stored field carries the polarity as a suffix
+   * (`ros-gi-vomiting-denies`) while the ROS table is keyed by the symptom itself, so the suffix has to
+   * come off before it can be used as a scroll target.
+   */
+  const rosBaseFieldOf = (resourceId: string): string | undefined => {
+    const field = (chartData?.rosObservations ?? []).find((o) => o.resourceId === resourceId)?.field;
+    if (!field) return undefined;
+    const state = getRosFindingStateFromKey(field);
+    return state ? field.slice(0, -(state.length + 1)) : field;
+  };
+
+  const chartedRos = snapshot.rosFindings.filter((finding) =>
     (chartData?.rosObservations ?? []).some(
       (observation) => observation.resourceId === finding.resourceId && observation.value === true
     )
@@ -335,6 +416,7 @@ export const NotePane: FC<NotePaneProps> = ({
     // The chart's own vitals cards do the saving now, and they only need the encounter. This is still
     // "a save path is really wired" — the chips would otherwise open cards that cannot write.
     canSaveVital: Boolean(encounterId),
+    vitalCount,
     inHouseMedications,
     immunizations,
     labOrders,
@@ -344,7 +426,41 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'allergies',
       node: listSection('Allergies', snapshot.allergies, 'allergies', {
-        correction: correctionFor('allergies'),
+        // The Allergies page's own eRx allergen search, opened on the charted allergen.
+        editor: (item, close) => {
+          if (!onReplaceItem) return undefined;
+          const charted = (chartData?.allergies ?? []).find((allergy) => allergy.resourceId === item.resourceId);
+          return (
+            <AllergyField
+              autoFocus
+              // No "Other": that branch needs a follow-up text field and an Add button, which a note row has
+              // nowhere to put. A custom allergen is still added on the Allergies page.
+              includeOther={false}
+              value={charted?.name ? ({ name: charted.name } as AllergenOption) : null}
+              onChange={(picked) => {
+                if (!picked) return;
+                close();
+                void onReplaceItem(
+                  'allergies',
+                  item,
+                  {
+                    allergies: [
+                      {
+                        id: picked.id?.toString(),
+                        name: picked.name,
+                        // Status and the inactive note survive the swap: correcting the AGENT must not
+                        // silently reactivate an inactive allergy or drop the note that explains it.
+                        current: charted?.current ?? true,
+                        ...(charted?.note ? { note: charted.note } : {}),
+                      },
+                    ],
+                  },
+                  picked.name ?? ''
+                );
+              }}
+            />
+          );
+        },
         notes: notesOfType(NOTE_TYPE.ALLERGY),
         emptyText: 'None recorded',
       }),
@@ -353,7 +469,40 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'intake-medications',
       node: listSection('Medications', snapshot.medications, 'medications', {
-        correction: correctionFor('medications'),
+        // The Medications page's own eRx drug search, opened on the charted drug.
+        editor: (item, close) => {
+          if (!onReplaceItem) return undefined;
+          const charted = (chartData?.medications ?? []).find((med) => med.resourceId === item.resourceId);
+          return (
+            <MedicationField
+              autoFocus
+              value={charted?.name ? ({ name: charted.name } as MedicationOption) : null}
+              onChange={(picked) => {
+                if (!picked) return;
+                close();
+                void onReplaceItem(
+                  'medications',
+                  item,
+                  {
+                    medications: [
+                      {
+                        name: picked.name,
+                        id: picked.id?.toString(),
+                        // The dose and the "patient could not confirm the dosage" qualifier survive the
+                        // swap: correcting the DRUG must not silently drop the fact that its dose was never
+                        // confirmed. Deliberately NOT a blanket carry-over of the row — the eRx id has to
+                        // come from the picked drug, not the old one.
+                        ...(charted?.intakeInfo ? { intakeInfo: charted.intakeInfo } : {}),
+                        ...(charted?.type ? { type: charted.type } : {}),
+                      },
+                    ],
+                  },
+                  picked.name ?? ''
+                );
+              }}
+            />
+          );
+        },
         notes: notesOfType(NOTE_TYPE.INTAKE_MEDICATION),
         describe: (item) => {
           const medication = chartData?.medications?.find((m) => m.resourceId === item.resourceId);
@@ -378,7 +527,41 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'medical-history',
       node: listSection('Medical History', snapshot.conditions, 'conditions', {
-        correction: correctionFor('conditions'),
+        // The SAME ICD-10 search the Medical Conditions page uses, which is the same one DiagnosesField
+        // already wraps — so no fifth picker. `correctionFor('conditions')` used to sit here and always
+        // returned undefined: corrections.ts has no conditions catalogue, because the server confirms codes
+        // against the terminology service. There was never anything to search, so the row did nothing.
+        editor: (item, close) => {
+          if (!onReplaceItem) return undefined;
+          const charted = (chartData?.conditions ?? []).find((entry) => entry.resourceId === item.resourceId);
+          return (
+            <DiagnosesField
+              autoFocus
+              disableForPrimary={false}
+              label="Medical condition"
+              value={charted?.code ? { code: charted.code, display: charted.display ?? '' } : null}
+              onChange={(picked) => {
+                close();
+                void onReplaceItem(
+                  'conditions',
+                  item,
+                  {
+                    conditions: [
+                      {
+                        code: picked.code,
+                        display: picked.display,
+                        // Status and note survive the swap, for the same reason they do on an allergy.
+                        current: charted?.current ?? true,
+                        ...(charted?.note ? { note: charted.note } : {}),
+                      },
+                    ],
+                  },
+                  picked.display
+                );
+              }}
+            />
+          );
+        },
         notes: notesOfType(NOTE_TYPE.MEDICAL_CONDITION),
         describe: (item) =>
           coded(chartData?.conditions?.find((c) => c.resourceId === item.resourceId)?.code, item.display),
@@ -388,7 +571,28 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'surgical-history',
       node: listSection('Surgical History', snapshot.surgicalHistory, 'surgicalHistory', {
-        correction: correctionFor('surgicalHistory'),
+        // The Surgical History page's own picker, opened on the charted surgery.
+        editor: (item, close) => {
+          if (!onReplaceItem) return undefined;
+          const charted = (chartData?.surgicalHistory ?? []).find((entry) => entry.resourceId === item.resourceId);
+          return (
+            <SurgicalHistoryField
+              autoFocus
+              includeOther={false}
+              value={charted?.code ? { code: charted.code, display: charted.display } : null}
+              onChange={(picked) => {
+                if (!picked) return;
+                close();
+                void onReplaceItem(
+                  'surgicalHistory',
+                  item,
+                  { surgicalHistory: [{ code: picked.code, display: picked.display }] },
+                  picked.display
+                );
+              }}
+            />
+          );
+        },
         // Two different things, both belong here: the per-section NOTES, and the single free-text
         // surgicalHistoryNote the chart keeps separately.
         notes: [
@@ -405,7 +609,28 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'hospitalizations',
       node: listSection('Hospitalizations', snapshot.hospitalizations, 'episodeOfCare', {
-        correction: correctionFor('episodeOfCare'),
+        // The Hospitalization page's own picker, opened on the charted stay.
+        editor: (item, close) => {
+          if (!onReplaceItem) return undefined;
+          const charted = (chartData?.episodeOfCare ?? []).find((entry) => entry.resourceId === item.resourceId);
+          return (
+            <HospitalizationField
+              autoFocus
+              includeOther={false}
+              value={charted?.code ? { code: charted.code, display: charted.display } : null}
+              onChange={(picked) => {
+                if (!picked) return;
+                close();
+                void onReplaceItem(
+                  'episodeOfCare',
+                  item,
+                  { episodeOfCare: [{ code: picked.code, display: picked.display }] },
+                  picked.display
+                );
+              }}
+            />
+          );
+        },
         notes: notesOfType(NOTE_TYPE.HOSPITALIZATION),
         describe: (item) =>
           coded(chartData?.episodeOfCare?.find((h) => h.resourceId === item.resourceId)?.code, item.display),
@@ -498,12 +723,21 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'ros',
       node: (
-        <Section key="ros" label="Review of Systems">
-          {positiveRos.map((item) => (
+        <Section
+          key="ros"
+          label="Review of Systems"
+          onEdit={readOnly || !onEditSection ? undefined : () => onEditSection('ros')}
+        >
+          {chartedRos.map((item) => (
             <AiChartedItem
               key={item.resourceId}
               provenance={record(item.resourceId)}
-              correction={readOnly ? undefined : correctionFor('rosObservations')(item)}
+              // Same as Examination: the row opens the section editor rather than an in-row search, and
+              // scrolls to this symptom. The stored field carries the polarity suffix (`…-denies`), while
+              // the table is keyed by the BASE symptom, so the suffix is stripped for the scroll target.
+              onCorrect={
+                readOnly || !onEditSection ? undefined : () => onEditSection('ros', rosBaseFieldOf(item.resourceId))
+              }
               onConfirm={() => onConfirmItem(item.resourceId)}
               onDelete={readOnly ? undefined : () => onDeleteItem('rosObservations', item.resourceId, item.display)}
               dataTestId={`easy-chart-rosObservations-${item.resourceId}`}
@@ -514,7 +748,7 @@ export const NotePane: FC<NotePaneProps> = ({
           {/* The legacy single free-text ROS field. READ-ONLY: it predates the structured findings and
               nothing should write to it, but a chart that has one must still show it. */}
           {visible['ros-legacy'] && (
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: positiveRos.length ? 1 : 0 }}>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: chartedRos.length ? 1 : 0 }}>
               {chartData?.ros?.text}
             </Typography>
           )}
@@ -550,21 +784,31 @@ export const NotePane: FC<NotePaneProps> = ({
       id: 'vitals',
       node: (
         <Section key="vitals" label="Vitals">
-          {vitals.length === 0 && readOnly && <EmptyValue />}
-          {/* The charted readings, as the NOTE renders them: canonical units printed in both systems, and
-              the AI marks the chart's own cards know nothing about. The cards below are for ENTRY. */}
-          {vitals.map((vital, index) => (
-            <VitalRow
-              key={vital.resourceId ?? index}
-              vital={vital}
-              provenance={record(vital.resourceId)}
-              onConfirm={vital.resourceId ? () => onConfirmItem(vital.resourceId!) : undefined}
-              onDelete={
-                readOnly || !vital.resourceId
-                  ? undefined
-                  : () => onDeleteItem('vitalsObservations', vital.resourceId!, describeVital(vital))
-              }
-            />
+          {vitalCount === 0 && readOnly && <EmptyValue />}
+          {/* Grouped under the reading's name, each row rendered by the CHART'S OWN vitals entry — the same
+              unit conversions, the same critical/abnormal colour and icon the progress note prints. Only the
+              "when, by whom" prefix is dropped: the row around it already carries the provenance and its
+              hover detail, so the timestamp would be the same fact twice on one line. The cards below are for
+              ENTRY. */}
+          {vitalGroups.map((group) => (
+            <Box key={group.field} sx={{ mb: 0.5 }}>
+              <Typography variant="body2" fontWeight={600}>
+                {group.label}
+              </Typography>
+              {group.readings.map((vital, index) => (
+                <VitalRow
+                  key={vital.resourceId ?? `${group.field}-${index}`}
+                  vital={vital}
+                  provenance={record(vital.resourceId)}
+                  onConfirm={vital.resourceId ? () => onConfirmItem(vital.resourceId!) : undefined}
+                  onDelete={
+                    readOnly || !vital.resourceId
+                      ? undefined
+                      : () => onDeleteItem('vitalsObservations', vital.resourceId!, describeVital(vital))
+                  }
+                />
+              ))}
+            </Box>
           ))}
           {/* Ghost "+ HR" chips: a simple numeric should not have to be routed through the assistant.
               Clicking one opens the Vitals page's own card for that vital. */}
@@ -579,7 +823,11 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'examination',
       node: (
-        <Section key="examination" label="Examination">
+        <Section
+          key="examination"
+          label="Examination"
+          onEdit={readOnly || !onEditSection ? undefined : () => onEditSection('exam')}
+        >
           {groupExamFindingsBySection(tickedExam.map((finding) => ({ ...finding, fieldName: finding.field }))).map(
             (group) => (
               <Box key={group.sectionKey} sx={{ mb: 0.5 }}>
@@ -590,17 +838,12 @@ export const NotePane: FC<NotePaneProps> = ({
                   <AiChartedItem
                     key={finding.field}
                     provenance={record(finding.resourceId)}
-                    // A wrong exam finding is corrected the same way every other row is: click it, search
-                    // the exam config, pick the right leaf. The plumbing already existed and only this
-                    // section was not passing it, so clicking a finding did nothing.
-                    correction={
-                      readOnly || !finding.resourceId
-                        ? undefined
-                        : correctionFor('examObservations')({
-                            resourceId: finding.resourceId,
-                            display: finding.label ?? finding.field,
-                          })
-                    }
+                    // Clicking a finding opens the Examination editor, not a search box on the row. A
+                    // single-row swap cannot express what this section needs — several boxes in one
+                    // system, a comment, clearing a template's normals — and the in-row search never
+                    // worked anyway: it queried a fuzzy catalogue built for whole phrases from the model,
+                    // so a partial typed query matched nothing and the field looked editable and was not.
+                    onCorrect={readOnly || !onEditSection ? undefined : () => onEditSection('exam', finding.field)}
                     onConfirm={finding.resourceId ? () => onConfirmItem(finding.resourceId!) : undefined}
                     onDelete={
                       readOnly || !finding.resourceId
@@ -658,7 +901,29 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'assessment',
       node: listSection('Assessment / Diagnoses', snapshot.diagnoses, 'diagnosis', {
-        correction: correctionFor('diagnosis'),
+        // The Assessment page's own field, which searches ICD-10 through useICD10SearchNew. Its onChange
+        // hands back one search row, so the charted code and display can never come from different rows —
+        // the same rule the server enforces. The bespoke picker that used to be here had no catalogue at
+        // all: `conditions` is UNAVAILABLE by design, so clicking a diagnosis did nothing.
+        editor: (item, close) => {
+          if (!onEditDiagnosis) return undefined;
+          // Pre-filled with the row's own code, so the field opens showing what is charted rather than an
+          // empty search — the provider is correcting a value, not entering one from nothing.
+          const charted = (chartData?.diagnosis ?? []).find((dx) => dx.resourceId === item.resourceId);
+          return (
+            <DiagnosesField
+              autoFocus
+              disableForPrimary={false}
+              value={charted?.code ? { code: charted.code, display: charted.display } : null}
+              onChange={(code) => {
+                // Close FIRST, then write. The row is controlled from chart data, so leaving the field
+                // open re-renders it with the pre-write value and reads as the pick being discarded.
+                close();
+                void onEditDiagnosis(item, code);
+              }}
+            />
+          );
+        },
         describe: (item) => {
           const diagnosis = snapshot.diagnoses.find((dx) => dx.resourceId === item.resourceId);
           return (
@@ -719,10 +984,14 @@ export const NotePane: FC<NotePaneProps> = ({
       id: 'em-code',
       node: (
         <Section key="em-code" label="E&M Code">
-          {/* The Assessment card's own dropdown, WRAPPED in the provenance row rather than placed beside
-              it: the level is a billing decision the provider owns, and the row is what says the AI chose
-              it and offers the confirm. Delete-only — which is what carrying the previous branch's
-              read-only row left this as — gave a provider no way to change a level they disagreed with. */}
+          {/* A SET level reads as text and turns into the Assessment card's own dropdown on click, like
+              every other charted row. It used to render that dropdown permanently, which made the one
+              section of the note that is always a form; a level the provider agrees with does not need an
+              input, it needs to be readable.
+
+              An UNSET level is the exception, and it stays a field. There is no row to click, and the level
+              is required to sign — the readiness banner reports it as a blocker — so hiding the only way to
+              set it behind a click on nothing would leave that blocker with nowhere to fix it. */}
           {readOnly || !encounterId ? (
             chartData?.emCode?.code ? (
               <AiChartedItem
@@ -734,18 +1003,34 @@ export const NotePane: FC<NotePaneProps> = ({
             ) : (
               <EmptyValue />
             )
-          ) : (
+          ) : chartData?.emCode?.code ? (
             <AiChartedItem
-              provenance={record(chartData?.emCode?.resourceId)}
-              onConfirm={chartData?.emCode?.resourceId ? () => onConfirmItem(chartData.emCode!.resourceId!) : undefined}
+              provenance={record(chartData.emCode.resourceId)}
+              onConfirm={chartData.emCode.resourceId ? () => onConfirmItem(chartData.emCode!.resourceId!) : undefined}
               onDelete={
-                chartData?.emCode?.resourceId
+                chartData.emCode.resourceId
                   ? () => onDeleteItem('emCode', chartData.emCode!.resourceId!, chartData.emCode!.code)
                   : undefined
               }
+              editor={(close) => (
+                <EMCodeField
+                  encounterId={encounterId}
+                  emCode={chartData?.emCode}
+                  autoFocus
+                  // The field owns its own write, so unlike the diagnosis and CPT rows there is nothing to
+                  // close BEFORE: it updates the store optimistically, so the value it shows is already the
+                  // picked one. Closing when the save lands hands the row back to the refetched data.
+                  onSaved={() => {
+                    close();
+                    onNoteFieldSaved?.();
+                  }}
+                />
+              )}
             >
-              <EMCodeField encounterId={encounterId} emCode={chartData?.emCode} onSaved={onNoteFieldSaved} />
+              <Typography variant="body2">{coded(chartData.emCode.code, chartData.emCode.display ?? '')}</Typography>
             </AiChartedItem>
+          ) : (
+            <EMCodeField encounterId={encounterId} emCode={chartData?.emCode} onSaved={onNoteFieldSaved} />
           )}
         </Section>
       ),
@@ -754,7 +1039,27 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'cpt-codes',
       node: listSection('CPT Codes', snapshot.cptCodes, 'cptCodes', {
-        correction: correctionFor('cptCodes'),
+        // The Billing card's own CPT search, the same field the Assessment page adds codes with — so a
+        // correction here picks from the same catalogue, ranked the same way. `correctionFor('cptCodes')`
+        // used to sit here and always returned undefined: corrections.ts has no CPT catalogue, so the row
+        // simply was not clickable.
+        editor: (item, close) => {
+          if (!onEditCptCode) return undefined;
+          const charted = (chartData?.cptCodes ?? []).find((cpt) => cpt.resourceId === item.resourceId);
+          return (
+            <CptCodeField
+              autoFocus
+              label="CPT code"
+              value={charted?.code ? { code: charted.code, display: charted.display } : null}
+              onChange={(code) => {
+                // Close FIRST, then write — see the diagnosis row: this row is controlled from chart data,
+                // so an editor left open re-renders with the pre-write value and reads as a discarded pick.
+                close();
+                void onEditCptCode(item, code);
+              }}
+            />
+          );
+        },
         describe: (item) => coded(snapshot.cptCodes.find((c) => c.resourceId === item.resourceId)?.code, item.display),
       }),
     },
@@ -831,9 +1136,10 @@ export const NotePane: FC<NotePaneProps> = ({
     {
       id: 'patient-instructions',
       node: (
-        // Collapsible with the count in the title: a full discharge plan is four or five paragraphs, and
-        // left expanded it buries the disposition and the addendum below it.
-        <CollapsibleSection key="instructions" label={`Patient Instructions (${instructions.length})`}>
+        // Open by default, collapsible for when it gets long. These are what the assistant JUST wrote and
+        // what the provider has to check before signing, so hiding them behind a click makes the one
+        // section that most needs review the easiest to miss.
+        <CollapsibleSection key="instructions" defaultOpen label={`Patient Instructions (${instructions.length})`}>
           {instructions.map((instruction, index) => (
             <AiChartedItem
               key={instruction.resourceId ?? index}
@@ -955,8 +1261,11 @@ const VitalRow: FC<{
   // No inline editor. A reading is corrected the way the Vitals page corrects one — remove it and add
   // the right value through the card — because each reading is its own observation with its own time, and
   // silently rewriting one in place would lose that it was ever taken.
+  //
+  // `onDelete` goes to the ROW, not to VitalHistoryElement: the row's delete is this page's own (it clears
+  // the AI mark with it), and the component's own delete button opens a separate confirmation modal.
   <AiChartedItem provenance={provenance} onConfirm={onConfirm} onDelete={onDelete}>
-    <Typography variant="body2">{describeVital(vital)}</Typography>
+    <VitalHistoryElement historyEntry={vital} hideAttribution />
   </AiChartedItem>
 );
 

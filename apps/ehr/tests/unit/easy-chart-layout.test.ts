@@ -7,7 +7,7 @@
 //   - the grid loses its viewport-bound height, so both cells grow to their content
 //   - the note column loses `overflowY`, so its overflow pushes the page instead
 //   - the chat cell gains one, so the composer scrolls away with the thread
-//   - fixed chrome moves back ABOVE the grid, so it eats rows from both columns
+//   - anything at all moves back ABOVE the grid, so it eats rows from both columns
 //
 // So the contract is asserted against the source. A structural test rather than a rendered one because
 // jsdom has no layout: `getBoundingClientRect` is all zeros there, so a render test could not tell a
@@ -59,13 +59,18 @@ describe('what scrolls with the note', () => {
   const noteColumn = page.indexOf("overflowY: { md: 'auto' }");
   const notePane = page.indexOf('<NotePane');
 
-  it('keeps the fixed chrome above the grid to the patient line only', () => {
-    const chrome = page.slice(page.indexOf('{/* Fixed chrome.'), page.indexOf('ref={viewport.ref}'));
-    // The attestation and the readiness banner are the two things that used to live up here, costing
-    // both columns ~120px of height for content that is fine to scroll.
-    expect(chrome).not.toContain('<Alert');
-    expect(chrome).not.toContain('easy-chart-verify-patient');
-    expect(chrome).toContain('easy-chart-patient');
+  it('renders NOTHING above the grid', () => {
+    // Everything that used to live up here is gone, and each departure has its own reason. The attestation
+    // and the readiness banner cost both columns ~120px for content that is fine to scroll. The patient
+    // line and the allergy list were a second copy of what the visit header states for every tab. The
+    // "open in the regular chart" button pointed at the chart this page is now part of.
+    const aboveGrid = page.slice(page.indexOf('<Container'), page.indexOf('ref={viewport.ref}'));
+    for (const element of ['<Alert', '<Stack', '<Typography', '<Button', 'data-testid']) {
+      expect(aboveGrid, `${element} above the grid takes height from both scrolling columns`).not.toContain(element);
+    }
+    // The identity the attestation is checked against comes from the visit header now, so the page must
+    // not grow its own copy back.
+    expect(page).not.toContain('easy-chart-patient');
   });
 
   it('puts both attestations inside the note scroll, above the sections', () => {

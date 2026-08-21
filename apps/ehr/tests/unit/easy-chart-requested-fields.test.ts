@@ -69,3 +69,32 @@ describe('the Easy Chart chart-data request', () => {
     expect(fieldsRequestedByTheHook()).toContain('episodeOfCare');
   });
 });
+
+// get-chart-data resolves disposition and radiologyOrders by searching ServiceRequest, and attributes
+// every ServiceRequest the batch returns to `procedures`. An UNTAGGED search therefore sweeps up the
+// encounter's procedure, once per untagged field — which rendered three identical procedure cards. Review &
+// Sign was never affected because it passes these tags, so the only real requirement is that we pass the
+// same ones.
+describe('ServiceRequest-backed fields carry the same tags as the progress note', () => {
+  const tagOf = (source: string, field: string): string | undefined =>
+    new RegExp(`${field}: \\{[^}]*_tag: '([^']+)'`).exec(source)?.[1];
+
+  it('disposition and radiologyOrders are tagged, and identically to Review & Sign', () => {
+    const easyChart = readFileSync(EASY_CHART_DATA_HOOK, 'utf8');
+    const progressNote = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '../../../../packages/utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper.ts'
+      ),
+      'utf8'
+    );
+    for (const field of ['disposition', 'radiologyOrders']) {
+      const tag = tagOf(easyChart, field);
+      expect(
+        tag,
+        `${field} must be tagged, or its ServiceRequest search sweeps up the encounter's procedure`
+      ).toBeTruthy();
+      expect(tag, `${field} tag drifted from the progress note's`).toBe(tagOf(progressNote, field));
+    }
+  });
+});

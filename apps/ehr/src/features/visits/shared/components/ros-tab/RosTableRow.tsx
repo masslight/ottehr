@@ -50,7 +50,11 @@ export const RosTableRow: FC<RosTableRowProps> = (props) => {
   const isReported = reportsObs?.value === true;
 
   return (
-    <TableRow sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
+    // `data-chart-field` is a scroll ANCHOR, not a test hook: Easy Chart opens this table in a dialog from
+    // a clicked note row and scrolls to the matching symptom. Exam rows are already addressable through
+    // their keyed data-testids; ROS rows had nothing identifying the symptom, so this is the one attribute
+    // that makes both sections reachable by the same lookup.
+    <TableRow data-chart-field={baseKey} sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
       <TableCell sx={{ pl: 1.5, pr: 0 }}>
         <Typography variant="body2" sx={{ fontSize: 13 }}>
           {item.label}

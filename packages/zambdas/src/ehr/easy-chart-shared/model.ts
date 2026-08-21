@@ -17,7 +17,7 @@
 
 import { ChatAnthropic } from '@langchain/anthropic';
 import { EscalationInfo, ModelFailureReason, ModelUsage } from 'utils/lib/easy-chart/api';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 
 /** Primary: fast and cheap. Escalation exists because it sometimes is not enough. */
@@ -111,7 +111,33 @@ export async function callModelForJson<T>(
   }
 
   logUsage(logPrefix, usage);
+  logResponseBody(logPrefix, parsed, secrets);
   return { parsed, usage, escalation: { attempts, escalated, failures } };
+}
+
+/**
+ * The model's parsed response, in full, for reading in a console.
+ *
+ * OFF UNLESS EXPLICITLY ENABLED, because this is the one thing in the feature that is guaranteed to
+ * contain PHI: the actions carry diagnosis displays, note text and the provider's own quoted words. The
+ * rest of this file logs envelope facts only — counts, reasons, token figures — and that is the rule for
+ * anything that can reach a deployed environment.
+ *
+ * Enable it by adding to the LOCAL secrets file (packages/zambdas/.env/zambda-secrets-local.json) and
+ * restarting the zambda server:
+ *
+ *   "EASY_CHART_LOG_RESPONSE": "true"
+ *
+ * Read through getOptionalSecret and NOT as a SecretsKeys member: a debug switch has no business in the
+ * typed contract every environment shares. Note that getOptionalSecret reads process.env only when
+ * `secrets` is null — the local server always passes a secrets object, so locally the FILE is the switch.
+ */
+function logResponseBody(logPrefix: string, parsed: unknown, secrets: Secrets | null): void {
+  if (getOptionalSecret('EASY_CHART_LOG_RESPONSE', secrets) !== 'true') return;
+  console.log(
+    `[${logPrefix}] MODEL RESPONSE (EASY_CHART_LOG_RESPONSE is on — contains PHI, local use only):\n` +
+      JSON.stringify(parsed, null, 2)
+  );
 }
 
 /**

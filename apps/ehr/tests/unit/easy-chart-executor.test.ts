@@ -517,3 +517,31 @@ describe('a plan sees what its own earlier steps charted', () => {
     expect(steps[1].outcome?.status, steps[1].outcome?.reason).toBe('applied');
   });
 });
+
+describe('ROS polarity is stored in the field key', () => {
+  // ROS storage gives each symptom two fields, `…-denies` and `…-reports`, and records the applicable one
+  // with value:true — that is what RosReviewContainer reads on Review & Sign. Writing the BASE key with
+  // the polarity in the boolean produced a shape nothing reads: the signed note's ROS section came out
+  // empty, and a denial was invisible in Easy Chart too, because the snapshot keeps only value===true.
+  const ros = { rosFindings: [match('ros-gi-vomiting', 'Vomiting', 1)] };
+
+  it('charts a denial as the -denies field with value true', async () => {
+    const h = harness({ matches: ros });
+    await runPlan(
+      [{ kind: 'add-ros-finding', display: 'Denies vomiting', finding: 'denies' } as PlannedAction],
+      h.context
+    );
+    const written = h.saved.flatMap((call) => (call.rosObservations as { field: string; value: boolean }[]) ?? []);
+    expect(written).toEqual([{ field: 'ros-gi-vomiting-denies', value: true }]);
+  });
+
+  it('charts a reported symptom as the -reports field with value true', async () => {
+    const h = harness({ matches: ros });
+    await runPlan(
+      [{ kind: 'add-ros-finding', display: 'Reports vomiting', finding: 'reports' } as PlannedAction],
+      h.context
+    );
+    const written = h.saved.flatMap((call) => (call.rosObservations as { field: string; value: boolean }[]) ?? []);
+    expect(written).toEqual([{ field: 'ros-gi-vomiting-reports', value: true }]);
+  });
+});

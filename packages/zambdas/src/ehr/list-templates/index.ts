@@ -37,7 +37,13 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
   };
 });
 
-const performEffect = async (
+/**
+ * Exported so a server-side caller can list templates without going back out through HTTP. The easy-chart
+ * prompt needs the practice's real titles: it is told to match them exactly and never to invent one, and
+ * when the list is absent the tail says "none. Do NOT emit apply-template" — which silently disabled
+ * templates for that surface entirely.
+ */
+export const performEffect = async (
   validatedInput: ListTemplatesZambdaInput,
   oystehr: Oystehr
 ): Promise<ListTemplatesZambdaOutput> => {

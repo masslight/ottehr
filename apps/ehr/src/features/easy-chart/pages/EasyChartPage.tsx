@@ -1,21 +1,19 @@
 // Easy Chart: the visit note on the left, the AI charting assistant on the right.
 //
 // LAYOUT SPECIFICS THAT MATTER, not cosmetics:
-//   - `Container maxWidth={false}` — the note needs the width; do not centre it in a narrow column.
+//   - `Container maxWidth={false} disableGutters` and no padding of its own — the note needs the width,
+//     and the chart layout's content pane already pads every tab. Doubling that costs ~44px a side.
 //   - CSS grid `3fr minmax(320px, 2fr)` on md+, single column below. The minmax floor stops the
 //     assistant collapsing to unusable width on a laptop.
-//   - The grid is constrained to the VIEWPORT on md+, so the page itself does not scroll: the wheel
-//     over the left column scrolls the NOTE, the wheel over the chat scrolls the CHAT, and the chat
+//   - The grid is constrained to the available height on md+, so the page itself does not scroll: the
+//     wheel over the left column scrolls the NOTE, the wheel over the chat scrolls the CHAT, and the chat
 //     stays pinned in view with its composer at the bottom. Providers read the note while the
 //     assistant works, and a single page scroll would drag the composer off screen.
-//   - Everything above the grid is fixed chrome and must stay SHORT — a patient line and one row of
-//     detail. Each pixel spent there is a pixel taken from both scrolling columns, so the attestation
-//     and the readiness banner scroll WITH the note rather than sitting above it.
-//
-// The two attestations sit above the note's sections but INSIDE its scroll: the name/DOB verification
-// and the readiness banner.
+//   - NOTHING sits above the grid. Every pixel spent there is taken from both scrolling columns, and the
+//     patient identity that used to live there — name, DOB, allergies — is in the visit header directly
+//     above this page, which is where the rest of the chart reads it from too. So both attestations, the
+//     name/DOB verification and the readiness banner, scroll WITH the note instead.
 
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   Alert,
   AlertTitle,
@@ -24,7 +22,6 @@ import {
   Checkbox,
   Container,
   FormControlLabel,
-  Link,
   Paper,
   Stack,
   Typography,
@@ -32,19 +29,19 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { useGetImmunizationOrders } from 'src/features/visits/in-person/hooks/useImmunization';
+import { ExamTab } from 'src/features/visits/shared/components/exam-tab/ExamTab';
+import { RosTab } from 'src/features/visits/shared/components/ros-tab/RosTab';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
 import { computeSignBlockers } from 'utils/lib/easy-chart/sign-blockers';
-import { ItemCorrection } from '../components/AiChartedItem';
 import { AssistantColumn } from '../components/AssistantColumn';
+import { ChartEditorDialog, ChartEditorSection } from '../components/ChartEditorDialog';
 import { NotePane } from '../components/NotePane';
 import { buildChartSnapshot } from '../executor/chartSnapshot';
-import { CORRECTION_SEARCH, CORRECTION_WRITE } from '../executor/corrections';
-import { isCatalogueList, PlanStep } from '../executor/types';
+import { PlanStep } from '../executor/types';
 import { useCatalogue } from '../hooks/useCatalogue';
 import { useChartAssistant } from '../hooks/useChartAssistant';
 import { useChartWriter } from '../hooks/useChartWriter';
@@ -62,57 +59,97 @@ import {
   recordFieldAuthorship,
 } from '../provenance/provenance';
 
-/** The Container's own bottom padding (`py: 2`), which the grid must leave room for. */
-const GRID_BOTTOM_GAP_PX = 16;
+/**
+ * The nearest SCROLLING ancestor, or undefined when the page itself is what scrolls.
+ *
+ * This is what makes the fill correct as a chart TAB. InPersonLayout puts every tab inside a
+ * `flex: 1; overflow-y: auto` pane, with a header above it and the bottom navigation bar BELOW it — so
+ * the bottom of the viewport is not the bottom of the space this page may use. Filling to `100vh` there
+ * pushes the grid under the navigation bar, that pane starts scrolling, and the composer drifts out of
+ * view: exactly the failure the pinned layout exists to prevent, just moved one container inwards.
+ */
+function findScrollParent(node: HTMLElement): HTMLElement | undefined {
+  for (let element = node.parentElement; element; element = element.parentElement) {
+    const overflowY = getComputedStyle(element).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') return element;
+  }
+  return undefined;
+}
 
 /**
- * A height that makes the element fill the rest of the viewport, MEASURED rather than hard-coded.
+ * A height that makes the element fill the rest of the available space, MEASURED rather than hard-coded.
  *
- * The chrome above the grid is not a constant: the environment banner is present outside production,
- * the navbar's height is a theme detail, and the patient line wraps to a second row when the allergy
- * list is long. An offset guessed too small gives the PAGE a scrollbar, which unpins the composer —
- * the one thing this layout exists to prevent — and one guessed too large wastes rows of the note.
- * The element's own `top` cannot be wrong about any of it.
+ * Neither edge is a constant. Above: the environment banner is present outside production, the visit
+ * header's height is a theme detail, and the patient line wraps to a second row when the allergy list is
+ * long. Below: the bottom navigation bar is present on some tabs and not others, and the layout pane's
+ * padding is a style. An offset guessed too small gives an ANCESTOR a scrollbar, which unpins the
+ * composer, and one guessed too large wastes rows of the note. Measured rects cannot be wrong about
+ * either.
  */
 function useFillViewportHeight(): { ref: (node: HTMLElement | null) => void; height: string } {
   // The node is STATE, not a ref: the grid mounts only after the loading screen goes away, and an
   // effect keyed on a ref would have already run against `null` and never attached its observer.
   const [node, setNode] = useState<HTMLElement | null>(null);
-  const [top, setTop] = useState<number | null>(null);
+  const [inset, setInset] = useState<number | null>(null);
 
   // Layout effect, so the measured height is in place before the first paint — a frame at the
   // unmeasured fallback flashes a page scrollbar.
   useLayoutEffect(() => {
     if (!node) return;
-    const measure = (): void => setTop(node.getBoundingClientRect().top);
+    const scrollParent = findScrollParent(node);
+    const measure = (): void => {
+      const top = node.getBoundingClientRect().top;
+      // How much of the viewport is spoken for BELOW us. Zero when the page itself scrolls; the
+      // navigation bar plus the pane's own bottom padding when we are a chart tab. The padding is
+      // inside the rect, so it has to come off separately.
+      let bottomInset = 0;
+      if (scrollParent) {
+        const style = getComputedStyle(scrollParent);
+        const usableBottom =
+          scrollParent.getBoundingClientRect().bottom -
+          (parseFloat(style.paddingBottom) || 0) -
+          (parseFloat(style.borderBottomWidth) || 0);
+        bottomInset = Math.max(0, window.innerHeight - usableBottom);
+      }
+      setInset(Math.round(top + bottomInset));
+    };
     measure();
     window.addEventListener('resize', measure);
-    // The chrome above can also change without the window resizing — allergies arrive and the detail
-    // line wraps. Watching the PARENT catches that: setting our own height changes the parent's, which
-    // re-fires this, but the re-measured top is identical so the state settles immediately.
+    // Either edge can also move without the window resizing — allergies arrive and the detail line
+    // wraps, or the navigation bar appears. Watching the PARENT catches the first: setting our own
+    // height changes the parent's, which re-fires this, but the re-measured inset is identical so the
+    // state settles immediately. Watching the scrolling pane catches the second.
     const parent = node.parentElement;
-    const observer = typeof ResizeObserver === 'undefined' || !parent ? undefined : new ResizeObserver(measure);
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
     if (parent) observer?.observe(parent);
+    if (scrollParent && scrollParent !== parent) observer?.observe(scrollParent);
     return () => {
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
   }, [node]);
 
-  return { ref: setNode, height: top == null ? '100vh' : `calc(100vh - ${Math.round(top + GRID_BOTTOM_GAP_PX)}px)` };
+  return { ref: setNode, height: inset == null ? '100vh' : `calc(100vh - ${inset}px)` };
 }
 
 export const EasyChartPage: FC = () => {
-  const { encounterId } = useParams<{ encounterId: string }>();
-  const { chartData, isLoading, refetch } = useEasyChartData(encounterId);
+  // The ENCOUNTER id comes from the appointment store, not from the URL: this is a tab of the in-person
+  // chart, so the route is keyed by APPOINTMENT id (`/in-person/:id/easy-charting`) and the encounter is
+  // whichever one InPersonLayout resolved for it. Reading it the same way `useChartData` does also means
+  // this page's chart query shares the layout's cache entry rather than opening a second one.
+  const visit = useEasyChartVisit();
+  const encounterId = visit.encounter?.id;
+  const { chartData, vitals, isLoading, refetch } = useEasyChartData(encounterId);
   const { data: progressNoteConfig } = useProgressNoteConfig();
-  // Read the visit by ENCOUNTER id: the appointment store is empty on this route, and reading the
-  // lock state from it would report a signed visit as writable.
-  const visit = useEasyChartVisit(encounterId);
   const isAppointmentReadOnly = visit.isReadOnly;
 
   const [provenance, setProvenance] = useState(emptyProvenance);
   const [verified, setVerified] = useState(false);
+  // Which section editor is open, if any. The dialog owns no data — whatever changes inside is written by
+  // the tab's own save path, so closing it has to refetch or the note keeps showing the pre-edit state.
+  const [editorSection, setEditorSection] = useState<ChartEditorSection | undefined>(undefined);
+  // The row that was clicked, so the dialog can scroll to it. Cleared with the section.
+  const [editorTarget, setEditorTarget] = useState<string | undefined>(undefined);
 
   const catalogue = useCatalogue({ encounterId });
   // Lab ORDERS, which chart data does not carry — it carries results. Both sections exist, in that order.
@@ -224,41 +261,35 @@ export const EasyChartPage: FC = () => {
   const unreviewed = needsReview(provenance);
 
   /**
-   * Click-to-correct, per field. The search is the SAME catalogue the assistant resolved against, so a
-   * provider correcting a row is choosing from what the assistant could have chosen — and the write
-   * replaces the row rather than adding a second one.
+   * Swap one charted row for the code the provider picked: remove, write, refetch.
+   *
+   * SHARED by the diagnosis and CPT rows because the failure handling is the point. NotePane calls these
+   * as `void onEdit…(…)`, so a throw anywhere in here becomes an unhandled rejection: the row stays as it
+   * was, nothing is said, and the provider cannot tell whether the pick landed. Removing first is
+   * deliberate — leaving both versions on the note is worse than a brief gap.
    */
-  const buildCorrection = useCallback(
-    (field: string, item: { resourceId: string; display: string }): ItemCorrection | undefined => {
-      const search = CORRECTION_SEARCH[field];
-      const write = CORRECTION_WRITE[field];
-      if (!search || !write || isAppointmentReadOnly) return undefined;
-      return {
-        initialQuery: item.display,
-        search: async (query) => {
-          const result = await search(catalogue, query);
-          // `undefined` means the catalogue could not be consulted at all, which is not the same as
-          // "nothing matched" — an empty list is the honest answer for both, but the editor's own
-          // message tells the provider to reword rather than to go elsewhere.
-          return isCatalogueList(result) ? result.map((match) => ({ id: match.id, display: match.display })) : [];
-        },
-        replace: async (option) => {
-          try {
-            // Remove first, then write: leaving both versions on the note is worse than a brief gap.
-            await writer.remove(field, item);
-            await writer.save(write(option, undefined));
-            await refetch();
-          } catch (error) {
-            console.error('[easy-chart] correction failed', error);
-            enqueueSnackbar(
-              `Could not replace "${item.display}": ${error instanceof Error ? error.message : 'unknown error'}`,
-              { variant: 'error' }
-            );
-          }
-        },
-      };
+  const replaceRow = useCallback(
+    async (
+      field: string,
+      item: { resourceId: string; display: string },
+      write: Parameters<typeof writer.save>[0],
+      picked: string
+    ): Promise<void> => {
+      try {
+        await writer.remove(field, item);
+        await writer.save(write);
+        await refetch();
+      } catch (error) {
+        console.error('[easy-chart] replace failed', error);
+        enqueueSnackbar(
+          `Could not change "${item.display}" to "${picked}": ${
+            error instanceof Error ? error.message : 'unknown error'
+          }`,
+          { variant: 'error' }
+        );
+      }
     },
-    [catalogue, writer, refetch, isAppointmentReadOnly]
+    [writer, refetch]
   );
 
   // Before the early returns: the loading screen renders instead of the grid, and a hook skipped on
@@ -271,51 +302,11 @@ export const EasyChartPage: FC = () => {
   const bannerSeverity = blockers.length > 0 ? 'warning' : unreviewed.length > 0 ? 'info' : 'success';
 
   return (
-    <Container maxWidth={false} sx={{ py: 2 }}>
-      {/* Fixed chrome. Plain text rather than a card: a bordered Paper here costs ~32px of both
-          scrolling columns for nothing, and the detail line reads fine as one row. */}
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" fontWeight={600} data-testid="easy-chart-patient">
-            {visit.patientLine || 'Visit note'}
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'baseline' }}>
-            <Typography variant="caption" color="text.secondary">
-              {visit.reasonForVisit ? `Reason: ${visit.reasonForVisit}` : `Encounter ${encounterId}`}
-            </Typography>
-            {/* Red and bold when allergies exist, a grey "none" when they do not — a provider must be
-                able to see at a glance that this was checked. */}
-            <Typography
-              variant="caption"
-              sx={{
-                color: snapshot.allergies.length > 0 ? 'error.main' : 'text.secondary',
-                fontWeight: snapshot.allergies.length > 0 ? 700 : 400,
-              }}
-            >
-              Allergies: {snapshot.allergies.length > 0 ? snapshot.allergies.map((a) => a.display).join(', ') : 'none'}
-            </Typography>
-          </Box>
-        </Box>
-        {/* The in-person route is keyed by APPOINTMENT id, not encounter id. Handing it an
-            encounter id loads no appointment into the store, so the layout's mode-initialisation
-            effect never fires and the page spins on a loader with no error. Hide the button when
-            the visit has no appointment (an annotation follow-up) rather than link nowhere. */}
-        {visit.appointment?.id && (
-          <Button
-            variant="outlined"
-            size="small"
-            endIcon={<OpenInNewIcon />}
-            component={Link}
-            href={`/in-person/${visit.appointment.id}/progress-note`}
-            target="_blank"
-            rel="noopener"
-            sx={{ textTransform: 'none', flexShrink: 0 }}
-          >
-            Open in regular chart
-          </Button>
-        )}
-      </Stack>
-
+    <Container maxWidth={false} disableGutters sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* NO chrome above the grid. The patient line that used to be here — name, DOB, allergies — and the
+          "open in the regular chart" button are both redundant now that this page renders under the visit
+          header: the header states the same identity for every tab, and the rest of the chart is a click
+          away in the header's Chart / Easy Chart switch. What that buys is height, for both columns. */}
       <Box
         ref={viewport.ref}
         sx={{
@@ -369,6 +360,39 @@ export const EasyChartPage: FC = () => {
 
             <Paper variant="outlined" sx={{ p: 2 }}>
               <NotePane
+                onEditDiagnosis={async (item, code) => {
+                  // Replace, not add: delete the old row and write the picked one in its place, so a
+                  // correction never leaves both versions on the note. The PRIMARY flag is carried over —
+                  // correcting the primary diagnosis must not quietly leave the note without one.
+                  const replaced = chartData?.diagnosis?.find((dx) => dx.resourceId === item.resourceId);
+                  await replaceRow(
+                    'diagnosis',
+                    item,
+                    {
+                      diagnosis: [{ code: code.code, display: code.display, isPrimary: replaced?.isPrimary ?? false }],
+                    },
+                    code.display
+                  );
+                }}
+                onEditCptCode={async (item, code) => {
+                  // Same replace-then-write as the diagnosis row. Everything else on the line is carried
+                  // over — an NDC, a dose, billable units — because this is one billing line whose CODE is
+                  // being corrected, not a new line; dropping them would silently lose what a provider
+                  // entered on the in-house medication path.
+                  const replaced = chartData?.cptCodes?.find((cpt) => cpt.resourceId === item.resourceId);
+                  const { resourceId: _resourceId, ...carried } = replaced ?? {};
+                  await replaceRow(
+                    'cptCodes',
+                    item,
+                    { cptCodes: [{ ...carried, code: code.code, display: code.display }] },
+                    code.display
+                  );
+                }}
+                onReplaceItem={replaceRow}
+                onEditSection={(section, field) => {
+                  setEditorSection(section);
+                  setEditorTarget(field);
+                }}
                 chartData={chartData}
                 provenance={provenance}
                 readOnly={isAppointmentReadOnly}
@@ -402,7 +426,7 @@ export const EasyChartPage: FC = () => {
                 onConfirmProcedureField={(resourceId, field) =>
                   setProvenance((state) => markProcedureFieldReviewed(state, resourceId, field))
                 }
-                buildCorrection={buildCorrection}
+                vitals={vitals}
                 labOrders={labOrders.orders}
                 appointmentStart={visit.appointment?.start}
                 encounterId={encounterId}
@@ -479,6 +503,25 @@ export const EasyChartPage: FC = () => {
           </Paper>
         </Box>
       </Box>
+
+      {/* The real Examination / Review of Systems editors, hosted rather than reimplemented. They take no
+          props and read their own stores and their own save paths — both of which work here because this
+          page renders INSIDE InPersonLayout, which populates the appointment store and initialises the
+          exam/ROS observation stores for every tab. */}
+      <ChartEditorDialog
+        section={editorSection}
+        target={editorTarget}
+        onClose={() => {
+          setEditorSection(undefined);
+          setEditorTarget(undefined);
+          // Whatever was ticked inside was saved by the tab; this page renders from its own chart-data
+          // query and would otherwise keep showing the note as it was before the edit.
+          void refetch();
+        }}
+      >
+        {editorSection === 'exam' && <ExamTab />}
+        {editorSection === 'ros' && <RosTab />}
+      </ChartEditorDialog>
     </Container>
   );
 };

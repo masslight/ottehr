@@ -34,6 +34,12 @@ export interface SectionVisibilityInput {
   editable: boolean;
   /** A vitals save handler is actually wired, which is Vitals' only reason to render while empty. */
   canSaveVital: boolean;
+  /**
+   * How many vital READINGS there are. Counted by the caller, because they come from the get-vitals endpoint
+   * rather than from chart data — `chartData.vitalsObservations` carries the same values without the
+   * criticality flags, so the note does not read it at all.
+   */
+  vitalCount: number;
   /** MAR administrations for THIS encounter, which are not chart data. */
   inHouseMedications: unknown[];
   /** Administered immunizations for this encounter, also a separate query. */
@@ -57,8 +63,6 @@ export function computeSectionVisibility(input: SectionVisibilityInput): Section
   const tickedExam = examObservations.filter((finding) => finding.value === true);
   const examWithNotes = examObservations.filter((finding) => filled(finding.note));
   const positiveRos = (chartData?.rosObservations ?? []).filter((finding) => finding.value === true);
-
-  const vitals = chartData?.vitalsObservations ?? [];
 
   return {
     allergies: (chartData?.allergies?.length ?? 0) > 0 || notesOfType(NOTE_TYPE.ALLERGY).length > 0,
@@ -90,7 +94,7 @@ export function computeSectionVisibility(input: SectionVisibilityInput): Section
 
     // Narrower than the free-text four: Vitals' reason to exist while empty is the quick-add chips, so
     // it appears empty only when a save handler is really wired.
-    vitals: vitals.length > 0 || notesOfType(NOTE_TYPE.VITALS).length > 0 || (editable && canSaveVital),
+    vitals: input.vitalCount > 0 || notesOfType(NOTE_TYPE.VITALS).length > 0 || (editable && canSaveVital),
 
     examination: tickedExam.length > 0 || examWithNotes.length > 0,
     'additional-questions': hasAdditionalQuestions(chartData?.observations, notesOfType(NOTE_TYPE.SCREENING)),

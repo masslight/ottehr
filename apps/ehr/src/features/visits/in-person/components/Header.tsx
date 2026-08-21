@@ -65,6 +65,7 @@ import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
+import { ChartViewModeToggle } from './ChartViewModeToggle';
 import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
 
@@ -601,6 +602,9 @@ export const Header = (): JSX.Element => {
               </Grid>
               <Grid item sx={{ flexShrink: 0 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
+                  {/* Which chart, not which section — see ChartViewModeToggle. Renders nothing when Easy
+                      Chart is not reachable for this user, visit type or environment. */}
+                  <ChartViewModeToggle />
                   <CommandPaletteSearchButton />
                   <IconButton onClick={() => navigate('/visits')}>
                     <CloseIcon />

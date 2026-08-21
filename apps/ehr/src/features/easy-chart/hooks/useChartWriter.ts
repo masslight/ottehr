@@ -94,7 +94,15 @@ export function useChartWriter({
       try {
         // `field` is the chart-data key the registry gave this action; the cast narrows a dynamic
         // key onto the DTO map, it does not widen what may be deleted.
-        await deleteChartData({ [field]: [{ resourceId: item.resourceId }] } as Partial<AllChartValues>);
+        //
+        // encounterId is EXPLICIT, exactly as it is in `save`. The delete mutation falls back to the
+        // appointment store when it is not given one, and this page is keyed by encounterId in its own URL
+        // with that store empty — so every removal threw "api client not defined or encounterId not
+        // provided" and nothing happened.
+        await deleteChartData({
+          encounterId,
+          [field]: [{ resourceId: item.resourceId }],
+        } as Partial<AllChartValues> & { encounterId: string });
         onRemoved?.([item.resourceId]);
       } catch (error) {
         // Put it back: a row that vanished from the note but is still on the chart is worse than a
@@ -103,7 +111,7 @@ export function useChartWriter({
         throw error;
       }
     },
-    [deleteChartData, onRemoved, onOptimisticRemove]
+    [deleteChartData, encounterId, onRemoved, onOptimisticRemove]
   );
 
   const applyTemplate = useCallback(

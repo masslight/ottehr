@@ -12,7 +12,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { ConversationTurn, ModelUsage, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
-import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { buildChartSnapshot } from '../executor/chartSnapshot';
 import { runPlan } from '../executor/runPlan';
@@ -148,19 +147,13 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
       setNow(Date.now());
 
       try {
-        const chart = chartRef.current;
         const response = await apiClient.easyChartPlan({
           narrative: message,
           encounterId: options.encounterId,
-          noteContext: {
-            // CLINICAL names on the wire; the storage swap is applied by chartKeyForNoteField.
-            chiefComplaint: chart?.[chartKeyForNoteField('chiefComplaint')]?.text,
-            historyOfPresentIllness: chart?.[chartKeyForNoteField('historyOfPresentIllness')]?.text,
-            mechanismOfInjury: chart?.mechanismOfInjury?.text,
-            medicalDecision: chart?.medicalDecision?.text,
-          },
-          chartState: summariseChartState(chart),
-          chartedExamFindings: buildChartSnapshot(chart).examFindings.map((item) => item.display),
+          // The chart is NOT sent. The zambda reads it by encounterId — get-chart-data twice, the same pair
+          // the visit-note PDF uses — because a client-assembled summary could only ever describe the
+          // sections this page's own read layer happened to fetch, and ROS, vitals and placed orders were
+          // silently missing from it.
           // Every turn after the first is incremental: the chart state is the truth about what exists,
           // and without this the model happily re-emits what it already charted.
           incremental: history.current.length > 0,
@@ -233,18 +226,9 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
         if (mode === 'bulk') {
           setStatus('reviewing');
           try {
-            const chartAfter = chartRef.current;
             const review = await apiClient.easyChartReview({
               narrative: message,
               encounterId: options.encounterId,
-              noteContext: {
-                chiefComplaint: chartAfter?.[chartKeyForNoteField('chiefComplaint')]?.text,
-                historyOfPresentIllness: chartAfter?.[chartKeyForNoteField('historyOfPresentIllness')]?.text,
-                mechanismOfInjury: chartAfter?.mechanismOfInjury?.text,
-                medicalDecision: chartAfter?.medicalDecision?.text,
-              },
-              chartState: summariseChartState(chartAfter),
-              chartedExamFindings: buildChartSnapshot(chartAfter).examFindings.map((item) => item.display),
             });
             addUsage(review.usage);
             if (review.suggestions.length > 0) {
@@ -321,31 +305,4 @@ function replaceStep(steps: PlanStep[], step: PlanStep): PlanStep[] {
   const next = [...steps];
   next[existing] = step;
   return next;
-}
-
-/**
- * What is already on the chart, as prose for the prompt. Deliberately a list of displays: the model
- * needs to know an item EXISTS so it neither duplicates it nor invents a removal, and it must be able
- * to name it back exactly for a remove-*.
- */
-export function summariseChartState(chart: GetChartDataResponse | undefined): string | undefined {
-  if (!chart) return undefined;
-  const lines: string[] = [];
-
-  for (const dx of chart.diagnosis ?? []) {
-    lines.push(`- Diagnosis: ${dx.display}${dx.isPrimary ? ' (primary)' : ''} [${dx.code}]`);
-  }
-  for (const allergy of chart.allergies ?? []) if (allergy.name) lines.push(`- Allergy: ${allergy.name}`);
-  for (const condition of chart.conditions ?? []) {
-    if (condition.display) lines.push(`- Past medical history: ${condition.display}`);
-  }
-  for (const medication of chart.medications ?? []) if (medication.name) lines.push(`- Medication: ${medication.name}`);
-  for (const cpt of chart.cptCodes ?? []) lines.push(`- CPT: ${cpt.code} ${cpt.display}`);
-  if (chart.emCode?.code) lines.push(`- E&M code already set: ${chart.emCode.code}`);
-  if (chart.disposition?.type) lines.push(`- Disposition already set: ${chart.disposition.type}`);
-  for (const instruction of chart.instructions ?? []) {
-    if (instruction.text) lines.push(`- Patient instruction: ${instruction.text}`);
-  }
-
-  return lines.length > 0 ? lines.join('\n') : undefined;
 }

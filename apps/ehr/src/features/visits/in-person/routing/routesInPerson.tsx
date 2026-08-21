@@ -1,3 +1,5 @@
+import { lazy, Suspense } from 'react';
+import { LoadingScreen } from 'src/components/LoadingScreen';
 import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
@@ -5,6 +7,7 @@ import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPag
 import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/NursingOrderCreatePage';
 import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
+import { EASY_CHART_ROLES } from 'utils/lib/easy-chart/access';
 import { FEATURE_FLAGS } from '../../../../constants/feature-flags';
 import { CreateExternalLabOrder } from '../../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../../external-labs/pages/ExternalLabOrdersListPage';
@@ -42,6 +45,12 @@ import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 
+// LAZY, and with its own Suspense boundary below. Easy Chart pulls in the whole charting assistant —
+// the plan/review clients, the catalogue, the executor — which nobody who never opens the tab should
+// download. The boundary is LOCAL on purpose: suspending to App.tsx's boundary would unmount the visit
+// header and sidebar for the duration of the chunk fetch, i.e. the whole chart would blink.
+const EasyChartPageLazy = lazy(() => import('src/features/easy-chart/pages/EasyChartPage'));
+
 export enum ROUTER_PATH {
   CC_AND_INTAKE_NOTES = 'cc-and-intake-notes',
   REVIEW_AND_SIGN = 'review-and-sign',
@@ -63,6 +72,7 @@ export enum ROUTER_PATH {
   PLAN = 'plan',
   ERX = 'erx',
   OTTEHR_AI = 'ottehr-ai',
+  EASY_CHARTING = 'easy-charting',
 
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
@@ -444,6 +454,28 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     text: 'Review & Sign',
     iconKey: 'Review & Sign',
     groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.EASY_CHARTING]: {
+    path: ROUTER_PATH.EASY_CHARTING,
+    // Two independent gates, and both are needed. The flag is static so it can be expressed here; the
+    // ROLE set cannot, so it rides along as `requiredRoles` and is applied by userHasRouteRoles where
+    // the records become routes and menu entries. The role list is the SAME one the endpoints check,
+    // so a role that can open the tab can always use its API and vice versa.
+    modes: FEATURE_FLAGS.EASY_CHART_ENABLED ? ['main', 'readonly'] : [],
+    requiredRoles: EASY_CHART_ROLES,
+    // NOT in the navigation. The sidebar is a list of SECTIONS of one note, and the bottom bar walks
+    // through them in order; Easy Chart is neither — it is a different way of working on the whole note,
+    // reached from the header's Chart / Easy Chart switch. Listing it among the sections would also make
+    // it a step in the intake's next/previous flow, which it is not.
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.EASY_CHART_ENABLED ? (
+      <Suspense fallback={<LoadingScreen />}>
+        <EasyChartPageLazy />
+      </Suspense>
+    ) : null,
+    text: 'Easy Chart',
+    iconKey: 'Oystehr AI',
+    groupLabel: 'Additional Resources',
   },
   [ROUTER_PATH.OTTEHR_AI]: {
     path: ROUTER_PATH.OTTEHR_AI,

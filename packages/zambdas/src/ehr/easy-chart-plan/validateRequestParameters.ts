@@ -1,4 +1,5 @@
 import { ChartPlanRequest, ConversationTurn } from 'utils/lib/easy-chart/api';
+import { pickNoteContext } from 'utils/lib/easy-chart/note-fields';
 import { ZambdaInput } from '../../shared/types/common';
 
 /**
@@ -29,7 +30,7 @@ export function validateRequestParameters(input: ZambdaInput): ChartPlanRequest 
 
   return {
     narrative: body.narrative,
-    noteContext: body.noteContext,
+    noteContext: pickNoteContext(body.noteContext),
     chartState: typeof body.chartState === 'string' ? body.chartState : undefined,
     chartedExamFindings: asStringArray(body.chartedExamFindings),
     templateTitles: asStringArray(body.templateTitles),

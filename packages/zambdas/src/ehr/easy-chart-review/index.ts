@@ -13,8 +13,15 @@
 
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChartReviewResponse, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
+import {
+  buildChartStateSummary,
+  buildNoteContextFromChart,
+  chartedExamFindingLabels,
+} from 'utils/lib/easy-chart/chart-state';
 import { buildPrompt, PromptTailInput } from 'utils/lib/easy-chart/prompt';
 import { buildReviewResponseSchema } from 'utils/lib/easy-chart/schema';
+import { detectDispositionLanguage } from 'utils/lib/easy-chart/sniffers';
+import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -22,7 +29,14 @@ import { ZambdaInput } from '../../shared/types/common';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { applyGuards } from '../easy-chart-shared/guards';
 import { callModelForJson } from '../easy-chart-shared/model';
-import { buildChartStateSummary, buildNoteContext, readVisitContext } from '../easy-chart-shared/visit-context';
+import { carrySwapPrimaryFromChartState } from '../easy-chart-shared/swap-primary';
+import {
+  buildNoteContext,
+  describeChart,
+  readTemplateTitles,
+  readVisitContext,
+} from '../easy-chart-shared/visit-context';
+import { getChartData } from '../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-review';
@@ -45,13 +59,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // caller for the same reason it does in the planner.
   const visit = encounterId ? await readVisitContext(oystehr, encounterId, ZAMBDA_NAME) : undefined;
 
+  // Read the chart here, not from the caller — same reason and same two calls as the planner. It matters
+  // more on this surface: review's whole job is to compare the note AS WRITTEN against the narrative, so a
+  // summary that omits a section is a section it cannot review.
+  const [chart, templateTitles] = await Promise.all([
+    encounterId ? readChart(oystehr, m2mToken, encounterId) : undefined,
+    readTemplateTitles(oystehr, ZAMBDA_NAME),
+  ]);
+  // The block the removal guard and the primary carry-over match against. Server-read when there is an
+  // encounter; the caller's string only when there is not.
+  const chartStateText = chart ? buildChartStateSummary(chart) : params.chartState;
+  const examFindings = chart ? chartedExamFindingLabels(chart) : params.chartedExamFindings;
+
   const tail: PromptTailInput = {
     narrative,
-    templateTitles: params.templateTitles,
+    templateTitles: templateTitles ?? params.templateTitles,
     patientLine: visit?.patientLine,
     patientStatus: visit?.patientStatus ?? params.patientStatus,
-    chartStateSummary: buildChartStateSummary(params.chartState, params.chartedExamFindings),
-    noteContext: buildNoteContext(params.noteContext),
+    chartStateSummary: describeChart(chartStateText, examFindings),
+    noteContext: buildNoteContext(chart ? buildNoteContextFromChart(chart) : params.noteContext),
+    // Deterministic disposition trigger. Left to the model's own judgement the check fired very
+    // inconsistently — same corpus, no code change, coverage swung 53% → 36% → 35% — so the narrative is
+    // scanned here and a hit with nothing charted becomes a must-address instruction. The model still
+    // owns extraction and is told to decline when the match is not a disposition for THIS visit.
+    mustAddress: buildDispositionInstruction(narrative, chartStateText),
   };
   const prompt = buildPrompt('review', tail);
   console.log(`[${ZAMBDA_NAME}] prompt ${prompt.length} chars, narrative ${narrative.length} chars`);
@@ -74,12 +105,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // hallucinated code or a removal targeting something not on the chart must be refused here, not trusted
   // because it came from the "corrector". Guarding per suggestion keeps each rejection attached to the
   // suggestion it belongs to.
-  const chartedItems = [...(params.chartedExamFindings ?? []), ...splitChartState(params.chartState)];
+  const chartedItems = [...(examFindings ?? []), ...splitChartState(chartStateText)];
   const guarded: ReviewSuggestion[] = [];
   const rejected: ChartReviewResponse['rejected'] = [];
   const triggers: ChartReviewResponse['triggers'] = [];
 
   for (const suggestion of parsed) {
+    // A "diagnosis"/"coherence" card pairs remove-diagnosis with add-diagnosis, and the prompt requires the
+    // add to restate the removed diagnosis's isPrimary. The model reliably omits it, and a missing flag
+    // charts as SECONDARY — leaving the note with no primary whenever the swap replaced the primary one.
+    carrySwapPrimaryFromChartState((suggestion.actions ?? []) as PlannedAction[], chartStateText);
     const result = await applyGuards((suggestion.actions ?? []) as PlannedAction[], {
       oystehr,
       narrative,
@@ -112,4 +147,33 @@ function splitChartState(chartState?: string): string[] {
     .split('\n')
     .map((line) => line.replace(/^[-•*]\s*/, '').trim())
     .filter(Boolean);
+}
+
+/**
+ * The forced disposition instruction, or undefined when there is nothing to force. Only fires when the
+ * narrative states a disposition AND the chart state carries none — a hit on an already-charted
+ * disposition would push the model to propose a duplicate.
+ */
+function buildDispositionInstruction(narrative: string, chartState: string | undefined): string | undefined {
+  if (chartState && /^\s*-?\s*disposition\b/im.test(chartState)) return undefined;
+  const match = detectDispositionLanguage(narrative);
+  if (!match) return undefined;
+  return (
+    `The dictation states a disposition or follow-up plan ("${match.excerpt.trim()}") and none is charted. ` +
+    'Address check 7 explicitly: either propose the set-disposition it supports, or say nothing about ' +
+    'disposition if that phrase is not a plan for THIS visit.'
+  );
+}
+
+/** Same pair the planner and the visit-note PDF use: default set, then the fields fetched only when named. */
+async function readChart(
+  oystehr: ReturnType<typeof createClinicalOystehrClient>,
+  token: string,
+  encounterId: string
+): Promise<Awaited<ReturnType<typeof getChartData>>['response']> {
+  const [base, scoped] = await Promise.all([
+    getChartData(oystehr, token, encounterId),
+    getChartData(oystehr, token, encounterId, progressNoteChartDataRequestedFields),
+  ]);
+  return { ...base.response, ...scoped.response };
 }

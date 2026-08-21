@@ -72,7 +72,19 @@ export function buildChartSnapshot(
     conditions: named(chartData?.conditions, (c) => c.display ?? c.code ?? ''),
     surgicalHistory: named(chartData?.surgicalHistory, (s) => s.display),
     hospitalizations: named(chartData?.episodeOfCare, (h) => h.display),
-    procedures: named(chartData?.procedures, (p) => p.procedureType ?? ''),
+    // NEVER blank. `named` drops rows whose label is empty, and a procedure written without a
+    // procedureType then becomes invisible to this snapshot — which means the duplicate check cannot see
+    // it, so every run adds another one, and nothing can update or remove it either. Three identical
+    // unnamed rows on one encounter is what that looks like. Fall back through the identifying fields the
+    // row does have; a placeholder that can be matched beats a row that does not exist.
+    procedures: named(
+      chartData?.procedures,
+      (p) =>
+        p.procedureType?.trim() ||
+        p.cptCodes?.[0]?.display?.trim() ||
+        [p.bodySite, p.bodySide].filter(Boolean).join(' ').trim() ||
+        'Procedure'
+    ),
 
     cptCodes: withId(chartData?.cptCodes).map((cpt) => ({
       resourceId: cpt.resourceId,

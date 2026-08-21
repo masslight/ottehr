@@ -186,6 +186,16 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   // provider accepts or ignores, so `final` is the UPPER BOUND — the note if every suggestion were
   // accepted. It is not a claim about what a given provider would keep.
   let reviewSuggestions = 0;
+  // The scorer has a whole aggregate bucket for this and it read "no data 20" until now: the endpoints
+  // report the deterministic triggers, the runner simply never forwarded them. "The guard never fired"
+  // and "the guard fired and the model ignored it" are opposite bugs with the same symptom, which is the
+  // reason the pair is reported at all.
+  let dispositionTrigger: { fired: boolean; matchedPattern?: string; modelProposed: boolean } | null = null;
+  const readDispositionTrigger = (triggers: ChartPlanResponse['triggers'] | undefined): void => {
+    const hit = triggers?.find((trigger) => trigger.trigger === 'disposition-language-without-disposition');
+    if (hit) dispositionTrigger = { fired: hit.fired, matchedPattern: hit.trigger, modelProposed: hit.complied };
+  };
+  readDispositionTrigger(response.triggers);
   if (!options.skipReview) {
     try {
       const reviewContext = reviewContextFrom(state);
@@ -197,6 +207,8 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
         ...reviewContext,
       });
       reviewSuggestions = reviewResponse.suggestions.length;
+      // Review's own view wins when it has one: the check belongs to the second look.
+      readDispositionTrigger(reviewResponse.triggers);
       const reviewActions = reviewResponse.suggestions.flatMap((suggestion) => suggestion.actions ?? []);
       if (reviewActions.length > 0) {
         // Seeded with the chart AS THE PLAN LEFT IT: a review that corrects a diagnosis has to resolve
@@ -211,16 +223,22 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
   }
 
   const usage = response.usage?.[0];
-  const score = scoreCase(evalCase.caseId, evalCase.gold, state, {
-    planner: usage && {
-      provider: usage.provider === 'anthropic' ? 'claude' : 'gemini',
-      model: usage.model,
-      inputTokens: usage.inputTokens ?? 0,
-      outputTokens: usage.outputTokens ?? 0,
-      cacheReadTokens: usage.cacheReadTokens,
-      escalation: { escalated: response.escalation?.escalated, attempts: response.escalation?.attempts },
+  const score = scoreCase(
+    evalCase.caseId,
+    evalCase.gold,
+    state,
+    {
+      planner: usage && {
+        provider: usage.provider === 'anthropic' ? 'claude' : 'gemini',
+        model: usage.model,
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
+        cacheReadTokens: usage.cacheReadTokens,
+        escalation: { escalated: response.escalation?.escalated, attempts: response.escalation?.attempts },
+      },
     },
-  });
+    dispositionTrigger
+  );
 
   writeFileSync(
     join(options.outDir, `${evalCase.caseId}.result.json`),

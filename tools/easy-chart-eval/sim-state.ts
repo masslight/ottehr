@@ -10,12 +10,16 @@
 // SKIPPED is recorded as skipped with its reason, and only applied actions become state. So a matcher
 // change shows up in the score instead of being invisible to it.
 
+import { NOTE_TEXT_FIELDS } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { PlanStep } from '../../apps/ehr/src/features/easy-chart/executor/types';
 import { emptySimState, SimFinalState, SimSource } from './score-harvested';
 
-/** Note fields the model can edit, keyed as the action's `field` enum spells them. */
-const NOTE_FIELDS = ['chiefComplaint', 'historyOfPresentIllness', 'mechanismOfInjury', 'ros', 'medicalDecision'];
+/**
+ * Note fields the model can edit. Imported rather than re-listed: a local copy would silently stop
+ * folding a field the vocabulary gained, and the scorer would read that as the model never writing it.
+ */
+const NOTE_FIELDS: readonly string[] = NOTE_TEXT_FIELDS;
 
 export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: SimFinalState): SimFinalState {
   const state = into ?? emptySimState();

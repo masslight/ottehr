@@ -19,7 +19,3 @@ export const EASY_CHART_ROLES: readonly RoleType[] = [
   RoleType.Clinician,
   RoleType.Staff,
 ];
-
-export const EASY_CHART_ROUTE_BASE = '/easy-chart';
-
-export const getEasyChartUrl = (encounterId: string): string => `${EASY_CHART_ROUTE_BASE}/${encounterId}`;

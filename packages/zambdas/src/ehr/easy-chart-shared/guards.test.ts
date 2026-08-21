@@ -11,11 +11,23 @@ const ICD10_ROWS: Record<string, { code: string; display: string }> = {
   'H66.91': { code: 'H66.91', display: 'Otitis media, unspecified, right ear' },
   'A54.5': { code: 'A54.5', display: 'Gonococcal pharyngitis' },
   'Z87.442': { code: 'Z87.442', display: 'Personal history of urinary calculi' },
+  'A54.01': { code: 'A54.01', display: 'Gonococcal cystitis and urethritis, unspecified' },
+  'S01.81XA': { code: 'S01.81XA', display: 'Laceration without foreign body of other part of head, initial encounter' },
 };
 
 const DESCRIPTION_ROWS: Record<string, { code: string; display: string }> = {
   'strep throat': { code: 'J02.0', display: 'Streptococcal pharyngitis' },
   'low back strain': { code: 'S39.012A', display: 'Strain of muscle of lower back, initial encounter' },
+  'kidney stone': { code: 'N20.0', display: 'Calculus of kidney' },
+  pharyngitis: { code: 'J02.9', display: 'Acute pharyngitis, unspecified' },
+  'streptococcal pharyngitis': { code: 'J02.0', display: 'Streptococcal pharyngitis' },
+  // Mirrors the live platform response that caused the miscode: an unrelated top row for a bare
+  // one-word query.
+  // Mirrors the live platform: an unrelated top row, then obstetric codes that share only the condition
+  // word. The correct S01.81XA never appears — which is the point.
+  laceration: { code: 'O70.20', display: 'Third degree perineal laceration during delivery, unspecified' },
+  'laceration of left forehead': { code: 'M89.38', display: 'Hypertrophy of bone, other site' },
+  'otitis media': { code: 'H66.90', display: 'Otitis media, unspecified, unspecified ear' },
 };
 
 const CPT_ROWS: Record<string, { code: string; display: string }> = {
@@ -29,8 +41,15 @@ const HCPCS_ROWS: Record<string, { code: string; display: string }> = {
 /** A terminology service that only knows the rows above — a hallucinated code finds nothing. */
 const fakeOystehr = {
   terminology: {
-    searchIcd10: async ({ query, searchType }: { query: string; searchType?: string }) => {
-      const row = searchType === 'code' ? ICD10_ROWS[query.toUpperCase()] : DESCRIPTION_ROWS[query.toLowerCase()];
+    // The resolution pipeline searches with searchType 'all' and pages by cursor, so one query has to be
+    // able to answer as an exact code, a category prefix (sibling enumeration) or a description.
+    searchIcd10: async ({ query }: { query: string }) => {
+      const upper = query.trim().toUpperCase();
+      const exact = ICD10_ROWS[upper];
+      if (exact) return { codes: [exact], metadata: { nextCursor: null } };
+      const siblings = Object.values(ICD10_ROWS).filter((row) => row.code.toUpperCase().startsWith(upper));
+      if (upper.length <= 4 && siblings.length > 0) return { codes: siblings, metadata: { nextCursor: null } };
+      const row = DESCRIPTION_ROWS[query.trim().toLowerCase()];
       return { codes: row ? [row] : [], metadata: { nextCursor: null } };
     },
     searchCpt: async ({ query }: { query: string }) => ({
@@ -44,15 +63,20 @@ const fakeOystehr = {
   },
 } as unknown as Oystehr;
 
-const context = (narrative: string, chartedItems: string[] = []): GuardContext => ({
+const context = (narrative: string, chartedItems: string[] = [], extra: Partial<GuardContext> = {}): GuardContext => ({
   oystehr: fakeOystehr,
   narrative,
   chartedItems,
   logPrefix: 'test',
+  ...extra,
 });
 
-const run = (actions: RawAction[], narrative: string, chartedItems: string[] = []): ReturnType<typeof applyGuards> =>
-  applyGuards(actions, context(narrative, chartedItems));
+const run = (
+  actions: RawAction[],
+  narrative: string,
+  chartedItems: string[] = [],
+  extra: Partial<GuardContext> = {}
+): ReturnType<typeof applyGuards> => applyGuards(actions, context(narrative, chartedItems, extra));
 
 describe('required-field gate', () => {
   it('skips an action with a reason rather than letting it be a silent no-op', async () => {
@@ -161,13 +185,27 @@ describe('diagnosis codes', () => {
     expect(rejected[0].reason).toMatch(/no ICD-10 code could be confirmed/);
   });
 
-  it('refuses an organism qualifier the visit does not support', async () => {
+  // REPAIR BEFORE REFUSING. The condition is right and only the qualifier is wrong, so the guard
+  // re-searches with the unsupported qualifier stripped and the SUPPORTED one substituted — the evidence
+  // says strep, so gonococcal pharyngitis becomes streptococcal pharyngitis instead of being dropped.
+  it('repairs an organism qualifier the visit contradicts, using the qualifier it does support', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Pharyngitis', code: 'A54.5', isPrimary: true }],
       'two days of sore throat, rapid strep positive'
     );
+    expect(rejected).toEqual([]);
+    expect(actions[0]).toMatchObject({ code: 'J02.0', display: 'Streptococcal pharyngitis' });
+  });
+
+  // The other half of the same guard: when stripping the qualifier leaves a condition the terminology
+  // cannot match, there is nothing clean to chart and the action is refused rather than guessed at.
+  it('refuses the qualifier outright when no clean replacement exists', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-diagnosis', display: 'Gonococcal urethritis', code: 'A54.01', isPrimary: true }],
+      'ear pain for two days, no genitourinary symptoms at all'
+    );
     expect(actions).toEqual([]);
-    expect(rejected[0].reason).toMatch(/gonococcal/);
+    expect(rejected[0].reason).toMatch(/gonococcal|no ICD-10 code could be confirmed/);
   });
 
   it('allows the organism qualifier when the visit does support it', async () => {
@@ -178,12 +216,25 @@ describe('diagnosis codes', () => {
     expect(actions[0].code).toBe('A54.5');
   });
 
-  it('refuses a history-of Z-code for a current problem', async () => {
-    const { rejected } = await run(
+  // A history-of hint is now DISCARDED rather than fatal: the condition the provider named is usually
+  // right and only the code is wrong, so the display search gets to pick again. Charting the real code
+  // beats refusing the diagnosis, and refusing still happens when the search has nothing to offer.
+  it('discards a history-of Z-code hint for a current problem and charts the real code', async () => {
+    const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Kidney stone', code: 'Z87.442', isPrimary: true }],
       'sudden onset of severe right flank pain that started four hours ago'
     );
-    expect(rejected[0].reason).toMatch(/personal-history code/);
+    expect(rejected).toEqual([]);
+    expect(actions[0]).toMatchObject({ code: 'N20.0', display: 'Calculus of kidney' });
+  });
+
+  it('refuses the diagnosis when the hint is a history code and nothing else resolves', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-diagnosis', display: 'Prior urinary calculi', code: 'Z87.442', isPrimary: true }],
+      'sudden onset of severe right flank pain'
+    );
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toMatch(/no ICD-10 code could be confirmed/);
   });
 
   it('drops a duplicate and demotes a second primary rather than losing the diagnosis', async () => {
@@ -341,5 +392,265 @@ describe('deterministic triggers', () => {
       fired: true,
       complied: false,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Restored invariants and backstops
+// ---------------------------------------------------------------------------------------------
+
+describe('exactly-one-primary invariant', () => {
+  // Measured on the harvested corpus: 0 of 13 add-diagnosis actions carried isPrimary, so every note
+  // came out with no primary diagnosis. The prompt asks for one and the model does not comply, and the
+  // response schema cannot require it per-kind, so promotion has to be deterministic.
+  it('promotes the first diagnosis when the plan marked none', async () => {
+    const { actions } = await run(
+      [
+        { kind: 'add-diagnosis', display: 'Strep throat' },
+        { kind: 'add-diagnosis', display: 'Otitis media' },
+      ],
+      'rapid strep positive, and the right ear looks infected',
+      [],
+      { promoteMissingPrimary: true }
+    );
+    expect(actions.filter((a) => a.kind === 'add-diagnosis' && a.isPrimary)).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ code: 'J02.0', isPrimary: true });
+    expect(actions[0].caution).toMatch(/no primary diagnosis was marked/);
+  });
+
+  it('leaves an explicitly marked primary alone', async () => {
+    const { actions } = await run(
+      [
+        { kind: 'add-diagnosis', display: 'Strep throat' },
+        { kind: 'add-diagnosis', display: 'Otitis media', isPrimary: true },
+      ],
+      'rapid strep positive, and the right ear looks infected',
+      [],
+      { promoteMissingPrimary: true }
+    );
+    expect(actions.find((a) => a.isPrimary)).toMatchObject({ code: 'H66.90' });
+    expect(actions[0].caution).toBeUndefined();
+  });
+
+  // The review surface is guarded one suggestion at a time, and its secondary-dx card deliberately adds
+  // a single diagnosis with no primary claim. Promoting there would silently change the note's primary.
+  it('does NOT promote when the caller did not ask for it (the review surface)', async () => {
+    const { actions } = await run([{ kind: 'add-diagnosis', display: 'Otitis media' }], 'the right ear looks infected');
+    expect(actions[0].isPrimary).toBeUndefined();
+  });
+
+  it('never usurps an existing primary on an incremental turn', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-diagnosis', display: 'Otitis media' }],
+      'also the right ear looks infected',
+      ['Diagnoses: Streptococcal pharyngitis (primary)'],
+      { promoteMissingPrimary: true, incremental: true }
+    );
+    expect(actions[0].isPrimary).toBe(false);
+  });
+});
+
+describe('speaker-label refusal', () => {
+  // "DOCTOR X31" matches the ICD-10 shape, and a code sniffer once charted it as a diagnosis.
+  it('refuses a transcript speaker tag as a diagnosis code', async () => {
+    const narrative =
+      'DOCTOR X31: the throat looks red.\nPATIENT X31: it hurts.\nDOCTOR X31: rapid strep positive, so strep throat.';
+    const { actions } = await run([{ kind: 'add-diagnosis', display: 'Strep throat', code: 'X31' }], narrative);
+    expect(actions[0].code).toBe('J02.0');
+  });
+});
+
+describe('deterministic backstops', () => {
+  it('appends a dictated vital the plan omitted, flagged with where it came from', async () => {
+    const { actions } = await run(
+      [{ kind: 'set-vital', field: 'vital-blood-pressure', display: '186/104' }],
+      'Blood pressure was 186 over 104. A repeat manual blood pressure dropped slightly to 176 over 92.'
+    );
+    const pressures = actions.filter((a) => a.kind === 'set-vital');
+    expect(pressures).toHaveLength(2);
+    expect(pressures[1]).toMatchObject({ systolic: 176, diastolic: 92 });
+    // NUMBERS. The backstops run after coerceNumericFields, so a stringified reading here would reach
+    // the chart write uncoerced.
+    expect(typeof pressures[1].systolic).toBe('number');
+    expect(pressures[1].caution).toMatch(/recovered from the dictation/);
+  });
+
+  it('does not duplicate a reading the plan already charted', async () => {
+    const { actions } = await run(
+      [{ kind: 'set-vital', field: 'vital-heartbeat', display: '115' }],
+      'She is slightly tachycardic at a heart rate of 115.'
+    );
+    expect(actions.filter((a) => a.kind === 'set-vital')).toHaveLength(1);
+  });
+
+  it('converts an order for a test the narrative reports as already performed into a note', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-in-house-lab', display: 'Rapid strep' }],
+      'The rapid strep test was performed in clinic and came back positive.'
+    );
+    expect(actions[0].kind).toBe('provider-note');
+    expect(actions[0].text).toMatch(/already performed/);
+  });
+
+  it('leaves a genuine future order alone', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-external-lab', display: 'Urine culture' }],
+      'We will send the urine out for culture.'
+    );
+    expect(actions[0].kind).toBe('add-external-lab');
+  });
+
+  it('reminds the provider that a charted medication is not a transmitted prescription', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-medication', display: 'Amoxicillin', strength: '500 mg' }],
+      "I'll send the prescription to your pharmacy."
+    );
+    expect(actions.some((a) => a.kind === 'provider-note' && /eRx/.test(a.text ?? ''))).toBe(true);
+  });
+
+  it('strips numeric junk the model attaches to steps that have no reading', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-patient-instruction', text: 'Rest and fluids.', value: '0.0012' } as unknown as RawAction],
+      'rest and fluids'
+    );
+    expect(actions[0]).not.toHaveProperty('value');
+  });
+});
+
+describe('billing-code lookup failure modes', () => {
+  /** Same fake, except the CPT/HCPCS endpoints are down. */
+  const outageContext = (narrative: string): GuardContext => ({
+    oystehr: {
+      ...(fakeOystehr as unknown as Record<string, unknown>),
+      terminology: {
+        ...(fakeOystehr.terminology as unknown as Record<string, unknown>),
+        searchCpt: async () => {
+          throw new Error('terminology unavailable');
+        },
+        searchHcpcs: async () => {
+          throw new Error('terminology unavailable');
+        },
+      },
+    } as unknown as Oystehr,
+    narrative,
+    chartedItems: [],
+    logPrefix: 'test',
+  });
+
+  // "The service says this code is not real" and "the service is down" must not behave alike. Collapsing
+  // them strips billing from every visit for the length of an outage, and nobody notices until the
+  // invoices are short.
+  it('keeps the model E&M code when terminology is unreachable', async () => {
+    const { actions, rejected } = await applyGuards(
+      [{ kind: 'set-em-code', code: '99214', display: 'Level 4 established' }],
+      outageContext('moderate complexity visit')
+    );
+    expect(rejected).toEqual([]);
+    expect(actions[0].code).toBe('99214');
+  });
+
+  it('still drops a code the service answered about and does not know', async () => {
+    const { actions, rejected } = await run([{ kind: 'set-em-code', code: '99999' }], 'visit');
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toMatch(/not a real CPT code/);
+  });
+
+  it('keeps an unreachable-service HCPCS code rather than losing the charge', async () => {
+    const { actions, rejected } = await applyGuards(
+      [{ kind: 'add-cpt', code: 'J1885', display: 'Ketorolac' }],
+      outageContext('ketorolac 30 mg IM given in clinic')
+    );
+    expect(rejected).toEqual([]);
+    expect(actions[0].code).toBe('J1885');
+  });
+});
+
+describe('field leaks between action kinds', () => {
+  // A real plan: the model named an unrelated condition in `code` and put the code it actually meant
+  // inside `updates` — update-procedure's shape — on an add-diagnosis. A field the executor does not read
+  // for this kind can only mislead whoever reads the plan; one it reads under another kind can change
+  // what gets charted.
+  it('strips a field the action kind does not declare', async () => {
+    const { actions } = await run(
+      [
+        {
+          kind: 'add-diagnosis',
+          display: 'Strep throat',
+          updates: [{ field: 'code', value: 'S01.81XA' }],
+          strength: 'true',
+        } as unknown as RawAction,
+      ],
+      'rapid strep positive'
+    );
+    expect(actions[0]).not.toHaveProperty('updates');
+    expect(actions[0]).not.toHaveProperty('strength');
+    expect(actions[0].code).toBe('J02.0');
+  });
+
+  it('keeps the fields the kind does declare', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-medication', display: 'Amoxicillin', strength: '500 mg', doseForm: 'capsule' }],
+      'amoxicillin 500 mg capsules'
+    );
+    expect(actions[0]).toMatchObject({ strength: '500 mg', doseForm: 'capsule' });
+  });
+});
+
+describe('unrelated search results', () => {
+  // Searching "laceration" for a forehead laceration returned "Hypertrophy of bone, other site" (M89.38)
+  // as its top row. No contradiction predicate objected — an unrelated condition contradicts nothing —
+  // and that is what got charted for a 9-year-old's scooter injury.
+  it('refuses a top search row that names nothing the intent named', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-diagnosis', display: 'Laceration of left forehead', searchTerms: ['laceration'] }],
+      'two centimeter linear laceration above the left eyebrow'
+    );
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toMatch(/no ICD-10 code could be confirmed/);
+  });
+});
+
+describe('care-context and code salvage', () => {
+  // The terminology search cannot reach the S-chapter from a description: querying a forehead laceration
+  // returns obstetric and birth-injury codes that share the condition word and contradict no anatomy the
+  // guard knows. They assert a care setting the visit does not describe, which is what refuses them.
+  it('refuses an obstetric code for an injury the visit describes plainly', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-diagnosis', display: 'Laceration of left forehead', searchTerms: ['laceration'] }],
+      'nine-year-old fell off his scooter, two centimeter linear laceration above the left eyebrow'
+    );
+    expect(actions).toEqual([]);
+    expect(rejected).toHaveLength(1);
+  });
+
+  // The model knew the right code and put it in update-procedure's `updates` field. Code lookup is the
+  // reliable path, so the salvaged value is fed to it as a candidate — and confirmed, not trusted.
+  it('salvages a code-shaped value from a misplaced field and confirms it', async () => {
+    const { actions, rejected } = await run(
+      [
+        {
+          kind: 'add-diagnosis',
+          display: 'Laceration of left forehead',
+          updates: [{ field: 'code', value: 'S01.81XA' }],
+        } as unknown as RawAction,
+      ],
+      'two centimeter linear laceration above the left eyebrow'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions[0]).toMatchObject({ code: 'S01.81XA' });
+    expect(actions[0]).not.toHaveProperty('updates');
+  });
+});
+
+describe('backstop-appended vitals carry numbers', () => {
+  // The response schema declares every numeric field as a string (the digit-loop guard) and guardOne
+  // coerces them back. The backstops append actions AFTER that, so anything numeric they add has to be a
+  // number already — nothing downstream will convert it.
+  it('appends a swept reading as a number, not a string', async () => {
+    const { actions } = await run([], 'Oxygen saturation was 94 percent on room air.');
+    const sweep = actions.find((a) => a.kind === 'set-vital');
+    expect(sweep).toBeDefined();
+    expect(typeof sweep!.value).toBe('number');
+    expect(sweep!.value).toBe(94);
   });
 });

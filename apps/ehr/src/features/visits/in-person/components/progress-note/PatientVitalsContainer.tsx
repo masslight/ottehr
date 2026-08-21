@@ -1,10 +1,10 @@
 import { Box, Typography } from '@mui/material';
-import { FC } from 'react';
+import { FC, Fragment } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
+import { groupVitalsBySection } from 'src/features/visits/shared/components/vitals/groupVitalsBySection';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
-import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 type PatientVitalsContainerProps = {
@@ -15,16 +15,9 @@ type PatientVitalsContainerProps = {
 export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes, encounterId }) => {
   const { data: encounterVitals } = useGetVitals(encounterId);
 
-  const temperature = encounterVitals?.[VitalFieldNames.VitalTemperature] || [];
-  const heartbeat = encounterVitals?.[VitalFieldNames.VitalHeartbeat] || [];
-  const respirationRate = encounterVitals?.[VitalFieldNames.VitalRespirationRate] || [];
-  const bloodPressure = encounterVitals?.[VitalFieldNames.VitalBloodPressure] || [];
-  const oxygenSaturation = encounterVitals?.[VitalFieldNames.VitalOxygenSaturation] || [];
-  const weight = encounterVitals?.[VitalFieldNames.VitalWeight] || [];
-  const height = encounterVitals?.[VitalFieldNames.VitalHeight] || [];
-  const vision = encounterVitals?.[VitalFieldNames.VitalVision] || [];
-  const bmi = encounterVitals?.[VitalFieldNames.VitalBMI] || [];
-  const lastMenstrualPeriod = encounterVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] || [];
+  // Config order, and anything the config does not name after it — see VITAL_SECTION_ORDER. This used to be
+  // ten copies of the same block, which is how a vital ends up printed on one note and not the other.
+  const groups = groupVitalsBySection(encounterVitals);
 
   return (
     <Box
@@ -35,11 +28,11 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
         Vitals
       </Typography>
 
-      {temperature && temperature.length > 0 && (
-        <>
-          <AssessmentTitle>Temperature</AssessmentTitle>
+      {groups.map((group) => (
+        <Fragment key={group.field}>
+          <AssessmentTitle>{group.label}</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {temperature?.map((item) => (
+            {group.readings.map((item) => (
               <VitalHistoryElement
                 dataTestId={dataTestIds.progressNotePage.vitalsItem}
                 historyEntry={item}
@@ -47,134 +40,8 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
               />
             ))}
           </Box>
-        </>
-      )}
-      {heartbeat && heartbeat.length > 0 && (
-        <>
-          <AssessmentTitle>Heartbeat</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {heartbeat?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {respirationRate && respirationRate.length > 0 && (
-        <>
-          <AssessmentTitle>Respiration rate</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {respirationRate?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {bloodPressure && bloodPressure.length > 0 && (
-        <>
-          <AssessmentTitle>Blood pressure</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {bloodPressure?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {oxygenSaturation && oxygenSaturation.length > 0 && (
-        <>
-          <AssessmentTitle>Oxygen saturation</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {oxygenSaturation?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {weight && weight.length > 0 && (
-        <>
-          <AssessmentTitle>Weight</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {weight?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {height && height.length > 0 && (
-        <>
-          <AssessmentTitle>Height</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {height?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {bmi && bmi.length > 0 && (
-        <>
-          <AssessmentTitle>BMI</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {bmi?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {vision && vision.length > 0 && (
-        <>
-          <AssessmentTitle>Vision</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {vision?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
-      {lastMenstrualPeriod && lastMenstrualPeriod.length > 0 && (
-        <>
-          <AssessmentTitle>Last Menstrual Period</AssessmentTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {lastMenstrualPeriod?.map((item) => (
-              <VitalHistoryElement
-                dataTestId={dataTestIds.progressNotePage.vitalsItem}
-                historyEntry={item}
-                key={item.resourceId}
-              />
-            ))}
-          </Box>
-        </>
-      )}
+        </Fragment>
+      ))}
 
       {notes && notes.length > 0 && (
         <>

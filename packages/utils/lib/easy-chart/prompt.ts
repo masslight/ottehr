@@ -51,6 +51,11 @@ mention:
      the narrative directly contradicts.
   6. ROS findings — add-ros-finding, both denied and reported symptoms.
   7. Diagnoses — add-diagnosis, exactly one isPrimary=true.
+     STATED DIAGNOSIS WINS: when the provider explicitly names the diagnosis ("this is a urinary
+     tract infection"), chart THAT as the primary — never substitute a more severe or more specific
+     condition inferred from the findings. Flank tenderness does not upgrade a stated UTI to
+     pyelonephritis. An escalated condition may appear as a SECONDARY only when the provider actually
+     voiced it as suspected, never because the findings could support it.
   8. Labs ordered this visit — add-in-house-lab / add-external-lab. Imaging — add-radiology.
   9. Procedures — add-procedure, then update-procedure for any field values.
  10. Disposition and patient-facing plan — set-disposition, add-patient-instruction,
@@ -164,8 +169,11 @@ const REVIEW_CHECKS = `THE TEN CHECKS:
    charted diagnosis first and foremost, then medications and CPTs, against the HPI/MDM and the
    narrative. ACTION for a wrong DIAGNOSIS: the same two-action swap as check 2 — remove-diagnosis
    then add-diagnosis for what the note DOES support, never a bare removal, and never one that would
-   leave the chart with zero diagnoses while the note documents a diagnosable condition. For an
-   unsupported medication: remove-medication. For an unsupported CPT: remove-cpt.
+   leave the chart with zero diagnoses while the note documents a diagnosable condition.
+   The swap belongs to THIS check — do not defer it to check 2. A live failure, reproduced twice: the
+   chart coded acute vaginitis while the narrative described a candidal infection, and the review
+   emitted a BARE removal, leaving the chart with no diagnosis at all.
+   For an unsupported medication: remove-medication. For an unsupported CPT: remove-cpt.
    REQUIRED: a "rationale" citing WHAT in the note contradicts the item.
    PRECISION OVER RECALL — a false alarm here erodes trust in every card. Flag only a clear mismatch a
    clinician would immediately object to. Do not flag plausible comorbidities, incidental findings, or
@@ -242,6 +250,12 @@ export interface PromptTailInput {
    * template/exam/E&M scaffolding for every patient with intake history.
    */
   incremental?: boolean;
+  /**
+   * A deterministic instruction the surface force-includes for THIS call. Used where leaving a check to
+   * the model's discretion measured as unreliable: the disposition check's coverage swung 53% → 36% →
+   * 35% across runs of the same corpus with no code change. Goes LAST so the stable prefix stays cacheable.
+   */
+  mustAddress?: string;
 }
 
 /** Everything that varies per call, in one block, appended after the static instructions. */
@@ -288,6 +302,10 @@ export function buildVariableTail(input: PromptTailInput): string {
   }
 
   parts.push(`The provider's free-text NARRATIVE:\n"""\n${input.narrative}\n"""`);
+
+  // LAST, and unconditional in position: a forced instruction is the only thing allowed to override the
+  // model's own read of the checks, so it must not be buried above the narrative.
+  if (input.mustAddress?.trim()) parts.push(`MUST ADDRESS THIS CALL:\n${input.mustAddress.trim()}`);
 
   return parts.join('\n\n');
 }

@@ -55,37 +55,110 @@ export function isPersonalHistoryCode(code: string | undefined): boolean {
  * in the narrative.
  */
 export const ETIOLOGY_QUALIFIER_EVIDENCE: Record<string, string[]> = {
-  gonococcal: ['gonococc', 'gonorrhea', 'gonorrhoea', 'gc '],
+  gonococcal: ['gonococc', 'gonorrh', 'gc'],
+  candidal: ['candid', 'yeast', 'thrush', 'monilial'],
+  candidiasis: ['candid', 'yeast', 'thrush', 'monilial'],
+  trichomonal: ['trichomon'],
   chlamydial: ['chlamyd'],
   syphilitic: ['syphil'],
-  tuberculous: ['tubercul', ' tb '],
-  candidal: ['candid', 'yeast', 'thrush'],
+  meningococcal: ['meningococc'],
+  pneumococcal: ['pneumococc'],
   streptococcal: ['strep'],
   staphylococcal: ['staph', 'mrsa', 'mssa'],
-  gonorrhea: ['gonococc', 'gonorrhea', 'gonorrhoea'],
-  herpesviral: ['herpes', 'hsv'],
-  influenzal: ['influenza', 'flu '],
-  pneumococcal: ['pneumococc'],
-  meningococcal: ['meningococc'],
+  tuberculous: ['tubercul', 'tb'],
+  herpesviral: ['herp', 'hsv', 'cold sore'],
+  herpetic: ['herp', 'hsv', 'cold sore'],
+  influenzal: ['influenza', 'flu'],
   mycoplasma: ['mycoplasma'],
   rsv: ['rsv', 'respiratory syncytial'],
-  'e. coli': ['e. coli', 'e.coli', 'escherichia'],
-  gonorrheal: ['gonococc', 'gonorrhea'],
   amebic: ['ameb', 'amoeb'],
-  rheumatic: ['rheumatic fever', 'rheumatic'],
+  rheumatic: ['rheumatic'],
   gouty: ['gout'],
   diabetic: ['diabet'],
   alcoholic: ['alcohol'],
+  viral: ['viral', 'virus', 'cold', 'flu', 'rsv', 'covid', 'enterovir', 'adenovir'],
+  bacterial: ['bacteri', 'strep', 'staph'],
+  fungal: ['fung', 'tinea', 'yeast', 'candid', 'dermatophyt', 'ringworm'],
+  parasitic: ['parasit'],
+  allergic: ['allerg', 'hay fever', 'atop', 'pollen', 'seasonal'],
+  atopic: ['atop', 'eczema', 'allerg'],
+  serous: ['serous', 'effusion', 'fluid'],
+  nonsuppurative: ['nonsuppurat', 'serous', 'effusion', 'fluid'],
+  suppurative: ['suppurat', 'purulent', 'pus'],
+  purulent: ['purulent', 'suppurat', 'pus'],
+  chronic: ['chronic', 'longstanding', 'long-standing', 'persistent', 'ongoing', 'month', 'year'],
+  recurrent: ['recurrent', 'recurring', 'frequent', 'repeated', 'episode', 'keeps coming back', 'comes back', 'again'],
 };
+
+/**
+ * Is ONE qualifier supported by the evidence? Stems of two characters or less ("gc", "tb") would
+ * substring-match inside unrelated words, so they are credited only as standalone evidence tokens.
+ */
+function etiologySupported(qualifier: string, haystack: string, haystackTokens: Set<string>): boolean {
+  return (ETIOLOGY_QUALIFIER_EVIDENCE[qualifier] ?? []).some((stem) =>
+    stem.length <= 2 ? haystackTokens.has(stem) : haystack.includes(stem)
+  );
+}
+
+/** Every vocabulary qualifier the evidence supports and the display does NOT already carry. */
+export function supportedEtiologyQualifiers(display: string, evidence: string): string[] {
+  const haystack = evidence.toLowerCase();
+  const haystackTokens = new Set(haystack.split(/[^a-z0-9]+/));
+  const displayWords = display.toLowerCase().split(/[^a-z0-9]+/);
+  return Object.keys(ETIOLOGY_QUALIFIER_EVIDENCE).filter(
+    (qualifier) => !displayWords.includes(qualifier) && etiologySupported(qualifier, haystack, haystackTokens)
+  );
+}
 
 /**
  * Which aetiology qualifiers a code's description asserts that the narrative does not support. A
  * non-empty result means the code must not be charted as-is.
  */
 export function unsupportedEtiologyQualifiers(codeDisplay: string, narrative: string): string[] {
+  const haystack = narrative.toLowerCase();
+  const haystackTokens = new Set(haystack.split(/[^a-z0-9]+/));
+  const out: string[] = [];
+  // Tokenised, not substring-matched: a substring test made "viral" fire on "antiviral" and
+  // "chronic" fire inside unrelated words, and the qualifier has to be a WORD of the display.
+  for (const token of new Set(codeDisplay.toLowerCase().split(/[^a-z0-9]+/))) {
+    if (token in ETIOLOGY_QUALIFIER_EVIDENCE && !etiologySupported(token, haystack, haystackTokens)) out.push(token);
+  }
+  return out;
+}
+
+/**
+ * CARE-CONTEXT qualifiers: a code display can name the setting the condition arose in — childbirth, the
+ * newborn period, a surgical complication — and such a code is the wrong code whenever the visit
+ * describes none of that, no matter how well the condition word matches.
+ *
+ * This is the same shape as the aetiology guard and it exists for the same reason: measured behaviour.
+ * The terminology search cannot reach the S-chapter injury codes from a description, so a query for a
+ * forehead laceration returns "Third degree perineal laceration during delivery", "Other birth injuries
+ * to scalp" and "Accidental puncture and laceration ... during a circulatory system procedure" — all
+ * real codes sharing the condition word, none contradicting any anatomy the guard knows about.
+ */
+export const CONTEXT_QUALIFIER_EVIDENCE: Record<string, string[]> = {
+  'during delivery': ['deliver', 'labor', 'labour', 'birth', 'obstetric', 'postpartum', 'perineal'],
+  'birth injuries': ['birth', 'deliver', 'newborn', 'neonat'],
+  'birth injury': ['birth', 'deliver', 'newborn', 'neonat'],
+  obstetric: ['obstetric', 'deliver', 'birth', 'pregnan', 'postpartum'],
+  'associated with lactation': ['lactat', 'breastfeed', 'nursing', 'breast'],
+  'complicating pregnancy': ['pregnan', 'gestation'],
+  'following abortion': ['abortion', 'miscarriage'],
+  'during a procedure': ['procedure', 'intraoperative', 'surgery', 'operative'],
+  intraoperative: ['intraoperative', 'surgery', 'operative', 'procedure'],
+  'in the puerperium': ['puerper', 'postpartum', 'deliver', 'birth'],
+};
+
+/**
+ * Which care-context qualifiers a display asserts that the narrative does not support. Phrase-matched,
+ * not tokenised: the qualifiers here are multi-word settings, and "delivery" alone is a word a visit can
+ * use innocently.
+ */
+export function unsupportedContextQualifiers(codeDisplay: string, narrative: string): string[] {
   const display = codeDisplay.toLowerCase();
-  const haystack = ` ${narrative.toLowerCase()} `;
-  return Object.entries(ETIOLOGY_QUALIFIER_EVIDENCE)
+  const haystack = narrative.toLowerCase();
+  return Object.entries(CONTEXT_QUALIFIER_EVIDENCE)
     .filter(([qualifier]) => display.includes(qualifier))
     .filter(([, evidence]) => !evidence.some((word) => haystack.includes(word)))
     .map(([qualifier]) => qualifier);

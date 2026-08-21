@@ -104,3 +104,27 @@ describe('buildChartSnapshot', () => {
     expect(snapshot.allergies).toEqual([]);
   });
 });
+
+describe('procedures are always identifiable', () => {
+  // A procedure written without a procedureType used to vanish from the snapshot, because `named` drops
+  // blank labels. Invisible means the duplicate check cannot see it, so every run adds another row — and
+  // nothing can update or remove it. Three identical unnamed procedures on one encounter is the symptom.
+  it('keeps a procedure that has no procedureType', () => {
+    const snapshot = buildChartSnapshot({
+      procedures: [{ resourceId: 'p1', bodySite: 'forehead', bodySide: 'left' }],
+    } as unknown as GetChartDataResponse);
+    expect(snapshot.procedures).toHaveLength(1);
+    expect(snapshot.procedures[0].display).toBe('forehead left');
+  });
+
+  it('prefers the procedure type, then a linked CPT display', () => {
+    const snapshot = buildChartSnapshot({
+      procedures: [
+        { resourceId: 'p1', procedureType: 'Laceration repair' },
+        { resourceId: 'p2', cptCodes: [{ code: '12001', display: 'Simple repair' }] },
+        { resourceId: 'p3' },
+      ],
+    } as unknown as GetChartDataResponse);
+    expect(snapshot.procedures.map((p) => p.display)).toEqual(['Laceration repair', 'Simple repair', 'Procedure']);
+  });
+});

@@ -11,6 +11,7 @@
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { performEffect as listTemplates } from '../list-templates';
 
 export interface VisitContext {
   patientLine: string;
@@ -89,11 +90,43 @@ export function buildNoteContext(noteContext?: Record<string, string | undefined
   return lines.length > 0 ? lines.join('\n\n') : undefined;
 }
 
-export function buildChartStateSummary(chartState?: string, examFindings?: string[]): string | undefined {
+/**
+ * Compose the ALREADY ON THE CHART block from a prose summary plus the checked exam findings.
+ *
+ * Named for what it does rather than where the data came from: the summary is now built by
+ * buildChartStateSummary in utils from a chart READ SERVER-SIDE, and only falls back to a caller-supplied
+ * string when there is no encounter to read.
+ */
+export function describeChart(chartState?: string, examFindings?: string[]): string | undefined {
   const parts: string[] = [];
   if (chartState?.trim()) parts.push(chartState.trim());
   if (examFindings?.length) {
     parts.push(`Exam findings already checked:\n${examFindings.map((f) => `- ${f}`).join('\n')}`);
   }
   return parts.length > 0 ? parts.join('\n\n') : undefined;
+}
+
+/**
+ * The practice's template titles, read server-side.
+ *
+ * The prompt tells the model to match these EXACTLY and never invent one, and with no list the tail renders
+ * "AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template." Nothing was passing them, so
+ * apply-template was switched off for every call — which is why the eval reported zero templates applied on
+ * every run and I read that as the model declining to use them.
+ *
+ * A failure here must not fail the plan: no titles is a degraded prompt, not a broken one.
+ */
+export async function readTemplateTitles(
+  oystehr: ReturnType<typeof createClinicalOystehrClient>,
+  zambdaName: string
+): Promise<string[] | undefined> {
+  try {
+    const { templates } = await listTemplates({ includeVersionData: false }, oystehr);
+    const titles = templates.map((template) => template.title).filter((title): title is string => !!title?.trim());
+    return titles.length > 0 ? titles : undefined;
+  } catch (error) {
+    console.log(`[${zambdaName}] could not list templates; apply-template will be unavailable this call`);
+    void error;
+    return undefined;
+  }
 }

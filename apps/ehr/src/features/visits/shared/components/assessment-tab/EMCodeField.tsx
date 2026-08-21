@@ -22,9 +22,17 @@ export interface EMCodeFieldProps {
   emCode?: CPTCodeDTO;
   /** Called after a save or delete lands, so a page with its own chart query can refresh it. */
   onSaved?: () => void;
+  /**
+   * Focus the input on mount and open the dropdown with it.
+   *
+   * OPT-IN, as on DiagnosesField and CptCodeField: the Assessment page renders this field permanently, so
+   * autofocusing there would steal the caret whenever the page opened. It is for a field that appears in
+   * response to a click, where the click IS the request to start editing.
+   */
+  autoFocus?: boolean;
 }
 
-export const EMCodeField: FC<EMCodeFieldProps> = ({ encounterId, emCode: emCodeOverride, onSaved }) => {
+export const EMCodeField: FC<EMCodeFieldProps> = ({ encounterId, emCode: emCodeOverride, onSaved, autoFocus }) => {
   const { emCodes, isLoading: emCodesLoading } = useEMCodes();
   const { chartData, setPartialChartData } = useChartData();
   const emCode = emCodeOverride ?? chartData?.emCode;
@@ -75,6 +83,9 @@ export const EMCodeField: FC<EMCodeFieldProps> = ({ encounterId, emCode: emCodeO
 
   return (
     <Autocomplete
+      // Paired with autoFocus: focusing without this leaves the caret in a closed field, which reads as
+      // nothing having happened.
+      openOnFocus={autoFocus}
       disabled={isSaveLoading || isDeleteLoading || emCodesLoading}
       options={emCodes}
       data-testid={dataTestIds.assessmentCard.emCodeDropdown}
@@ -82,7 +93,9 @@ export const EMCodeField: FC<EMCodeFieldProps> = ({ encounterId, emCode: emCodeO
       value={emCode ? { display: emCode.display, code: emCode.code } : null}
       getOptionLabel={(option) => option.display}
       onChange={(_e, value) => onChange(value)}
-      renderInput={(params) => <TextField {...params} size="small" label="E&M code" placeholder="Search E&M code" />}
+      renderInput={(params) => (
+        <TextField {...params} autoFocus={autoFocus} size="small" label="E&M code" placeholder="Search E&M code" />
+      )}
     />
   );
 };
