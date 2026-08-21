@@ -13,7 +13,7 @@ import {
 } from 'fhir/r4b';
 import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
 import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import {
@@ -45,6 +45,11 @@ import {
   buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   getClaimService,
   getClaimType,
   getClaimTypeCoding,
@@ -342,6 +347,14 @@ const READERS: Record<string, FieldReader> = {
   placeOfServiceCodes: (m) =>
     (m.claim.item ?? []).map((item) => item.locationCodeableConcept?.coding?.[0]?.code).filter((c): c is string => !!c),
   serviceLineCount: (m) => String(m.claim.item?.length ?? 0),
+  billType: (m) => {
+    const facilityTypeCode = getExtension(m.claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
+    const frequencyCode = getExtension(m.claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
+    return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
+  },
+  patientDischargeStatusCode: (m) => getExtension(m.claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
+  admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
+  admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
 
   ...statusFieldReaders(),
 
@@ -641,6 +654,61 @@ const setServiceDate = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
+const setBillType = (claim: Claim, value: string | null): boolean => {
+  if (!value || value.length !== 4) return false;
+  claim.extension = [
+    ...(claim.extension ?? []).filter(
+      (extension) =>
+        extension.url !== EXTENSION_CLAIM_FACILITY_TYPE_CODE && extension.url !== EXTENSION_CLAIM_FREQUENCY_CODE
+    ),
+    {
+      url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+      valueString: value.substring(1, 3),
+    },
+    {
+      url: EXTENSION_CLAIM_FREQUENCY_CODE,
+      valueString: value.substring(3, 4),
+    },
+  ];
+  return true;
+};
+
+const setPatientDischargeStatusCode = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  claim.extension = [
+    ...(claim.extension ?? []),
+    {
+      url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+      valueString: value,
+    },
+  ];
+  return true;
+};
+
+const setAdmissionType = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  claim.extension = [
+    ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_ADMISSION_TYPE_CODE),
+    {
+      url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+      valueString: value,
+    },
+  ];
+  return true;
+};
+
+const setAdmissionSource = (claim: Claim, value: string | null): boolean => {
+  if (!value) return false;
+  claim.extension = [
+    ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE),
+    {
+      url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+      valueString: value,
+    },
+  ];
+  return true;
+};
+
 const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string | null): boolean => {
   const code = value ?? '';
   if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key], code)) return false;
@@ -776,6 +844,10 @@ const WRITERS: Record<string, FieldWriter> = {
   type: (m, v) => setClaimType(m.claim, v),
   service: (m, v) => setClaimService(m.claim, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),
+  billType: (m, v) => setBillType(m.claim, v),
+  patientDischargeStatusCode: (m, v) => setPatientDischargeStatusCode(m.claim, v),
+  admissionType: (m, v) => setAdmissionType(m.claim, v),
+  admissionSource: (m, v) => setAdmissionSource(m.claim, v),
 
   ...statusFieldWriters(),
 
