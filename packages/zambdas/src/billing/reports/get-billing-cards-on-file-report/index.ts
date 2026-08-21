@@ -285,23 +285,20 @@ async function fetchOpenInvoices(
 ): Promise<Map<string, OpenInvoiceSummary>> {
   const byCustomerId = new Map<string, OpenInvoiceSummary>();
   const nowSeconds = Math.floor(Date.now() / 1000);
+  // account failures propagate: a partial result must not be cached as the complete report
   for (const stripeAccount of accounts) {
-    try {
-      const listing = stripe.invoices.list({ status: 'open', limit: 100 }, { stripeAccount });
-      for await (const invoice of listing) {
-        const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
-        if (!customerId) continue;
-        const summary = byCustomerId.get(customerId) ?? { count: 0, amountDue: 0, pastDue: false };
-        summary.count += 1;
-        summary.amountDue += (invoice.amount_due ?? 0) / 100;
-        // no due_date = automatic collection; an open invoice with attempts means the charge failed
-        if (invoice.due_date ? invoice.due_date < nowSeconds : (invoice.attempt_count ?? 0) > 0) {
-          summary.pastDue = true;
-        }
-        byCustomerId.set(customerId, summary);
+    const listing = stripe.invoices.list({ status: 'open', limit: 100 }, { stripeAccount });
+    for await (const invoice of listing) {
+      const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+      if (!customerId) continue;
+      const summary = byCustomerId.get(customerId) ?? { count: 0, amountDue: 0, pastDue: false };
+      summary.count += 1;
+      summary.amountDue += (invoice.amount_due ?? 0) / 100;
+      // no due_date = automatic collection; an open invoice with attempts means the charge failed
+      if (invoice.due_date ? invoice.due_date < nowSeconds : (invoice.attempt_count ?? 0) > 0) {
+        summary.pastDue = true;
       }
-    } catch (err) {
-      console.warn(`Failed to list open invoices for account ${stripeAccount ?? 'platform'}:`, (err as Error)?.message);
+      byCustomerId.set(customerId, summary);
     }
   }
   return byCustomerId;
@@ -311,24 +308,21 @@ async function listAllCustomers(stripe: Stripe, accounts: (string | undefined)[]
   const customers: CustomerWithAccount[] = [];
   // the platform key and a connected-account listing can return the same customer objects
   const seenCustomerIds = new Set<string>();
+  // account failures propagate: a partial result must not be cached as the complete report
   for (const stripeAccount of accounts) {
-    try {
-      // auto-pagination walks every page; default_source expanded so legacy card customers skip the PM lookup
-      const listing = stripe.customers.list(
-        {
-          limit: CUSTOMER_PAGE_SIZE,
-          expand: ['data.invoice_settings.default_payment_method', 'data.default_source'],
-        },
-        { stripeAccount }
-      );
-      for await (const customer of listing) {
-        if (seenCustomerIds.has(customer.id)) continue;
-        seenCustomerIds.add(customer.id);
-        customers.push({ customer, stripeAccount });
-        if (customers.length >= MAX_CUSTOMERS) break;
-      }
-    } catch (err) {
-      console.warn(`Failed to list customers for account ${stripeAccount ?? 'platform'}:`, (err as Error)?.message);
+    // auto-pagination walks every page; default_source expanded so legacy card customers skip the PM lookup
+    const listing = stripe.customers.list(
+      {
+        limit: CUSTOMER_PAGE_SIZE,
+        expand: ['data.invoice_settings.default_payment_method', 'data.default_source'],
+      },
+      { stripeAccount }
+    );
+    for await (const customer of listing) {
+      if (seenCustomerIds.has(customer.id)) continue;
+      seenCustomerIds.add(customer.id);
+      customers.push({ customer, stripeAccount });
+      if (customers.length >= MAX_CUSTOMERS) break;
     }
     if (customers.length >= MAX_CUSTOMERS) break;
   }
@@ -387,13 +381,15 @@ async function resolveCards(
   return { cardByCustomerId, pending };
 }
 
-// batched paymentMethods.list per customer, with rate-limit retries
+// batched paymentMethods.list per customer, with rate-limit retries. A lookup that still fails
+// throws: "no card" is a billing fact, so an error must not be cached as one. The thrown
+// invocation leaves the previous cache and pending queue intact, making the batch retryable.
 async function lookupCards(stripe: Stripe, entries: PendingLookup[]): Promise<Map<string, CardSummary>> {
   const cardByCustomerId = new Map<string, CardSummary>();
   for (let i = 0; i < entries.length; i += PM_LOOKUP_CONCURRENCY) {
     await Promise.all(
       entries.slice(i, i + PM_LOOKUP_CONCURRENCY).map(async ({ customerId, stripeAccount }) => {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; ; attempt++) {
           try {
             const methods = await stripe.paymentMethods.list(
               { customer: customerId, type: 'card', limit: 1 },
@@ -414,8 +410,7 @@ async function lookupCards(stripe: Stripe, entries: PendingLookup[]): Promise<Ma
               await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
               continue;
             }
-            console.warn(`Failed to list payment methods for ${customerId}:`, (err as Error)?.message);
-            return;
+            throw new Error(`Failed to list payment methods for ${customerId}: ${(err as Error)?.message}`);
           }
         }
       })

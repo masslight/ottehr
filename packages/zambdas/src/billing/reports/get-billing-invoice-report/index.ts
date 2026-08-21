@@ -204,16 +204,13 @@ function computeAgingTrend(invoices: InvoiceWithAccount[]): InvoiceAgingTrendPoi
 async function listAllInvoices(stripe: Stripe, accounts: (string | undefined)[]): Promise<InvoiceWithAccount[]> {
   const invoices: InvoiceWithAccount[] = [];
   const seenInvoiceIds = new Set<string>();
+  // account failures propagate: a partial aging trend must not be cached as the complete report
   for (const stripeAccount of accounts) {
-    try {
-      const listing = stripe.invoices.list({ limit: 100 }, { stripeAccount });
-      for await (const invoice of listing) {
-        if (seenInvoiceIds.has(invoice.id)) continue;
-        seenInvoiceIds.add(invoice.id);
-        invoices.push({ invoice, stripeAccount });
-      }
-    } catch (err) {
-      console.warn(`Failed to list invoices for account ${stripeAccount ?? 'platform'}:`, (err as Error)?.message);
+    const listing = stripe.invoices.list({ limit: 100 }, { stripeAccount });
+    for await (const invoice of listing) {
+      if (seenInvoiceIds.has(invoice.id)) continue;
+      seenInvoiceIds.add(invoice.id);
+      invoices.push({ invoice, stripeAccount });
     }
   }
   return invoices;
@@ -327,27 +324,24 @@ async function listStripeAccounts(oystehr: Oystehr): Promise<(string | undefined
 async function listOpenInvoices(stripe: Stripe, accounts: (string | undefined)[]): Promise<InvoiceWithAccount[]> {
   const invoices: InvoiceWithAccount[] = [];
   const seenInvoiceIds = new Set<string>();
+  // account failures propagate: a partial result must not be cached as the complete report
   for (const stripeAccount of accounts) {
-    try {
-      const listing = stripe.invoices.list(
-        {
-          status: 'open',
-          limit: 100,
-          expand: [
-            'data.customer.invoice_settings.default_payment_method',
-            'data.customer.default_source',
-            'data.charge',
-          ],
-        },
-        { stripeAccount }
-      );
-      for await (const invoice of listing) {
-        if (seenInvoiceIds.has(invoice.id)) continue;
-        seenInvoiceIds.add(invoice.id);
-        invoices.push({ invoice, stripeAccount });
-      }
-    } catch (err) {
-      console.warn(`Failed to list open invoices for account ${stripeAccount ?? 'platform'}:`, (err as Error)?.message);
+    const listing = stripe.invoices.list(
+      {
+        status: 'open',
+        limit: 100,
+        expand: [
+          'data.customer.invoice_settings.default_payment_method',
+          'data.customer.default_source',
+          'data.charge',
+        ],
+      },
+      { stripeAccount }
+    );
+    for await (const invoice of listing) {
+      if (seenInvoiceIds.has(invoice.id)) continue;
+      seenInvoiceIds.add(invoice.id);
+      invoices.push({ invoice, stripeAccount });
     }
   }
   return invoices;
@@ -398,7 +392,9 @@ async function resolveCards(
   for (let i = 0; i < needLookup.length; i += PM_LOOKUP_CONCURRENCY) {
     await Promise.all(
       needLookup.slice(i, i + PM_LOOKUP_CONCURRENCY).map(async ({ customerId, stripeAccount }) => {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        // a missing map entry means "no card" and drives the past-due-no-card bucket, so a
+        // failed lookup must throw rather than masquerade as that fact
+        for (let attempt = 0; ; attempt++) {
           try {
             const methods = await stripe.paymentMethods.list(
               { customer: customerId, type: 'card', limit: 1 },
@@ -418,8 +414,7 @@ async function resolveCards(
               await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
               continue;
             }
-            console.warn(`Failed to list payment methods for ${customerId}:`, (err as Error)?.message);
-            return;
+            throw new Error(`Failed to list payment methods for ${customerId}: ${(err as Error)?.message}`);
           }
         }
       })
