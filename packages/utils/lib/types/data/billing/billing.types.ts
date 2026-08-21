@@ -5,6 +5,8 @@ import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
 
+export type ClaimCoverageType = 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+
 // Insurance types in display order, with the labels shown across the billing app.
 export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
   { value: 'primary', label: 'Primary' },
