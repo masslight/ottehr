@@ -31,7 +31,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (112 properties, 99 of them settable).
+actually support (116 properties, 103 of them settable).
 
 ## Conditions
 
