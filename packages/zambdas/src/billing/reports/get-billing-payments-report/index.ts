@@ -253,8 +253,9 @@ export function measureReportFromRows(input: {
     measure: PAYMENTS_REPORT_MEASURE_URL,
     identifier: [{ system: REPORT_IDENTIFIER_SYSTEM, value: cacheKey }],
     date: generatedAt,
+    // period is required and must be non-empty; all-time falls back like the patient-payments report
     period: {
-      ...(params.dateFrom ? { start: params.dateFrom } : {}),
+      start: params.dateFrom ?? generatedAt,
       ...(params.dateTo ? { end: params.dateTo } : {}),
     },
     group: [

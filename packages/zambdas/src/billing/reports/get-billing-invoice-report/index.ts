@@ -183,8 +183,10 @@ function computeAgingTrend(invoices: InvoiceWithAccount[]): InvoiceAgingTrendPoi
       if (Number.isFinite(closedAt) && closedAt <= t) continue;
       const amount = (invoice.amount_due ?? 0) / 100;
       let key = NOT_YET_DUE;
-      if (invoice.due_date && invoice.due_date <= t) {
-        const days = Math.floor((t - invoice.due_date) / 86400);
+      // automatic-collection invoices (no due_date) with a failed charge age from finalization
+      const agingAnchor = invoice.due_date ?? ((invoice.attempt_count ?? 0) > 0 ? issuedAt : undefined);
+      if (agingAnchor && agingAnchor <= t) {
+        const days = Math.floor((t - agingAnchor) / 86400);
         key = (TREND_BUCKETS.find((bucket) => days >= bucket.minDays && days < bucket.maxDays) ?? TREND_BUCKETS[0]).key;
       }
       buckets[key].count += 1;
@@ -277,8 +279,9 @@ async function saveCachedReport(oystehr: Oystehr, response: GetBillingInvoiceRep
   }
 }
 
+// no due_date = automatic collection; an open invoice with attempts means the charge failed
 const isPastDue = (invoice: Stripe.Invoice, nowSeconds: number): boolean =>
-  !!invoice.due_date && invoice.due_date < nowSeconds;
+  invoice.due_date ? invoice.due_date < nowSeconds : (invoice.attempt_count ?? 0) > 0;
 
 const customerIdOf = (invoice: Stripe.Invoice): string | undefined =>
   typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
