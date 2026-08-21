@@ -1259,6 +1259,7 @@ function ServiceLinesSection({
                 <TableCell sx={thSx}>Modifiers</TableCell>
                 <TableCell sx={thSx}>Dx</TableCell>
                 <TableCell sx={thSx}>POS</TableCell>
+                {claim.type === 'institutional' && <TableCell sx={thSx}>Rev Code</TableCell>}
                 <TableCell sx={thSx}>Qty</TableCell>
                 <TableCell sx={thSx} align="right">
                   Billed
@@ -1274,6 +1275,7 @@ function ServiceLinesSection({
                   <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
                   <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
                   <TableCell>{line.placeOfService || '-'}</TableCell>
+                  {claim.type === 'institutional' && <TableCell>{line.revenueCode || '-'}</TableCell>}
                   <TableCell>{line.units} UN</TableCell>
                   <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
                 </TableRow>

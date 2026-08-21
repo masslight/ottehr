@@ -123,7 +123,6 @@ export function ServiceLinesEditor({
             <TextField
               size="small"
               label="Rev Code"
-              type="number"
               value={row.revenueCode}
               onChange={(e) => setRow(i, 'revenueCode', e.target.value.replace(/[^0-9]/g, ''))}
               sx={{ width: 150 }}
