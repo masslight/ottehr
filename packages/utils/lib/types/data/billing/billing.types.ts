@@ -631,6 +631,8 @@ export interface GetBillingPaymentsReportDrilldownResponse {
 }
 
 export interface PatientPaymentsReportRow {
+  // FHIR Location id resolved via encounter → appointment → participant ('' when unresolved)
+  locationId: string;
   locationName: string;
   paymentMethod: string;
   paymentCount: number;
@@ -655,7 +657,7 @@ export interface PatientPaymentItem {
 
 export interface GetBillingPatientPaymentsReportResponse {
   rows: PatientPaymentsReportRow[];
-  totals: Omit<PatientPaymentsReportRow, 'locationName' | 'paymentMethod'>;
+  totals: Omit<PatientPaymentsReportRow, 'locationId' | 'locationName' | 'paymentMethod'>;
   // present when detail was requested
   payments?: PatientPaymentItem[];
   generatedAt: string;

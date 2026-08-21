@@ -684,7 +684,8 @@ export const GetBillingPatientPaymentsReportInputSchema = z.object({
   refresh: z.boolean().optional(),
   // drill-down: include individual payments (optionally row-filtered) with live Stripe status
   detail: z.boolean().optional(),
-  locationName: nonEmptyString.optional(),
+  // FHIR Location id; 'none' selects payments with no resolvable location
+  locationId: nonEmptyString.optional(),
   paymentMethod: nonEmptyString.optional(),
 });
 

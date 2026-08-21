@@ -30,9 +30,11 @@ const UNKNOWN_LOCATION = 'Unknown Location';
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
-const CACHE_KEY_PREFIX = 'patient-payments:v1';
+const CACHE_KEY_PREFIX = 'patient-payments:v2';
 const MEASURE_URL = 'https://fhir.ottehr.com/billing/measures/patient-payments';
 const ROW_METRIC_KEYS = ['collected', 'refunded', 'net'] as const;
+// locationId filter value selecting payments with no resolvable location
+const NO_LOCATION = 'none';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -137,15 +139,16 @@ export async function performEffect(
     oystehr,
     'Claim',
     notices.map(noticeClaimId).filter(Boolean) as string[],
-    'id,facility,patient'
+    'id,patient'
   );
 
-  // clinical chain for the visit link and the location fallback: encounter → appointment → location
+  // location resolution matches the EHR daily payments report: notice → encounter → appointment →
+  // participant Location, keyed by Location id
   const encountersById = await fetchResourcesById<Encounter>(
     untaggedClient,
     'Encounter',
     notices.map(noticeEncounterId).filter(Boolean) as string[],
-    'id,appointment,location,period'
+    'id,appointment,period'
   );
   const appointmentsById = await fetchResourcesById<Appointment>(
     untaggedClient,
@@ -174,35 +177,31 @@ export async function performEffect(
   const locationsById = await fetchResourcesById<Location>(
     untaggedClient,
     'Location',
-    [
-      ...[...claimsById.values()].map((claim) => claim.facility?.reference?.replace('Location/', '')),
-      ...[...appointmentsById.values()].map(appointmentLocationId),
-      ...[...encountersById.values()].map(
-        (encounter) => encounter.location?.[0]?.location?.reference?.replace('Location/', '')
-      ),
-    ].filter((id): id is string => !!id && isValidUUID(id)),
+    [...appointmentsById.values()].map(appointmentLocationId).filter((id): id is string => !!id && isValidUUID(id)),
     'id,name'
   );
 
-  // claim facility → appointment location → encounter location
-  const locationNameOf = (notice: PaymentNotice): string => {
-    const claim = noticeClaimId(notice) ? claimsById.get(noticeClaimId(notice) ?? '') : undefined;
-    const locationId =
-      claim?.facility?.reference?.replace('Location/', '') ??
-      appointmentLocationId(appointmentOf(notice)) ??
-      encounterOf(notice)?.location?.[0]?.location?.reference?.replace('Location/', '');
-    return (locationId ? locationsById.get(locationId)?.name : undefined) ?? UNKNOWN_LOCATION;
-  };
+  const locationIdOf = (notice: PaymentNotice): string => appointmentLocationId(appointmentOf(notice)) ?? '';
+  const locationNameOf = (locationId: string): string =>
+    (locationId ? locationsById.get(locationId)?.name : undefined) ?? UNKNOWN_LOCATION;
 
   // rollup: location × payment category
   const rowsByKey = new Map<string, PatientPaymentsReportRow>();
   for (const notice of notices) {
-    const locationName = locationNameOf(notice);
+    const locationId = locationIdOf(notice);
     const paymentMethod = noticeCategory(notice);
-    const key = `${locationName}|${paymentMethod}`;
+    const key = `${locationId}|${paymentMethod}`;
     let row = rowsByKey.get(key);
     if (!row) {
-      row = { locationName, paymentMethod, paymentCount: 0, collected: 0, refunded: 0, net: 0 };
+      row = {
+        locationId,
+        locationName: locationNameOf(locationId),
+        paymentMethod,
+        paymentCount: 0,
+        collected: 0,
+        refunded: 0,
+        net: 0,
+      };
       rowsByKey.set(key, row);
     }
     const amount = notice.amount?.value ?? 0;
@@ -233,7 +232,7 @@ export async function performEffect(
 
   const detailNotices = notices.filter(
     (notice) =>
-      (!params.locationName || locationNameOf(notice) === params.locationName) &&
+      (!params.locationId || locationIdOf(notice) === (params.locationId === NO_LOCATION ? '' : params.locationId)) &&
       (!params.paymentMethod || noticeCategory(notice) === params.paymentMethod)
   );
 
@@ -267,7 +266,7 @@ export async function performEffect(
       return {
         date: notice.created ?? '',
         patientName: fhirName(patientId ? patientsById.get(patientId) : undefined),
-        locationName: locationNameOf(notice),
+        locationName: locationNameOf(locationIdOf(notice)),
         paymentMethod: noticeCategory(notice),
         amount: roundNumberToDecimalPlaces(notice.amount?.value ?? 0, 2),
         stripeStatus: stripeStatuses[index],
@@ -329,7 +328,11 @@ async function saveCachedRollup(
     // period is required and must be non-empty (ele-1)
     period: { start: params.dateFrom ?? generatedAt, ...(params.dateTo ? { end: params.dateTo } : {}) },
     group: rows.map((row) => ({
-      code: { text: `${row.locationName}|${row.paymentMethod}` },
+      code: {
+        text: `${row.locationName}|${row.paymentMethod}`,
+        // locationId travels in the coding so cached rows keep the definitive key
+        ...(row.locationId ? { coding: [{ system: REPORT_IDENTIFIER_SYSTEM, code: row.locationId }] } : {}),
+      },
       population: [{ code: { text: 'payments' }, count: row.paymentCount }],
       stratifier: [
         {
@@ -357,6 +360,7 @@ async function saveCachedRollup(
 function rowsFromCache(report: MeasureReport): PatientPaymentsReportRow[] {
   return (report.group ?? []).map((group) => {
     const [locationName = UNKNOWN_LOCATION, paymentMethod = 'unknown'] = (group.code?.text ?? '').split('|');
+    const locationId = group.code?.coding?.find((c) => c.system === REPORT_IDENTIFIER_SYSTEM)?.code ?? '';
     const metrics = new Map(
       (group.stratifier?.[0]?.stratum ?? []).map((stratum) => [
         stratum.value?.text ?? '',
@@ -364,6 +368,7 @@ function rowsFromCache(report: MeasureReport): PatientPaymentsReportRow[] {
       ])
     );
     return {
+      locationId,
       locationName,
       paymentMethod,
       paymentCount: group.population?.[0]?.count ?? 0,

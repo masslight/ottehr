@@ -901,7 +901,7 @@ export default function PaymentsReport(): ReactElement {
       <DataGridPro
         autoHeight
         rows={patientReport?.rows ?? []}
-        getRowId={(row) => `${row.locationName}|${row.paymentMethod}`}
+        getRowId={(row) => `${row.locationId || row.locationName}|${row.paymentMethod}`}
         columns={patientPaymentColumns}
         loading={patientLoading}
         disableRowSelectionOnClick
@@ -912,7 +912,8 @@ export default function PaymentsReport(): ReactElement {
           setPatientDrilldown({
             title: `${row.locationName} — ${methodLabel(row.paymentMethod)} Payments`,
             params: {
-              locationName: row.locationName,
+              // 'none' selects payments with no resolvable location
+              locationId: row.locationId || 'none',
               paymentMethod: row.paymentMethod,
               ...(dateFrom ? { dateFrom } : {}),
               ...(dateTo ? { dateTo } : {}),
