@@ -925,6 +925,7 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     required: false,
     whenBlank: 'points at the first diagnosis (1)',
   },
+  { id: 'revenueCode', label: 'Revenue code', valueType: 'string', required: false },
 ];
 
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule

@@ -31,7 +31,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (68 properties, 58 of them settable).
+actually support (72 properties, 62 of them settable).
 
 ## Conditions
 
@@ -83,6 +83,10 @@ Which operators a property supports depends on its type (see the property tables
 | Duplicate CPT codes | `duplicateCptCodes` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The CPT/HCPCS codes that appear on more than one service line (empty when every line has a distinct code). "Is present" detects any duplicate billing; "contains" detects duplicates of a specific code. |
 | Place of service codes | `placeOfServiceCodes` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The list of CMS place-of-service codes across the service lines. Change per-line codes with the "Update service lines" action; the service facility place of service applies to future claims. |
 | Service line count | `serviceLineCount` | number | equals, does not equal, is greater than, is at least, is less than, is at most | no | The number of service lines on the claim (0 when there are none). |
+| Bill Type | `billType` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Bill Type code on the claim |
+| Patient Discharge Status Code | `patientDischargeStatusCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Patient Discharge Status Code on the claim |
+| Admission Type | `admissionType` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Admission Type code on the claim |
+| Point of Origin / Admission Source | `admissionSource` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Point of Origin / Admission Source code on the claim |
 
 ### Claim status
 
@@ -203,6 +207,7 @@ touches.
 | Charges | `charges` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed. |
 | Place of service code | `placeOfService` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. Allowed values: any CMS place-of-service code. |
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). |
+| Rev Code | `revenueCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Revenue code of the procedure. |
 
 ## Actions
 
