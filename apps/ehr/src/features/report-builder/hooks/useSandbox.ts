@@ -89,6 +89,12 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
   const [rendering, setRendering] = useState(false);
   const [srcDoc, setSrcDoc] = useState<string | null>(null);
 
+  const finishRendering = useCallback((): void => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setRendering(false);
+  }, []);
+
   const handleLoad = useCallback((): void => {
     loadCountRef.current += 1;
     if (loadCountRef.current > 1 && !tornDownRef.current) {
@@ -97,18 +103,22 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       if (frame) frame.srcdoc = '<!DOCTYPE html><html><body></body></html>';
       console.error('[AdHocReport] report frame attempted to navigate away — blanked for safety');
       captureException(new Error('Ad-hoc report frame attempted to navigate away — blanked for safety'));
+      finishRendering();
       onErrorRef.current('The report was stopped because it attempted to navigate away from the page.');
     }
-  }, []);
+  }, [finishRendering]);
 
   const postRender = useCallback(() => {
     const win = ref.current?.contentWindow;
     if (!readyRef.current || !win) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => onErrorRef.current(SANDBOX_TIMEOUT_MESSAGE), TIMEOUT_MS);
+    timerRef.current = setTimeout(() => {
+      finishRendering();
+      onErrorRef.current(SANDBOX_TIMEOUT_MESSAGE);
+    }, TIMEOUT_MS);
     setRendering(true);
     win.postMessage({ type: 'render', code, data, schema, muiLicenseKey: MUI_X_LICENSE_KEY }, '*');
-  }, [code, data, schema]);
+  }, [code, data, schema, finishRendering]);
 
   const handleFrameEvent = useCallback((raw: unknown): void => {
     const parsed = AdHocFrameEventSchema.safeParse(raw);
@@ -165,8 +175,7 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
         readyRef.current = true;
         postRender();
       } else if (msg.type === 'rendered') {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        setRendering(false);
+        finishRendering();
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 24, MIN_HEIGHT), MAX_HEIGHT));
         onRenderedRef.current?.();
       } else if (msg.type === 'resize') {
@@ -176,8 +185,7 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
           showAdHocDebugLog('sandbox', 'non-fatal error in a rendered report (ignored)', msg.message);
           return;
         }
-        if (timerRef.current) clearTimeout(timerRef.current);
-        setRendering(false);
+        finishRendering();
         const errorMessage = msg.message || 'The report code threw an error.';
         onErrorRef.current(errorMessage);
         captureException(new Error(errorMessage));
@@ -188,7 +196,7 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       window.removeEventListener('message', handler);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [postRender, handleFrameEvent]);
+  }, [postRender, handleFrameEvent, finishRendering]);
 
   // (Re)render whenever the code or data changes and the frame is ready.
   useEffect(() => {
