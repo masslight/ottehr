@@ -25,6 +25,7 @@ import {
 import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
@@ -364,50 +365,35 @@ async function attachClaimResources(
   }
 
   if (fields.billType) {
-    claim.extension = [
-      ...(claim.extension ?? []).filter(
-        (extension) =>
-          extension.url !== EXTENSION_CLAIM_FACILITY_TYPE_CODE && extension.url !== EXTENSION_CLAIM_FREQUENCY_CODE
-      ),
-      {
-        url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
-        valueString: fields.billType.substring(1, 3),
-      },
-      {
-        url: EXTENSION_CLAIM_FREQUENCY_CODE,
-        valueString: fields.billType.substring(3, 4),
-      },
-    ];
+    updateExtension(claim, {
+      url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+      valueString: fields.billType.substring(1, 3),
+    });
+    updateExtension(claim, {
+      url: EXTENSION_CLAIM_FREQUENCY_CODE,
+      valueString: fields.billType.substring(3, 4),
+    });
   }
 
   if (fields.admissionType) {
-    claim.extension = [
-      ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_ADMISSION_TYPE_CODE),
-      {
-        url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
-        valueString: fields.admissionType,
-      },
-    ];
+    updateExtension(claim, {
+      url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+      valueString: fields.admissionType,
+    });
   }
 
   if (fields.admissionSource) {
-    claim.extension = [
-      ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE),
-      {
-        url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
-        valueString: fields.admissionSource,
-      },
-    ];
+    updateExtension(claim, {
+      url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+      valueString: fields.admissionSource,
+    });
   }
 
   if (fields.patientDischargeStatusCode) {
-    claim.extension = [
-      ...(claim.extension ?? []).filter((extension) => extension.url !== EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS),
-      {
-        url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
-        valueString: fields.patientDischargeStatusCode,
-      },
-    ];
+    updateExtension(claim, {
+      url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+      valueString: fields.patientDischargeStatusCode,
+    });
   }
 
   return commitClaimResourceChange(oystehr, {
