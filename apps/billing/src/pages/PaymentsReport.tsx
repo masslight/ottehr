@@ -357,6 +357,7 @@ const methodLabel = (method: string): string => {
 const stripeStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
   if (status === 'Paid' || status === 'Invoice paid') return 'success';
   if (status === 'Invoice past due') return 'error';
+  if (status === 'Invoice status unavailable') return 'default';
   if (status.startsWith('Invoice') || status.includes('refunded') || status === 'Refunded') return 'warning';
   return 'default';
 };

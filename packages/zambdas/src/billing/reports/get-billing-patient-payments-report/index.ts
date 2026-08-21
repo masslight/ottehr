@@ -437,7 +437,7 @@ async function resolveStripeStatuses(
       const invoiceId = invoiceIdOf(notice);
       if (invoiceId) {
         const invoice = await fetchInvoice(invoiceId, notice);
-        if (!invoice) return 'Invoice paid';
+        if (!invoice) return 'Invoice status unavailable';
         if (invoice.status === 'paid') return 'Invoice paid';
         if (invoice.status === 'open') {
           const pastDue = invoice.due_date && invoice.due_date * 1000 < Date.now();
