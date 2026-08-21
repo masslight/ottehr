@@ -9,6 +9,13 @@ const makeImage = async (mime: typeof JimpMime.jpeg | typeof JimpMime.png): Prom
   return Uint8Array.from((await image.getBuffer(mime)) as unknown as Uint8Array);
 };
 
+/** Copies into a fresh ArrayBuffer: a view's .buffer is ArrayBufferLike, which ImageItem does not take. */
+const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer => {
+  const buffer = new ArrayBuffer(bytes.length);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+};
+
 const documentWith = (imageItems: Document['imageItems']): Document => ({
   patientInfo: { name: 'Test Patient', id: 'patient-id', friendlyId: 'ABC-123' },
   visitInfo: { type: 'In Person', time: '10:00 AM', date: '08/10/2026' },
@@ -38,7 +45,7 @@ describe('paperwork-to-pdf image rendering', () => {
     // output proves the JPEG decoder was used.
     const jpeg = await makeImage(JimpMime.jpeg);
     const pdf = await generatePdf(
-      documentWith([{ title: 'Insurance card front (secondary)', imageBytes: Promise.resolve(jpeg.buffer) }])
+      documentWith([{ title: 'Insurance card front (secondary)', imageBytes: Promise.resolve(toArrayBuffer(jpeg)) }])
     );
     const saved = await pdf.save();
 
@@ -48,7 +55,9 @@ describe('paperwork-to-pdf image rendering', () => {
 
   it('embeds a real PNG', async () => {
     const png = await makeImage(JimpMime.png);
-    const pdf = await generatePdf(documentWith([{ title: 'Photo ID front', imageBytes: Promise.resolve(png.buffer) }]));
+    const pdf = await generatePdf(
+      documentWith([{ title: 'Photo ID front', imageBytes: Promise.resolve(toArrayBuffer(png)) }])
+    );
 
     expect((await pdf.save()).length).toBeGreaterThan(0);
     expect(console.error).not.toHaveBeenCalled();
@@ -58,9 +67,12 @@ describe('paperwork-to-pdf image rendering', () => {
     const jpeg = await makeImage(JimpMime.jpeg);
     const pdf = await generatePdf(
       documentWith([
-        { title: 'Insurance card front', imageBytes: Promise.resolve(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer) },
+        {
+          title: 'Insurance card front',
+          imageBytes: Promise.resolve(toArrayBuffer(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))),
+        },
         { title: 'Insurance card back', imageBytes: Promise.reject(new Error('z3 download failed')) },
-        { title: 'Photo ID front', imageBytes: Promise.resolve(jpeg.buffer) },
+        { title: 'Photo ID front', imageBytes: Promise.resolve(toArrayBuffer(jpeg)) },
       ])
     );
     const saved = await pdf.save();
