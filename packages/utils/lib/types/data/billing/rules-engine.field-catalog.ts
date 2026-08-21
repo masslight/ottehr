@@ -610,6 +610,42 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: false,
     description: 'The number of service lines on the claim (0 when there are none).',
   },
+  {
+    id: 'billType',
+    label: 'Bill Type',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Bill Type code on the claim',
+  },
+  {
+    id: 'patientDischargeStatusCode',
+    label: 'Patient Discharge Status Code',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Patient Discharge Status Code on the claim',
+  },
+  {
+    id: 'admissionType',
+    label: 'Admission Type',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Admission Type code on the claim',
+  },
+  {
+    id: 'admissionSource',
+    label: 'Point of Origin / Admission Source',
+    group: 'claim',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Point of Origin / Admission Source code on the claim',
+  },
 
   // --- Claim status indicators ---
   ...STATUS_FIELDS,
@@ -860,6 +896,14 @@ export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
     settable: true,
     description: "The line's date of service (YYYY-MM-DD).",
   },
+  {
+    id: 'revenueCode',
+    label: 'Rev Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Revenue code of the procedure.',
+  },
 ];
 
 const SERVICE_LINE_PROPERTIES_BY_ID = new Map(SERVICE_LINE_PROPERTY_CATALOG.map((p) => [p.id, p]));
@@ -919,6 +963,7 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     required: false,
     whenBlank: 'points at the first diagnosis (1)',
   },
+  { id: 'revenueCode', label: 'Revenue code', valueType: 'string', required: false },
 ];
 
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
