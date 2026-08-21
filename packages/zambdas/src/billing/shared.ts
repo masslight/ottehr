@@ -74,6 +74,7 @@ import {
   BillingProviderOption,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  ClaimCoverageType,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -1226,26 +1227,13 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's primary (focal) coverage slot at `coverageReference` and its insurer at the
+// Point the claim's coverage slot at `coverageReference` and its insurer at the
 // coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
 // ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
-export function attachPrimaryCoverageToClaim(params: {
-  claim: Claim;
-  coverageReference: string;
-  display?: string;
-  payerReference?: string;
-}): void {
-  const { claim, coverageReference, display, payerReference } = params;
-  claim.insurance = ensureClaimInsurance([
-    { sequence: 1, focal: true, coverage: { reference: coverageReference, display } },
-    ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-  ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
-}
 export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
-  type: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
 }): void {
