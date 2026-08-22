@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.13.0 <23",
     "npm": ">=10.0.0"
   },
   "browserslist": {

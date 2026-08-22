@@ -59,6 +59,9 @@ export default (env: any): Record<string, any> => {
       server: {
         open: !process.env.VITE_NO_OPEN,
         host: '0.0.0.0',
+        watch: {
+          ignored: ['**/.env.local'],
+        },
         https:
           tlsCertExists && tlsKeyExists
             ? {

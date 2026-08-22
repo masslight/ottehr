@@ -46,7 +46,7 @@
     "setup-test-deps": "node setup-test-deps.js"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.13.0 <23",
     "npm": ">=10.0.0"
   },
   "browserslist": {
@@ -64,8 +64,8 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "tsconfig": "*",
-    "vite-plugin-istanbul": "^6.0.2",
-    "vitest": "^3.0.4"
+    "vite-plugin-istanbul": "^9.0.1",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@mui/icons-material": "^5.11.16",

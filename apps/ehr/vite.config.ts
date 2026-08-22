@@ -6,7 +6,6 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv, UserConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 import { devStampRestartPlugin } from '../../vite/dev-stamp-restart';
 import { adHocReportRuntime } from './adhoc-report-runtime-plugin';
 
@@ -18,7 +17,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr(), adHocReportRuntime()];
+  const plugins = [devStampRestartPlugin(coreRoot), react(), svgr(), adHocReportRuntime()];
 
   const shouldUploadSentrySourceMaps =
     Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);
@@ -53,6 +52,9 @@ export default ({ mode }: { mode: string }): UserConfig => {
       open: !process.env.VITE_NO_OPEN,
       host: '0.0.0.0',
       port: env.PORT ? parseInt(env.PORT) : undefined,
+      watch: {
+        ignored: ['**/.env.local'],
+      },
       https:
         tlsCertExists && tlsKeyExists
           ? {
@@ -75,6 +77,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
     },
     resolve: {
       preserveSymlinks: true,
+      tsconfigPaths: true,
       alias: [
         // Resolve the workspace packages to their real source directories. `preserveSymlinks`
         // otherwise resolves them inside node_modules, where vite treats them as prebundlable

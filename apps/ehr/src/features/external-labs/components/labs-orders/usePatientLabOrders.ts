@@ -1,4 +1,4 @@
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,8 @@ import { tryFormatDateToISO } from 'utils/lib/utils/date';
 import { deleteLabOrder, getExternalLabOrders, updateLabOrderResources } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
