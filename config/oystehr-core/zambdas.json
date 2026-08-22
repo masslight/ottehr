@@ -1581,9 +1581,16 @@
       "name": "get-patient-medical-record",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "memorySize": "3008",
       "src": "src/ehr/get-patient-medical-record/index",
       "zip": ".dist/zips/get-patient-medical-record.zip"
+    },
+    "SUB-EXPORT-MEDICAL-RECORD": {
+      "name": "sub-export-medical-record",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "900",
+      "src": "src/subscriptions/task/sub-export-medical-record/index",
+      "zip": ".dist/zips/sub-export-medical-record.zip"
     },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
@@ -2768,6 +2775,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-INVOICES-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_EXPORT_MEDICAL_RECORD_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Build a patient medical record archive asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|export-medical-record&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-MEDICAL-RECORD/id}"
         },
         "extension": [
           {
