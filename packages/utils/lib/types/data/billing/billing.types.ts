@@ -581,6 +581,224 @@ export interface SearchBillingTagsResponse {
   tags: BillingTag[];
 }
 
+export interface PaymentsReportPayerRow {
+  payerId: string;
+  payerName: string;
+  eraCount: number;
+  claimCount: number;
+  billed: number;
+  allowed: number;
+  insurancePaid: number;
+  checkTotal: number;
+}
+
+export interface PaymentsReportWaterfallCell {
+  // 'YYYY-MM'; 'unknown' when the claim or its service date can't be resolved
+  serviceMonth: string;
+  // 'YYYY-MM' of the ERA check date
+  checkMonth: string;
+  paid: number;
+}
+
+export interface GetBillingPaymentsReportResponse {
+  rows: PaymentsReportPayerRow[];
+  totals: Omit<PaymentsReportPayerRow, 'payerId' | 'payerName'>;
+  // DOS-month × check-month matrix over all ERAs, independent of the report's date window
+  waterfall: PaymentsReportWaterfallCell[];
+  generatedAt: string;
+  fromCache: boolean;
+}
+
+export interface PaymentsReportDrilldownClaim {
+  patientName: string;
+  pcn: string;
+  dos: string;
+  billed: number;
+  allowed: number;
+  paid: number;
+  patientResp: number;
+}
+
+export interface PaymentsReportDrilldownEra {
+  id: string;
+  checkNumber: string;
+  checkDate: string;
+  payerName: string;
+  checkAmount: number;
+  claims: PaymentsReportDrilldownClaim[];
+}
+
+export interface GetBillingPaymentsReportDrilldownResponse {
+  eras: PaymentsReportDrilldownEra[];
+}
+
+export interface PatientPaymentsReportRow {
+  // FHIR Location id resolved via encounter → appointment → participant ('' when unresolved)
+  locationId: string;
+  locationName: string;
+  paymentMethod: string;
+  paymentCount: number;
+  collected: number;
+  refunded: number;
+  net: number;
+}
+
+export interface PatientPaymentItem {
+  date: string;
+  patientName: string;
+  locationName: string;
+  paymentMethod: string;
+  amount: number;
+  // live Stripe-derived status ('Paid', 'Invoice paid', 'Invoice past due', 'Refunded', ...); '' for manual payments
+  stripeStatus: string;
+  description: string;
+  // FHIR Appointment id of the visit the payment belongs to ('' when unresolved)
+  appointmentId: string;
+  encounterDate: string;
+}
+
+export interface GetBillingPatientPaymentsReportResponse {
+  rows: PatientPaymentsReportRow[];
+  totals: Omit<PatientPaymentsReportRow, 'locationId' | 'locationName' | 'paymentMethod'>;
+  // present when detail was requested
+  payments?: PatientPaymentItem[];
+  generatedAt: string;
+  fromCache?: boolean;
+}
+
+export interface CardOnFileReportRow {
+  stripeCustomerId: string;
+  customerName: string;
+  // connected account the customer lives on ('' = platform account)
+  stripeAccountId: string;
+  livemode: boolean;
+  patientId: string;
+  patientName: string;
+  // Stripe payment method id ('' = no card on file)
+  cardId: string;
+  cardBrand: string;
+  cardLast4: string;
+  lastVisitDate: string;
+  lastVisitAppointmentId: string;
+  // open (unpaid) Stripe invoices for this customer
+  openInvoiceCount: number;
+  openInvoiceAmount: number;
+  hasPastDueInvoice: boolean;
+}
+
+export interface GetBillingCardsOnFileReportResponse {
+  rows: CardOnFileReportRow[];
+  totals: { customers: number; withCard: number; withoutCard: number; withOpenInvoices: number };
+  // customers whose fallback card lookup hasn't run yet; call again with continueLookups until 0
+  pendingCardLookups: number;
+  // true when the Stripe customer list was cut off at the safety cap
+  truncated: boolean;
+  // true while an async refresh task is recomputing this report
+  refreshing?: boolean;
+  // worker phase description while refreshing (e.g. 'resolving cards 1500/3200')
+  refreshProgress?: string;
+  generatedAt: string;
+  fromCache: boolean;
+}
+
+export type InvoiceReportCategory = 'upcoming' | 'past-due-no-card' | 'past-due-not-attempted' | 'past-due-failed';
+
+export interface InvoiceReportRow {
+  stripeInvoiceId: string;
+  invoiceNumber: string;
+  // connected account the invoice lives on ('' = platform account)
+  stripeAccountId: string;
+  livemode: boolean;
+  stripeCustomerId: string;
+  customerName: string;
+  patientId: string;
+  patientName: string;
+  amountDue: number;
+  createdDate: string;
+  // '' when the invoice has no due date
+  dueDate: string;
+  // visit the invoice was issued for, resolved from invoice metadata
+  visitDate: string;
+  appointmentId: string;
+  category: InvoiceReportCategory;
+  attemptCount: number;
+  lastPaymentError: string;
+  hostedInvoiceUrl: string;
+  cardBrand: string;
+  cardLast4: string;
+}
+
+export interface InvoiceAgingTrendPoint {
+  snapshotDate: string;
+  label: string;
+  // keyed by aging bucket: 'not-yet-due', '0-30', '30-60', '60-90', '90-120', '120-150', '150+'
+  buckets: Record<string, { count: number; amountDue: number }>;
+}
+
+export interface GetBillingInvoiceReportResponse {
+  rows: InvoiceReportRow[];
+  totals: Record<InvoiceReportCategory, { count: number; amountDue: number }>;
+  // month-end snapshots reconstructed from all Stripe invoices via status_transitions
+  agingTrend: InvoiceAgingTrendPoint[];
+  // true while an async refresh task is recomputing this report
+  refreshing?: boolean;
+  // worker phase description while refreshing (e.g. 'listing invoices…')
+  refreshProgress?: string;
+  generatedAt: string;
+  fromCache: boolean;
+}
+
+// One cell of the pipeline overview: claims sharing an AR stage and active-group status.
+export interface PipelineReportRow {
+  // AR stage tag code ('' = no stage set)
+  arStage: string;
+  // active status-group primary field value for that stage ('' = no status set)
+  status: string;
+  claimCount: number;
+  totalBilled: number;
+}
+
+// Insurance Payer AR attention buckets: adjudication problems and claims with no recent activity.
+export interface PipelineInsuranceBreakout {
+  denied: { claimCount: number; totalBilled: number };
+  rejected: { claimCount: number; totalBilled: number };
+  stale: { claimCount: number; totalBilled: number };
+  // claims with no update in this many days count as stale
+  staleDays: number;
+  // _lastUpdated cutoff used for the stale bucket, for drilldown filtering
+  staleBefore: string;
+}
+
+export interface GetBillingPipelineReportResponse {
+  rows: PipelineReportRow[];
+  totals: { claims: number; totalBilled: number };
+  insuranceBreakout: PipelineInsuranceBreakout;
+  // closest daily snapshot from ~a week ago, for week-over-week deltas (absent until history accrues)
+  previous?: { snapshotDate: string; rows: PipelineReportRow[] };
+  generatedAt: string;
+  fromCache: boolean;
+}
+
+// One actor's claim-action tallies over the report window, from claim-history Provenances.
+export interface ProductivityReportRow {
+  // Practitioner/... (human) or Device/... (system) reference
+  actorRef: string;
+  actorName: string;
+  actorType: 'human' | 'system';
+  // counts keyed by CLAIM_PROVENANCE_ACTIVITY_CODES values (CREATE, UPDATE, ...)
+  actionsByActivity: Record<string, number>;
+  totalActions: number;
+  // distinct claims acted on
+  claimsTouched: number;
+  lastActionAt: string;
+}
+
+export interface GetBillingProductivityReportResponse {
+  rows: ProductivityReportRow[];
+  totals: { actions: number; claimsTouched: number; actors: number };
+  generatedAt: string;
+}
+
 export type GetBillingCoverageResponse = BillingCoverageOption;
 
 export interface GetPatientCoveragesResponse {

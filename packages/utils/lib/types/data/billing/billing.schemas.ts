@@ -146,6 +146,8 @@ export const SearchBillingClaimsInputSchema = z.object({
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
+  // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)
+  updatedBefore: nonEmptyString.optional(),
   serviceDateFrom: nonEmptyString.optional(),
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
@@ -655,6 +657,81 @@ export const UnmatchClaimResponseInputSchema = z.object({
   claimResponseId: nonEmptyString,
 });
 
+// report date-window fields: ISO date (YYYY-MM-DD), with from <= to when both are set
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)');
+const isoMonth = z.string().regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)');
+const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
+  !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
+const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
+
+export const GetBillingPaymentsReportInputSchema = z
+  .object({
+    // check (payment) date window, ISO dates
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+    // bypass the cached MeasureReport and recompute
+    refresh: z.boolean().optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const GetBillingPaymentsReportDrilldownInputSchema = z
+  .object({
+    // payer row context: payer ID, or 'none' for ERAs without a payer reference
+    payerId: nonEmptyString.optional(),
+    // check (payment) date window, ISO dates
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+    // waterfall cell context: 'YYYY-MM' or 'unknown'
+    serviceMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
+    checkMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const GetBillingPatientPaymentsReportInputSchema = z
+  .object({
+    // payment (created) date window, ISO dates
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+    // recompute instead of returning the latest saved report
+    refresh: z.boolean().optional(),
+    // drill-down: include individual payments (optionally row-filtered) with live Stripe status
+    detail: z.boolean().optional(),
+    // FHIR Location id; 'none' selects payments with no resolvable location
+    locationId: nonEmptyString.optional(),
+    paymentMethod: nonEmptyString.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const GetBillingCardsOnFileReportInputSchema = z.object({
+  // recompute instead of returning the latest saved report
+  refresh: z.boolean().optional(),
+  // resume pending fallback card lookups from the saved report (one batch per call)
+  continueLookups: z.boolean().optional(),
+});
+
+export const GetBillingInvoiceReportInputSchema = z.object({
+  // recompute instead of returning the latest saved report
+  refresh: z.boolean().optional(),
+});
+
+export const GetBillingPipelineReportInputSchema = z
+  .object({
+    // recompute instead of returning the latest saved report
+    refresh: z.boolean().optional(),
+    // claim created-date window, ISO dates; snapshots/deltas only apply to the unfiltered report
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const GetBillingProductivityReportInputSchema = z
+  .object({
+    // action (recorded) date window, ISO dates
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -683,6 +760,13 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type GetBillingPaymentsReportInput = z.output<typeof GetBillingPaymentsReportInputSchema>;
+export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
+export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
+export type GetBillingCardsOnFileReportInput = z.output<typeof GetBillingCardsOnFileReportInputSchema>;
+export type GetBillingInvoiceReportInput = z.output<typeof GetBillingInvoiceReportInputSchema>;
+export type GetBillingPipelineReportInput = z.output<typeof GetBillingPipelineReportInputSchema>;
+export type GetBillingProductivityReportInput = z.output<typeof GetBillingProductivityReportInputSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
