@@ -693,6 +693,10 @@ export interface GetBillingCardsOnFileReportResponse {
   pendingCardLookups: number;
   // true when the Stripe customer list was cut off at the safety cap
   truncated: boolean;
+  // true while an async refresh task is recomputing this report
+  refreshing?: boolean;
+  // worker phase description while refreshing (e.g. 'resolving cards 1500/3200')
+  refreshProgress?: string;
   generatedAt: string;
   fromCache: boolean;
 }
@@ -736,6 +740,10 @@ export interface GetBillingInvoiceReportResponse {
   totals: Record<InvoiceReportCategory, { count: number; amountDue: number }>;
   // month-end snapshots reconstructed from all Stripe invoices via status_transitions
   agingTrend: InvoiceAgingTrendPoint[];
+  // true while an async refresh task is recomputing this report
+  refreshing?: boolean;
+  // worker phase description while refreshing (e.g. 'listing invoices…')
+  refreshProgress?: string;
   generatedAt: string;
   fromCache: boolean;
 }

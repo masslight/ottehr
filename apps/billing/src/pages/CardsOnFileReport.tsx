@@ -193,7 +193,6 @@ export default function CardsOnFileReport(): ReactElement {
 
   const [report, setReport] = useState<GetBillingCardsOnFileReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [resolvingCards, setResolvingCards] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
   const [dueInvoicesOnly, setDueInvoicesOnly] = useState(true);
@@ -207,24 +206,18 @@ export default function CardsOnFileReport(): ReactElement {
         let current = await getBillingCardsOnFileReport(oystehrZambda, opts?.refresh ? { refresh: true } : {});
         setReport(current);
         setLoading(false);
-        // drain queued fallback card lookups in the background, one batch per call
-        if ((current.pendingCardLookups ?? 0) > 0) {
-          setResolvingCards(true);
-          let guard = 0;
-          while ((current.pendingCardLookups ?? 0) > 0 && guard < 200) {
-            const previousPending = current.pendingCardLookups;
-            current = await getBillingCardsOnFileReport(oystehrZambda, { continueLookups: true });
-            setReport(current);
-            // bail out if the queue stops shrinking so we never loop forever
-            if ((current.pendingCardLookups ?? 0) >= previousPending) break;
-            guard += 1;
-          }
+        // refresh runs server-side in a task; poll until the recomputed cache lands
+        let guard = 0;
+        while (current.refreshing && guard < 200) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          current = await getBillingCardsOnFileReport(oystehrZambda, {});
+          setReport(current);
+          guard += 1;
         }
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load cards on file report' }));
       } finally {
         setLoading(false);
-        setResolvingCards(false);
       }
     },
     [oystehrZambda]
@@ -276,15 +269,19 @@ export default function CardsOnFileReport(): ReactElement {
           <Chip
             size="small"
             variant="outlined"
-            label={`${report.fromCache ? 'Saved' : 'Generated'} ${
-              report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
-            }`}
+            label={
+              report.refreshing
+                ? `Refreshing… ${report.refreshProgress ?? ''}`.trim()
+                : `${report.fromCache ? 'Saved' : 'Generated'} ${
+                    report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
+                  }`
+            }
           />
         )}
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
-          disabled={loading || resolvingCards}
+          disabled={loading || report?.refreshing}
           onClick={() => void fetchReport({ refresh: true })}
         >
           Refresh
@@ -307,7 +304,7 @@ export default function CardsOnFileReport(): ReactElement {
       {(report?.pendingCardLookups ?? 0) > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Resolving card status — {(report?.pendingCardLookups ?? 0).toLocaleString()} customers remaining
-          {resolvingCards ? '…' : '. Refresh to continue.'}
+          {report?.refreshing ? '…' : '. Refresh to continue.'}
         </Alert>
       )}
 

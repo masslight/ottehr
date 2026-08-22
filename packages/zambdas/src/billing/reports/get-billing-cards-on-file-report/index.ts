@@ -11,9 +11,10 @@ import { gunzipSync, gzipSync } from 'zlib';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { fetchAllPages } from '../../../shared/fhir';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
+import { getRateLimitedStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createBillingClient, createEraReadClient, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import { findActiveRefreshTask, kickOffRefreshTask } from '../refresh-task';
 import { GetBillingCardsOnFileReportParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -28,6 +29,8 @@ const APPOINTMENT_BATCH_SIZE = 50;
 const PM_LOOKUP_CONCURRENCY = 8;
 // fallback paymentMethods.list calls per invocation; the rest queue up for continueLookups calls
 const PM_LOOKUPS_PER_RUN = 500;
+// beyond this the drain can't finish inside the worker timeout; excess customers report no card
+const MAX_PENDING_LOOKUPS = 5000;
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
 const CACHE_KEY = 'cards-on-file:v4';
@@ -63,27 +66,83 @@ const stripState = (state: CachedReportState, fromCache: boolean): GetBillingCar
   return { ...response, fromCache };
 };
 
+const emptyReport = (): GetBillingCardsOnFileReportResponse => ({
+  rows: [],
+  totals: { customers: 0, withCard: 0, withoutCard: 0, withOpenInvoices: 0 },
+  pendingCardLookups: 0,
+  truncated: false,
+  generatedAt: '',
+  fromCache: false,
+});
+
+// HTTP path: serves the cache and queues async refreshes; the subscription worker computes.
 export async function performEffect(
   oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  _untaggedClient: Oystehr,
   params: GetBillingCardsOnFileReportParams
 ): Promise<GetBillingCardsOnFileReportResponse> {
   if (params.continueLookups) {
-    const resumed = await continueCardLookups(oystehr, params);
-    // nothing saved to resume; fall through to a full computation
+    const resumed = await continueCardLookups(oystehr, params.secrets);
     if (resumed) return resumed;
   }
 
-  // latest saved report is served as-is; a new computation only happens on explicit refresh
-  if (!params.refresh && !params.continueLookups) {
+  if (params.refresh) {
+    const task = await kickOffRefreshTask(oystehr, 'cards-on-file');
     const cached = await loadCachedState(oystehr);
-    if (cached) return stripState(cached, true);
+    return {
+      ...(cached ? stripState(cached, true) : emptyReport()),
+      refreshing: true,
+      refreshProgress: task.businessStatus?.text ?? 'queued',
+    };
   }
 
-  const stripe = getStripeClient(params.secrets);
+  const cached = await loadCachedState(oystehr);
+  if (cached) {
+    const active = await findActiveRefreshTask(oystehr, 'cards-on-file');
+    return {
+      ...stripState(cached, true),
+      refreshing: !!active,
+      ...(active?.businessStatus?.text ? { refreshProgress: active.businessStatus.text } : {}),
+    };
+  }
+
+  // never computed: queue the first build instead of risking the request timeout
+  const task = await kickOffRefreshTask(oystehr, 'cards-on-file');
+  return { ...emptyReport(), refreshing: true, refreshProgress: task.businessStatus?.text ?? 'queued' };
+}
+
+// Full recomputation + cache save + queued-lookup drain; runs inside the subscription worker.
+export async function computeAndCacheCardsOnFileReport(
+  oystehr: Oystehr,
+  untaggedClient: Oystehr,
+  secrets: ZambdaInput['secrets'],
+  onProgress?: (message: string) => Promise<void>
+): Promise<GetBillingCardsOnFileReportResponse> {
+  let response = await computeCardsReport(oystehr, untaggedClient, secrets, onProgress);
+  const totalLookups = response.pendingCardLookups;
+  let guard = 0;
+  while (response.pendingCardLookups > 0 && guard < 200) {
+    const previousPending = response.pendingCardLookups;
+    await onProgress?.(`resolving cards ${totalLookups - previousPending}/${totalLookups}…`);
+    response = (await continueCardLookups(oystehr, secrets)) ?? response;
+    if (response.pendingCardLookups >= previousPending) break;
+    guard += 1;
+  }
+  return response;
+}
+
+async function computeCardsReport(
+  oystehr: Oystehr,
+  untaggedClient: Oystehr,
+  secrets: ZambdaInput['secrets'],
+  onProgress?: (message: string) => Promise<void>
+): Promise<GetBillingCardsOnFileReportResponse> {
+  const stripe = getRateLimitedStripeClient(secrets);
   const generatedAt = DateTime.now().toUTC().toISO();
 
-  const accounts = await listStripeAccounts(oystehr);
+  await onProgress?.('listing Stripe accounts…');
+  const accounts = await listStripeAccounts(oystehr, stripe);
+  await onProgress?.('listing customers and invoices…');
   const [customers, openInvoicesByCustomerId] = await Promise.all([
     listAllCustomers(stripe, accounts),
     fetchOpenInvoices(stripe, accounts),
@@ -102,6 +161,7 @@ export async function performEffect(
 
   // customers with open invoices get their fallback lookups in the first batch
   const { cardByCustomerId, pending } = await resolveCards(stripe, customers, new Set(openInvoicesByCustomerId.keys()));
+  await onProgress?.('matching patients…');
 
   const patientIds = [
     ...new Set(
@@ -143,14 +203,18 @@ export async function performEffect(
 
   const withCard = rows.filter((row) => row.cardId).length;
   const withOpenInvoices = rows.filter((row) => row.openInvoiceCount > 0).length;
+  const boundedPending = pending.slice(0, MAX_PENDING_LOOKUPS);
+  if (boundedPending.length < pending.length) {
+    console.warn(`Capping fallback card lookups at ${MAX_PENDING_LOOKUPS} of ${pending.length}`);
+  }
   const state: CachedReportState = {
     rows,
     totals: { customers: rows.length, withCard, withoutCard: rows.length - withCard, withOpenInvoices },
-    pendingCardLookups: pending.length,
-    truncated,
+    pendingCardLookups: boundedPending.length,
+    truncated: truncated || boundedPending.length < pending.length,
     generatedAt,
     fromCache: false,
-    ...(pending.length > 0 ? { pendingLookups: pending } : {}),
+    ...(boundedPending.length > 0 ? { pendingLookups: boundedPending } : {}),
   };
   await saveCachedReport(oystehr, state);
   return stripState(state, false);
@@ -159,14 +223,14 @@ export async function performEffect(
 // One batch of queued fallback lookups against the saved report; undefined when there is no saved report.
 async function continueCardLookups(
   oystehr: Oystehr,
-  params: GetBillingCardsOnFileReportParams
+  secrets: ZambdaInput['secrets']
 ): Promise<GetBillingCardsOnFileReportResponse | undefined> {
   const state = await loadCachedState(oystehr);
   if (!state) return undefined;
   const pending = state.pendingLookups ?? [];
   if (pending.length === 0) return stripState(state, true);
 
-  const stripe = getStripeClient(params.secrets);
+  const stripe = getRateLimitedStripeClient(secrets);
   const batch = pending.slice(0, PM_LOOKUPS_PER_RUN);
   const rest = pending.slice(PM_LOOKUPS_PER_RUN);
   const cards = await lookupCards(stripe, batch);
@@ -218,10 +282,23 @@ async function loadCachedState(oystehr: Oystehr): Promise<CachedReportState | un
 // FHIR structure, and this project's M2M has FHIR write access where z3 is forbidden
 async function saveCachedReport(oystehr: Oystehr, state: CachedReportState): Promise<void> {
   try {
-    const data = gzipSync(new Uint8Array(Buffer.from(JSON.stringify(state), 'utf8'))).toString('base64');
-    if (data.length > MAX_CACHE_BYTES) {
-      console.warn(`Cards-on-file report too large to cache (${data.length} bytes); skipping save`);
-      return;
+    const encode = (s: CachedReportState): string =>
+      gzipSync(new Uint8Array(Buffer.from(JSON.stringify(s), 'utf8'))).toString('base64');
+    // an unsaved cache would strand the async refresh loop, so shed data until it fits:
+    // the resumable lookup queue first, then tail rows (alphabetical order keeps the head stable)
+    let toSave = state;
+    let data = encode(toSave);
+    if (data.length > MAX_CACHE_BYTES && (toSave.pendingLookups?.length ?? 0) > 0) {
+      console.warn(`Cards-on-file cache over ${MAX_CACHE_BYTES} bytes; dropping pending lookup queue`);
+      toSave = { ...toSave, pendingLookups: undefined, pendingCardLookups: 0, truncated: true };
+      data = encode(toSave);
+    }
+    while (data.length > MAX_CACHE_BYTES && toSave.rows.length > 1) {
+      toSave = { ...toSave, rows: toSave.rows.slice(0, Math.floor(toSave.rows.length / 2)), truncated: true };
+      data = encode(toSave);
+    }
+    if (toSave !== state) {
+      console.warn(`Cards-on-file cache truncated to ${toSave.rows.length}/${state.rows.length} rows to fit`);
     }
     const document: DocumentReference = {
       resourceType: 'DocumentReference',
@@ -250,20 +327,24 @@ async function saveCachedReport(oystehr: Oystehr, state: CachedReportState): Pro
   }
 }
 
-// platform account plus connected accounts stamped on billing provider organizations
-async function listStripeAccounts(oystehr: Oystehr): Promise<(string | undefined)[]> {
+// platform account plus connected accounts stamped on billing provider organizations; the
+// platform's own id can be stamped on an org too and must not be listed a second time
+async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(string | undefined)[]> {
   // paged: connected accounts must not fall off a single-page result
-  const orgs = await getAllFhirSearchPages<Organization>(
-    { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
-    oystehr
-  );
+  const [orgs, platformAccount] = await Promise.all([
+    getAllFhirSearchPages<Organization>(
+      { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
+      oystehr
+    ),
+    stripe.accounts.retrieve(),
+  ]);
   const connectedAccounts = [
     ...new Set(
       orgs
         .flatMap((org) => org.identifier ?? [])
         .filter((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)
         .map((identifier) => identifier.value)
-        .filter((value): value is string => !!value)
+        .filter((value): value is string => !!value && value !== platformAccount.id)
     ),
   ];
   return [undefined, ...connectedAccounts];

@@ -274,7 +274,17 @@ export default function InvoiceReport(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        setReport(await getBillingInvoiceReport(oystehrZambda, opts?.refresh ? { refresh: true } : {}));
+        let current = await getBillingInvoiceReport(oystehrZambda, opts?.refresh ? { refresh: true } : {});
+        setReport(current);
+        setLoading(false);
+        // refresh runs server-side in a task; poll until the recomputed cache lands
+        let guard = 0;
+        while (current.refreshing && guard < 150) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          current = await getBillingInvoiceReport(oystehrZambda, {});
+          setReport(current);
+          guard += 1;
+        }
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load invoice report' }));
       } finally {
@@ -429,15 +439,19 @@ export default function InvoiceReport(): ReactElement {
           <Chip
             size="small"
             variant="outlined"
-            label={`${report.fromCache ? 'Saved' : 'Generated'} ${
-              report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
-            }`}
+            label={
+              report.refreshing
+                ? `Refreshing… ${report.refreshProgress ?? ''}`.trim()
+                : `${report.fromCache ? 'Saved' : 'Generated'} ${
+                    report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
+                  }`
+            }
           />
         )}
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
-          disabled={loading}
+          disabled={loading || report?.refreshing}
           onClick={() => void fetchReport({ refresh: true })}
         >
           Refresh

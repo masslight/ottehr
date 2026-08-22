@@ -17,11 +17,12 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import {
   encounterIdFromStripeMetadata,
-  getStripeClient,
+  getRateLimitedStripeClient,
   patientIdFromStripeMetadata,
 } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createBillingClient, createEraReadClient, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import { findActiveRefreshTask, kickOffRefreshTask } from '../refresh-task';
 import { GetBillingInvoiceReportParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -51,22 +52,66 @@ interface InvoiceWithAccount {
   stripeAccount: string | undefined;
 }
 
+const emptyReport = (): GetBillingInvoiceReportResponse => ({
+  rows: [],
+  totals: {
+    upcoming: { count: 0, amountDue: 0 },
+    'past-due-no-card': { count: 0, amountDue: 0 },
+    'past-due-not-attempted': { count: 0, amountDue: 0 },
+    'past-due-failed': { count: 0, amountDue: 0 },
+  },
+  agingTrend: [],
+  generatedAt: '',
+  fromCache: false,
+});
+
+// HTTP path: serves the cache and queues async refreshes; the subscription worker computes.
 export async function performEffect(
   oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  _untaggedClient: Oystehr,
   params: GetBillingInvoiceReportParams
 ): Promise<GetBillingInvoiceReportResponse> {
-  // latest saved report is served as-is; a new computation only happens on explicit refresh
-  if (!params.refresh) {
+  if (params.refresh) {
+    const task = await kickOffRefreshTask(oystehr, 'invoice');
     const cached = await loadCachedReport(oystehr);
-    if (cached) return { ...cached, fromCache: true };
+    return {
+      ...(cached ?? emptyReport()),
+      fromCache: !!cached,
+      refreshing: true,
+      refreshProgress: task.businessStatus?.text ?? 'queued',
+    };
   }
 
-  const stripe = getStripeClient(params.secrets);
+  const cached = await loadCachedReport(oystehr);
+  if (cached) {
+    const active = await findActiveRefreshTask(oystehr, 'invoice');
+    return {
+      ...cached,
+      fromCache: true,
+      refreshing: !!active,
+      ...(active?.businessStatus?.text ? { refreshProgress: active.businessStatus.text } : {}),
+    };
+  }
+
+  // never computed: queue the first build instead of risking the request timeout
+  const task = await kickOffRefreshTask(oystehr, 'invoice');
+  return { ...emptyReport(), refreshing: true, refreshProgress: task.businessStatus?.text ?? 'queued' };
+}
+
+// Full recomputation + cache save; runs inside the subscription worker's long timeout.
+export async function computeAndCacheInvoiceReport(
+  oystehr: Oystehr,
+  untaggedClient: Oystehr,
+  secrets: ZambdaInput['secrets'],
+  onProgress?: (message: string) => Promise<void>
+): Promise<GetBillingInvoiceReportResponse> {
+  const stripe = getRateLimitedStripeClient(secrets);
   const generatedAt = DateTime.now().toUTC().toISO();
   const nowSeconds = Math.floor(Date.now() / 1000);
 
-  const accounts = await listStripeAccounts(oystehr);
+  await onProgress?.('listing Stripe accounts…');
+  const accounts = await listStripeAccounts(oystehr, stripe);
+  await onProgress?.('listing invoices…');
   const [invoices, allInvoices] = await Promise.all([
     listOpenInvoices(stripe, accounts),
     listAllInvoices(stripe, accounts),
@@ -80,6 +125,7 @@ export async function performEffect(
     const customerId = customerIdOf(invoice);
     if (customerId) pastDueCustomers.set(customerId, { customerId, stripeAccount });
   }
+  await onProgress?.(`resolving cards for ${pastDueCustomers.size} past-due customers…`);
   const cardByCustomerId = await resolveCards(stripe, [...pastDueCustomers.values()], invoices);
 
   const patientIds = [
@@ -98,6 +144,7 @@ export async function performEffect(
     fetchPatientsById(untaggedClient, patientIds),
     fetchVisitsByEncounterId(untaggedClient, encounterIds),
   ]);
+  await onProgress?.('building report…');
 
   const rows: InvoiceReportRow[] = invoices.map(({ invoice, stripeAccount }) => {
     const customerId = customerIdOf(invoice) ?? '';
@@ -307,20 +354,24 @@ const customerNameOf = (invoice: Stripe.Invoice): string => {
   return invoice.customer_name ?? invoice.customer_email ?? '';
 };
 
-// platform account plus connected accounts stamped on billing provider organizations
-async function listStripeAccounts(oystehr: Oystehr): Promise<(string | undefined)[]> {
+// platform account plus connected accounts stamped on billing provider organizations; the
+// platform's own id can be stamped on an org too and must not be listed a second time
+async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(string | undefined)[]> {
   // paged: connected accounts must not fall off a single-page result
-  const orgs = await getAllFhirSearchPages<Organization>(
-    { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
-    oystehr
-  );
+  const [orgs, platformAccount] = await Promise.all([
+    getAllFhirSearchPages<Organization>(
+      { resourceType: 'Organization', params: [{ name: '_elements', value: 'id,identifier' }] },
+      oystehr
+    ),
+    stripe.accounts.retrieve(),
+  ]);
   const connectedAccounts = [
     ...new Set(
       orgs
         .flatMap((org) => org.identifier ?? [])
         .filter((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)
         .map((identifier) => identifier.value)
-        .filter((value): value is string => !!value)
+        .filter((value): value is string => !!value && value !== platformAccount.id)
     ),
   ];
   return [undefined, ...connectedAccounts];

@@ -15,7 +15,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { fetchAllPages } from '../../../shared/fhir';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
+import { getRateLimitedStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createBillingClient, createEraReadClient, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { toDay } from '../shared';
@@ -397,7 +397,7 @@ async function resolveStripeStatuses(
 ): Promise<string[]> {
   let stripe: Stripe | undefined;
   try {
-    stripe = getStripeClient(secrets);
+    stripe = getRateLimitedStripeClient(secrets);
   } catch {
     console.warn('Stripe client unavailable; invoice statuses will be FHIR-derived only');
   }
