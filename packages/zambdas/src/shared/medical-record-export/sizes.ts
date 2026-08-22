@@ -1,3 +1,4 @@
+import { mapWithConcurrency } from '../concurrency';
 import { NamedAttachment } from './naming';
 
 /** An archive entry whose byte length is known. */
@@ -107,19 +108,9 @@ export const resolveAttachmentSizes = async ({
   presign,
   concurrency,
 }: ResolveSizesInput): Promise<ResolveSizesResult> => {
-  const results: (SizedAttachment | SkippedAttachment)[] = new Array(attachments.length);
-
-  let nextIndex = 0;
-  const worker = async (): Promise<void> => {
-    for (;;) {
-      const i = nextIndex++;
-      if (i >= attachments.length) return;
-      results[i] = await resolveOneSize(attachments[i], presign);
-    }
-  };
-
-  const poolSize = Math.min(concurrency, attachments.length);
-  await Promise.all(Array.from({ length: poolSize }, () => worker()));
+  const results = await mapWithConcurrency(attachments, concurrency, (attachment) =>
+    resolveOneSize(attachment, presign)
+  );
 
   const entries: SizedAttachment[] = [];
   const skipped: SkippedAttachment[] = [];

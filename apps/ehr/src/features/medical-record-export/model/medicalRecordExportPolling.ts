@@ -37,56 +37,6 @@ export const exportSnackbarKey = (taskId: string): string => `${SNACKBAR_KEY_PRE
 export const taskIdFromExportSnackbarKey = (key: unknown): string | undefined =>
   typeof key === 'string' && key.startsWith(SNACKBAR_KEY_PREFIX) ? key.slice(SNACKBAR_KEY_PREFIX.length) : undefined;
 
-/** Where the in-flight Task id is parked so a page reload can re-adopt the export rather than orphan it. */
-export const exportTaskStorageKey = (patientId: string): string => `medical-record-export-task-${patientId}`;
-
-export const readStoredExportTaskId = (patientId: string): string | undefined => {
-  try {
-    return window.sessionStorage.getItem(exportTaskStorageKey(patientId)) ?? undefined;
-  } catch {
-    // Private mode / blocked storage: fall back to a non-resuming session.
-    return undefined;
-  }
-};
-
-export const writeStoredExportTaskId = (patientId: string, taskId: string | undefined): void => {
-  try {
-    const key = exportTaskStorageKey(patientId);
-    if (taskId) window.sessionStorage.setItem(key, taskId);
-    else window.sessionStorage.removeItem(key);
-  } catch {
-    // Non-fatal: progress just will not survive a reload.
-  }
-};
-
-/** The patient id is recovered from the key: the watcher is app-wide and has no patient of its own. */
-export const readAllStoredExportTaskIds = (): { patientId: string; taskId: string }[] => {
-  const prefix = exportTaskStorageKey('');
-  const found: { patientId: string; taskId: string }[] = [];
-  try {
-    for (let i = 0; i < window.sessionStorage.length; i++) {
-      const key = window.sessionStorage.key(i);
-      if (!key?.startsWith(prefix)) continue;
-      const taskId = window.sessionStorage.getItem(key);
-      const patientId = key.slice(prefix.length);
-      if (taskId && patientId) found.push({ patientId, taskId });
-    }
-  } catch {
-    // Private mode / blocked storage: nothing to resume.
-  }
-  return found;
-};
-
-/**
- * `sessionStorage` survives the same-tab logout → Auth0 round-trip, so without this the next person to
- * sign in on that tab would be offered the previous user's export.
- */
-export const clearStoredExportTaskIds = (): void => {
-  for (const { patientId } of readAllStoredExportTaskIds()) {
-    writeStoredExportTaskId(patientId, undefined);
-  }
-};
-
 /** Shown for any failure the server wrote no message for. Phrased to match the fax feature's equivalent. */
 export const MEDICAL_RECORD_EXPORT_GENERIC_FAILURE = 'The medical record could not be processed. Please try again.';
 

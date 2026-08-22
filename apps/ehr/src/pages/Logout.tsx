@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { ReactElement, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { SESSION_STORAGE_DATE_RANGE_KEY } from 'src/components/AppointmentsFilters';
-import { clearStoredExportTaskIds } from 'src/features/medical-record-export/model/medicalRecordExportPolling';
+import { clearPersistedExports } from 'src/features/medical-record-export/store/medicalRecordExport.store';
 
 // sessionStorage survives the same-tab logout -> Auth0 round-trip, so anything parked in it has to be
 // cleared explicitly here. The date range is merely stale on the next login; a medical-record export is
@@ -10,7 +10,7 @@ import { clearStoredExportTaskIds } from 'src/features/medical-record-export/mod
 // a patient they never asked about.
 function clearPersistedSessionState(): void {
   sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
-  clearStoredExportTaskIds();
+  clearPersistedExports();
 }
 
 export default function Logout(): ReactElement {

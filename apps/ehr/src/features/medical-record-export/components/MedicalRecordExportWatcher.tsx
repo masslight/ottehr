@@ -18,7 +18,6 @@ import {
 } from '../model/medicalRecordExportPolling';
 import {
   recordExportStatus,
-  resumeStoredExports,
   stopWatchingExport,
   useMedicalRecordExportStore,
   WatchedExport,
@@ -49,11 +48,6 @@ export const MedicalRecordExportWatcher = (): null => {
   // Resolved exactly once per task, since a query can settle more than once.
   const handledRef = useRef<Set<string>>(new Set());
   const snackbarShownRef = useRef<Set<string>>(new Set());
-
-  // The only moment an export left running by an earlier page load can be re-adopted.
-  useEffect(() => {
-    resumeStoredExports();
-  }, []);
 
   const settle = useCallback((job: WatchedExport, handle: () => void): void => {
     if (handledRef.current.has(job.taskId)) return;

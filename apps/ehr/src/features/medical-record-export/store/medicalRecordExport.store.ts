@@ -3,7 +3,7 @@ import {
   MedicalRecordExportStatus,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { create } from 'zustand';
-import { readAllStoredExportTaskIds, writeStoredExportTaskId } from '../model/medicalRecordExportPolling';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 /**
  * One export being watched. In a store rather than the patient page's state because the archive keeps
@@ -30,7 +30,41 @@ interface MedicalRecordExportState {
   exports: Record<string, WatchedExport>;
 }
 
-export const useMedicalRecordExportStore = create<MedicalRecordExportState>()(() => ({ exports: {} }));
+export const MEDICAL_RECORD_EXPORT_STORE_NAME = 'medical-record-export';
+
+/**
+ * Persisted to `sessionStorage` so a page reload can re-adopt an export rather than orphan it, the same
+ * way the order drafts do it. Only the identity of each job is kept: progress is re-read from the Task on
+ * the next poll, and `resumed` is set on rehydrate so a re-adopted archive is offered rather than pushed.
+ */
+export const useMedicalRecordExportStore = create<MedicalRecordExportState>()(
+  persist(() => ({ exports: {} }) as MedicalRecordExportState, {
+    name: MEDICAL_RECORD_EXPORT_STORE_NAME,
+    storage: createJSONStorage(() => sessionStorage),
+    partialize: (state) => ({
+      exports: Object.fromEntries(
+        Object.entries(state.exports).map(([patientId, job]) => [
+          patientId,
+          { patientId, taskId: job.taskId, startedAt: job.startedAt, resumed: job.resumed },
+        ])
+      ),
+    }),
+    merge: (persisted, current) => {
+      const stored = (persisted as MedicalRecordExportState | undefined)?.exports ?? {};
+      return {
+        ...current,
+        // A stored job was started by an earlier page load, so its clock restarts and its archive is
+        // offered rather than downloaded unprompted.
+        exports: Object.fromEntries(
+          Object.entries(stored).map(([patientId, job]) => [
+            patientId,
+            { ...job, resumed: true, startedAt: Date.now(), status: 'requested' as MedicalRecordExportStatus },
+          ])
+        ),
+      };
+    },
+  })
+);
 
 export const watchExport = (input: { patientId: string; taskId: string; resumed?: boolean }): void => {
   const { patientId, taskId, resumed = false } = input;
@@ -40,7 +74,6 @@ export const watchExport = (input: { patientId: string; taskId: string; resumed?
       [patientId]: { patientId, taskId, startedAt: Date.now(), resumed, status: 'requested' },
     },
   }));
-  if (!resumed) writeStoredExportTaskId(patientId, taskId);
 };
 
 /** Folds a poll response into the watched job, so the progress UI reads it from one place. */
@@ -73,15 +106,14 @@ export const stopWatchingExport = (patientId: string): void => {
     delete next[patientId];
     return { exports: next };
   });
-  writeStoredExportTaskId(patientId, undefined);
 };
 
-/** Called once on watcher mount — the only moment a reload is distinguishable from navigation. */
-export const resumeStoredExports = (): void => {
-  for (const { patientId, taskId } of readAllStoredExportTaskIds()) {
-    if (useMedicalRecordExportStore.getState().exports[patientId]) continue;
-    watchExport({ patientId, taskId, resumed: true });
-  }
+/**
+ * `sessionStorage` survives the same-tab logout → Auth0 round-trip.
+ */
+export const clearPersistedExports = (): void => {
+  useMedicalRecordExportStore.setState({ exports: {} });
+  void useMedicalRecordExportStore.persist.clearStorage();
 };
 
 export const selectWatchedExport =

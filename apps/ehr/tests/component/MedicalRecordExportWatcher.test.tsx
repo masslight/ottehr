@@ -27,12 +27,23 @@ const { MedicalRecordExportSnackbar } = await import(
 const { ExportProgressMessage } = await import(
   '../../src/features/medical-record-export/components/ExportProgressMessage'
 );
-const { useMedicalRecordExportStore, watchExport, recordExportStatus } = await import(
+const { MEDICAL_RECORD_EXPORT_STORE_NAME, recordExportStatus, useMedicalRecordExportStore, watchExport } = await import(
   '../../src/features/medical-record-export/store/medicalRecordExport.store'
 );
-const { exportTaskStorageKey, MEDICAL_RECORD_EXPORT_GENERIC_FAILURE } = await import(
+const { MEDICAL_RECORD_EXPORT_GENERIC_FAILURE } = await import(
   '../../src/features/medical-record-export/model/medicalRecordExportPolling'
 );
+
+/**
+ * A page reload: the store's memory is gone but `sessionStorage` survives. Written this way rather than
+ * seeding storage by hand so the test goes through the same persist round-trip the app does.
+ */
+const simulateReload = async (): Promise<void> => {
+  const persisted = window.sessionStorage.getItem(MEDICAL_RECORD_EXPORT_STORE_NAME);
+  useMedicalRecordExportStore.setState({ exports: {} });
+  if (persisted) window.sessionStorage.setItem(MEDICAL_RECORD_EXPORT_STORE_NAME, persisted);
+  await useMedicalRecordExportStore.persist.rehydrate();
+};
 
 const completed = (overrides: Partial<GetPatientMedicalRecordOutput> = {}): GetPatientMedicalRecordOutput => ({
   taskId: TASK_ID,
@@ -145,7 +156,7 @@ describe('medical record export watcher', () => {
       expect(clickSpy).toHaveBeenCalledTimes(1);
       // Resolved jobs stop being watched, so nothing polls or re-announces them.
       await waitFor(() => expect(useMedicalRecordExportStore.getState().exports[PATIENT_ID]).toBeUndefined());
-      expect(window.sessionStorage.getItem(exportTaskStorageKey(PATIENT_ID))).toBeNull();
+      expect(window.sessionStorage.getItem(MEDICAL_RECORD_EXPORT_STORE_NAME) ?? '').not.toContain(TASK_ID);
     });
 
     it('polls with the patient id, so the server can refuse another chart’s export', async () => {
@@ -223,7 +234,8 @@ describe('medical record export watcher', () => {
   describe('an export re-adopted after a page reload', () => {
     it('offers the archive instead of downloading something nobody just asked for', async () => {
       mockGetStatus.mockResolvedValue(completed());
-      window.sessionStorage.setItem(exportTaskStorageKey(PATIENT_ID), TASK_ID);
+      watchExport({ patientId: PATIENT_ID, taskId: TASK_ID });
+      await simulateReload();
 
       renderWatcher();
 
@@ -237,14 +249,19 @@ describe('medical record export watcher', () => {
       expect(clickSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('picks the export back up from storage on mount', async () => {
+    it('picks the export back up from storage across a reload', async () => {
       mockGetStatus.mockResolvedValue({ taskId: TASK_ID, status: 'in-progress', processed: 4, total: 20 });
-      window.sessionStorage.setItem(exportTaskStorageKey(PATIENT_ID), TASK_ID);
+      watchExport({ patientId: PATIENT_ID, taskId: TASK_ID });
+      expect(useMedicalRecordExportStore.getState().exports[PATIENT_ID]?.resumed).toBe(false);
+
+      await simulateReload();
+
+      const readopted = useMedicalRecordExportStore.getState().exports[PATIENT_ID];
+      expect(readopted?.taskId).toBe(TASK_ID);
+      expect(readopted?.resumed).toBe(true);
 
       renderWatcher();
-
       await waitFor(() => expect(mockGetStatus).toHaveBeenCalled());
-      expect(useMedicalRecordExportStore.getState().exports[PATIENT_ID]?.resumed).toBe(true);
     });
   });
 });
