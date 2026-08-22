@@ -45,6 +45,8 @@ import { UnsolicitedResultsMatch } from './features/external-labs/pages/Unsolici
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
 import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
+import { MedicalRecordExportSnackbar } from './features/medical-record-export/components/MedicalRecordExportSnackbar';
+import { MedicalRecordExportWatcher } from './features/medical-record-export/components/MedicalRecordExportWatcher';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
@@ -345,7 +347,19 @@ function App(): ReactElement {
         </Routes>
         <CommandPaletteRegistrations />
         <CommandPalette />
-        <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
+        <SnackbarProvider
+          maxSnack={5}
+          autoHideDuration={6000}
+          // The export's progress snackbar is a registered variant so it renders through notistack's own
+          // MaterialDesignContent and matches every other snackbar in the app.
+          Components={{ medicalRecordExport: MedicalRecordExportSnackbar }}
+        />
+        {/* Outside <Routes> on purpose: a medical-record export keeps building after the user leaves the
+            patient page, and a watcher that unmounted with the page would stop polling and only notice
+            the result if someone came back. Gated on the role, so it is not mounted for someone who
+            cannot start an export in the first place — including on /logout. It costs nothing while idle
+            (no queries, no timers), but there is no reason for it to exist there at all. */}
+        {!roleUnknown && <MedicalRecordExportWatcher />}
       </BrowserRouter>
     </CustomThemeProvider>
   );

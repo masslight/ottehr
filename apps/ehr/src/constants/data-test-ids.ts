@@ -481,6 +481,7 @@ export const dataTestIds = {
     faxPatientDocsButton: 'fax-patient-docs-button',
     medicalRecordButton: 'medical-record-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
+    medicalRecordExportProgress: 'medical-record-export-progress',
     faxMedicalRecordMenuItem: 'fax-medical-record-menu-item',
   },
   patientDocsPage: {
