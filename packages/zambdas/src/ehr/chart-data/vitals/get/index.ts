@@ -52,9 +52,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
-  const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
+  // In current mode the vitals search is keyed on the encounter id from the request, so the
+  // validation search resolves nothing it needs (the patient id and appointment start it produces
+  // are only used by historical mode) — awaiting it first put a whole round trip in front of the
+  // progress note's vitals panel. Started together, validation is still awaited before its result is
+  // used, so an unknown encounter fails exactly as it did. Historical mode genuinely depends on the
+  // validation result and stays sequential.
+  const validation = complexValidation({ encounterId, mode, secrets }, oystehr);
+  const currentVitals = mode === 'historical' ? undefined : fetchVitalsForEncounter(encounterId, oystehr);
+
+  const effectInput = await validation;
   console.log(`Effect input: ${JSON.stringify(effectInput)}`);
-  const results = await performEffect(effectInput, oystehr);
+  const results = currentVitals
+    ? convertVitalsListToMap(await currentVitals)
+    : await performEffect(effectInput, oystehr);
 
   return {
     body: JSON.stringify(results),

@@ -377,3 +377,32 @@ Scoping that search would make it correct but *slower* here (a 557-reference OR 
 against ~0.5s unscoped), and adding the date bound its name implies would change what the flag means
 for a visit left open overnight. Both are product decisions rather than performance ones, so this
 change leaves the query shape exactly as it was and flags it instead.
+
+### `get-vitals`
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| median latency | 212ms | 106ms | **−50%** |
+| min latency | 183ms | 99ms | −46% |
+| p90 latency | 369ms | 226ms | −39% |
+| FHIR calls per invocation | 2 | 2 | — |
+| sequential round trips | 2 | **1** | −1 |
+
+The progress note's vitals panel. Two FHIR calls, fully serialized — the third instance in this
+sweep of a validation search blocking the search that does the actual work. In *current* mode the
+vitals search is keyed on the encounter id from the request, and the things validation resolves (the
+patient id, the appointment start) are used only by *historical* mode. So current mode now starts
+both together and still awaits validation before using its result, meaning an unknown encounter fails
+exactly as before; historical mode genuinely depends on the validation output and stays sequential.
+Both modes are covered by the integration suite.
+
+### Checked and left alone
+
+`get-conversation` (198ms) is a `RelatedPerson` search followed by `Communication` searches that
+genuinely need its results. `list-approved-patient-education` (193ms) spends its time in a single
+large `List` search, with the presigned-URL fetches already concurrent — nothing structural to move.
+`get-action-logs` (177ms) resolves the caller via `v1/m2m/me` before searching; that is an
+authorization gate, and issuing the read concurrently with the check would mean reading on behalf of
+a caller not yet known to be permitted, so it stays sequential. `list-provider-groups` (283ms) has a
+dependent second `Location` search worth folding, but it backs the scheduling admin screens rather
+than clinical ones. Everything else in the survey was already under 200ms with one or two waves.
