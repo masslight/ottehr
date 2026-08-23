@@ -516,12 +516,20 @@ export default function AccountsReceivable(): ReactElement {
                 <TableCell sx={{ fontWeight: 'bold', width: '10%' }} align="right">
                   Claims
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', width: '15%' }} align="right">
-                  Charged
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', width: '15%' }} align="right">
-                  Expected
-                </TableCell>
+                {queueContext === 'insurance' ? (
+                  <>
+                    <TableCell sx={{ fontWeight: 'bold', width: '15%' }} align="right">
+                      Charged
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: '15%' }} align="right">
+                      Expected
+                    </TableCell>
+                  </>
+                ) : (
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }} align="right">
+                    Balance
+                  </TableCell>
+                )}
                 <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Owner</TableCell>
               </TableRow>
             </TableHead>
@@ -546,8 +554,14 @@ export default function AccountsReceivable(): ReactElement {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">{queue.count}</TableCell>
-                  <TableCell align="right">{formatUsd(queue.charged)}</TableCell>
-                  <TableCell align="right">{formatUsd(queue.expected)}</TableCell>
+                  {queueContext === 'insurance' ? (
+                    <>
+                      <TableCell align="right">{formatUsd(queue.charged)}</TableCell>
+                      <TableCell align="right">{formatUsd(queue.expected)}</TableCell>
+                    </>
+                  ) : (
+                    <TableCell align="right">{formatUsd(queue.charged)}</TableCell>
+                  )}
                   <TableCell>{queue.owner}</TableCell>
                 </TableRow>
               ))}
