@@ -17,7 +17,8 @@
  *   --scenario=<name>     which scenario to run (default: get-appointments)
  *   --iters=<n>           timed iterations (default 7)
  *   --warmup=<n>          untimed warmup iterations, to prime module-scope caches (default 2)
- *   --appointments=<n>    fixture size when seeding (default 30)
+ *   --appointments=<n>    tracking-board fixture size when seeding (default 30)
+ *   --visits=<n>          patient-details visit-history size when seeding (default 10)
  *   --reseed              force a fresh fixture even if a cached one is alive
  *   --teardown            delete the cached fixture and exit
  *   --json=<path>         also write the result to a JSON file, for before/after diffing
@@ -35,7 +36,11 @@ import {
   allCachedFixtures,
   fixtureIsAlive,
   forgetCachedFixture,
+  PATIENT_DETAILS_FIXTURE_KIND,
+  PatientDetailsFixture,
+  patientDetailsFixtureIsAlive,
   readCachedFixture,
+  seedPatientDetailsFixture,
   seedTrackingBoardFixture,
   seedVisitDetailsFixture,
   teardownAllFixtures,
@@ -61,7 +66,10 @@ import {
 interface Scenario<TFixture = any> {
   name: string;
   /** Seeds (or reuses) whatever data this scenario needs to measure real work. */
-  resolveFixture: (server: BenchServer, opts: { appointments: number; reseed: boolean }) => Promise<TFixture>;
+  resolveFixture: (
+    server: BenchServer,
+    opts: { appointments: number; visits: number; reseed: boolean }
+  ) => Promise<TFixture>;
   /** Builds the zambda.execute payload for this scenario. */
   buildInput: (fixture: TFixture) => Record<string, unknown>;
   /** Optional one-line summary of the response, to confirm the bench is measuring real work. */
@@ -106,6 +114,29 @@ const SCENARIOS: Record<string, Scenario> = {
       requestedFields: progressNoteChartDataRequestedFields,
     }),
     describeOutput: (output) => `keys=${Object.keys(output ?? {}).length}`,
+  },
+  'get-patient-visit-history': {
+    name: 'get-patient-visit-history',
+    resolveFixture: (server, opts) => resolvePatientDetailsFixture(server.oystehrAdmin, opts),
+    buildInput: (fixture: PatientDetailsFixture) => ({
+      id: 'get-patient-visit-history',
+      patientId: fixture.patientId,
+    }),
+    describeOutput: (output) => `visits=${output?.visits?.length ?? 0} total=${output?.metadata?.totalCount ?? 0}`,
+  },
+  'get-patient-account': {
+    name: 'get-patient-account',
+    resolveFixture: (server, opts) => resolvePatientDetailsFixture(server.oystehrAdmin, opts),
+    buildInput: (fixture: PatientDetailsFixture) => ({
+      id: 'get-patient-account',
+      patientId: fixture.patientId,
+    }),
+    describeOutput: (output) =>
+      `patient=${output?.patient?.id ? 'yes' : 'no'} coverages=${
+        Object.values(output?.coverages ?? {}).filter(Boolean).length
+      } eligibilityChecks=${output?.coverageChecks?.length ?? 0} guarantor=${
+        output?.guarantorResource?.resourceType ?? 'none'
+      } pcp=${output?.primaryCarePhysician ? 'yes' : 'no'}`,
   },
   'ehr-get-visit-details': {
     name: 'ehr-get-visit-details',
@@ -158,6 +189,31 @@ const resolveTrackingBoardFixture = async (
   return fixture;
 };
 
+const resolvePatientDetailsFixture = async (
+  oystehr: Oystehr,
+  opts: { visits: number; reseed: boolean }
+): Promise<PatientDetailsFixture> => {
+  const cached = readCachedFixture<PatientDetailsFixture>(PATIENT_DETAILS_FIXTURE_KIND);
+  if (
+    !opts.reseed &&
+    cached?.patientId &&
+    cached.visitCount === opts.visits &&
+    (await patientDetailsFixtureIsAlive(oystehr, cached))
+  ) {
+    say(`Reusing cached patient-details fixture ${cached.tagCode} (${cached.visitCount} visits)`);
+    return cached;
+  }
+  if (cached?.tagCode) {
+    say(`Cached patient-details fixture ${cached.tagCode} unusable; tearing it down first`);
+    await teardownFixture(oystehr, cached);
+    forgetCachedFixture(PATIENT_DETAILS_FIXTURE_KIND);
+  }
+  say(`Seeding patient-details fixture with ${opts.visits} past visits...`);
+  const fixture = await seedPatientDetailsFixture(oystehr, opts.visits);
+  say(`Seeded patient-details fixture ${fixture.tagCode}`);
+  return fixture;
+};
+
 const resolveVisitDetailsFixture = async (
   server: BenchServer,
   opts: { reseed: boolean }
@@ -186,6 +242,7 @@ const main = async (): Promise<void> => {
   const iters = Number(args.iters ?? 7);
   const warmup = Number(args.warmup ?? 2);
   const appointments = Number(args.appointments ?? 30);
+  const visits = Number(args.visits ?? 10);
   const scenarioName = String(args.scenario ?? 'get-appointments');
   const scenario = SCENARIOS[scenarioName];
   if (!scenario && !args.teardown) {
@@ -207,6 +264,7 @@ const main = async (): Promise<void> => {
 
     const fixture = await scenario.resolveFixture(server, {
       appointments,
+      visits,
       reseed: Boolean(args.reseed),
     });
 

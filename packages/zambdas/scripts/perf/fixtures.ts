@@ -23,6 +23,7 @@ import {
   Communication,
   Condition,
   Consent,
+  CoverageEligibilityResponse,
   DocumentReference,
   Encounter,
   EpisodeOfCare,
@@ -31,6 +32,7 @@ import {
   Location,
   MedicationStatement,
   Observation,
+  Organization,
   Patient,
   Practitioner,
   Procedure,
@@ -77,6 +79,7 @@ const tagFor = (tagCode: string): FhirResource['meta'] => ({
 /** Resource types the fixture creates; teardown sweeps each by tag. */
 const FIXTURE_RESOURCE_TYPES: FhirResource['resourceType'][] = [
   'Provenance',
+  'CoverageEligibilityResponse',
   'EpisodeOfCare',
   'ClinicalImpression',
   'Communication',
@@ -98,13 +101,15 @@ const FIXTURE_RESOURCE_TYPES: FhirResource['resourceType'][] = [
   'RelatedPerson',
   'Patient',
   'Practitioner',
+  'Organization',
   'Location',
 ];
 
 export const TRACKING_BOARD_FIXTURE_KIND = 'tracking-board';
 export const VISIT_DETAILS_FIXTURE_KIND = 'visit-details';
+export const PATIENT_DETAILS_FIXTURE_KIND = 'patient-details';
 
-type FixtureCache = Record<string, TrackingBoardFixture | VisitDetailsFixture>;
+type FixtureCache = Record<string, TrackingBoardFixture | VisitDetailsFixture | PatientDetailsFixture>;
 
 const readCache = (): FixtureCache => {
   if (!existsSync(FIXTURE_CACHE_PATH)) return {};
@@ -120,10 +125,14 @@ const writeCache = (cache: FixtureCache): void => {
   writeFileSync(FIXTURE_CACHE_PATH, JSON.stringify(cache, null, 2));
 };
 
-export const readCachedFixture = <T extends TrackingBoardFixture | VisitDetailsFixture>(kind: string): T | undefined =>
-  readCache()[kind] as T | undefined;
+export const readCachedFixture = <T extends TrackingBoardFixture | VisitDetailsFixture | PatientDetailsFixture>(
+  kind: string
+): T | undefined => readCache()[kind] as T | undefined;
 
-export const writeCachedFixture = (kind: string, fixture: TrackingBoardFixture | VisitDetailsFixture): void => {
+export const writeCachedFixture = (
+  kind: string,
+  fixture: TrackingBoardFixture | VisitDetailsFixture | PatientDetailsFixture
+): void => {
   writeCache({ ...readCache(), [kind]: fixture });
 };
 
@@ -133,8 +142,10 @@ export const forgetCachedFixture = (kind: string): void => {
   writeCache(cache);
 };
 
-export const allCachedFixtures = (): { kind: string; fixture: TrackingBoardFixture | VisitDetailsFixture }[] =>
-  Object.entries(readCache()).map(([kind, fixture]) => ({ kind, fixture }));
+export const allCachedFixtures = (): {
+  kind: string;
+  fixture: TrackingBoardFixture | VisitDetailsFixture | PatientDetailsFixture;
+}[] => Object.entries(readCache()).map(([kind, fixture]) => ({ kind, fixture }));
 
 /**
  * Confirms a cached fixture still exists on the backend (someone may have swept the project) by
@@ -776,4 +787,235 @@ const seedChartDataForVisit = async (
 
   await oystehr.fhir.transaction<FhirResource>({ requests });
   say(`  seeded ${requests.length} chart resources`);
+};
+
+export interface PatientDetailsFixture {
+  tagCode: string;
+  patientId: string;
+  appointmentIds: string[];
+  coverageIds: string[];
+  eligibilityResponseIds: string[];
+  visitCount: number;
+}
+
+/**
+ * One patient with the graph the patient-details screens read: a visit history (N appointments, each
+ * with an encounter and a practitioner participant), a billing Account with a guarantor, insurance
+ * (payor Organization + Coverage) and CoverageEligibilityResponses.
+ *
+ * The eligibility responses matter for shape, not volume: `get-patient-account` deliberately fetches
+ * their ids first and the full resources second (they can be large enough to blow the response size
+ * cap), so a fixture without them would hide that chain entirely. One references a standalone
+ * Coverage and one carries a contained Coverage, which are the two branches the response builder has.
+ */
+export const seedPatientDetailsFixture = async (
+  oystehr: Oystehr,
+  visitCount: number
+): Promise<PatientDetailsFixture> => {
+  const tagCode = `perf-bench-${randomUUID()}`;
+  const meta = tagFor(tagCode);
+
+  const [location, payor, practitioner] = await Promise.all([
+    oystehr.fhir.create<Location>({
+      resourceType: 'Location',
+      status: 'active',
+      name: 'Perf Bench Patient Location',
+      meta,
+      extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: FIXTURE_TIMEZONE }],
+    }),
+    oystehr.fhir.create<Organization>({
+      resourceType: 'Organization',
+      active: true,
+      name: 'Perf Bench Payer',
+      // `pay` under the organization-type system is what marks this as an insurance payer; without
+      // it the account helper does not treat it as one.
+      type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/organization-type', code: 'pay' }] }],
+      meta,
+    }),
+    oystehr.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      active: true,
+      name: [{ family: 'PerfBenchPatientProvider', given: ['Provider'] }],
+      meta,
+    }),
+  ]);
+
+  const patient = await oystehr.fhir.create<Patient>({
+    resourceType: 'Patient',
+    active: true,
+    name: [{ use: 'official', given: ['Perf'], family: 'PatientDetails' }],
+    gender: 'female',
+    birthDate: '1988-03-03',
+    telecom: [
+      { system: 'phone', value: '+12125559999' },
+      { system: 'email', value: 'perf.patient.details@example.com' },
+    ],
+    address: [{ line: ['3 Perf Way'], city: 'New York', state: 'NY', postalCode: '10001' }],
+    meta,
+  });
+  const patientRef = `Patient/${patient.id}`;
+
+  const relatedPerson = await oystehr.fhir.create<RelatedPerson>({
+    resourceType: 'RelatedPerson',
+    patient: { reference: patientRef },
+    name: [{ given: ['Perf'], family: 'PatientGuarantor' }],
+    telecom: [
+      { system: 'phone', value: '+12125559998' },
+      { system: 'email', value: 'perf.patient.guarantor@example.com' },
+    ],
+    relationship: [
+      { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'C', display: 'Emergency' }] },
+    ],
+    meta,
+  });
+
+  const coverage = await oystehr.fhir.create<Coverage>({
+    resourceType: 'Coverage',
+    status: 'active',
+    beneficiary: { reference: patientRef },
+    subscriber: { reference: patientRef },
+    payor: [{ reference: `Organization/${payor.id}` }],
+    subscriberId: 'PERFBENCH123',
+    relationship: {
+      coding: [{ system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship', code: 'self' }],
+    },
+    meta,
+  });
+
+  await oystehr.fhir.create<Account>({
+    resourceType: 'Account',
+    status: 'active',
+    type: PATIENT_BILLING_ACCOUNT_TYPE,
+    name: 'Perf Bench Patient Account',
+    subject: [{ reference: patientRef }],
+    guarantor: [{ party: { reference: `RelatedPerson/${relatedPerson.id}` } }],
+    coverage: [{ coverage: { reference: `Coverage/${coverage.id}` }, priority: 1 }],
+    meta,
+  });
+
+  const eligibilityResponses = await Promise.all([
+    // References a standalone Coverage: the handler has to fetch it in a follow-up batch.
+    oystehr.fhir.create<CoverageEligibilityResponse>({
+      resourceType: 'CoverageEligibilityResponse',
+      status: 'active',
+      purpose: ['benefits'],
+      patient: { reference: patientRef },
+      created: DateTime.now().minus({ days: 1 }).toUTC().toISO()!,
+      request: { display: 'Perf bench eligibility request' },
+      outcome: 'complete',
+      insurer: { reference: `Organization/${payor.id}` },
+      insurance: [{ coverage: { reference: `Coverage/${coverage.id}` }, inforce: true }],
+      meta,
+    } as CoverageEligibilityResponse),
+    // Carries its Coverage inline: the handler reads it straight off `contained`.
+    oystehr.fhir.create<CoverageEligibilityResponse>({
+      resourceType: 'CoverageEligibilityResponse',
+      status: 'active',
+      purpose: ['benefits'],
+      patient: { reference: patientRef },
+      created: DateTime.now().minus({ days: 2 }).toUTC().toISO()!,
+      request: { display: 'Perf bench eligibility request' },
+      outcome: 'complete',
+      insurer: { reference: `Organization/${payor.id}` },
+      contained: [
+        {
+          resourceType: 'Coverage',
+          id: 'contained-coverage',
+          status: 'active',
+          beneficiary: { reference: patientRef },
+          payor: [{ reference: `Organization/${payor.id}` }],
+          subscriberId: 'PERFBENCH456',
+        } as Coverage,
+      ],
+      insurance: [{ coverage: { reference: '#contained-coverage' }, inforce: true }],
+      meta,
+    } as CoverageEligibilityResponse),
+  ]);
+
+  const appointmentIds: string[] = [];
+  const CHUNK = 10;
+  for (let offset = 0; offset < visitCount; offset += CHUNK) {
+    const size = Math.min(CHUNK, visitCount - offset);
+    const requests: BatchInputPostRequest<FhirResource>[] = [];
+    for (let i = 0; i < size; i++) {
+      const n = offset + i;
+      const appointmentRef = `urn:uuid:appointment-${n}`;
+      const start = DateTime.now()
+        .setZone(FIXTURE_TIMEZONE)
+        .minus({ days: n + 1 })
+        .startOf('day')
+        .plus({ hours: 10 });
+      requests.push(
+        {
+          method: 'POST',
+          url: '/Appointment',
+          fullUrl: appointmentRef,
+          resource: {
+            resourceType: 'Appointment',
+            status: n % 7 === 0 ? 'cancelled' : 'fulfilled',
+            start: start.toUTC().toISO()!,
+            end: start.plus({ minutes: 15 }).toUTC().toISO()!,
+            appointmentType: { text: 'walkin' },
+            description: `Perf bench past visit ${n}`,
+            participant: [
+              { actor: { reference: patientRef }, status: 'accepted' },
+              { actor: { reference: `Location/${location.id}` }, status: 'accepted' },
+            ],
+            meta: { ...meta, tag: [...(meta?.tag ?? []), { code: OTTEHR_MODULE.IP }] },
+          } as Appointment,
+        },
+        {
+          method: 'POST',
+          url: '/Encounter',
+          fullUrl: `urn:uuid:encounter-${n}`,
+          resource: {
+            resourceType: 'Encounter',
+            status: 'finished',
+            class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+            subject: { reference: patientRef },
+            appointment: [{ reference: appointmentRef }],
+            location: [{ location: { reference: `Location/${location.id}` } }],
+            participant: [
+              {
+                individual: { reference: `Practitioner/${practitioner.id}` },
+                type: [
+                  { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] },
+                ],
+              },
+            ],
+            meta,
+          } as Encounter,
+        }
+      );
+    }
+    const created = (await oystehr.fhir.transaction<FhirResource>({ requests })).entry ?? [];
+    created.forEach((entry) => {
+      if (entry.resource?.resourceType === 'Appointment' && entry.resource.id) appointmentIds.push(entry.resource.id);
+    });
+    say(`  seeded ${Math.min(offset + CHUNK, visitCount)}/${visitCount} past visits`);
+  }
+
+  const fixture: PatientDetailsFixture = {
+    tagCode,
+    patientId: patient.id!,
+    appointmentIds,
+    coverageIds: [coverage.id!],
+    eligibilityResponseIds: eligibilityResponses.map((r) => r.id!).filter(Boolean),
+    visitCount,
+  };
+  writeCachedFixture(PATIENT_DETAILS_FIXTURE_KIND, fixture);
+  return fixture;
+};
+
+export const patientDetailsFixtureIsAlive = async (
+  oystehr: Oystehr,
+  fixture: PatientDetailsFixture
+): Promise<boolean> => {
+  if (!fixture.patientId) return false;
+  try {
+    await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: fixture.patientId });
+    return true;
+  } catch {
+    return false;
+  }
 };

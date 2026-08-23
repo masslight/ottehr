@@ -28,6 +28,8 @@ ENV=local VITEST=true NODE_OPTIONS='--preserve-symlinks' npx tsx scripts/perf/be
 # machine-readable stats for before/after comparison
 ... --json=/tmp/result.json --label=my-experiment
 
+# fixture size: --appointments=N (tracking board), --visits=N (patient visit history)
+
 # delete every fixture this bench has seeded
 ENV=local VITEST=true NODE_OPTIONS='--preserve-symlinks' npx tsx scripts/perf/bench.ts --teardown
 ```
@@ -46,6 +48,8 @@ and reused across many runs, which keeps before/after comparisons on identical d
 | `ehr-get-visit-details` | `ehr-get-visit-details` | visit details |
 | `get-chart-data-default` | `get-chart-data` (no `requestedFields`) | progress note (`useChartData`) |
 | `get-chart-data-progress-note` | `get-chart-data` (progress-note fields) | progress note (`useChartFields`) |
+| `get-patient-visit-history` | `get-patient-visit-history` | patient details (`/patient/:id`) |
+| `get-patient-account` | `get-patient-account` | patient details (`/patient/:id/info`) |
 
 Add a scenario by adding an entry to `SCENARIOS` in `bench.ts`; add fixture data it needs to
 `fixtures.ts` (stamp every resource with the fixture tag so `--teardown` can find it).
