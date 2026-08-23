@@ -20,6 +20,7 @@
  *   --appointments=<n>    tracking-board fixture size when seeding (default 30)
  *   --visits=<n>          patient-details visit-history size when seeding (default 10)
  *   --reseed              force a fresh fixture even if a cached one is alive
+ *   --all                 run every scenario briefly and rank them by latency (a survey, not a benchmark)
  *   --teardown            delete the cached fixture and exit
  *   --json=<path>         also write the result to a JSON file, for before/after diffing
  *   --label=<name>        label recorded in the JSON output (e.g. "baseline", "batched-provenance")
@@ -171,6 +172,104 @@ const SCENARIOS: Record<string, Scenario> = {
   },
 };
 
+/**
+ * Survey scenarios: the remaining EHR-facing, non-admin, auth'd getter endpoints, wired to the ids
+ * the existing fixtures already provide. These exist so `--all` can produce a *measured* ranking of
+ * where the remaining latency is, rather than picking targets by reading code. Their inputs are the
+ * shapes the EHR actually sends; anything that errors is reported as such by `--all` rather than
+ * aborting the survey.
+ */
+const surveyScenario = (
+  name: string,
+  fixtureKind: 'tracking-board' | 'visit-details' | 'patient-details',
+  buildInput: (fixture: any) => Record<string, unknown>
+): Scenario => ({
+  name,
+  resolveFixture: (server, opts) =>
+    fixtureKind === 'tracking-board'
+      ? resolveTrackingBoardFixture(server.oystehrAdmin, opts)
+      : fixtureKind === 'visit-details'
+      ? resolveVisitDetailsFixture(server, opts)
+      : resolvePatientDetailsFixture(server.oystehrAdmin, opts),
+  buildInput: (fixture) => ({ id: name, ...buildInput(fixture) }),
+});
+
+const SURVEY: Record<string, Scenario> = {
+  // encounter-scoped readers, from the visit-details fixture's encounter
+  'get-vitals': surveyScenario('get-vitals', 'visit-details', (f) => ({
+    encounterId: f.encounterId,
+    currentOrHistorical: 'current',
+  })),
+  'get-medication-orders': surveyScenario('get-medication-orders', 'tracking-board', (f) => ({
+    searchBy: { field: 'encounterIds', value: f.encounterIds },
+  })),
+  'get-nursing-orders': surveyScenario('get-nursing-orders', 'tracking-board', (f) => ({
+    searchBy: { field: 'encounterIds', value: f.encounterIds },
+  })),
+  'get-erx-orders': surveyScenario('get-erx-orders', 'tracking-board', (f) => ({
+    encounterIds: f.encounterIds,
+  })),
+  'get-immunization-orders': surveyScenario('get-immunization-orders', 'tracking-board', (f) => ({
+    encounterIds: f.encounterIds,
+  })),
+  'get-lab-orders': surveyScenario('get-lab-orders', 'tracking-board', (f) => ({
+    searchBy: { field: 'encounterIds', value: f.encounterIds },
+    itemsPerPage: 100,
+    pageIndex: 0,
+  })),
+  'get-in-house-orders': surveyScenario('get-in-house-orders', 'tracking-board', (f) => ({
+    searchBy: { field: 'encounterIds', value: f.encounterIds },
+    itemsPerPage: 100,
+    pageIndex: 0,
+  })),
+
+  // patient-scoped readers
+  'get-patient-balances': surveyScenario('get-patient-balances', 'patient-details', (f) => ({
+    patientId: f.patientId,
+  })),
+  'get-login-phone-numbers': surveyScenario('get-login-phone-numbers', 'patient-details', (f) => ({
+    patientId: f.patientId,
+  })),
+  'get-patient-profile-photo-url': surveyScenario('get-patient-profile-photo-url', 'patient-details', (f) => ({
+    patientId: f.patientId,
+  })),
+  'get-conversation': surveyScenario('get-conversation', 'patient-details', (f) => ({
+    patientId: f.patientId,
+    timezone: 'America/New_York',
+  })),
+
+  // appointment-scoped readers
+  'get-visit-files': surveyScenario('get-visit-files', 'visit-details', (f) => ({
+    appointmentId: f.appointmentId,
+  })),
+  'get-visit-fax-history': surveyScenario('get-visit-fax-history', 'visit-details', (f) => ({
+    appointmentId: f.appointmentId,
+  })),
+  'get-invoices-tasks': surveyScenario('get-invoices-tasks', 'patient-details', (f) => ({
+    patientId: f.patientId,
+  })),
+  'get-action-logs': surveyScenario('get-action-logs', 'patient-details', (f) => ({
+    channel: 'fax',
+    patientId: f.patientId,
+    pageIndex: 0,
+  })),
+
+  // config / list readers the EHR loads without any id
+  'get-patient-instructions': surveyScenario('get-patient-instructions', 'visit-details', () => ({})),
+  'get-progress-note-config': surveyScenario('get-progress-note-config', 'visit-details', () => ({})),
+  'get-support-dialog': surveyScenario('get-support-dialog', 'visit-details', () => ({})),
+  'get-label-printing-config': surveyScenario('get-label-printing-config', 'visit-details', () => ({})),
+  'get-in-house-medications': surveyScenario('get-in-house-medications', 'visit-details', () => ({})),
+  'get-em-codes': surveyScenario('get-em-codes', 'visit-details', () => ({})),
+  'list-templates': surveyScenario('list-templates', 'visit-details', () => ({})),
+  'list-adhoc-reports': surveyScenario('list-adhoc-reports', 'visit-details', () => ({})),
+  'list-provider-groups': surveyScenario('list-provider-groups', 'visit-details', () => ({})),
+  'list-approved-patient-education': surveyScenario('list-approved-patient-education', 'visit-details', () => ({})),
+  'get-employees': surveyScenario('get-employees', 'visit-details', () => ({})),
+};
+
+const ALL_SCENARIOS: Record<string, Scenario> = { ...SCENARIOS, ...SURVEY };
+
 const parseArgs = (): Record<string, string | boolean> => {
   const args: Record<string, string | boolean> = {};
   process.argv.slice(2).forEach((raw) => {
@@ -261,9 +360,9 @@ const main = async (): Promise<void> => {
   const appointments = Number(args.appointments ?? 30);
   const visits = Number(args.visits ?? 10);
   const scenarioName = String(args.scenario ?? 'get-appointments');
-  const scenario = SCENARIOS[scenarioName];
+  const scenario = ALL_SCENARIOS[scenarioName];
   if (!scenario && !args.teardown) {
-    throw new Error(`Unknown scenario "${scenarioName}". Known: ${Object.keys(SCENARIOS).join(', ')}`);
+    throw new Error(`Unknown scenario "${scenarioName}". Known: ${Object.keys(ALL_SCENARIOS).join(', ')}`);
   }
 
   const handlerLogs = args['handler-logs'] ? undefined : silenceHandlerLogs();
@@ -276,6 +375,66 @@ const main = async (): Promise<void> => {
       const deleted = await teardownAllFixtures(server.oystehrAdmin);
       allCachedFixtures().forEach(({ kind }) => forgetCachedFixture(kind));
       say(deleted ? `Deleted ${deleted} resource(s)` : 'Nothing to tear down');
+      return;
+    }
+
+    if (args.all) {
+      // Measured survey: run every scenario briefly and rank by latency, so targets are chosen from
+      // data rather than by reading handlers.
+      recorder.install();
+      const results: {
+        name: string;
+        median: number;
+        min: number;
+        calls: number;
+        waves: number;
+        note: string;
+      }[] = [];
+      for (const [name, candidate] of Object.entries(ALL_SCENARIOS)) {
+        try {
+          const candidateFixture = await candidate.resolveFixture(server, {
+            appointments,
+            visits,
+            reseed: false,
+          });
+          const candidateInput = candidate.buildInput(candidateFixture);
+          await server.oystehrZambda.zambda.execute(candidateInput as any); // warm
+          const candidateSamples: number[] = [];
+          let calls = 0;
+          let waves = 0;
+          let note = '';
+          for (let i = 0; i < iters; i++) {
+            recorder.start();
+            const started = performance.now();
+            const response = await server.oystehrZambda.zambda.execute(candidateInput as any);
+            candidateSamples.push(performance.now() - started);
+            const handlerCalls = recorder.stop().filter((c) => !c.host.startsWith('localhost'));
+            calls = handlerCalls.length;
+            waves = groupIntoWaves(handlerCalls).length;
+            if (i === 0) note = candidate.describeOutput?.((response as any).output) ?? '';
+          }
+          const candidateStats = summarize(candidateSamples);
+          results.push({ name, median: candidateStats.median, min: candidateStats.min, calls, waves, note });
+          say(
+            `${name.padEnd(36)} median=${fmt(candidateStats.median).padStart(7)} min=${fmt(candidateStats.min).padStart(
+              7
+            )} calls=${String(calls).padStart(3)} waves=${waves}`
+          );
+        } catch (error: any) {
+          say(`${name.padEnd(36)} ERROR: ${String(error?.message ?? error).slice(0, 90)}`);
+        }
+      }
+      say('');
+      say('=== ranked by median latency ===');
+      results
+        .sort((a, b) => b.median - a.median)
+        .forEach((r) =>
+          say(
+            `${fmt(r.median).padStart(7)}  ${r.name.padEnd(36)} calls=${String(r.calls).padStart(3)} waves=${
+              r.waves
+            }  ${r.note}`
+          )
+        );
       return;
     }
 

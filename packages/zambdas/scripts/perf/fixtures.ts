@@ -23,6 +23,7 @@ import {
   Communication,
   Condition,
   Consent,
+  Coverage,
   CoverageEligibilityResponse,
   DocumentReference,
   Encounter,
