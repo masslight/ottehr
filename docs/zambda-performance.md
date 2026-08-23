@@ -282,3 +282,42 @@ grouping step. One deliberate difference: the search is now paged, where before 
 unbounded page. That cannot change the result for any realistic encounter, but it means a chunk whose
 encounters carry an unusual number of vitals can no longer be silently truncated — a latent bug in the
 per-encounter version, since it had no `_count` either.
+
+---
+
+## `makeEncounterLabResults` — lab results on the progress note
+
+Reached from `get-chart-data` whenever `externalLabResults` or `inHouseLabResults` are requested,
+which the progress note does. Each lab-result document needs a presigned download URL, and those
+calls were awaited **one at a time inside a `for` loop** — so a visit with N result documents paid N
+fully serialized network round trips before the note could render. This is the one change here that
+is not an end-to-end zambda measurement: a faithful fixture would need real Z3 PDF objects behind the
+result `DocumentReference`s, which only the in-house-lab order-and-result flow produces. What is
+measured is the round trip being parallelized, and the transformation itself:
+
+| | serial (before) | concurrent (after) | saved |
+| --- | --- | --- | --- |
+| 1 result document | 88ms | 88ms | — |
+| 2 result documents | 164ms | 93ms | 70ms |
+| 4 result documents | 339ms | 106ms | **234ms** |
+| 8 result documents | 631ms | 228ms | **403ms** |
+
+(Single presigned-URL POST: min 71ms, median 88ms, p90 106ms.)
+
+The requests are now started as the loop walks the documents and consumed in that same order
+afterwards, so the assembled result arrays — external, in-house, and the reflex results that get
+grafted onto their originating order — come out ordered exactly as the sequential version produced
+them, which is the only thing the change could plausibly have disturbed. Failure behaviour is
+unchanged: a presigned-URL fetch that fails still fails the call.
+
+### Also swept, and clean
+
+Worth recording so the next person does not re-check them. `get-medication-orders`,
+`get-immunization-orders`, `get-nursing-orders`, `get-erx-orders` and `get-patient-instructions` are
+each a single FHIR search — already optimal. `fetchActivityDefinitions` (also inside the lab result
+path) fans out per canonical URL but already does so concurrently; since canonical resources are
+immutable per version it is a candidate for a module-scope cache across warm invocations, which would
+remove the round trip rather than just overlap it. `list-approved-patient-education` fetches a
+presigned URL per document, but already concurrently. `get-lab-orders` is three waves over a much
+larger surface and was left alone: it is the one remaining reader in this area where the work is
+non-obvious rather than mechanical.

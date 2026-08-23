@@ -752,6 +752,16 @@ export const makeEncounterLabResults = async (
   const inHouseLabOrderResults: InHouseLabResult[] = [];
   const reflexOrderResults: ExternalLabOrderResultConfig[] = [];
 
+  // Each getLabOrderResultPDFConfig call below fetches a presigned download URL over the network, and
+  // they used to be awaited one at a time inside this loop — so a visit with N result documents paid
+  // N fully serialized round trips before the progress note could render. The requests are now
+  // started as the loop walks the documents and consumed in that same order afterwards, which keeps
+  // the assembled arrays ordered exactly as the sequential version produced them.
+  type PendingLabResultConfig = {
+    fetch: ReturnType<typeof getLabOrderResultPDFConfig>;
+  } & ({ type: LabType.external; isReflex: boolean } | { type: LabType.inHouse });
+  const pendingResultConfigs: PendingLabResultConfig[] = [];
+
   for (const docRef of documentReferences) {
     const diagnosticReportRef = docRef.context?.related?.find(
       (related) => related.reference?.startsWith('DiagnosticReport')
@@ -778,17 +788,16 @@ export const makeEncounterLabResults = async (
           }
 
           const resultValues = getResultValuesFromObservations(relatedDR, allObservations);
-          const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
+          pendingResultConfigs.push({
             type: LabType.external,
-            nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
-            orderNumber,
-            resultValues,
+            isReflex,
+            fetch: getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
+              type: LabType.external,
+              nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
+              orderNumber,
+              resultValues,
+            }),
           });
-          if (isReflex) {
-            reflexOrderResults.push(...externalResultConfigs);
-          } else {
-            externalLabOrderResults.push(...externalResultConfigs);
-          }
         } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
@@ -796,13 +805,14 @@ export const makeEncounterLabResults = async (
           const ad = canonical ? activityDefinitionMap.get(canonical) : undefined;
           const componentNameMap = ad ? buildComponentNameMap(ad) : undefined;
           const resultValues = getResultValuesFromObservations(relatedDR, allObservations, componentNameMap);
-          const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
-            docRef,
-            testName || 'missing test details',
-            m2mToken,
-            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR), resultValues }
-          );
-          inHouseLabOrderResults.push(...inHouseResultConfigs);
+          pendingResultConfigs.push({
+            type: LabType.inHouse,
+            fetch: getLabOrderResultPDFConfig(docRef, testName || 'missing test details', m2mToken, {
+              type: LabType.inHouse,
+              nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
+              resultValues,
+            }),
+          });
         }
       } else {
         // todo what to do here for unsolicited results
@@ -815,6 +825,20 @@ export const makeEncounterLabResults = async (
       console.log('no diagnosticReportRef for', docRef.id);
     }
   }
+
+  const resolvedResultConfigs = await Promise.all(pendingResultConfigs.map((pending) => pending.fetch));
+  resolvedResultConfigs.forEach((resolved, index) => {
+    const pending = pendingResultConfigs[index];
+    if (pending.type === LabType.external) {
+      if (pending.isReflex) {
+        reflexOrderResults.push(...resolved.externalResultConfigs);
+      } else {
+        externalLabOrderResults.push(...resolved.externalResultConfigs);
+      }
+    } else {
+      inHouseLabOrderResults.push(...resolved.inHouseResultConfigs);
+    }
+  });
 
   // map reflex tests to their original ordered test
   reflexOrderResults.forEach((reflexRes) => {
