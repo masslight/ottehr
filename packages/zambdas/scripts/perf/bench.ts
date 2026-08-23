@@ -26,6 +26,7 @@
  *   --dump=<path>         write the full zambda response body to a file, for before/after diffing
  *   --handler-logs        do not silence the handler's own console output
  */
+import Oystehr from '@oystehr/sdk';
 import { writeFileSync } from 'fs';
 import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { ServiceMode } from 'utils/lib/types/common';
@@ -37,6 +38,7 @@ import {
   readCachedFixture,
   seedTrackingBoardFixture,
   seedVisitDetailsFixture,
+  teardownAllFixtures,
   teardownFixture,
   TRACKING_BOARD_FIXTURE_KIND,
   TrackingBoardFixture,
@@ -194,16 +196,12 @@ const main = async (): Promise<void> => {
   const server = await startBenchServer();
   try {
     if (args.teardown) {
-      const cached = allCachedFixtures().filter(({ fixture }) => fixture?.tagCode);
-      if (!cached.length) {
-        say('No cached fixtures to tear down.');
-        return;
-      }
-      for (const { kind, fixture } of cached) {
-        say(`Tearing down ${kind} fixture ${fixture.tagCode}`);
-        await teardownFixture(server.oystehrAdmin, fixture);
-        forgetCachedFixture(kind);
-      }
+      // Sweeps by tag system, not by cached fixture id, so a seed that threw partway through — or a
+      // fixture whose cache entry was lost — is still cleaned up.
+      say('Tearing down every resource this bench has created...');
+      const deleted = await teardownAllFixtures(server.oystehrAdmin);
+      allCachedFixtures().forEach(({ kind }) => forgetCachedFixture(kind));
+      say(deleted ? `Deleted ${deleted} resource(s)` : 'Nothing to tear down');
       return;
     }
 

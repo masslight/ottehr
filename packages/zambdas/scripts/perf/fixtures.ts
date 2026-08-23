@@ -41,6 +41,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { PAPERWORK_CONSENT_CODE_UNIQUE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { say } from './lib';
 
 export const PERF_FIXTURE_TAG_SYSTEM = 'https://ottehr.org/perf-bench';
 
@@ -67,6 +68,14 @@ const tagFor = (tagCode: string): FhirResource['meta'] => ({
 
 /** Resource types the fixture creates; teardown sweeps each by tag. */
 const FIXTURE_RESOURCE_TYPES: FhirResource['resourceType'][] = [
+  'Provenance',
+  'ClinicalImpression',
+  'Communication',
+  'Observation',
+  'MedicationStatement',
+  'AllergyIntolerance',
+  'Condition',
+  'Procedure',
   'Consent',
   'DocumentReference',
   'Coverage',
@@ -285,7 +294,7 @@ export const seedTrackingBoardFixture = async (
       if (resource.resourceType === 'Encounter') encounterIds.push(resource.id);
       if (resource.resourceType === 'Patient') patientIds.push(resource.id);
     });
-    console.log(`  seeded ${Math.min(offset + CHUNK, appointmentCount)}/${appointmentCount} appointments`);
+    say(`  seeded ${Math.min(offset + CHUNK, appointmentCount)}/${appointmentCount} appointments`);
   }
 
   const fixture: TrackingBoardFixture = {
@@ -303,28 +312,71 @@ export const seedTrackingBoardFixture = async (
   return fixture;
 };
 
-export const teardownFixture = async (oystehr: Oystehr, fixture: TrackingBoardFixture): Promise<void> => {
-  const tagValue = `${PERF_FIXTURE_TAG_SYSTEM}|${fixture.tagCode}`;
-  for (const resourceType of FIXTURE_RESOURCE_TYPES) {
-    const found: FhirResource[] = [];
+const deleteAll = async (oystehr: Oystehr, resources: FhirResource[]): Promise<void> => {
+  for (let i = 0; i < resources.length; i += 50) {
+    await oystehr.fhir.transaction({
+      requests: resources
+        .slice(i, i + 50)
+        .map((resource) => ({ method: 'DELETE' as const, url: `/${resource.resourceType}/${resource.id}` })),
+    });
+  }
+};
+
+const searchByTag = async (
+  oystehr: Oystehr,
+  resourceType: FhirResource['resourceType'],
+  tagValue: string
+): Promise<FhirResource[]> => {
+  const found: FhirResource[] = [];
+  const PAGE = 200;
+  for (;;) {
     const bundle = await oystehr.fhir.search<FhirResource>({
       resourceType: resourceType as any,
       params: [
         { name: '_tag', value: tagValue },
-        { name: '_count', value: '200' },
+        { name: '_count', value: `${PAGE}` },
       ],
     });
-    found.push(...(bundle.unbundle() ?? []));
-    if (!found.length) continue;
-    // Delete in modest batches; ordering across types is handled by the outer loop order
-    // (children before parents), so no reference is dangling at delete time.
-    for (let i = 0; i < found.length; i += 50) {
-      await oystehr.fhir.transaction({
-        requests: found.slice(i, i + 50).map((r) => ({ method: 'DELETE' as const, url: `/${r.resourceType}/${r.id}` })),
-      });
-    }
-    console.log(`  deleted ${found.length} ${resourceType}`);
+    const page = bundle.unbundle() ?? [];
+    found.push(...page);
+    // A tag search returns everything matching; once a page comes back short there is no more.
+    if (page.length < PAGE) break;
   }
+  return found;
+};
+
+/** Deletes one fixture, identified by its own tag code. */
+export const teardownFixture = async (
+  oystehr: Oystehr,
+  fixture: { tagCode: string },
+  log: (line: string) => void = say
+): Promise<void> => {
+  const tagValue = `${PERF_FIXTURE_TAG_SYSTEM}|${fixture.tagCode}`;
+  for (const resourceType of FIXTURE_RESOURCE_TYPES) {
+    const found = await searchByTag(oystehr, resourceType, tagValue);
+    if (!found.length) continue;
+    // FIXTURE_RESOURCE_TYPES is ordered children-before-parents, so nothing is left referencing a
+    // resource that has already been deleted.
+    await deleteAll(oystehr, found);
+    log(`  deleted ${found.length} ${resourceType}`);
+  }
+};
+
+/**
+ * Deletes everything this bench has ever created, found by the tag SYSTEM rather than by any one
+ * fixture's tag code. This is what `--teardown` runs: a seed that throws partway through leaves
+ * resources whose tag code was never cached, and per-fixture teardown can never reach those.
+ */
+export const teardownAllFixtures = async (oystehr: Oystehr, log: (line: string) => void = say): Promise<number> => {
+  let total = 0;
+  for (const resourceType of FIXTURE_RESOURCE_TYPES) {
+    const found = await searchByTag(oystehr, resourceType, `${PERF_FIXTURE_TAG_SYSTEM}|`);
+    if (!found.length) continue;
+    await deleteAll(oystehr, found);
+    total += found.length;
+    log(`  deleted ${found.length} ${resourceType}`);
+  }
+  return total;
 };
 
 export interface VisitDetailsFixture {
