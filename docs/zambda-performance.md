@@ -460,3 +460,55 @@ response is assembled by resource type rather than by request position, so how t
 grouped cannot affect it; the diff confirms it byte-for-byte. Note the p90 does not improve here — at
 this size the win is in the median and the floor, and three connections have a slightly wider tail
 than one.
+
+---
+
+## Tracking board: the complete endpoint list
+
+Every request the board fires on load, and where each one now stands. Measured with 30 appointments.
+
+| endpoint | median | status |
+| --- | --- | --- |
+| `get-appointments` | 342ms | optimized (−54%) |
+| `get-vitals-for-list-of-encounters` | 229ms | optimized (31 calls → 3) |
+| `radiology-order-list` | 126ms | optimized (−35%) |
+| `get-chart-data` (procedures, via `useGetProcedures`) | 131ms | optimized (−62%) |
+| `get-in-house-orders` | 112ms | clean — one search, one wave |
+| `get-medication-orders` | 104ms | clean — one search |
+| `get-lab-orders` | 99ms | clean — one search, one wave |
+| `get-immunization-orders` | 97ms | clean — one search |
+| `get-erx-orders` | 88ms | clean — one search |
+| `get-nursing-orders` | 83ms | clean — one search |
+| `admin-list-service-categories` | 157ms | clean — one search. `admin-`*named*, but the board's category filter loads it for every user |
+| `get-employees` (`lite: true`) | **~750ms** | see below — not fixable in the zambda |
+
+The order readers that fill the rows are all single-search already; the board's remaining cost is
+concentrated in the two endpoints at the top and in one filter dropdown.
+
+### `get-employees` (lite) — a negative result
+
+The board's provider filter calls `get-employees` with `lite: true`, a different path from the one the
+visit screens use. It takes ~750ms across **six sequential waves**, and none of that is fixable here:
+
+- The waves are `getRoleMembers` walking cursor pages. Cursor pagination cannot be parallelized —
+  each page's cursor comes out of the previous response.
+- It already asks for the largest page the server will give. Requesting `limit=1000` really does send
+  `limit=1000` on the wire (verified by recording the outbound URL) and still comes back
+  `[100,100,100,100,100,12]`; omitting `limit` drops the page to 25. The existing `limit: 100` is
+  already optimal — **do not try to tune it.**
+- The per-role fetches are already concurrent. Six waves is one role's page count, not eleven roles
+  in sequence.
+- `UserListItem` carries no roles, so per-role membership cannot be replaced by reading roles off the
+  single `user.list()` call.
+
+Two things worth knowing before anyone spends time here. First, the page count is driven by this
+project having **512 members in the Provider role**, which looks like dev-project accumulation; a
+practice with fifty providers pays one page and the endpoint is already ~2 waves. Second, the real
+inefficiency is not in the zambda: the filter dropdown's data is fetched eagerly on board load whether
+or not anyone opens it. Deferring that until the dropdown opens would take ~750ms off the board's load
+profile without touching the endpoint — but that is a frontend change, so it is recorded here rather
+than made.
+
+Module-scope caching of role membership was considered and rejected: it would go stale on the admin
+Employees screen, where someone changes a role and expects the list to reflect it, and a mutation in
+one lambda instance cannot invalidate another instance's cache.

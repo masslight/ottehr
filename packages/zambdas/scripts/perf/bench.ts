@@ -269,6 +269,16 @@ const SURVEY: Record<string, Scenario> = {
 
   // Clinical order screens: radiology orders render on both the tracking board and the visit screen;
   // the lab-order-resources pair loads when a provider opens the corresponding order form.
+  // The tracking board's filter row: the provider dropdown calls get-employees in *lite* mode (a
+  // different path from the one the visit screens use), and the service-category dropdown calls an
+  // admin-*named* endpoint that every board user nonetheless loads.
+  'get-employees-lite': {
+    name: 'get-employees',
+    resolveFixture: (server, opts) => resolveVisitDetailsFixture(server, opts),
+    buildInput: () => ({ id: 'get-employees', lite: true }),
+    describeOutput: (output) => `employees=${output?.employees?.length ?? 0}`,
+  },
+  'admin-list-service-categories': surveyScenario('admin-list-service-categories', 'visit-details', () => ({})),
   'radiology-order-list': surveyScenario('radiology-order-list', 'tracking-board', (f) => ({
     encounterIds: f.encounterIds,
   })),
