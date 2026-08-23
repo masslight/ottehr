@@ -21,6 +21,10 @@ import {
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
 import { getProviderType, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
+import {
+  NO_SIGN_PERMISSION_MESSAGE,
+  VISIT_NOTE_SIGNING_ROLES,
+} from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
@@ -71,7 +75,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const apiClient = useOystehrAPIClient();
   const { isAssignedProviderEligible } = useAssignedProvider();
-  const practitioner = useEvolveUser()?.profileResource;
+  const user = useEvolveUser();
+  const practitioner = user?.profileResource;
+  // Signing is limited to provider-level roles; a Clinician charts the visit but may not sign it.
+  // The sign zambda refuses the same call, so this only spares the round trip and explains why.
+  // Undefined while the user is still loading — treated as permitted so the button isn't briefly
+  // greyed out with a permission message for a provider.
+  const canSignNote = user ? user.hasRole(VISIT_NOTE_SIGNING_ROLES) : true;
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
@@ -120,6 +130,12 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     if (completed) {
       return messages;
+    }
+
+    // Reported alone: nothing else the user could fix would make the button usable, so listing the
+    // visit's other gaps alongside it would only obscure the reason.
+    if (!canSignNote) {
+      return [NO_SIGN_PERMISSION_MESSAGE];
     }
 
     // The assigned provider is the note's rendering provider, and the sign zambda rejects a visit
@@ -202,6 +218,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return messages;
   }, [
     completed,
+    canSignNote,
     isAssignedProviderEligible,
     inPersonStatus,
     primaryDiagnosis,
