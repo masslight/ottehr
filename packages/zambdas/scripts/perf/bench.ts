@@ -266,6 +266,21 @@ const SURVEY: Record<string, Scenario> = {
   'list-provider-groups': surveyScenario('list-provider-groups', 'visit-details', () => ({})),
   'list-approved-patient-education': surveyScenario('list-approved-patient-education', 'visit-details', () => ({})),
   'get-employees': surveyScenario('get-employees', 'visit-details', () => ({})),
+
+  // Clinical order screens: radiology orders render on both the tracking board and the visit screen;
+  // the lab-order-resources pair loads when a provider opens the corresponding order form.
+  'radiology-order-list': surveyScenario('radiology-order-list', 'tracking-board', (f) => ({
+    encounterIds: f.encounterIds,
+  })),
+  'get-create-lab-order-resources': surveyScenario('get-create-lab-order-resources', 'visit-details', (f) => ({
+    encounterId: f.encounterId,
+    patientId: f.patientId,
+  })),
+  'get-create-in-house-lab-order-resources': surveyScenario(
+    'get-create-in-house-lab-order-resources',
+    'visit-details',
+    (f) => ({ encounterId: f.encounterId })
+  ),
 };
 
 const ALL_SCENARIOS: Record<string, Scenario> = { ...SCENARIOS, ...SURVEY };

@@ -40,6 +40,7 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
+  ServiceRequest,
   Slot,
 } from 'fhir/r4b';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -51,6 +52,7 @@ import {
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PAPERWORK_CONSENT_CODE_UNIQUE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { say } from './lib';
@@ -81,6 +83,7 @@ const tagFor = (tagCode: string): FhirResource['meta'] => ({
 /** Resource types the fixture creates; teardown sweeps each by tag. */
 const FIXTURE_RESOURCE_TYPES: FhirResource['resourceType'][] = [
   'Provenance',
+  'ServiceRequest',
   'CoverageEligibilityResponse',
   'EpisodeOfCare',
   'ClinicalImpression',
@@ -327,6 +330,36 @@ export const seedTrackingBoardFixture = async (
     encounterIds,
     performerId: practitionerIds[0],
   });
+
+  // A radiology order on the first encounter, so radiology-order-list exercises its order-mapping
+  // path (including the per-order edit affordance) rather than its empty-result early return.
+  if (encounterIds[0] && patientIds[0] && practitionerIds[0]) {
+    await oystehr.fhir.create<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      status: 'active',
+      intent: 'order',
+      subject: { reference: `Patient/${patientIds[0]}` },
+      encounter: { reference: `Encounter/${encounterIds[0]}` },
+      requester: { reference: `Practitioner/${practitionerIds[0]}` },
+      code: { coding: [{ system: 'http://loinc.org', code: '36643-5', display: 'Chest X-ray' }], text: 'Chest X-ray' },
+      // The order mapper requires authoredOn — it throws "Order added date time is unexpectedly
+      // null" without it — and reads the requested-time extension for the order history.
+      authoredOn: DateTime.now().minus({ hours: 2 }).toUTC().toISO()!,
+      extension: [
+        {
+          url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+          valueDateTime: DateTime.now().minus({ hours: 2 }).toUTC().toISO()!,
+        },
+      ],
+      meta: {
+        tag: [
+          { system: PERF_FIXTURE_TAG_SYSTEM, code: tagCode },
+          { system: ORDER_TYPE_CODE_SYSTEM, code: 'radiology' },
+        ],
+      },
+    });
+    say('  seeded 1 radiology ServiceRequest');
+  }
 
   const fixture: TrackingBoardFixture = {
     tagCode,

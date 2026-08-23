@@ -100,7 +100,9 @@ const performEffect = async (
     serviceRequestId,
     itemsPerPage,
     pageIndex,
-    callerPractitionerId: await resolveCallerPractitionerId(validatedInput.callerAccessToken, secrets),
+    // Passed unawaited: who is asking only affects the per-order edit affordance, never the search,
+    // so resolving it used to cost a full round trip in front of the search for nothing.
+    callerPractitionerId: resolveCallerPractitionerId(validatedInput.callerAccessToken, secrets),
   };
 
   return await getRadiologyOrders(oystehr, searchParams);
@@ -137,7 +139,12 @@ export const getRadiologyOrders = async (
     serviceRequestId?: string;
     itemsPerPage?: number;
     pageIndex?: number;
-    callerPractitionerId?: string;
+    /**
+     * Who is asking, for the edit affordances on each order. Taken as a promise and awaited only
+     * after the search below, since the search does not use it — resolving the caller and searching
+     * are independent, and serializing them doubled this endpoint's round trips.
+     */
+    callerPractitionerId?: Promise<string | undefined>;
   }
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const searchParams = [
@@ -185,6 +192,9 @@ export const getRadiologyOrders = async (
   const { serviceRequests, tasks, diagnosticReports, practitioners, encounters, documentReferences } =
     extractResources(resources);
 
+  // Awaited before the early return as well, so no path leaves this promise unobserved.
+  const resolvedCallerPractitionerId = await callerPractitionerId;
+
   if (!serviceRequests.length) {
     return {
       orders: [],
@@ -200,7 +210,7 @@ export const getRadiologyOrders = async (
       practitioners,
       encounters,
       documentReferences,
-      callerPractitionerId
+      resolvedCallerPractitionerId
     )
   );
 
