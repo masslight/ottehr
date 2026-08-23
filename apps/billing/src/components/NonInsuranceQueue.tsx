@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
+import { agingBucketForDate } from '../constants/agingBuckets';
 
 const formatUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format;
 
@@ -33,15 +34,6 @@ interface NonInsuranceClaimRow {
   invoiced: boolean;
   invoiceNumber?: string;
 }
-
-// Chip colors cycled per invoice so claims on the same invoice are visually grouped.
-const INVOICE_CHIP_COLORS: ('primary' | 'secondary' | 'success' | 'warning' | 'info')[] = [
-  'primary',
-  'success',
-  'warning',
-  'info',
-  'secondary',
-];
 
 // Deterministic RNG so each org's fake data is stable across renders.
 const hashSeed = (s: string): number => {
@@ -263,9 +255,6 @@ export function NonInsuranceQueue({ organization, preInvoice }: NonInsuranceQueu
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
-  const invoiceChipColor = (invoiceNumber: string): (typeof INVOICE_CHIP_COLORS)[number] =>
-    INVOICE_CHIP_COLORS[hashSeed(invoiceNumber) % INVOICE_CHIP_COLORS.length];
-
   const pagedClaims = claims.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
   const pagedInvoices = invoices.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
   const selectedRows = claims.filter((row) => selectedIds.includes(row.id));
@@ -401,19 +390,20 @@ export function NonInsuranceQueue({ organization, preInvoice }: NonInsuranceQueu
           </TableRow>
         </TableHead>
         <TableBody>
-          {pagedInvoices.map((invoice) => (
-            <TableRow key={invoice.invoiceNumber} hover>
-              <TableCell>
-                <Tooltip title="View invoice">
-                  <Chip
-                    label={invoice.invoiceNumber}
-                    size="small"
-                    color={invoiceChipColor(invoice.invoiceNumber)}
-                    onClick={() => setViewingInvoice(invoice)}
-                    sx={{ borderRadius: '4px', cursor: 'pointer' }}
-                  />
-                </Tooltip>
-              </TableCell>
+          {pagedInvoices.map((invoice) => {
+            const bucket = agingBucketForDate(invoice.date);
+            return (
+              <TableRow key={invoice.invoiceNumber} hover>
+                <TableCell>
+                  <Tooltip title={`View invoice · aging ${bucket.label} days`}>
+                    <Chip
+                      label={invoice.invoiceNumber}
+                      size="small"
+                      onClick={() => setViewingInvoice(invoice)}
+                      sx={{ borderRadius: '4px', cursor: 'pointer', bgcolor: bucket.color, color: '#fff' }}
+                    />
+                  </Tooltip>
+                </TableCell>
               <TableCell>{invoice.date}</TableCell>
               <TableCell align="right">{invoice.claims.length}</TableCell>
               <TableCell>
@@ -422,24 +412,26 @@ export function NonInsuranceQueue({ organization, preInvoice }: NonInsuranceQueu
                 </Typography>
               </TableCell>
               <TableCell align="right">{formatUsd(invoice.total)}</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                <Button size="small" onClick={() => setViewingInvoice(invoice)}>
-                  View
-                </Button>
-                <Button
-                  size="small"
-                  sx={{ ml: 1 }}
-                  onClick={() =>
-                    enqueueSnackbar(`Invoice ${invoice.invoiceNumber} re-sent to ${organization} (demo — nothing sent)`, {
-                      variant: 'success',
-                    })
-                  }
-                >
-                  Re-Send
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                  <Button size="small" onClick={() => setViewingInvoice(invoice)}>
+                    View
+                  </Button>
+                  <Button
+                    size="small"
+                    sx={{ ml: 1 }}
+                    onClick={() =>
+                      enqueueSnackbar(
+                        `Invoice ${invoice.invoiceNumber} re-sent to ${organization} (demo — nothing sent)`,
+                        { variant: 'success' }
+                      )
+                    }
+                  >
+                    Re-Send
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
       <TablePagination

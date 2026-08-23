@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
+import { agingBucketForDate } from '../constants/agingBuckets';
 
 const formatUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format;
 
@@ -194,7 +195,22 @@ export function PatientInvoicingQueue({ queueName, preInvoice }: PatientInvoicin
                 <Typography variant="body2">{formatUsd(row.amount)}</Typography>
               </Box>
               <Box component="td">
-                <Chip label={row.status} size="small" color={STATUS_CHIP_COLOR[row.status]} sx={{ borderRadius: '4px' }} />
+                {row.status === 'Invoiced' ? (
+                  // Invoiced balances are colored by their AR aging bucket, matching the bucket buttons.
+                  <Tooltip title={`Aging ${agingBucketForDate(row.dateOfService).label} days`}>
+                    <Chip
+                      label={row.status}
+                      size="small"
+                      sx={{
+                        borderRadius: '4px',
+                        bgcolor: agingBucketForDate(row.dateOfService).color,
+                        color: '#fff',
+                      }}
+                    />
+                  </Tooltip>
+                ) : (
+                  <Chip label={row.status} size="small" color={STATUS_CHIP_COLOR[row.status]} sx={{ borderRadius: '4px' }} />
+                )}
               </Box>
               <Box component="td" sx={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                 <Button

@@ -28,6 +28,7 @@ import { cloneElement, ReactElement, useState } from 'react';
 import { CreateWorkQueueDialog, QueueContext, WorkQueueForm } from '../components/CreateWorkQueueDialog';
 import { NonInsuranceQueue } from '../components/NonInsuranceQueue';
 import { PatientInvoicingQueue } from '../components/PatientInvoicingQueue';
+import { AGING_BUCKET_DEFS } from '../constants/agingBuckets';
 import { otherColors } from '../themes/ottehr/colors';
 import ClaimsList from './ClaimsList';
 
@@ -139,15 +140,16 @@ const formatUsdWhole = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 }).format;
 
-// Fake per-bucket numbers for the post-submission (aging) queue.
-const AGING_BUCKETS: { label: string; count: number; expected: number }[] = [
-  { label: '0–30', count: 14, expected: 4_120 },
-  { label: '30–60', count: 12, expected: 3_485 },
-  { label: '60–90', count: 9, expected: 2_730 },
-  { label: '90–120', count: 7, expected: 1_960 },
-  { label: '120–150', count: 6, expected: 1_240 },
-  { label: '150+', count: 5, expected: 742 },
+// Fake per-bucket numbers for the post-submission (aging) queue, colored by the shared bucket palette.
+const BUCKET_STATS = [
+  { count: 14, expected: 4_120 },
+  { count: 12, expected: 3_485 },
+  { count: 9, expected: 2_730 },
+  { count: 7, expected: 1_960 },
+  { count: 6, expected: 1_240 },
+  { count: 5, expected: 742 },
 ];
+const AGING_BUCKETS = AGING_BUCKET_DEFS.map((def, i) => ({ ...def, ...BUCKET_STATS[i] }));
 const ALL_BUCKET_LABELS = AGING_BUCKETS.map((b) => b.label);
 
 // Sample insurance work queues until they're backed by real data.
@@ -597,7 +599,7 @@ export default function AccountsReceivable(): ReactElement {
                         flex: 1,
                         minWidth: 130,
                         border: 2,
-                        borderColor: enabled ? 'primary.main' : 'transparent',
+                        borderColor: enabled ? bucket.color : 'transparent',
                         bgcolor: enabled ? otherColors.apptHover : 'background.paper',
                         opacity: enabled ? 1 : 0.55,
                         transition: 'all 0.15s ease-in-out',
@@ -608,15 +610,18 @@ export default function AccountsReceivable(): ReactElement {
                           <Typography
                             variant="subtitle2"
                             fontWeight={600}
-                            color={enabled ? 'primary.dark' : 'text.secondary'}
-                            sx={{ whiteSpace: 'nowrap' }}
+                            sx={{ whiteSpace: 'nowrap', color: enabled ? bucket.color : 'text.secondary' }}
                           >
                             {bucket.label} days
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {bucket.count} claims
                           </Typography>
-                          <Typography variant="body2" fontWeight={600} color={enabled ? 'primary.dark' : 'text.secondary'}>
+                          <Typography
+                            variant="body2"
+                            fontWeight={600}
+                            sx={{ color: enabled ? bucket.color : 'text.secondary' }}
+                          >
                             {formatUsdWhole(bucket.expected)}
                           </Typography>
                         </CardContent>
