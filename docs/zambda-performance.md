@@ -512,3 +512,51 @@ than made.
 Module-scope caching of role membership was considered and rejected: it would go stale on the admin
 Employees screen, where someone changes a role and expects the list to reflect it, and a mutation in
 one lambda instance cannot invalidate another instance's cache.
+
+---
+
+## Progress note pages: the complete getter list
+
+Same audit as the tracking board, for the in-person progress note (`ProgressNote` →
+`ProgressNoteDetails` and the review-tab containers it renders).
+
+| endpoint | median | status |
+| --- | --- | --- |
+| `get-chart-data` (`useChartData`, no requestedFields) | 158ms | optimized (−55%) |
+| `get-chart-data` (`useChartFields`, progress-note fields) | 174ms | optimized (−62%) |
+| `makeEncounterLabResults` (inside `get-chart-data`) | — | optimized (serial presigned URLs → one wave) |
+| `get-vitals` | 106ms | optimized (−50%) |
+| `get-patient-instructions` (`provider`) | 164ms | irreducible — see below |
+| `get-patient-instructions` (`organization`) | 88ms | **optimized (−49%)** |
+| `get-medication-orders` | 104ms | clean — one search |
+| `get-progress-note-config` | 102ms | clean — one search |
+| `get-em-codes` | 100ms | clean — one search |
+| `admin-get-quick-picks` | 97ms | clean — one search. `admin-`*named*, but the instructions panel loads it |
+| `get-immunization-orders` | 97ms | clean — one search |
+| `get-employees` (`lite: true`, note header) | ~750ms | negative result — see the tracking-board section |
+
+Checked and found not to be page-load fetches at all: `useAiSuggestionNotes`,
+`recommendBillingCodes` and `recommendBillingSuggestions` are mutations (user-triggered);
+`LabResultsReviewContainer` renders from props rather than fetching. And three of the note's data
+sources are not zambdas — `useAppointmentData` and `useGetPatientDocs` search FHIR directly from the
+browser, and `useExcusePresignedFiles` fetches a presigned URL per school/work note from the browser.
+Those are frontend concerns, but the last one is the same serial-presigned-URL shape that was worth
+fixing server-side, so it is worth a look.
+
+### `get-patient-instructions` — one path irreducible, the other not
+
+Both paths were two serialized waves: resolve the caller via `v1/m2m/me`, then search
+`Communication`. For `provider` that is a genuine dependency — the search is
+`sender=Practitioner/<caller>`, so it cannot be issued before the caller is known, and there is no
+FHIR-side way to express "the caller". That path is left alone.
+
+The `organization` path never needed the caller at all: its owner is the configured
+`ORGANIZATION_ID` secret. The lookup was simply being awaited before the branch that decides which
+owner to use, which cost a round trip for nothing — 172ms to 88ms once it moved inside the `provider`
+branch.
+
+It was also a latent bug, visible in the code rather than in these numbers: `getMyPractitionerId`
+throws when the caller has no Practitioner profile, and this handler's catch turns any throw into a
+500. So the organization path failed outright for a non-practitioner user — before reaching the
+branch that would not have used a practitioner id anyway. Both paths' responses are byte-identical
+before and after for a caller that *does* resolve, which is what the diffs above confirm.

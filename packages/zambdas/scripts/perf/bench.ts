@@ -255,7 +255,20 @@ const SURVEY: Record<string, Scenario> = {
   })),
 
   // config / list readers the EHR loads without any id
-  'get-patient-instructions': surveyScenario('get-patient-instructions', 'visit-details', () => ({})),
+  // The progress note's patient-instructions panel fires one of these two depending on the tab:
+  // `provider` hits get-patient-instructions, `organization` hits the quick-picks endpoint (another
+  // admin-*named* endpoint loaded on a clinical screen).
+  'get-patient-instructions': surveyScenario('get-patient-instructions', 'visit-details', () => ({
+    type: 'provider',
+  })),
+  'get-patient-instructions-org': {
+    name: 'get-patient-instructions',
+    resolveFixture: (server, opts) => resolveVisitDetailsFixture(server, opts),
+    buildInput: () => ({ id: 'get-patient-instructions', type: 'organization' }),
+  },
+  'admin-get-quick-picks': surveyScenario('admin-get-quick-picks', 'visit-details', () => ({
+    category: 'patient-instruction-quick-pick',
+  })),
   'get-progress-note-config': surveyScenario('get-progress-note-config', 'visit-details', () => ({})),
   'get-support-dialog': surveyScenario('get-support-dialog', 'visit-details', () => ({})),
   'get-label-printing-config': surveyScenario('get-label-printing-config', 'visit-details', () => ({})),
