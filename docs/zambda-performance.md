@@ -52,3 +52,39 @@ it now overlaps the search instead. That last change also removed `makeEncounter
 params were being thrown away unused at the only call site: the function was in practice an
 expensive way to populate the timezone map, and leaving it in place invited someone to reintroduce
 the round trip.
+
+---
+
+## `ehr-get-visit-details` — visit details screen
+
+Fixture: one in-person visit with the satellite resources the screen actually reads — an intake
+questionnaire response pointed at the instance's active intake questionnaire, a Slot/Schedule chain
+(the source of the visit timezone), a consent `DocumentReference` + `Consent` pair, an `Account` with
+a guarantor, and a `Flag` on the encounter. The patient has no insurance, so these numbers are the
+optimistic case: a patient with `Coverage`s adds a further serialized payer lookup.
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| median latency | 337ms | 247ms | **−27%** |
+| min latency | 303ms | 236ms | −22% |
+| p90 latency | 490ms | 322ms | **−34%** |
+| FHIR calls per invocation | 6 | 5 | −17% |
+| sequential round trips | 3 | 2 | −1 |
+
+The waterfall showed the appointment search fanning out into two independent chains that were each
+three round trips deep, so shortening only one of them would not have helped. On the consent chain,
+the `Consent` search was keyed on the id of the `DocumentReference` the previous search returned,
+which forced it to wait; chaining through the source document reference to the appointment
+(`source-reference:DocumentReference.related`) narrows the `Consent` search the same way without
+needing that id, so both searches now go out together and a client-side filter on the returned
+document reference keeps the result set exactly what the sequential version produced — provably, not
+just empirically, since the document references were already filtered to that appointment. On the
+account chain, `getAccountAndCoverageResourcesForPatient` was fetching the EHR payer-override `List`
+*after* the patient/coverage searches even though it depends on nothing at all, so that fetch now
+starts up front and overlaps them; this helper is shared, so every caller of it gets the same
+saving. Finally, the standalone-forms lookup was re-searching `Encounter` plus
+`QuestionnaireResponse` for the same appointment the main search had already pulled both of via
+`Encounter:appointment` and `QuestionnaireResponse:encounter` — that search is gone and the forms
+are selected straight out of the main bundle. The one trade-off: the `Consent` search now always
+runs rather than being skipped when no consent document exists, which is one extra call but no extra
+latency, since it is concurrent.

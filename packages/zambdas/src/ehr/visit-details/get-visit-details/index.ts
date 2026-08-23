@@ -5,6 +5,7 @@ import {
   Consent,
   DocumentReference,
   Encounter,
+  FhirResource,
   Flag,
   Location,
   Patient,
@@ -236,7 +237,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr, secrets: Secret
       oystehr
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
-    getStandaloneFormsForAppointment(appointment, oystehr),
+    getStandaloneFormsForAppointment(searchResults, oystehr),
     getIntakePaperworkFlowForms(qr, oystehr, secrets),
   ]);
   const { guarantorResource } = accountResources;
@@ -327,24 +328,18 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   };
 };
 
+/**
+ * @param appointmentResources every resource returned by the main appointment search. That search
+ * already pulls the appointment's encounters (`Encounter:appointment`) and their questionnaire
+ * responses (`QuestionnaireResponse:encounter`), so the manually-sent forms can be selected from it
+ * directly — this used to re-search Encounter + QuestionnaireResponse for the same appointment.
+ */
 const getStandaloneFormsForAppointment = async (
-  appointment: Appointment,
+  appointmentResources: FhirResource[],
   oystehr: Oystehr
 ): Promise<StandaloneFormDTO[] | undefined> => {
-  const appointmentId = appointment.id!;
-
-  const resources = (
-    await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
-      resourceType: 'Encounter',
-      params: [
-        { name: 'appointment', value: `Appointment/${appointmentId}` },
-        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
-      ],
-    })
-  ).unbundle();
-
-  const questionnaireResponses = resources
-    .filter((r) => r.resourceType === 'QuestionnaireResponse')
+  const questionnaireResponses = appointmentResources
+    .filter((r): r is QuestionnaireResponse => r.resourceType === 'QuestionnaireResponse')
     .filter((qr) => qrSentManually(qr));
 
   if (!questionnaireResponses || questionnaireResponses.length === 0) return;

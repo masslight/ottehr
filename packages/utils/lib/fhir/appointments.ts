@@ -129,11 +129,14 @@ export const getConsentAndRelatedDocRefsForAppointment = async (
   oystehr: Oystehr
 ): Promise<GetConsentAndRelatedDocRefsForAppointmentResult> => {
   const { appointmentId, patientId } = input;
-  let docRefs: DocumentReference[] | undefined = undefined;
-  let consents: Consent[] | undefined = undefined;
-  console.log('searching for old consent doc refs');
-  docRefs = (
-    await oystehr.fhir.search<DocumentReference>({
+
+  // The Consent search used to key on the id of the DocumentReference the first search returned,
+  // which made it a second serialized round trip on the critical path of every visit-details load.
+  // Chaining through the source DocumentReference to the appointment narrows the Consent search the
+  // same way without needing that id, so both searches now go out together. The docRef filter below
+  // keeps the returned set identical to what the sequential version produced.
+  const [docRefBundle, consentBundle] = await Promise.all([
+    oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
       params: [
         {
@@ -153,21 +156,28 @@ export const getConsentAndRelatedDocRefsForAppointment = async (
           value: `Appointment/${appointmentId}`,
         },
       ],
-    })
-  ).unbundle();
-  if (docRefs?.[0]?.id) {
-    console.log('searching for old consent resources');
-    consents = (
-      await oystehr.fhir.search<Consent>({
-        resourceType: 'Consent',
-        params: [
-          { name: 'patient', value: `Patient/${patientId}` },
-          { name: 'status', value: 'active' },
-          { name: 'source-reference', value: `DocumentReference/${docRefs?.[0]?.id}` },
-        ],
-      })
-    ).unbundle();
-  }
+    }),
+    oystehr.fhir.search<Consent>({
+      resourceType: 'Consent',
+      params: [
+        { name: 'patient', value: `Patient/${patientId}` },
+        { name: 'status', value: 'active' },
+        { name: 'source-reference:DocumentReference.related', value: `Appointment/${appointmentId}` },
+      ],
+    }),
+  ]);
+
+  const docRefs = docRefBundle.unbundle();
+  const primaryConsentDocRefId = docRefs[0]?.id;
+  const consents = primaryConsentDocRefId
+    ? consentBundle
+        .unbundle()
+        .filter(
+          (consent) =>
+            consent.sourceReference?.reference?.split('/_history')[0] === `DocumentReference/${primaryConsentDocRefId}`
+        )
+    : undefined;
+
   return { consents, docRefs };
 };
 

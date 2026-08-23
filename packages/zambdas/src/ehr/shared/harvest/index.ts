@@ -4103,6 +4103,10 @@ export const getAccountAndCoverageResourcesForPatient = async (
   patientId: string,
   oystehr: Oystehr
 ): Promise<PatientAccountAndCoverageResources> => {
+  // The EHR payer-override List depends on nothing in this function, so fetching it after the
+  // coverage lookups only added a serialized round trip. Started here, it overlaps them instead.
+  const ehrPayerListPromise = getInsuranceOverrideList(oystehr, ListName.EHR);
+
   console.time('querying for Patient account resources');
   const accountAndCoverageResources = (
     await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient | Organization>({
@@ -4179,8 +4183,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
     insuranceOrgsFromFhir
   );
 
-  // Get EHR-facing payer notes
-  const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
+  // Get EHR-facing payer notes (fetched concurrently with the searches above)
+  const ehrPayerList = await ehrPayerListPromise;
   for (const org of insuranceOrgs) {
     const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
     if (override) {
