@@ -130,21 +130,64 @@ that curve without pushing dozens of simultaneous connections at the backend the
 would. This is deliberately the *only* change to the endpoint's semantics-free surface: the requests
 are independent, `chunkThings` and `Promise.all` both preserve order, and the response is assembled
 by resource type rather than by request index, so concatenating the batch responses back together
-yields a byte-identical payload — verified for both call shapes. What remains on the critical path is
-the serialized `Encounter` + `Patient` prefetch that runs before the batch can be built (it supplies
-the patient id that patient-scoped searches need), which is now roughly half the endpoint's latency.
-`Patient?_has:Encounter:subject:_id=<encounterId>` resolves the right patient in one hop, so
-attacking that is feasible, but it would mean re-expressing every patient-scoped chart search as a
-nested reverse chain — a change whose correctness could not be established cheaply, since a
-silently mis-scoped search here would return another patient's data or quietly drop the patient's
-own. Left as the identified next step rather than shipped on a guess.
+yields a byte-identical payload — verified for both call shapes. That left the serialized `Encounter` + `Patient` prefetch
+as the only thing still on the critical path — addressed next.
+
+### Stage two: dropping the serialized encounter/patient prefetch
+
+`getChartData` opened by resolving the Encounter and its Patient in a round trip of their own, purely
+to obtain the patient id that patient-scoped searches need. That put a full serialized FHIR round
+trip in front of every chart load — after the batch split, about half the endpoint's remaining
+latency. All 15-iteration runs against one fixture:
+
+`useChartData` (no `requestedFields`):
+
+| | original | after batch split | after prefetch removal | total change |
+| --- | --- | --- | --- | --- |
+| median latency | 348ms | 253ms | **158ms** | **−55%** |
+| min latency | 314ms | 235ms | **129ms** | −59% |
+| p90 latency | 490ms | 358ms | **247ms** | **−50%** |
+| sequential waves | 2 | 2 | **1** | −1 |
+
+`useChartFields` (progress-note fields):
+
+| | original | after batch split | after prefetch removal | total change |
+| --- | --- | --- | --- | --- |
+| median latency | 453ms | 289ms | **174ms** | **−62%** |
+| min latency | 370ms | 227ms | **137ms** | −63% |
+| p90 latency | 490ms | 362ms | **223ms** | **−54%** |
+| sequential waves | 2 | 2 | **1** | −1 |
+
+Patient-scoped searches are now scoped by the encounter's *subject* through a reverse chain —
+`?subject:Patient._has:Encounter:subject:_id=<encounterId>` — so the entire request set is built from
+the encounter id alone and the endpoint issues exactly one wave. The same shape replaces the other
+three things that needed the prefetch: the `Practitioner` lookups (which were additionally a
+per-`Encounter.participant` fan-out) collapse to one `Practitioner?_has:Encounter:participant:_id=`
+search, the `patientHasPreviousVisits` count becomes
+`Appointment?patient:Patient._has:Encounter:subject:_id=…&_summary=count`, and the `Patient` resource
+itself — still needed for `patientId` and for the pharmacy list — is fetched concurrently rather than
+ahead, deliberately kept out of the merged bundle so the set of resources feeding the response is
+unchanged. The one gate that had to go was `preferredPharmacies` only searching for its
+`QuestionnaireResponse` when the patient already had contained pharmacy Organizations: that list is
+built entirely from `patient.contained` and the questionnaire response only marks which entry is
+primary, so issuing the search unconditionally is output-neutral. Because a mis-scoped search here
+would be a *wrong-patient* bug rather than a slow one, the scoping was verified before being
+shipped: two patients were seeded with identical-looking resources, and for all seven patient-scoped
+resource types the encounter-scoped search returned exactly its own patient's resource, never the
+other's, and matched the direct `?subject=Patient/<id>` search — with the project's ~115k patients
+making a silently-dropped filter show up as hundreds of rows rather than one. Both response payloads
+are byte-identical before and after, with `allergies`, `medications` and `surgicalHistory` (three
+distinct patient-scoped searches) populated. One caution is worth carrying forward, and it is
+recorded on the helper: do not add `_revinclude` / `_include:iterate` to a search scoped this way
+without checking where the included resource can point, because an iterate leg that walks out
+through a resource shared with other patients would pull their data into a patient-scoped result.
+No patient-scoped chart search carries one today — the only `_revinclude` in the chart field set is
+on `radiologyOrders`, which is encounter-scoped.
 
 ---
 
 ## Identified but not done
 
-- **`get-chart-data`'s serialized encounter/patient prefetch** — see above. Worth ~110ms (roughly
-  half the endpoint's remaining latency) if the nested reverse-chain form can be verified.
 - **The progress note's two `get-chart-data` calls** overlap substantially and each pay the prefetch
   separately. Merging them into one request is a frontend change, not a zambda one.
 - **`get-appointments`' main appointment search** (~280ms of the remaining ~350ms) is now the whole

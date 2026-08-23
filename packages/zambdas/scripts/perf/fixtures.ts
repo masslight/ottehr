@@ -17,15 +17,23 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import {
   Account,
+  AllergyIntolerance,
   Appointment,
+  ClinicalImpression,
+  Communication,
+  Condition,
   Consent,
   DocumentReference,
   Encounter,
+  EpisodeOfCare,
   FhirResource,
   Flag,
   Location,
+  MedicationStatement,
+  Observation,
   Patient,
   Practitioner,
+  Procedure,
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
@@ -69,6 +77,7 @@ const tagFor = (tagCode: string): FhirResource['meta'] => ({
 /** Resource types the fixture creates; teardown sweeps each by tag. */
 const FIXTURE_RESOURCE_TYPES: FhirResource['resourceType'][] = [
   'Provenance',
+  'EpisodeOfCare',
   'ClinicalImpression',
   'Communication',
   'Observation',
@@ -609,6 +618,14 @@ export const seedVisitDetailsFixture = async (
   const idFor = (resourceType: FhirResource['resourceType']): string =>
     created.find((entry) => entry.resource?.resourceType === resourceType)?.resource?.id ?? '';
 
+  // Chart resources, so the get-chart-data scenarios measure real resource mapping (and their
+  // before/after response diffs actually compare populated payloads) instead of empty arrays.
+  await seedChartDataForVisit(oystehr, {
+    tagCode,
+    patientId: idFor('Patient'),
+    encounterId: idFor('Encounter'),
+  });
+
   const fixture: VisitDetailsFixture = {
     tagCode,
     appointmentId: idFor('Appointment'),
@@ -630,4 +647,133 @@ export const visitDetailsFixtureIsAlive = async (oystehr: Oystehr, fixture: Visi
   } catch {
     return false;
   }
+};
+
+/**
+ * Chart resources hung off a seeded visit: one of each thing the progress note's chart fields map,
+ * split across patient-scoped (allergy, medication, surgical history) and encounter-scoped (chief
+ * complaint, HPI, medical decision, observation, note) so both scoping paths are exercised.
+ */
+const seedChartDataForVisit = async (
+  oystehr: Oystehr,
+  ids: { tagCode: string; patientId: string; encounterId: string }
+): Promise<void> => {
+  const { tagCode, patientId, encounterId } = ids;
+  if (!patientId || !encounterId) return;
+  const patientRef = `Patient/${patientId}`;
+  const encounterRef = `Encounter/${encounterId}`;
+  const chartMeta = (code?: string): FhirResource['meta'] => ({
+    tag: [
+      { system: PERF_FIXTURE_TAG_SYSTEM, code: tagCode },
+      ...(code ? [{ system: `${PRIVATE_EXTENSION_BASE_URL}/tag`, code }] : []),
+    ],
+  });
+
+  const requests: BatchInputPostRequest<FhirResource>[] = [
+    {
+      method: 'POST',
+      url: '/Condition',
+      resource: {
+        resourceType: 'Condition',
+        subject: { reference: patientRef },
+        encounter: { reference: encounterRef },
+        code: { text: 'Sore throat' },
+        meta: chartMeta('chief-complaint'),
+      } as Condition,
+    },
+    {
+      method: 'POST',
+      url: '/Condition',
+      resource: {
+        resourceType: 'Condition',
+        subject: { reference: patientRef },
+        encounter: { reference: encounterRef },
+        code: { text: 'Two days of sore throat and fever' },
+        meta: chartMeta('history-of-present-illness'),
+      } as Condition,
+    },
+    {
+      method: 'POST',
+      url: '/AllergyIntolerance',
+      resource: {
+        resourceType: 'AllergyIntolerance',
+        patient: { reference: patientRef },
+        code: { text: 'Penicillin' },
+        meta: chartMeta('known-allergy'),
+      } as AllergyIntolerance,
+    },
+    {
+      method: 'POST',
+      url: '/MedicationStatement',
+      resource: {
+        resourceType: 'MedicationStatement',
+        status: 'active',
+        subject: { reference: patientRef },
+        medicationCodeableConcept: { text: 'Ibuprofen' },
+        meta: chartMeta('current-medication'),
+      } as MedicationStatement,
+    },
+    {
+      method: 'POST',
+      url: '/Procedure',
+      resource: {
+        resourceType: 'Procedure',
+        status: 'completed',
+        subject: { reference: patientRef },
+        code: [{ coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '42820', display: 'Tonsillectomy' }] }][0],
+        meta: chartMeta('surgical-history'),
+      } as Procedure,
+    },
+    {
+      method: 'POST',
+      url: '/Observation',
+      resource: {
+        resourceType: 'Observation',
+        status: 'final',
+        subject: { reference: patientRef },
+        encounter: { reference: encounterRef },
+        code: { text: 'Temperature' },
+        valueQuantity: { value: 99.1, unit: 'F' },
+        meta: chartMeta(),
+      } as Observation,
+    },
+    {
+      method: 'POST',
+      url: '/Communication',
+      resource: {
+        resourceType: 'Communication',
+        status: 'completed',
+        subject: { reference: patientRef },
+        encounter: { reference: encounterRef },
+        payload: [{ contentString: 'Patient advised to rest and hydrate.' }],
+        meta: chartMeta(),
+      } as Communication,
+    },
+    {
+      method: 'POST',
+      url: '/EpisodeOfCare',
+      resource: {
+        resourceType: 'EpisodeOfCare',
+        status: 'active',
+        patient: { reference: patientRef },
+        period: { start: '2025-01-01' },
+        meta: chartMeta('hospitalization'),
+      } as EpisodeOfCare,
+    },
+    {
+      method: 'POST',
+      url: '/ClinicalImpression',
+      resource: {
+        resourceType: 'ClinicalImpression',
+        status: 'completed',
+        subject: { reference: patientRef },
+        encounter: { reference: encounterRef },
+        summary: 'Viral pharyngitis, supportive care.',
+        meta: chartMeta('medical-decision'),
+      } as ClinicalImpression,
+    },
+  ];
+
+  await oystehr.fhir.transaction<FhirResource>({ requests });
+  say(`  seeded ${requests.length} chart resources`);
 };

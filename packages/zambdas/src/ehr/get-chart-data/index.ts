@@ -1,11 +1,10 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle, FhirResource, Practitioner, Resource } from 'fhir/r4b';
+import { Bundle, FhirResource, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { getPatientEncounter } from '../../shared/encounter';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -14,9 +13,11 @@ import {
   configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,
   createFindResourceRequest,
+  createFindResourceRequestByEncounterSubject,
   createFindResourceRequestById,
-  createFindResourceRequestByPatientField,
   defaultChartDataFieldsSearchParams,
+  encounterSubjectScopedSearchUrl,
+  parseChartDataBundle,
   SupportedResourceType,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -57,20 +58,13 @@ export async function getChartData(
 }> {
   console.time('check');
 
-  console.timeLog('check', 'before fetching patient encounter');
-  // 0. get encounter
-  console.log(`Getting encounter ${encounterId}`);
-  const patientEncounter = await getPatientEncounter(encounterId, oystehr);
-  const encounter = patientEncounter.encounter;
-  if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-  console.log(`Got encounter with id ${encounter.id}`);
-  console.timeLog('check', 'after fetching patient encounter');
-
-  // 1. get patient from encounter
-  const patient = patientEncounter.patient;
-  if (patient === undefined) throw new Error(`Encounter  ${encounter.id} must be associated with a patient... `);
-  console.log(`Got patient with id ${patient.id}`);
-
+  // This used to resolve the Encounter and its Patient first, in its own round trip, purely to get
+  // the patient id that patient-scoped searches need — putting a full serialized FHIR round trip in
+  // front of every chart load. Patient-scoped searches are now scoped by the encounter's subject via
+  // a reverse chain (see createFindResourceRequestByEncounterSubject), so the entire request set is
+  // built from the encounter id alone and goes out in one wave. The Encounter and Patient resources
+  // come back as part of that wave and are validated below, so a missing encounter or a subjectless
+  // encounter still fails the same way — just one round trip later instead of one earlier.
   const chartDataRequests: BatchInputGetRequest[] = [];
 
   function addRequestIfNeeded<K extends keyof GetChartDataResponse>({
@@ -89,8 +83,7 @@ export async function getChartData(
     if (!requestedFields || fieldOptions) {
       chartDataRequests.push(
         createFindResourceRequest(
-          patient,
-          encounter,
+          encounterId,
           resourceType,
           { ...defaultSearchParams, ...fieldOptions },
           defaultSearchBy
@@ -99,7 +92,7 @@ export async function getChartData(
     }
   }
 
-  chartDataRequests.push(createFindResourceRequestById(encounter.id!, 'Encounter'));
+  chartDataRequests.push(createFindResourceRequestById(encounterId, 'Encounter'));
 
   // allergies are always by-patient and does not have history, so no need to search by encounter
   addRequestIfNeeded({ field: 'allergies', resourceType: 'AllergyIntolerance', defaultSearchBy: 'patient' });
@@ -206,13 +199,18 @@ export async function getChartData(
   // birthHistory included only by straight request
   if (requestedFields?.birthHistory) {
     chartDataRequests.push(
-      createFindResourceRequestByPatientField(patient.id!, 'Observation', 'subject', requestedFields.birthHistory)
+      createFindResourceRequestByEncounterSubject(encounterId, 'Observation', 'subject', requestedFields.birthHistory)
     );
   }
 
   if (requestedFields?.episodeOfCare) {
     chartDataRequests.push(
-      createFindResourceRequestByPatientField(patient.id!, 'EpisodeOfCare', 'patient', requestedFields.episodeOfCare)
+      createFindResourceRequestByEncounterSubject(
+        encounterId,
+        'EpisodeOfCare',
+        'patient',
+        requestedFields.episodeOfCare
+      )
     );
   }
 
@@ -224,8 +222,7 @@ export async function getChartData(
     // AI chat
     chartDataRequests.push(
       createFindResourceRequest(
-        patient,
-        encounter,
+        encounterId,
         'DocumentReference',
         // {
         //   type: {
@@ -239,18 +236,18 @@ export async function getChartData(
     );
   }
 
-  // Practitioners
+  // Practitioners. Reverse-chained off the encounter rather than one search per
+  // Encounter.participant, which needed the encounter resource in hand — and was itself a per-
+  // participant fan-out.
   if (requestedFields?.practitioners) {
-    encounter?.participant?.forEach((participant) => {
-      const [participantType, participantId] = participant.individual?.reference?.split('/') ?? [];
-      if (participantType === 'Practitioner' && participantId != null) {
-        chartDataRequests.push(createFindResourceRequestById(participantId, 'Practitioner'));
-      }
+    chartDataRequests.push({
+      method: 'GET',
+      url: `/Practitioner?_has:Encounter:participant:_id=${encounterId}`,
     });
   }
 
-  if ((requestedFields?.externalLabResults || requestedFields?.inHouseLabResults) && encounter.id) {
-    const labRequests = configLabRequestsForGetChartData(encounter.id);
+  if (requestedFields?.externalLabResults || requestedFields?.inHouseLabResults) {
+    const labRequests = configLabRequestsForGetChartData(encounterId);
     chartDataRequests.push(...labRequests);
   }
 
@@ -259,22 +256,22 @@ export async function getChartData(
   }
 
   // procedures can be requested with custom search params (e.g., multiple encounters)
-  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+  if (!requestedFields || requestedFields.procedures) {
     const proceduresSearchParams = requestedFields?.procedures;
     // Check if encounterIds are provided in search params for batch request
     const encounterIdsParam = proceduresSearchParams?.encounterIds;
-    const encounterIds = encounterIdsParam || encounter.id;
+    const encounterIds = encounterIdsParam || encounterId;
     chartDataRequests.push(configProceduresRequestsForGetChartData(encounterIds));
   }
 
   if (requestedFields?.preferredPharmacies) {
-    const pharmacies = patient.contained?.filter((r) => r.resourceType === 'Organization') ?? [];
-
-    if (pharmacies.length > 0 && encounter.id) {
-      chartDataRequests.push(
-        createFindResourceRequest(patient, encounter, 'QuestionnaireResponse', { _search_by: 'encounter' })
-      );
-    }
+    // This used to be gated on the patient already having contained pharmacy Organizations, which
+    // required the patient resource up front. The response's pharmacy list is built entirely from
+    // patient.contained and the QuestionnaireResponse only marks which of those is primary, so
+    // issuing the search unconditionally produces the same output.
+    chartDataRequests.push(
+      createFindResourceRequest(encounterId, 'QuestionnaireResponse', { _search_by: 'encounter' })
+    );
   }
 
   // Determine if we need to check whether the patient is new
@@ -294,25 +291,41 @@ export async function getChartData(
     Math.max(CHART_DATA_MIN_BATCH_SIZE, Math.ceil(chartDataRequests.length / CHART_DATA_BATCH_TARGET_CONCURRENCY))
   );
 
-  // Run the chart-data batches and the patientHasPreviousVisits query in parallel
-  const [batchResults, appointmentCountResult] = await Promise.all([
+  // The patient resource is fetched alongside the chart batches rather than ahead of them, and is
+  // kept out of the merged bundle below so the set of resources feeding the response is unchanged.
+  const patientPromise = oystehr.fhir
+    .batch<Patient>({
+      requests: [{ method: 'GET', url: encounterSubjectScopedSearchUrl('Patient', null, encounterId) }],
+    })
+    .then((result) => {
+      const nested = result.entry?.[0]?.resource as Bundle<Patient> | undefined;
+      return nested?.entry?.map((entry) => entry.resource).find((resource) => resource?.resourceType === 'Patient');
+    });
+
+  // Run the chart-data batches, the patient lookup and the patientHasPreviousVisits query in parallel
+  const [batchResults, patient, appointmentCountResult] = await Promise.all([
     Promise.all(
       batchGroups.map((requests) =>
         oystehr.fhir.batch<FhirResource>({ requests }).catch((error) => {
           console.log('Error fetching chart data...', error, JSON.stringify(error));
-          throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
+          throw new Error(`Unable to retrieve chart data for encounter with ID ${encounterId}`);
         })
       )
     ),
+    patientPromise,
     shouldFetchPatientHasPreviousVisits
       ? oystehr.fhir
-          .search<FhirResource>({
-            resourceType: 'Appointment',
-            params: [
-              { name: 'patient._id', value: patient.id! },
-              { name: '_summary', value: 'count' },
+          .batch<FhirResource>({
+            requests: [
+              {
+                method: 'GET',
+                // Same count as `Appointment?patient._id=<patientId>`, reached through the encounter
+                // so it needs no prefetched patient id.
+                url: `/Appointment?patient:Patient._has:Encounter:subject:_id=${encounterId}&_summary=count`,
+              },
             ],
           })
+          .then((result) => result.entry?.[0]?.resource as Bundle<FhirResource> | undefined)
           .catch((error) => {
             console.log('Error fetching appointment count for patient...', error);
             return undefined;
@@ -326,6 +339,13 @@ export async function getChartData(
     entry: batchResults.flatMap((batchResult) => batchResult.entry ?? []),
   };
   console.log('Retrieved chart data...');
+
+  // Same guarantees the old prefetch enforced, in the same order, now that the resources have
+  // arrived: the encounter must exist, and it must have a patient as its subject.
+  const encounter = parseChartDataBundle(result).find((resource) => resource.resourceType === 'Encounter');
+  if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
+  if (patient === undefined) throw new Error(`Encounter  ${encounterId} must be associated with a patient... `);
+  console.log(`Got encounter with id ${encounter.id} and patient with id ${patient.id}`);
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
   console.timeLog('check', 'after fetch, before converting chart data to response');
