@@ -115,6 +115,23 @@ const SCENARIOS: Record<string, Scenario> = {
     }),
     describeOutput: (output) => `keys=${Object.keys(output ?? {}).length}`,
   },
+  // The tracking board also asks for every visible encounter's vitals in one call.
+  'get-vitals-for-list-of-encounters': {
+    name: 'get-vitals-for-list-of-encounters',
+    resolveFixture: (server, opts) => resolveTrackingBoardFixture(server.oystehrAdmin, opts),
+    buildInput: (fixture: TrackingBoardFixture) => ({
+      id: 'get-vitals-for-list-of-encounters',
+      encounterIds: fixture.encounterIds,
+    }),
+    describeOutput: (output) => {
+      const encounters = Object.keys(output ?? {});
+      const vitals = Object.values(output ?? {}).reduce<number>(
+        (total, map) => total + Object.keys(map ?? {}).length,
+        0
+      );
+      return `encounters=${encounters.length} vitalFields=${vitals}`;
+    },
+  },
   'get-patient-visit-history': {
     name: 'get-patient-visit-history',
     resolveFixture: (server, opts) => resolvePatientDetailsFixture(server.oystehrAdmin, opts),

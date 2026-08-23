@@ -50,6 +50,7 @@ import {
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PAPERWORK_CONSENT_CODE_UNIQUE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { say } from './lib';
 
@@ -316,6 +317,15 @@ export const seedTrackingBoardFixture = async (
     });
     say(`  seeded ${Math.min(offset + CHUNK, appointmentCount)}/${appointmentCount} appointments`);
   }
+
+  // Vitals observations on each encounter, so the tracking board's vitals reader
+  // (get-vitals-for-list-of-encounters) returns real DTOs rather than empty maps. A performer is
+  // required: the parser builds its map from observations that have one and silently drops the rest.
+  await seedVitalsForEncounters(oystehr, {
+    tagCode,
+    encounterIds,
+    performerId: practitionerIds[0],
+  });
 
   const fixture: TrackingBoardFixture = {
     tagCode,
@@ -1018,4 +1028,63 @@ export const patientDetailsFixtureIsAlive = async (
   } catch {
     return false;
   }
+};
+
+/**
+ * Two vitals observations (temperature and heart rate) per encounter, tagged the way the vitals
+ * readers expect: a `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}` meta tag whose code
+ * is a VitalFieldNames value, and a performer — without one the parser drops the observation.
+ */
+const seedVitalsForEncounters = async (
+  oystehr: Oystehr,
+  ids: { tagCode: string; encounterIds: string[]; performerId?: string }
+): Promise<void> => {
+  const { tagCode, encounterIds, performerId } = ids;
+  if (!performerId || !encounterIds.length) return;
+
+  const vitalsMeta = (code: string): FhirResource['meta'] => ({
+    tag: [
+      { system: PERF_FIXTURE_TAG_SYSTEM, code: tagCode },
+      { system: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`, code },
+    ],
+  });
+
+  const CHUNK = 20;
+  const requests: BatchInputPostRequest<FhirResource>[] = encounterIds.flatMap((encounterId, index) => {
+    const effectiveDateTime = DateTime.now().minus({ minutes: index }).toUTC().toISO()!;
+    const base = {
+      resourceType: 'Observation' as const,
+      status: 'final' as const,
+      encounter: { reference: `Encounter/${encounterId}` },
+      performer: [{ reference: `Practitioner/${performerId}` }],
+      effectiveDateTime,
+    };
+    return [
+      {
+        method: 'POST' as const,
+        url: '/Observation',
+        resource: {
+          ...base,
+          code: { coding: [{ system: 'http://loinc.org', code: '8310-5', display: 'Body temperature' }] },
+          valueQuantity: { value: 98.6 + (index % 4), unit: 'F' },
+          meta: vitalsMeta('vital-temperature'),
+        } as Observation,
+      },
+      {
+        method: 'POST' as const,
+        url: '/Observation',
+        resource: {
+          ...base,
+          code: { coding: [{ system: 'http://loinc.org', code: '8867-4', display: 'Heart rate' }] },
+          valueQuantity: { value: 70 + (index % 20), unit: '/min' },
+          meta: vitalsMeta('vital-heartbeat'),
+        } as Observation,
+      },
+    ];
+  });
+
+  for (let i = 0; i < requests.length; i += CHUNK) {
+    await oystehr.fhir.transaction<FhirResource>({ requests: requests.slice(i, i + CHUNK) });
+  }
+  say(`  seeded ${requests.length} vitals observations`);
 };
