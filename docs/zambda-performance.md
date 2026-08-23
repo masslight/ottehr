@@ -225,3 +225,28 @@ request and reads nothing that check produces, so awaiting it first put an entir
 of every load of this screen for no benefit. The two now run concurrently, which halves the round
 trips; a missing patient still fails, with the same error, because the rejection propagates out of the
 `Promise.all` exactly as it did before.
+
+### `get-patient-account`
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| median latency | 381ms | 220ms | **−42%** |
+| min latency | 325ms | 171ms | **−47%** |
+| p90 latency | 460ms | 347ms | −25% |
+| FHIR calls per invocation | 6 | 5 | −17% |
+| sequential round trips | **4** | **2** | −2 |
+
+Four sequential round trips for one panel. Two of them were unnecessary. The eligibility-check
+query — which deliberately fetches ids first and full resources second, because real
+`CoverageEligibilityResponse`s can be large enough to blow the response size cap — was waiting on the
+account resources even though it needs nothing but the patient id; it now goes out alongside them.
+The last round trip was a batch fetching the `Coverage` each eligibility check references, and the
+account query one wave earlier had already returned this patient's coverages: eligibility checks are
+normally run against exactly those, so the ids were usually already in hand. Fetching only the ones
+that are not — typically none — skips that round trip entirely in the common case, and guarding on an
+empty request list also stops the endpoint issuing an empty batch request when an eligibility check
+carries its coverage inline rather than by reference, which it did unconditionally before. The
+coverage pool the response is built from ends up holding the same resources by id either way, which
+the response diff confirms. Worth noting for anyone reading the remaining two waves: the second is
+the per-eligibility-check fan-out, which is bounded at ten by the id query's `_count` and is already
+concurrent.

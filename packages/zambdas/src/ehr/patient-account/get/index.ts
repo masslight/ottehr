@@ -37,18 +37,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
   console.log('performing effect for patient account get');
-  console.time('getAccountAndCoverageResourcesForPatient');
-  const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-  console.timeEnd('getAccountAndCoverageResourcesForPatient');
-  const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
-  ) as Practitioner;
   // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
   // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
   // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
-  console.time('fetching CER IDs');
-  const eligibilityCheckIds = (
-    await oystehr.fhir.search<CoverageEligibilityResponse>({
+  //
+  // That id query needs nothing but the patient id, so it is issued alongside the account resources
+  // rather than after them — waiting cost a whole serialized round trip on every load of the patient
+  // details screen.
+  console.time('account resources + CER ids');
+  const [accountAndCoverages, eligibilityCheckIdBundle] = await Promise.all([
+    getAccountAndCoverageResourcesForPatient(patientId, oystehr),
+    oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
       params: [
         {
@@ -68,8 +67,15 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           value: '10',
         },
       ],
-    })
-  )
+    }),
+  ]);
+  console.timeEnd('account resources + CER ids');
+
+  const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+  ) as Practitioner;
+
+  const eligibilityCheckIds = eligibilityCheckIdBundle
     .unbundle()
     .map((cer) => cer.id)
     .filter((id): id is string => !!id);
@@ -81,21 +87,36 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
     )
   );
 
-  const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
-    if (ecr.insurance?.[0]?.coverage?.reference) {
-      const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
-      if (resourceType === 'Coverage') {
-        return id;
-      }
-    }
-    return [];
-  });
+  // The account query above already returned this patient's coverages, and eligibility checks are
+  // normally run against exactly those — so most of the ids below are already in hand. Fetching only
+  // the ones that are not (typically none) usually skips this round trip entirely, and skipping it
+  // when nothing is needed also avoids the empty batch request this used to send unconditionally.
+  const knownCoverages: Coverage[] = Object.values(accountAndCoverages.coverages ?? {}).filter(
+    (coverage): coverage is Coverage => coverage?.resourceType === 'Coverage'
+  );
+  const knownCoverageIds = new Set(knownCoverages.map((coverage) => coverage.id).filter(Boolean));
+
+  const coverageIdsToFetch = [
+    ...new Set(
+      eligibilityCheckResults.flatMap((ecr) => {
+        if (ecr.insurance?.[0]?.coverage?.reference) {
+          const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
+          if (resourceType === 'Coverage' && !knownCoverageIds.has(id)) {
+            return id;
+          }
+        }
+        return [];
+      })
+    ),
+  ];
   const coverageRequests: BatchInputGetRequest[] = coverageIdsToFetch.map((id) => ({
     method: 'GET',
     url: `Coverage/${id}`,
   }));
-  const coverages: Coverage[] =
-    (await oystehr.fhir.batch<Coverage>({ requests: coverageRequests })).entry?.flatMap((e) => e.resource ?? []) ?? [];
+  const fetchedCoverages: Coverage[] = coverageRequests.length
+    ? (await oystehr.fhir.batch<Coverage>({ requests: coverageRequests })).entry?.flatMap((e) => e.resource ?? []) ?? []
+    : [];
+  const coverages: Coverage[] = [...fetchedCoverages, ...knownCoverages];
 
   const mapped = eligibilityCheckResults
     .map((result) => {
@@ -118,7 +139,6 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
       } as CoverageCheckWithDetails;
     })
     .filter((result) => result !== null) as CoverageCheckWithDetails[];
-  console.timeEnd('fetching CER IDs');
   const { patient } = accountAndCoverages;
   const pharmacy = getPreferredPharmacyFromPatient(patient);
   return {
