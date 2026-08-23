@@ -74,15 +74,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
-  const effectInput = await complexValidation(
-    {
-      ...validatedParameters,
-      secrets: input.secrets,
-    },
-    oystehrClient
-  );
-
-  const response = await performEffect(effectInput, oystehrClient);
+  // complexValidation only confirms the patient exists — it reads nothing the visit search needs
+  // (that search is keyed on the patient id from the request), so awaiting it first put a whole
+  // FHIR round trip in front of every load of this screen for no reason. Run concurrently, the
+  // check still rejects a missing patient with the same error, just without blocking.
+  const [, response] = await Promise.all([
+    complexValidation(
+      {
+        ...validatedParameters,
+        secrets: input.secrets,
+      },
+      oystehrClient
+    ),
+    performEffect({ ...validatedParameters }, oystehrClient),
+  ]);
 
   return lambdaResponse(200, response);
 });

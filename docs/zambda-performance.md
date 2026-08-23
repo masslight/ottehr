@@ -197,3 +197,31 @@ on `radiologyOrders`, which is encounter-scoped.
 - **Insured patients on visit details** pay an extra serialized payer lookup inside
   `getAccountAndCoverageResourcesForPatient` (`searchInsuranceInformation`, which needs the coverages
   from the previous search). Not measured here, since the fixture patient is uninsured.
+
+---
+
+## Patient details screen
+
+Two endpoints back this screen: `/patient/:id` loads the visit history, and `/patient/:id/info` loads
+the account and insurance panel. (The rest of the screen — the patient resource itself, duplicate
+detection, the active merge task — is read straight from FHIR by the frontend, not through a zambda.)
+Fixture: one patient with ten past visits, a billing account with a guarantor, a payor organization
+and coverage, and two eligibility responses. All figures are paired 20-iteration runs.
+
+### `get-patient-visit-history`
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| median latency | 215ms | 153ms | **−29%** |
+| min latency | 187ms | 108ms | **−42%** |
+| p90 latency | 249ms | 189ms | −24% |
+| FHIR calls per invocation | 2 | 2 | — |
+| sequential round trips | 2 | **1** | −1 |
+
+This endpoint makes only two FHIR calls, and they were fully serialized: a `complexValidation` step
+fetched the `Patient` purely to confirm it exists — it discards the resource and returns its input
+untouched — and only then did the visit search run. The search is keyed on the patient id from the
+request and reads nothing that check produces, so awaiting it first put an entire round trip in front
+of every load of this screen for no benefit. The two now run concurrently, which halves the round
+trips; a missing patient still fails, with the same error, because the rejection propagates out of the
+`Promise.all` exactly as it did before.
