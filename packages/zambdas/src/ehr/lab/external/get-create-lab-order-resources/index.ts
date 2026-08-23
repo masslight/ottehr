@@ -2,6 +2,7 @@ import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Coverage, Encounter, List, Location, Organization } from 'fhir/r4b';
 import { isAppointmentWorkersComp } from 'utils/lib/fhir/appointments';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { flattenBundleResources } from 'utils/lib/fhir/helpers';
 import { isLocationInPerson } from 'utils/lib/fhir/location';
 import { CODE_SYSTEM_COVERAGE_CLASS } from 'utils/lib/helpers/rcm/constants';
@@ -32,6 +33,12 @@ import { getOrderableItems } from '../../shared/orderable-items';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
+// These searches are independent, so they are issued as a few concurrent batches rather than one
+// serial batch (batch entries execute one after another server-side). Same trade-off as
+// get-chart-data: batch count against per-batch serial time.
+const LAB_ORDER_RESOURCES_BATCH_CONCURRENCY = 3;
+const LAB_ORDER_RESOURCES_MIN_BATCH_SIZE = 2;
+
 const ZAMBDA_NAME = 'get-create-lab-order-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -184,13 +191,25 @@ const getResources = async (
   };
   requests.push(orderingLocationsRequest);
 
-  const searchResults: Bundle<Coverage | Account | Organization | Location | Encounter | Appointment | List> =
-    await oystehr.fhir.batch({
-      requests,
-    });
-  const resources = flattenBundleResources<
-    Coverage | Account | Organization | Location | Encounter | Appointment | List
-  >(searchResults);
+  // A FHIR batch runs its entries one after another server-side, so putting all of these in a single
+  // batch cost their sum even though they are completely independent of one another. Split across a
+  // few concurrent batches the cost is the max instead. The response is assembled by resource type
+  // below, not by request position, so how the requests are grouped makes no difference to it.
+  const requestGroups = chunkThings(
+    requests,
+    Math.max(LAB_ORDER_RESOURCES_MIN_BATCH_SIZE, Math.ceil(requests.length / LAB_ORDER_RESOURCES_BATCH_CONCURRENCY))
+  );
+  const searchResultBundles = await Promise.all(
+    requestGroups.map(
+      (groupedRequests) =>
+        oystehr.fhir.batch({ requests: groupedRequests }) as Promise<
+          Bundle<Coverage | Account | Organization | Location | Encounter | Appointment | List>
+        >
+    )
+  );
+  const resources = searchResultBundles.flatMap((bundle) =>
+    flattenBundleResources<Coverage | Account | Organization | Location | Encounter | Appointment | List>(bundle)
+  );
 
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];

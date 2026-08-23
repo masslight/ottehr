@@ -436,3 +436,27 @@ not expose, so every radiology integration file fails at setup. Confirmed identi
 (11 files failed, 5 tests failed, 1 passed, 22 skipped either way), i.e. pre-existing SDK drift rather
 than a regression. The change is instead verified by the response diff — byte-identical with an order
 actually mapped, not just the empty early return — and by the 105 passing radiology unit tests.
+
+---
+
+## `get-create-lab-order-resources`
+
+Loads when a provider opens the external-lab order form on a visit.
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| median latency | 185ms | 139ms | **−25%** |
+| min latency | 170ms | 114ms | −33% |
+| p90 latency | 241ms | 250ms | ~flat |
+| FHIR calls per invocation | 1 | 3 | +2 |
+| sequential round trips | 1 | 1 | — |
+
+The third instance of the serial-batch problem, and the reason it is worth naming as a pattern rather
+than a one-off: this endpoint already made a *single* FHIR call, which looks unimprovable, but that
+call was a batch of up to six independent searches — coverages, accounts, the lab list, the encounter
+and its appointment, lab organizations, ordering locations — and batch entries run one after another
+server-side, so the call cost their sum. Split across three concurrent batches it costs the max. The
+response is assembled by resource type rather than by request position, so how the requests are
+grouped cannot affect it; the diff confirms it byte-for-byte. Note the p90 does not improve here — at
+this size the win is in the median and the floor, and three connections have a slightly wider tail
+than one.
