@@ -36,6 +36,7 @@ import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_STATUS_GROUPS,
+  ClaimStatusOption,
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -159,7 +160,15 @@ const columns: GridColDef[] = [
   { field: 'responsibleParty', headerName: 'Responsible Party', width: 140 },
 ];
 
-export default function ClaimsList(): ReactElement {
+export default function ClaimsList({
+  title = 'Claims',
+  hideArStageFilter = false,
+  statusOptionsOverride,
+}: {
+  title?: string;
+  hideArStageFilter?: boolean;
+  statusOptionsOverride?: ClaimStatusOption[];
+}): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
@@ -199,6 +208,9 @@ export default function ClaimsList(): ReactElement {
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statusOptions = useMemo(() => {
+    if (statusOptionsOverride) {
+      return statusOptionsOverride;
+    }
     if (!arStageFilter) {
       return ALL_CLAIM_STATUS_OPTIONS_2;
     }
@@ -207,7 +219,7 @@ export default function ClaimsList(): ReactElement {
       return ALL_CLAIM_STATUS_OPTIONS_2;
     }
     return ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[groupKey];
-  }, [arStageFilter]);
+  }, [arStageFilter, statusOptionsOverride]);
 
   useEffect(() => {
     return (): void => {
@@ -456,7 +468,7 @@ export default function ClaimsList(): ReactElement {
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
-          Claims
+          {title}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selected.length > 0 && (
@@ -503,24 +515,26 @@ export default function ClaimsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>AR Stage</InputLabel>
-          <Select
-            value={arStageFilter}
-            label="AR Stage"
-            onChange={(e) => {
-              setArStageFilter(e.target.value);
-              applyFilters({ arStage: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
-              <MenuItem key={o.code} value={o.code}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {!hideArStageFilter && (
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>AR Stage</InputLabel>
+            <Select
+              value={arStageFilter}
+              label="AR Stage"
+              onChange={(e) => {
+                setArStageFilter(e.target.value);
+                applyFilters({ arStage: e.target.value });
+              }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
+                <MenuItem key={o.code} value={o.code}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Status</InputLabel>

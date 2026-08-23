@@ -13,6 +13,7 @@ import { UnauthorizedPage } from './components/UnauthorizedPage';
 import { ChargeItemDefinitionLabels } from './constants/chargeItemDefinition';
 import { useApiClients } from './hooks/useAppClients';
 import { useEvolveUser } from './hooks/useEvolveUser';
+import AccountsReceivable from './pages/AccountsReceivable';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
 import ClaimDetail from './pages/ClaimDetail';
@@ -21,8 +22,11 @@ import CreateClaim from './pages/CreateClaim';
 import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
+import InsuranceOrganizations from './pages/InsuranceOrganizations';
+import NonInsuranceOrganizations from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
+import { PlaceholderPage } from './pages/PlaceholderPage';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
 import RuleDetail from './pages/RuleDetail';
 import Rules from './pages/Rules';
@@ -70,6 +74,14 @@ export default function App(): ReactElement {
             >
               {/* <Route path="/" element={<Dashboard />} /> */}
               <Route path="/" element={<Navigate to="/claims" replace />} />
+              <Route path="/accounts-receivable" element={<AccountsReceivable />} />
+              <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
+              <Route path="/insurance-organizations" element={<InsuranceOrganizations />} />
+              <Route path="/non-insurance-organizations" element={<NonInsuranceOrganizations />} />
+              <Route
+                path={`/${ChargeItemDefinitionLabels['fee-schedule'].pathComponent}`}
+                element={<PlaceholderPage title={ChargeItemDefinitionLabels['fee-schedule'].listTitle} />}
+              />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />

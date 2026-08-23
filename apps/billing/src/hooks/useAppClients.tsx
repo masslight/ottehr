@@ -5,16 +5,34 @@ import { create } from 'zustand';
 import { useAuthToken } from './useAuthToken';
 
 interface ApiClientsState {
+  // Client for the Oystehr project/FHIR APIs (e.g. rcm payer endpoints).
+  oystehr?: Oystehr;
   oystehrZambda?: Oystehr;
 }
 
 const useApiClientsStore = create<ApiClientsState>()(() => ({
+  oystehr: undefined,
   oystehrZambda: undefined,
 }));
 
 export function useApiClients(): ApiClientsState {
   const token = useAuthToken();
-  const { oystehrZambda } = getSelectors(useApiClientsStore, ['oystehrZambda']);
+  const { oystehr, oystehrZambda } = getSelectors(useApiClientsStore, ['oystehr', 'oystehrZambda']);
+
+  useEffect(() => {
+    if (!token) return;
+    if (!oystehr || oystehr.config.accessToken !== token) {
+      useApiClientsStore.setState({
+        oystehr: new Oystehr({
+          accessToken: token,
+          fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
+          projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
+          projectId: import.meta.env.VITE_APP_PROJECT_ID,
+          retry: { retries: 0 },
+        }),
+      });
+    }
+  }, [oystehr, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -34,5 +52,5 @@ export function useApiClients(): ApiClientsState {
     }
   }, [oystehrZambda, token]);
 
-  return { oystehrZambda };
+  return { oystehr, oystehrZambda };
 }
