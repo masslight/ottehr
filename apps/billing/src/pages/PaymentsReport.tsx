@@ -20,13 +20,11 @@ import {
   MenuItem,
   Select,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -51,8 +49,6 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-
-type AvgRateBasis = 'allowed' | 'insurancePaid';
 
 type DateRangePreset =
   | 'previous-month'
@@ -112,7 +108,7 @@ const currencyCol = (field: string, headerName: string, width = 130): GridColDef
   valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
 
-const buildColumns = (avgBasis: AvgRateBasis): GridColDef[] => [
+const payerColumns: GridColDef[] = [
   { field: 'payerName', headerName: 'Payer', flex: 1, minWidth: 220 },
   { field: 'payerId', headerName: 'Payer ID', width: 110 },
   { field: 'eraCount', headerName: 'ERAs', width: 80, align: 'right', headerAlign: 'right' },
@@ -121,10 +117,17 @@ const buildColumns = (avgBasis: AvgRateBasis): GridColDef[] => [
   currencyCol('allowed', 'Allowed'),
   currencyCol('insurancePaid', 'Insurance Paid', 140),
   {
-    ...currencyCol('avgPerClaim', `Avg / Claim (${avgBasis === 'allowed' ? 'Allowed' : 'Paid'})`, 170),
+    ...currencyCol('avgAllowedPerClaim', 'Avg Allowed / Claim', 160),
     valueGetter: (params) => {
       const row = params.row as PaymentsReportPayerRow;
-      return row.claimCount > 0 ? row[avgBasis] / row.claimCount : 0;
+      return row.claimCount > 0 ? row.allowed / row.claimCount : 0;
+    },
+  },
+  {
+    ...currencyCol('avgPaidPerClaim', 'Avg Paid / Claim', 150),
+    valueGetter: (params) => {
+      const row = params.row as PaymentsReportPayerRow;
+      return row.claimCount > 0 ? row.insurancePaid / row.claimCount : 0;
     },
   },
   currencyCol('checkTotal', 'Check Total', 130),
@@ -649,14 +652,11 @@ export default function PaymentsReport(): ReactElement {
   const [dateFrom, setDateFrom] = useState(() => presetRange(DEFAULT_PRESET).from);
   const [dateTo, setDateTo] = useState(() => presetRange(DEFAULT_PRESET).to);
   const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
-  const [avgBasis, setAvgBasis] = useState<AvgRateBasis>('allowed');
   const [drilldown, setDrilldown] = useState<DrilldownCriteria | null>(null);
   const [patientReport, setPatientReport] = useState<GetBillingPatientPaymentsReportResponse | null>(null);
   const [patientLoading, setPatientLoading] = useState(false);
   const [patientError, setPatientError] = useState<string | null>(null);
   const [patientDrilldown, setPatientDrilldown] = useState<PatientPaymentsCriteria | null>(null);
-
-  const columns = useMemo(() => buildColumns(avgBasis), [avgBasis]);
 
   const fetchPatientPayments = useCallback(
     async (opts?: { from?: string; to?: string; refresh?: boolean }): Promise<void> => {
@@ -790,24 +790,6 @@ export default function PaymentsReport(): ReactElement {
             />
           </Box>
         )}
-        <Stack direction="row" alignItems="center" gap={1}>
-          <Typography variant="body2" color="text.secondary">
-            Avg rate basis:
-          </Typography>
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={avgBasis}
-            onChange={(_e, value: AvgRateBasis | null) => value && setAvgBasis(value)}
-          >
-            <ToggleButton value="allowed" sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-              Allowed
-            </ToggleButton>
-            <ToggleButton value="insurancePaid" sx={{ px: 1.5, py: 0.5, textTransform: 'none' }}>
-              Paid
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Stack>
       </Stack>
 
       {error && (
@@ -830,8 +812,12 @@ export default function PaymentsReport(): ReactElement {
         <StatCard label="Paid" value={formatCurrency(totals?.insurancePaid ?? 0)} hint="From claim paid amounts" />
         <StatCard label="Check Total" value={formatCurrency(totals?.checkTotal ?? 0)} hint="Sum of ERA check amounts" />
         <StatCard
-          label={`Avg / Claim (${avgBasis === 'allowed' ? 'Allowed' : 'Paid'})`}
-          value={formatCurrency(totals && totals.claimCount > 0 ? totals[avgBasis] / totals.claimCount : 0)}
+          label="Avg Allowed / Claim"
+          value={formatCurrency(totals && totals.claimCount > 0 ? totals.allowed / totals.claimCount : 0)}
+        />
+        <StatCard
+          label="Avg Paid / Claim"
+          value={formatCurrency(totals && totals.claimCount > 0 ? totals.insurancePaid / totals.claimCount : 0)}
         />
       </Stack>
 
@@ -839,7 +825,7 @@ export default function PaymentsReport(): ReactElement {
         autoHeight
         rows={report?.rows ?? []}
         getRowId={(row) => `${row.payerId}|${row.payerName}`}
-        columns={columns}
+        columns={payerColumns}
         loading={loading}
         disableRowSelectionOnClick
         disableColumnMenu
