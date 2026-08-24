@@ -25,6 +25,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { LocationBookingLinks } from 'src/features/locations/LocationBookingLinks';
 import LocationPaymentsSection from 'src/features/locations/LocationPaymentsSection';
 import {
   LOCATION_REVIEW_LINK_EXTENSION_URL,
@@ -211,230 +212,248 @@ export default function LocationConfigPage(): ReactElement {
   return (
     <Box sx={{ p: 3 }}>
       <CustomBreadcrumbs chain={breadcrumbs} />
-      <Paper sx={{ maxWidth: 560, mt: 2, p: 3 }}>
-        {/* Immediate status control — separate from Save/update-location, hitting the
+      {/* Config form and booking links sit side by side and top-aligned: the links are reference
+          material you read while editing, not a next step you scroll to.
+
+          The two shrink at different rates on purpose. The links card is mostly URL text, which
+          reflows to more lines at no real cost, so it yields space three times as fast (shrink 3)
+          and floors at 160px — narrow, but the copy button plus a broken URL still fit. The form is
+          labelled inputs that get cramped rather than taller, so it holds its width. Only once the
+          links card is out of room does the row wrap to a single column. */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 2 }}>
+        <Paper sx={{ flex: '0 1 560px', minWidth: 400, mt: 2, p: 3 }}>
+          {/* Immediate status control — separate from Save/update-location, hitting the
             dedicated toggle-location-active endpoint. Optimistic; reverts on failure. */}
-        <Box display="flex" alignItems="center" gap={1} mb={2}>
-          <Switch
-            checked={active}
-            disabled={toggleActiveMutation.isPending}
-            onChange={(e) => {
-              const next = e.target.checked;
-              setActive(next);
-              toggleActiveMutation.mutate({ locationId, active: next }, { onError: () => setActive(!next) });
-            }}
-          />
-          <Typography>{active ? 'Active' : 'Inactive'}</Typography>
-        </Box>
-        <Divider sx={{ mb: 3 }} />
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={isVirtual} onChange={(e) => setIsVirtual(e.target.checked)} />}
-              label="Virtual (Telemed)"
+          <Box display="flex" alignItems="center" gap={1} mb={2}>
+            <Switch
+              checked={active}
+              disabled={toggleActiveMutation.isPending}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setActive(next);
+                toggleActiveMutation.mutate({ locationId, active: next }, { onError: () => setActive(!next) });
+              }}
             />
-            <FormControlLabel
-              control={<Checkbox checked={isInPerson} onChange={(e) => setIsInPerson(e.target.checked)} />}
-              label="In person"
-            />
-            {noModeSelected && (
-              <Typography variant="body2" color="error">
-                Select at least one of "Virtual" or "In person". A location may be both.
-              </Typography>
-            )}
+            <Typography>{active ? 'Active' : 'Inactive'}</Typography>
           </Box>
+          <Divider sx={{ mb: 3 }} />
 
-          <TextField label="Permalink (slug)" value={slug} onChange={(e) => setSlug(e.target.value)} fullWidth />
-          <TextField select label="Timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} fullWidth>
-            {TIMEZONES.map((tz) => (
-              <MenuItem key={tz} value={tz}>
-                {tz}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            minRows={2}
-            fullWidth
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
 
-          <Typography variant="h6" color="primary.dark">
-            Address
-          </Typography>
-          <TextField label="Street" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} fullWidth />
-          <TextField
-            label="Street line 2"
-            value={addressLine2}
-            onChange={(e) => setAddressLine2(e.target.value)}
-            fullWidth
-          />
-          <TextField label="City" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} fullWidth />
-          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box>
+              <FormControlLabel
+                control={<Checkbox checked={isVirtual} onChange={(e) => setIsVirtual(e.target.checked)} />}
+                label="Virtual (Telemed)"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={isInPerson} onChange={(e) => setIsInPerson(e.target.checked)} />}
+                label="In person"
+              />
+              {noModeSelected && (
+                <Typography variant="body2" color="error">
+                  Select at least one of "Virtual" or "In person". A location may be both.
+                </Typography>
+              )}
+            </Box>
+
+            <TextField label="Permalink (slug)" value={slug} onChange={(e) => setSlug(e.target.value)} fullWidth />
+            <TextField select label="Timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} fullWidth>
+              {TIMEZONES.map((tz) => (
+                <MenuItem key={tz} value={tz}>
+                  {tz}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
-              label="State"
-              value={addressState}
-              onChange={(e) => setAddressState(e.target.value)}
-              sx={{ flex: 1 }}
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              multiline
+              minRows={2}
+              fullWidth
+            />
+
+            <Typography variant="h6" color="primary.dark">
+              Address
+            </Typography>
+            <TextField label="Street" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} fullWidth />
+            <TextField
+              label="Street line 2"
+              value={addressLine2}
+              onChange={(e) => setAddressLine2(e.target.value)}
+              fullWidth
+            />
+            <TextField label="City" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} fullWidth />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="State"
+                value={addressState}
+                onChange={(e) => setAddressState(e.target.value)}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="Postal code"
+                value={addressPostalCode}
+                onChange={(e) => setAddressPostalCode(e.target.value)}
+                sx={{ flex: 1 }}
+              />
+            </Box>
+
+            <Typography variant="h6" color="primary.dark">
+              Contact
+            </Typography>
+            <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
+            <TextField label="URL" value={url} onChange={(e) => setUrl(e.target.value)} fullWidth />
+            <TextField label="Fax" value={fax} onChange={(e) => setFax(e.target.value)} fullWidth />
+            <TextField
+              label="Support phone"
+              value={supportPhone}
+              onChange={(e) => setSupportPhone(e.target.value)}
+              fullWidth
+              helperText="Front-desk number shown to patients in booking/support flows."
             />
             <TextField
-              label="Postal code"
-              value={addressPostalCode}
-              onChange={(e) => setAddressPostalCode(e.target.value)}
-              sx={{ flex: 1 }}
+              label="Review link"
+              value={reviewLink}
+              onChange={(e) => setReviewLink(e.target.value)}
+              placeholder="https://g.page/r/..."
+              helperText="Used in templates as {{location-review-link}}"
+              fullWidth
             />
-          </Box>
 
-          <Typography variant="h6" color="primary.dark">
-            Contact
-          </Typography>
-          <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
-          <TextField label="URL" value={url} onChange={(e) => setUrl(e.target.value)} fullWidth />
-          <TextField label="Fax" value={fax} onChange={(e) => setFax(e.target.value)} fullWidth />
-          <TextField
-            label="Support phone"
-            value={supportPhone}
-            onChange={(e) => setSupportPhone(e.target.value)}
-            fullWidth
-            helperText="Front-desk number shown to patients in booking/support flows."
-          />
-          <TextField
-            label="Review link"
-            value={reviewLink}
-            onChange={(e) => setReviewLink(e.target.value)}
-            placeholder="https://g.page/r/..."
-            helperText="Used in templates as {{location-review-link}}"
-            fullWidth
-          />
-
-          {canSeePaymentFields && (
-            <>
-              <Typography variant="h6" color="primary.dark">
-                Payments
-              </Typography>
-              {/* Account ID is a Location field (set here by Customer Support). Connection
+            {canSeePaymentFields && (
+              <>
+                <Typography variant="h6" color="primary.dark">
+                  Payments
+                </Typography>
+                {/* Account ID is a Location field (set here by Customer Support). Connection
                   status + terminal readers live on Stripe/Device resources and render below
                   — consolidated here from the retired Payment Locations page. */}
-              <TextField
-                label="Stripe Account ID"
-                value={stripeAccountId}
-                onChange={(e) => setStripeAccountId(e.target.value)}
-                disabled={!canEditPaymentFields}
-                fullWidth
-                error={stripeFormatWarn}
-                helperText={stripeFormatWarn ? 'Doesn’t look like a Stripe account ID (expected acct_…).' : undefined}
-              />
-              <LocationPaymentsSection
-                locationId={locationId}
-                stripeAccountId={location ? extValue(location, SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL) : undefined}
-              />
+                <TextField
+                  label="Stripe Account ID"
+                  value={stripeAccountId}
+                  onChange={(e) => setStripeAccountId(e.target.value)}
+                  disabled={!canEditPaymentFields}
+                  fullWidth
+                  error={stripeFormatWarn}
+                  helperText={stripeFormatWarn ? 'Doesn’t look like a Stripe account ID (expected acct_…).' : undefined}
+                />
+                <LocationPaymentsSection
+                  locationId={locationId}
+                  stripeAccountId={
+                    location ? extValue(location, SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL) : undefined
+                  }
+                />
 
-              <Typography variant="h6" color="primary.dark">
-                Radiology / Imaging
-              </Typography>
-              {/* Advapacs (PACS) location id — maps this Location to an Advapacs location for
+                <Typography variant="h6" color="primary.dark">
+                  Radiology / Imaging
+                </Typography>
+                {/* Advapacs (PACS) location id — maps this Location to an Advapacs location for
                   radiology orders (create-order reads it). Not a payment field; it just shares
                   the same Customer-Support permission tier. */}
-              <TextField
-                label="Advapacs Location ID"
-                value={advapacsLocationId}
-                onChange={(e) => setAdvapacsLocationId(e.target.value)}
-                disabled={!canEditPaymentFields}
-                fullWidth
-                error={advapacsFormatWarn}
-                helperText={advapacsFormatWarn ? 'Doesn’t look like an Advapacs location UUID.' : undefined}
-              />
-            </>
-          )}
+                <TextField
+                  label="Advapacs Location ID"
+                  value={advapacsLocationId}
+                  onChange={(e) => setAdvapacsLocationId(e.target.value)}
+                  disabled={!canEditPaymentFields}
+                  fullWidth
+                  error={advapacsFormatWarn}
+                  helperText={advapacsFormatWarn ? 'Doesn’t look like an Advapacs location UUID.' : undefined}
+                />
+              </>
+            )}
 
-          <Typography variant="h6" color="primary.dark">
-            Rooms
-          </Typography>
-          {rooms.map((room) => (
-            <Box key={room.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TextField
-                value={room.value}
-                onChange={(e) =>
-                  setRooms((prev) => prev.map((r) => (r.id === room.id ? { ...r, value: e.target.value } : r)))
-                }
-                size="small"
-                fullWidth
-                placeholder="Room name"
-              />
-              <IconButton
-                aria-label="Delete room"
-                onClick={() => setRooms((prev) => prev.filter((r) => r.id !== room.id))}
-                size="small"
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TextField
-              value={newRoom}
-              onChange={(e) => setNewRoom(e.target.value)}
-              size="small"
-              fullWidth
-              placeholder="New room name"
-            />
-            <Button
-              onClick={() => {
-                if (!newRoom.trim()) return;
-                setRooms((prev) => [...prev, { id: roomId(), value: newRoom.trim() }]);
-                setNewRoom('');
-              }}
-              variant="outlined"
-              startIcon={<AddIcon />}
-              disabled={!newRoom.trim()}
-            >
-              Add
-            </Button>
-          </Box>
-
-          <Box sx={{ mt: 2 }}>
-            <LoadingButton
-              variant="contained"
-              onClick={handleSave}
-              loading={updateMutation.isPending}
-              disabled={noModeSelected}
-            >
-              Save
-            </LoadingButton>
-          </Box>
-
-          {canDeleteLocation && (
-            <>
-              <Divider sx={{ mt: 2 }} />
-              <Typography variant="h6" color="error">
-                Danger zone
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Permanently delete this location. Prefer deactivating (the toggle above) unless it was created in error
-                — deletion cannot be undone.
-              </Typography>
-              <Box>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<DeleteOutlineIcon />}
-                  onClick={() => {
-                    setDeleteWarning(null);
-                    setDeleteDialogOpen(true);
-                  }}
+            <Typography variant="h6" color="primary.dark">
+              Rooms
+            </Typography>
+            {rooms.map((room) => (
+              <Box key={room.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TextField
+                  value={room.value}
+                  onChange={(e) =>
+                    setRooms((prev) => prev.map((r) => (r.id === room.id ? { ...r, value: e.target.value } : r)))
+                  }
+                  size="small"
+                  fullWidth
+                  placeholder="Room name"
+                />
+                <IconButton
+                  aria-label="Delete room"
+                  onClick={() => setRooms((prev) => prev.filter((r) => r.id !== room.id))}
+                  size="small"
                 >
-                  Delete location
-                </Button>
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
               </Box>
-            </>
-          )}
-        </Box>
-      </Paper>
+            ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TextField
+                value={newRoom}
+                onChange={(e) => setNewRoom(e.target.value)}
+                size="small"
+                fullWidth
+                placeholder="New room name"
+              />
+              <Button
+                onClick={() => {
+                  if (!newRoom.trim()) return;
+                  setRooms((prev) => [...prev, { id: roomId(), value: newRoom.trim() }]);
+                  setNewRoom('');
+                }}
+                variant="outlined"
+                startIcon={<AddIcon />}
+                disabled={!newRoom.trim()}
+              >
+                Add
+              </Button>
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <LoadingButton
+                variant="contained"
+                onClick={handleSave}
+                loading={updateMutation.isPending}
+                disabled={noModeSelected}
+              >
+                Save
+              </LoadingButton>
+            </Box>
+
+            {canDeleteLocation && (
+              <>
+                <Divider sx={{ mt: 2 }} />
+                <Typography variant="h6" color="error">
+                  Danger zone
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Permanently delete this location. Prefer deactivating (the toggle above) unless it was created in
+                  error — deletion cannot be undone.
+                </Typography>
+                <Box>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={() => {
+                      setDeleteWarning(null);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    Delete location
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+        </Paper>
+
+        {location && (
+          <Paper sx={{ flex: '1 3 420px', minWidth: 160, mt: 2, p: 3 }}>
+            <LocationBookingLinks location={location} />
+          </Paper>
+        )}
+      </Box>
 
       <Dialog
         open={deleteDialogOpen}
