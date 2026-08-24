@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AMBIENT_SCRIBE_RECORDING_PENDING_CODING } from 'utils/lib/fhir/constants';
 import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { useAiResourcesPollingStore } from '../stores/aiResourcesPolling.store';
 
 interface UseAiResourcesPollingParams {
   appointment: Appointment | undefined;
@@ -40,6 +41,17 @@ export const useAiResourcesPolling = ({
   const pollingExhaustedRef = useRef(false);
   const initialCheckDoneRef = useRef(false);
 
+  // Mirror this instance's state into the shared store so components that don't call this hook directly
+  // (e.g. OttehrAi, since this hook is only invoked from the persistently-mounted InPersonLayout) can still
+  // read live polling status without starting a second, competing poll loop of their own.
+  useEffect(() => {
+    useAiResourcesPollingStore.setState({
+      isPolling,
+      hasPendingAiSource,
+      pollingExhausted: pollingExhaustedRef.current,
+    });
+  }, [isPolling, hasPendingAiSource]);
+
   // Check if there's an AI interview with sufficient answers but no AI resources
   const checkForInterviewWithoutResources = useCallback(async (): Promise<boolean> => {
     if (!oystehr || !encounter?.id) return false;
@@ -72,7 +84,7 @@ export const useAiResourcesPolling = ({
 
   // Check if an in-person recording was uploaded and is awaiting transcription
   const checkForPendingAudioRecording = useCallback(async (): Promise<boolean> => {
-    if (!oystehr || !encounter?.id || chartDataHasResources) return false;
+    if (!oystehr || !encounter?.id) return false;
 
     try {
       const drResult = await oystehr.fhir.search<DocumentReference>({
@@ -91,7 +103,7 @@ export const useAiResourcesPolling = ({
       console.error('Error checking for pending audio recording:', error);
       return false;
     }
-  }, [oystehr, encounter?.id, chartDataHasResources]);
+  }, [oystehr, encounter?.id]);
 
   const checkForPendingAiSource = useCallback(async (): Promise<boolean> => {
     const [interviewPending, audioRecordingPending] = await Promise.all([
@@ -107,8 +119,13 @@ export const useAiResourcesPolling = ({
       if (!appointment || !encounter) return;
 
       const visitStatus = getInPersonVisitStatus(appointment, encounter);
-      const isRelevantStatus = visitStatus === 'ready for provider' || visitStatus === 'provider';
-
+      const isRelevantStatus =
+        visitStatus === 'pending' ||
+        visitStatus === 'arrived' ||
+        visitStatus === 'intake' ||
+        visitStatus === 'ready' ||
+        visitStatus === 'ready for provider' ||
+        visitStatus === 'provider';
       if (!hasPendingRecording && !isRelevantStatus) {
         setHasPendingAiSource(false);
         setIsPolling(false);
@@ -118,9 +135,9 @@ export const useAiResourcesPolling = ({
         return;
       }
 
-      // Only check and start polling if we haven't done initial check yet
-      // or if we know resources are missing
-      if (!initialCheckDoneRef.current || !chartDataHasResources) {
+      // Only check and start polling if we haven't done initial check yet, if we know resources are
+      // missing, or there is a pending recording
+      if (!initialCheckDoneRef.current || !chartDataHasResources || hasPendingRecording) {
         const needsPolling = await checkForPendingAiSource();
         setHasPendingAiSource(needsPolling);
         initialCheckDoneRef.current = true;
