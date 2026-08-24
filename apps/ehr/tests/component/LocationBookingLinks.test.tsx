@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Extension, Location } from 'fhir/r4b';
 import { MemoryRouter } from 'react-router-dom';
 import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { LocationScheduleSummary } from 'utils/lib/types/api/locations';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocationBookingLinks } from '../../src/features/locations/LocationBookingLinks';
 
 // Booking links for a Location were lost when the Schedule General tab was replaced by this page —
@@ -77,6 +78,16 @@ describe('LocationBookingLinks', () => {
     expect(screen.queryByText(/\/walkin\/schedule\//)).toBeNull();
   });
 
+  it('sends the no-schedule warning to the create page with this location preselected', () => {
+    // Without the id the admin lands on a picker and has to find the location they were just
+    // looking at — and an inactive one isn't in that picker's list at all.
+    renderWidget(makeLocation({ slug: 'test-clinic' }), []);
+
+    expect(screen.getByTestId('location-create-schedule-link').getAttribute('href')).toBe(
+      '/admin/schedule/add?location=loc-1'
+    );
+  });
+
   it('offers no links at all when the location has no slug', () => {
     renderWidget(makeLocation({}));
 
@@ -96,5 +107,61 @@ describe('LocationBookingLinks', () => {
     expect(screen.getByTestId('location-schedule-link-sched-2').getAttribute('href')).toBe(
       '/admin/schedule/id/sched-2'
     );
+  });
+
+  describe('copy button', () => {
+    afterEach(() => {
+      // jsdom has no clipboard; each test installs the shape it needs and clears up after itself.
+      Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    });
+
+    const clickFirstCopyButton = async (): Promise<void> => {
+      await userEvent.click(screen.getAllByRole('button', { name: /^Copy .* link$/ })[0]);
+    };
+
+    it('labels each copy button with the link it copies', () => {
+      renderWidget(makeLocation({ slug: 'test-clinic', modes: ['vi', 'in-person'] }));
+
+      // Icon-only buttons have no accessible name from their content, so the label is the only thing
+      // a screen reader can announce — and three identical "Copy" buttons would be useless anyway.
+      expect(screen.getByRole('button', { name: 'Copy Prebook (In person) link' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Copy Prebook (Virtual) link' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Copy Walk-in link' })).toBeTruthy();
+    });
+
+    it('writes the link to the clipboard and confirms', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      renderWidget(makeLocation({ slug: 'test-clinic' }));
+
+      await clickFirstCopyButton();
+
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/prebook/in-person?bookingOn=test-clinic'));
+      await waitFor(() => expect(screen.getByText('Link copied!')).toBeTruthy());
+    });
+
+    it('says so instead of throwing when the clipboard API is missing', async () => {
+      // No secure context (plain http on anything but localhost) means no navigator.clipboard at
+      // all, so the unguarded call threw a TypeError out of the click handler.
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      renderWidget(makeLocation({ slug: 'test-clinic' }));
+
+      await clickFirstCopyButton();
+
+      await waitFor(() => expect(screen.getByText(/Couldn’t copy/)).toBeTruthy());
+    });
+
+    it('says so instead of claiming success when the write is rejected', async () => {
+      // Permission can be refused even where the API exists; the old code reported "Link copied!"
+      // either way and sent people off to paste something they didn't have.
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      renderWidget(makeLocation({ slug: 'test-clinic' }));
+
+      await clickFirstCopyButton();
+
+      await waitFor(() => expect(screen.getByText(/Couldn’t copy/)).toBeTruthy());
+    });
   });
 });

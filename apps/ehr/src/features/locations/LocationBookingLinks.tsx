@@ -42,7 +42,27 @@ export function LocationBookingLinks({ location, schedules }: LocationBookingLin
   const isVirtual = isLocationVirtual(location);
   const isInPerson = isLocationInPerson(location);
 
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  // Which link was last copied, and whether it worked. The outcome is tracked rather than assumed:
+  // `navigator.clipboard` is undefined outside a secure context (plain http on anything but
+  // localhost), and `writeText` rejects when permission is refused. Reporting "Link copied!"
+  // regardless would send someone off to paste a link they don't have.
+  const [copyResult, setCopyResult] = useState<{ key: string; ok: boolean } | null>(null);
+
+  const copyLink = async (key: string, url: string): Promise<void> => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+      await navigator.clipboard.writeText(url);
+      setCopyResult({ key, ok: true });
+    } catch (error) {
+      console.error('Failed to copy booking link to clipboard:', error);
+      setCopyResult({ key, ok: false });
+    }
+  };
+
+  const copyTooltip = (key: string): string => {
+    if (copyResult?.key !== key) return 'Copy link';
+    return copyResult.ok ? 'Link copied!' : 'Couldn’t copy — select the URL and copy it manually';
+  };
 
   const prebookLinks = slug
     ? buildPrebookModeLinks({ fhirType: 'Location', slug, isVirtual, isInPerson }).map((link) => ({
@@ -77,8 +97,15 @@ export function LocationBookingLinks({ location, schedules }: LocationBookingLin
 
       {slug && schedules.length === 0 && (
         <Alert severity="warning" sx={{ mb: 2 }} data-testid={dataTestIds.locationConfig.noScheduleWarning}>
-          This location doesn&apos;t own a schedule yet, so these links will open but won&apos;t offer any times. Create
-          a schedule to make it bookable.
+          This location doesn&apos;t own a schedule yet, so these links will open but won&apos;t offer any times.{' '}
+          <MuiLink
+            component={RouterLink}
+            to={`/admin/schedule/add?location=${encodeURIComponent(location.id ?? '')}`}
+            data-testid={dataTestIds.locationConfig.createScheduleLink}
+          >
+            Create a schedule
+          </MuiLink>{' '}
+          to make it bookable.
         </Alert>
       )}
 
@@ -86,18 +113,16 @@ export function LocationBookingLinks({ location, schedules }: LocationBookingLin
         {links.map((link) => (
           <Box key={link.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Tooltip
-              title={copiedKey === link.key ? 'Link copied!' : 'Copy link'}
+              title={copyTooltip(link.key)}
               placement="top"
               arrow
               onClose={() => {
-                setTimeout(() => setCopiedKey((prev) => (prev === link.key ? null : prev)), 200);
+                setTimeout(() => setCopyResult((prev) => (prev?.key === link.key ? null : prev)), 200);
               }}
             >
               <Button
-                onClick={() => {
-                  void navigator.clipboard.writeText(link.url);
-                  setCopiedKey(link.key);
-                }}
+                aria-label={`Copy ${link.label} link`}
+                onClick={() => void copyLink(link.key, link.url)}
                 sx={{ p: 0, minWidth: 0 }}
               >
                 <ContentCopyRoundedIcon fontSize="small" />
