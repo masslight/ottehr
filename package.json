@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
-    "node": ">=22.13.0 <23",
+    "node": ">=22.13.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
@@ -238,7 +238,7 @@
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "aws-cdk": "2.1006.0",
     "aws-cdk-lib": "2.198.0",
     "aws-lambda": "^1.0.7",
@@ -267,9 +267,9 @@
     "tsx": "^4.19.2",
     "turbo": "^2.8.16",
     "typescript": "5.8.3",
-    "vite": "8.2.1",
+    "vite": "8.2.2",
     "vite-plugin-svgr": "^4.2.0",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.11",
     "web-vitals": "^2.1.4"
   },
   "optionalDependencies": {
