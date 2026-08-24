@@ -1,20 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { Extension, Location, Schedule } from 'fhir/r4b';
+import { Extension, Location } from 'fhir/r4b';
 import { MemoryRouter } from 'react-router-dom';
-import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { LocationScheduleSummary } from 'utils/lib/types/api/locations';
+import { describe, expect, it } from 'vitest';
+import { LocationBookingLinks } from '../../src/features/locations/LocationBookingLinks';
 
 // Booking links for a Location were lost when the Schedule General tab was replaced by this page —
 // the links weren't carried over, and nothing failed, because nothing tested them. These pin what
 // the widget emits so the next rewrite of this page has to notice.
-
-const mockSchedulesQuery = vi.fn<() => { data: Schedule[] | undefined; isLoading: boolean }>();
-vi.mock('src/features/locations/location.queries', async (importOriginal) => ({
-  ...((await importOriginal()) as any),
-  useLocationSchedulesQuery: () => mockSchedulesQuery(),
-}));
-
-import { LocationBookingLinks } from '../../src/features/locations/LocationBookingLinks';
 
 // A Location declares its service modes as codings on the location-form extension. Both may be
 // present at once — that's the dual-mode case the prebook links have to split apart. In-person is
@@ -33,27 +27,19 @@ const makeLocation = (opts: { slug?: string; modes?: Array<'vi' | 'in-person'> }
   ...(opts.modes ? { extension: opts.modes.map(modeExtension) } : {}),
 });
 
-const makeSchedule = (id: string, displayName?: string): Schedule => ({
-  resourceType: 'Schedule',
-  id,
-  actor: [{ reference: 'Location/loc-1' }],
-  ...(displayName ? { extension: [{ url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: displayName }] } : {}),
-});
+const makeSchedule = (id: string, name?: string): LocationScheduleSummary => ({ id, name });
 
-const renderWidget = (location: Location): void => {
+const ONE_SCHEDULE = [makeSchedule('sched-1')];
+
+const renderWidget = (location: Location, schedules: LocationScheduleSummary[] = ONE_SCHEDULE): void => {
   render(
     <MemoryRouter>
-      <LocationBookingLinks location={location} />
+      <LocationBookingLinks location={location} schedules={schedules} />
     </MemoryRouter>
   );
 };
 
 describe('LocationBookingLinks', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockSchedulesQuery.mockReturnValue({ data: [makeSchedule('sched-1')], isLoading: false });
-  });
-
   it('emits one prebook link per enabled service mode', () => {
     // A Location may be both virtual and in-person; a single "Prebook" link would silently pick one.
     const location = makeLocation({ slug: 'test-clinic', modes: ['vi', 'in-person'] });
@@ -72,11 +58,10 @@ describe('LocationBookingLinks', () => {
   });
 
   it('names each walk-in link when the location owns more than one schedule', () => {
-    mockSchedulesQuery.mockReturnValue({
-      data: [makeSchedule('sched-1', 'Main desk'), makeSchedule('sched-2')],
-      isLoading: false,
-    });
-    renderWidget(makeLocation({ slug: 'test-clinic' }));
+    renderWidget(makeLocation({ slug: 'test-clinic' }), [
+      makeSchedule('sched-1', 'Main desk'),
+      makeSchedule('sched-2'),
+    ]);
 
     expect(screen.getByText('Walk-in — Main desk')).toBeTruthy();
     // Second schedule carries no display-name extension, so it falls back to a positional label.
@@ -86,8 +71,7 @@ describe('LocationBookingLinks', () => {
   it('warns when the location owns no schedule', () => {
     // The prebook URL is still well-formed here — it resolves and then offers no times. Without the
     // warning the only symptom is a patient staring at an empty calendar.
-    mockSchedulesQuery.mockReturnValue({ data: [], isLoading: false });
-    renderWidget(makeLocation({ slug: 'test-clinic' }));
+    renderWidget(makeLocation({ slug: 'test-clinic' }), []);
 
     expect(screen.getByTestId('location-no-schedule-warning')).toBeTruthy();
     expect(screen.queryByText(/\/walkin\/schedule\//)).toBeNull();
@@ -100,12 +84,11 @@ describe('LocationBookingLinks', () => {
     expect(screen.getByText(/no slug/)).toBeTruthy();
   });
 
-  it('links through to each schedule it found', () => {
-    mockSchedulesQuery.mockReturnValue({
-      data: [makeSchedule('sched-1', 'Main desk'), makeSchedule('sched-2')],
-      isLoading: false,
-    });
-    renderWidget(makeLocation({ slug: 'test-clinic' }));
+  it('links through to each schedule it was given', () => {
+    renderWidget(makeLocation({ slug: 'test-clinic' }), [
+      makeSchedule('sched-1', 'Main desk'),
+      makeSchedule('sched-2'),
+    ]);
 
     expect(screen.getByTestId('location-schedule-link-sched-1').getAttribute('href')).toBe(
       '/admin/schedule/id/sched-1'

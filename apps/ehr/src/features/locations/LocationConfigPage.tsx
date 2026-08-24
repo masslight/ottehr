@@ -70,7 +70,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 export default function LocationConfigPage(): ReactElement {
   const locationId = useParams()['location-id'] as string;
-  const { data: location, isLoading } = useLocationQuery(locationId);
+  const { data: locationData, isLoading } = useLocationQuery(locationId);
+  const location = locationData?.location;
+  const schedules = locationData?.schedules ?? [];
   const updateMutation = useUpdateLocationMutation(locationId);
   const toggleActiveMutation = useToggleLocationActiveMutation();
   const deleteMutation = useDeleteLocationMutation();
@@ -450,7 +452,7 @@ export default function LocationConfigPage(): ReactElement {
 
         {location && (
           <Paper sx={{ flex: '1 3 420px', minWidth: 160, mt: 2, p: 3 }}>
-            <LocationBookingLinks location={location} />
+            <LocationBookingLinks location={location} schedules={schedules} />
           </Paper>
         )}
       </Box>

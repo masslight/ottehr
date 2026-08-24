@@ -1,5 +1,5 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Location, Schedule } from 'fhir/r4b';
+import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { createLocation, deleteLocation, getLocation, toggleLocationActive, updateLocation } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -9,6 +9,7 @@ import {
   CreateLocationParams,
   DeleteLocationParams,
   DeleteLocationResponse,
+  GetLocationResponse,
   LocationFieldsInput,
   ToggleLocationActiveParams,
 } from 'utils/lib/types/api/locations';
@@ -16,7 +17,6 @@ import { APIError, isApiError } from 'utils/lib/types/errors';
 
 const LOCATIONS_LIST_KEY = 'locations-list';
 const LOCATION_KEY = 'location';
-const LOCATION_SCHEDULES_KEY = 'location-schedules';
 
 const surfaceError = (error: unknown, fallback: string): void => {
   safelyCaptureException(error);
@@ -38,33 +38,19 @@ export const useLocationsListQuery = (): UseQueryResult<Location[], Error> => {
   });
 };
 
-export const useLocationQuery = (locationId: string | undefined): UseQueryResult<Location, Error> => {
+/**
+ * A Location plus the Schedules it actors.
+ *
+ * Both arrive from `get-location` in one call. The schedule list is part of this response rather
+ * than a query of its own so the two can't be separately stale — and so the existing invalidation on
+ * save and status-toggle keeps the booking links honest without extra wiring.
+ */
+export const useLocationQuery = (locationId: string | undefined): UseQueryResult<GetLocationResponse, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: [LOCATION_KEY, locationId],
     queryFn: async () => getLocation({ locationId: locationId! }, oystehrZambda!),
     enabled: !!oystehrZambda && !!locationId,
-  });
-};
-
-/**
- * Schedules actored by this Location.
- *
- * A Location can own several — one per service category is an established pattern — so this returns
- * all of them rather than assuming a single "the" schedule. Booking links need this: prebook URLs are
- * built from Location config, but they only vend slots if a Schedule exists, and each walk-in link is
- * keyed to a specific Schedule id.
- */
-export const useLocationSchedulesQuery = (locationId: string | undefined): UseQueryResult<Schedule[], Error> => {
-  const { oystehr } = useApiClients();
-  return useQuery({
-    queryKey: [LOCATION_SCHEDULES_KEY, locationId],
-    queryFn: async () =>
-      getAllFhirSearchPages<Schedule>(
-        { resourceType: 'Schedule', params: [{ name: 'actor', value: `Location/${locationId}` }] },
-        oystehr!
-      ),
-    enabled: !!oystehr && !!locationId,
   });
 };
 
