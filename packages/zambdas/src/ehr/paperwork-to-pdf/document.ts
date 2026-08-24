@@ -14,6 +14,7 @@ import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getCanonicalQuestionnaire, resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { getAppointmentType } from 'utils/lib/helpers/helpers';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { getMimeType } from 'utils/lib/utils/file';
 import { assertDefined, resolveTimezone } from '../../shared/helpers';
 
 export interface Document {
@@ -224,10 +225,12 @@ function collectImageItems(
     const title = questionnaireItem?.text;
     const attachment = item.answer?.[0]?.valueAttachment;
 
-    // The declared contentType only decides IF an answer is treated as an image (keeping PDF
-    // attachments such as consents and school notes out); which encoding it actually is gets
-    // decided from the bytes at render time.
-    if (attachment?.url && attachment.contentType?.startsWith('image/')) {
+    // The declared type only decides IF an answer is treated as an image (keeping PDF attachments
+    // such as consents and school notes out); which encoding it actually is gets decided from the
+    // bytes at render time. contentType is optional on an Attachment, so fall back to the url's
+    // extension the way isFaxableAttachment does rather than dropping the image.
+    const declaredType = attachment?.contentType ?? (attachment?.url ? getMimeType(attachment.url) : undefined);
+    if (attachment?.url && declaredType?.startsWith('image/')) {
       collected.push({
         title: title ?? attachment.title ?? item.linkId,
         imageBytes: downloadImage(attachment.url, oystehr),
