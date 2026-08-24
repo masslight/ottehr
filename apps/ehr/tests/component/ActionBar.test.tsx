@@ -4,6 +4,7 @@ import { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { ActionBar } from '../../src/features/visits/shared/components/patient/ActionBar';
+import { SaveBlockedReasonProvider } from '../../src/features/visits/shared/components/patient/SaveBlockedReasonContext';
 
 // ============================================================================
 // HARNESS
@@ -12,11 +13,20 @@ import { ActionBar } from '../../src/features/visits/shared/components/patient/A
 const BLOCKED_REASON = 'Please check "I verify that patient consent has been obtained." before saving.';
 
 const renderActionBar = (
-  overrides: Partial<ComponentProps<typeof ActionBar>> = {}
+  overrides: Partial<ComponentProps<typeof ActionBar>> = {},
+  blockedReason?: string
 ): { handleSave: ReturnType<typeof vi.fn> } => {
   const handleSave = vi.fn().mockResolvedValue(undefined);
   render(
-    <ActionBar handleDiscard={vi.fn()} handleSave={handleSave} loading={false} submitDisabled={false} {...overrides} />
+    <SaveBlockedReasonProvider reason={blockedReason}>
+      <ActionBar
+        handleDiscard={vi.fn()}
+        handleSave={handleSave}
+        loading={false}
+        submitDisabled={false}
+        {...overrides}
+      />
+    </SaveBlockedReasonProvider>
   );
   return { handleSave };
 };
@@ -37,7 +47,7 @@ describe('ActionBar', () => {
   });
 
   it('disables Save All while a blocking reason is present, even when the form is dirty', async () => {
-    const { handleSave } = renderActionBar({ submitBlockedReason: BLOCKED_REASON });
+    const { handleSave } = renderActionBar({}, BLOCKED_REASON);
 
     expect(saveButton()).toBeDisabled();
     // Click the wrapper: the disabled button itself swallows pointer events.
@@ -46,7 +56,7 @@ describe('ActionBar', () => {
   });
 
   it('explains the blocked submit on hover', async () => {
-    renderActionBar({ submitBlockedReason: BLOCKED_REASON });
+    renderActionBar({}, BLOCKED_REASON);
 
     await userEvent.hover(saveButton().parentElement!);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(BLOCKED_REASON);

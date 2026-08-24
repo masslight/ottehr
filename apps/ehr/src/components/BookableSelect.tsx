@@ -6,7 +6,7 @@ import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/boo
 import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
-import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { isLocationInPerson, isLocationVirtual, LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
 import { useApiClients } from '../hooks/useAppClients';
 import {
   buildLocationInventories,
@@ -171,10 +171,11 @@ export default function BookableSelect({
         // Run the three queries in parallel. Each returns a resource set we
         // narrow down into the BookableTarget union.
         const [locationsWithSchedules, healthcareServices, practitionerRolesWithPractitioners] = await Promise.all([
+          // Deactivating a Location must remove it from every booking flow, staff-facing included.
           getAllFhirSearchPages<Location | Schedule>(
             {
               resourceType: 'Location',
-              params: [{ name: '_revinclude', value: 'Schedule:actor:Location' }],
+              params: [LOCATION_BOOKABLE_SEARCH_PARAM, { name: '_revinclude', value: 'Schedule:actor:Location' }],
             },
             oystehr
           ),

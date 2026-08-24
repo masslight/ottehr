@@ -3,6 +3,7 @@ import { default as Oystehr } from '@oystehr/sdk';
 import { FhirResource, PractitionerRole, Schedule } from 'fhir/r4b';
 import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isFhirNotFoundError } from '../shared/errors';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 /**
@@ -16,8 +17,8 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
  * does not track liveness — roughly half the collisions there are newest-is-live.
  *
  * This picks the keeper by **Appointment count** (ties broken by oldest), which is the signal that
- * actually identifies the live resource, then reports exactly how many Appointment references the
- * plan would orphan before doing anything.
+ * actually identifies the live resource, then reports exactly how many references (Appointment AND
+ * Encounter) the plan would orphan before doing anything.
  *
  *   npm run resolve-slug-duplicates -- <env>                     # dry run (default)
  *   npm run resolve-slug-duplicates -- <env> --verify            # post-hoc integrity scan
@@ -197,7 +198,18 @@ const verifyNoDanglingRefs = async (oystehr: Oystehr): Promise<void> => {
     let found = true;
     try {
       await oystehr.fhir.get({ resourceType: resourceType as any, id });
-    } catch {
+    } catch (error) {
+      // ONLY a 404 means "deleted". Treating every error as absence would let a timeout or a
+      // permissions blip manufacture dangling references — which is the precise failure this whole
+      // mode exists to rule out. A scan that can invent findings under load is worse than no scan,
+      // so anything else aborts rather than being folded into the report.
+      if (!isFhirNotFoundError(error)) {
+        throw new Error(
+          `VERIFY aborted: could not determine whether ${ref} exists (this is not a 404). ` +
+            'Results so far are incomplete and must not be read as a clean bill of health.',
+          { cause: error }
+        );
+      }
       found = false;
     }
     existsCache.set(ref, found);
@@ -260,7 +272,7 @@ const main = async (config: any): Promise<void> => {
   const losers: Candidate[] = [];
   const keeperByKey = new Map<string, string>();
   const loserRefs = new Set<string>();
-  let orphanedAppointments = 0;
+  let orphanedReferences = 0;
 
   for (const type of ANCHOR_TYPES) {
     const all = await getAllFhirSearchPages<FhirResource>({ resourceType: type }, oystehr);
@@ -313,7 +325,7 @@ const main = async (config: any): Promise<void> => {
           if (total > 0) {
             console.log(`         └─ referenced by ${parts.join(', ')}${REPOINT ? ' (will be repointed)' : ''}`);
           }
-          if (!REPOINT) orphanedAppointments += total;
+          if (!REPOINT) orphanedReferences += total;
         }
       }
       console.log('');
@@ -361,12 +373,12 @@ const main = async (config: any): Promise<void> => {
       ? 'No references are affected — the resources survive, they just stop resolving by slug.'
       : REPOINT
       ? 'References are rewritten to the keeper before deletion, so none are left dangling.'
-      : `${orphanedAppointments} reference(s) (Appointments + Encounters) would be left dangling.`
+      : `${orphanedReferences} reference(s) (Appointments + Encounters) would be left dangling.`
   );
 
-  if (!DESLUG && !REPOINT && orphanedAppointments > MAX_ORPHANS) {
+  if (!DESLUG && !REPOINT && orphanedReferences > MAX_ORPHANS) {
     console.error(
-      `\nABORT: ${orphanedAppointments} orphaned references exceeds --max-orphans ${MAX_ORPHANS}.` +
+      `\nABORT: ${orphanedReferences} orphaned references exceeds --max-orphans ${MAX_ORPHANS}.` +
         '\nRe-read the plan above. A high number here usually means the keeper choice is wrong for at' +
         '\nleast one slug, not that the cap is too low. Prefer --repoint (rewrites the references to' +
         '\nthe keeper, leaving none dangling) or --deslug; raise the cap only once you are satisfied' +
@@ -413,10 +425,12 @@ const main = async (config: any): Promise<void> => {
     if (REPOINT) {
       // Rewrite every referrer to the keeper BEFORE deleting, so nothing is left pointing at a
       // tombstone. Keeper is recomputed here from the same rule used to build the plan.
+      const repointFailures: string[] = [];
       for (const candidate of losers) {
         const keeperRef = keeperByKey.get(`${candidate.type}|${slugOf(candidate.resource)}`);
         if (!keeperRef) {
-          console.error(`  SKIP repoint for ${candidate.type}/${candidate.resource.id}: no keeper resolved`);
+          console.error(`  FAILED repoint ${candidate.type}/${candidate.resource.id}: no keeper resolved`);
+          repointFailures.push(`${candidate.type}/${candidate.resource.id} (no keeper resolved)`);
           continue;
         }
         const fromRef = `${candidate.type}/${candidate.resource.id}`;
@@ -428,9 +442,29 @@ const main = async (config: any): Promise<void> => {
               console.log(`  repointed ${source.resourceType}/${referrer.id}  ${fromRef} -> ${keeperRef}`);
             } catch (error) {
               console.error(`  FAILED repoint ${source.resourceType}/${referrer.id}:`, error);
+              repointFailures.push(`${source.resourceType}/${referrer.id} -> ${keeperRef}`);
             }
           }
         }
+      }
+
+      // Deleting after a failed repoint produces exactly the dangling references --repoint exists to
+      // prevent, so a single failure stops the deletion phase for the whole run. Nothing is rolled
+      // back: repointing is idempotent and successfully-repointed referrers no longer resolve
+      // against the loser, so re-running picks up only what is left and then deletes.
+      if (repointFailures.length > 0) {
+        console.error(
+          `\nABORT: ${repointFailures.length} repoint(s) failed; nothing was deleted.` +
+            '\nDeleting now would strand exactly the references --repoint exists to preserve.\n'
+        );
+        for (const failure of repointFailures) console.error(`  ${failure}`);
+        console.error(
+          '\nThe repoints that DID succeed are already applied and are safe to keep. Investigate the' +
+            '\nfailures above, then re-run the same command — it will repoint only what remains and' +
+            '\ndelete once every reference has moved.'
+        );
+        process.exitCode = 1;
+        return;
       }
     }
 

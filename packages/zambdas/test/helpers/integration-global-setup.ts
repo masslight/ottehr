@@ -4,7 +4,6 @@ import { Patient, Practitioner } from 'fhir/r4b';
 import { Server } from 'http';
 import type { AddressInfo } from 'net';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
-import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import type { TestProject } from 'vitest/node';
 import app from '../../src/local-server/index';
@@ -104,9 +103,6 @@ async function provisionSharedClient(
             name: [{ given: ['Integration'], family: 'TestsProvider' }],
             birthDate: '1990-01-01',
             telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-            // NPI is required for NPI-gated actions (sign, external labs, imaging, in-house med orders).
-            // The shared provider fixture stands in for a full Provider, so give it a (valid) NPI.
-            identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1234567893' }],
           },
           runId
         ) as Practitioner
