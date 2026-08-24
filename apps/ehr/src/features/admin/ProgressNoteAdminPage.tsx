@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect } from 'react';
 import { Control, Controller, useForm } from 'react-hook-form';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useProgressNoteConfig, useUpdateProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
 import {
@@ -26,6 +27,7 @@ import {
   VITALS_UNIT_INPUT_ORDER_LABELS,
   VITALS_UNIT_INPUT_ORDERS,
 } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 
 type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired' | 'vitalsUnitInputOrder'>;
@@ -58,6 +60,7 @@ const ConfigTextAreaField = ({ control, name, label, minRows = 2 }: ConfigTextAr
 export default function ProgressNoteAdminPage(): ReactElement {
   const { data, isPending, isError } = useProgressNoteConfig();
   const { mutate, isPending: isSubmitting } = useUpdateProgressNoteConfig();
+  const isCustomerSupport = useEvolveUser()?.hasRole([RoleType.CustomerSupport]) ?? false;
 
   const {
     control,
@@ -192,6 +195,22 @@ export default function ProgressNoteAdminPage(): ReactElement {
                 )}
               />
             </Box>
+
+            {/* Field is hidden for non-CustomerSupport users, but its value still round-trips unchanged:
+                react-hook-form submits values carried in defaultValues/reset even when the field is never rendered. */}
+            {isCustomerSupport && (
+              <>
+                <Divider />
+                <Box>
+                  <ConfigTextAreaField
+                    control={control}
+                    name="signReviewPrompt"
+                    label="Note review prompt (shown at signing)"
+                    minRows={4}
+                  />
+                </Box>
+              </>
+            )}
 
             <Divider />
 

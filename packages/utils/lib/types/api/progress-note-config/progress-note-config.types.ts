@@ -20,6 +20,8 @@ export interface ProgressNoteConfig {
   anotherDispositionDefaultText: string;
   edDispositionDefaultText: string;
   vitalsUnitInputOrder: VitalsUnitInputOrder;
+  /** AI note-review prompt shown at signing; empty/absent disables the feature. Edited by customer support only. */
+  signReviewPrompt?: string;
 }
 
 export type GetProgressNoteConfigInput = Record<string, never>;
@@ -34,6 +36,7 @@ export const UpdateProgressNoteConfigInputSchema = z.object({
   // Optional with a default so older Admin clients/scripts that omit this field keep working;
   // the read path applies the same default for stored configs that predate this setting.
   vitalsUnitInputOrder: z.enum(VITALS_UNIT_INPUT_ORDERS).default(DEFAULT_VITALS_UNIT_INPUT_ORDER),
+  signReviewPrompt: z.string().optional(),
 });
 export type UpdateProgressNoteConfigInput = z.infer<typeof UpdateProgressNoteConfigInputSchema>;
 

@@ -15,6 +15,7 @@ import {
   PROGRESS_NOTE_CONFIG_MDM_REQUIRED_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_MEDICAL_DECISION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_PCP_NO_TYPE_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
+  PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
 } from 'utils/lib/utils/progress-note-config';
 
@@ -67,6 +68,11 @@ export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<Ge
     PROGRESS_NOTE_CONFIG_ED_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
     'valueString'
   );
+  const signReviewPrompt = getExtensionValue(
+    basic,
+    PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL,
+    'valueString'
+  );
   const vitalsUnitInputOrderRaw = getExtensionValue(
     basic,
     PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
@@ -85,6 +91,7 @@ export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<Ge
       anotherDispositionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.anotherDispositionDefaultText,
     edDispositionDefaultText: edDispositionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.edDispositionDefaultText,
     vitalsUnitInputOrder: vitalsUnitInputOrder ?? DEFAULT_PROGRESS_NOTE_CONFIG.vitalsUnitInputOrder,
+    signReviewPrompt: signReviewPrompt ?? DEFAULT_PROGRESS_NOTE_CONFIG.signReviewPrompt,
   };
 }
 
@@ -124,6 +131,10 @@ export async function saveProgressNoteConfig(oystehr: Oystehr, config: ProgressN
         url: PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
         valueString: config.vitalsUnitInputOrder,
       },
+      // FHIR forbids empty strings, so omit the extension entirely when the prompt is blank
+      ...(config.signReviewPrompt
+        ? [{ url: PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL, valueString: config.signReviewPrompt }]
+        : []),
     ],
   };
 

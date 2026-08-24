@@ -158,7 +158,7 @@ export function buildBillingSuggestionInput(params: {
 
 // ── Stable hash of the input for use as a React Query cache key ─────────────
 
-function hashInput(input: BillingSuggestionInput): string {
+export function hashInput(input: unknown): string {
   return JSON.stringify(input);
 }
 

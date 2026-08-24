@@ -6,7 +6,7 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
-import { saveProgressNoteConfig } from '../../../shared/progress-note-config';
+import { getProgressNoteConfigPayload, saveProgressNoteConfig } from '../../../shared/progress-note-config';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -59,6 +59,7 @@ const performEffect = async (
     anotherDispositionDefaultText,
     edDispositionDefaultText,
     vitalsUnitInputOrder,
+    signReviewPrompt,
   } = validatedInput;
   await saveProgressNoteConfig(oystehr, {
     mdmRequired,
@@ -67,5 +68,8 @@ const performEffect = async (
     anotherDispositionDefaultText,
     edDispositionDefaultText,
     vitalsUnitInputOrder,
+    // Absent means "unchanged" so older clients that omit the field can't wipe the stored
+    // prompt; an explicit empty string is the deliberate clear.
+    signReviewPrompt: signReviewPrompt ?? (await getProgressNoteConfigPayload(oystehr)).signReviewPrompt,
   });
 };

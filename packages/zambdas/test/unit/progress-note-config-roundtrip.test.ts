@@ -32,6 +32,7 @@ const customConfig: ProgressNoteConfig = {
   anotherDispositionDefaultText: 'Custom transfer text.',
   edDispositionDefaultText: 'Custom ED text.',
   vitalsUnitInputOrder: 'imperial-metric',
+  signReviewPrompt: 'ROS and Exam must each have at least 4 systems documented.',
 };
 
 describe('progress-note-config shared read/write', () => {

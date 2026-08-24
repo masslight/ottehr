@@ -9,7 +9,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  const { type, hpi, details, secrets } = validatedParameters;
+  const { type, hpi, details, reviewPrompt, noteDetails, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -30,6 +30,12 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       ${procedureDetails}`;
   } else if (type === 'missing-hpi') {
     prompt = PROMPTS_CONFIG.HPI_SUGGESTION + `\nHPI: ${hpi}`;
+  } else if (type === 'note-review') {
+    prompt = `${reviewPrompt}
+
+      Return a JSON object with a single field "suggestions" that is an empty list if all requirements are met, otherwise a list of short warning strings. Do not return anything else.
+
+      ${noteDetails}`;
   }
 
   if (!prompt) {
@@ -56,7 +62,7 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
         'Please specify closure type (e.g. tissue adhesive or surgical staples or sutures); if surgical staples or sutures, specify the material and quantity',
       ],
     };
-  } else if (type === 'procedure' || type === 'missing-hpi') {
+  } else if (type === 'procedure' || type === 'missing-hpi' || type === 'note-review') {
     const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, suggestionSchema);
     console.log(aiResponseString);
 

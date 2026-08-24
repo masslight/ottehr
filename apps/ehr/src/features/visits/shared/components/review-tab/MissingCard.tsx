@@ -1,7 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
 import { WarningAmber } from '@mui/icons-material';
-import { Avatar, Box, Link, Typography } from '@mui/material';
-import { FC, useEffect, useState } from 'react';
+import { Avatar, Box, CircularProgress, Link, Typography } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
@@ -30,14 +31,49 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
+import { extractObservationsFromExamComponents } from 'utils/lib/config-helpers/exam-observations';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { InPersonRosConfig, rosField, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems';
+import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { hashInput } from '../../hooks/useBillingSuggestions';
 import { useChartFields } from '../../hooks/useChartFields';
+import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
+import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
+
+// Compact text serialization of the note sections the practice-level sign-review prompt may evaluate
+const serializeNoteDetails = (
+  rosState: Record<string, ExamObservationDTO>,
+  examState: Record<string, ExamObservationDTO>,
+  hpi: string | undefined,
+  mdm: string | undefined
+): string => {
+  const rosLines = Object.values(InPersonRosConfig).flatMap((system) => {
+    const items = Object.entries(system.items).flatMap(([baseKey, item]) =>
+      [RosFindingState.Denies, RosFindingState.Reports]
+        .filter((state) => rosState[rosField(baseKey, state)]?.value === true)
+        .map((state) => `${state} ${item.label} (checked)`)
+    );
+    return items.length > 0 ? [`${system.label}: ${items.join(', ')}`] : [];
+  });
+  const examLines = Object.entries(examConfig.default.components).flatMap(([, section]) => {
+    const items = [
+      ...extractObservationsFromExamComponents(section.components.normal, 'normal', examState),
+      ...extractObservationsFromExamComponents(section.components.abnormal, 'abnormal', examState),
+    ].map((item) => `${item.label}${item.abnormal ? ' (abnormal)' : ''} (checked)`);
+    return items.length > 0 ? [`${section.label}: ${items.join(', ')}`] : [];
+  });
+  return [`HPI: ${hpi ?? ''}`, `MDM: ${mdm ?? ''}`, 'ROS:', ...rosLines, 'EXAM:', ...examLines].join('\n');
+};
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData();
-  const { chartData } = useChartData();
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
   const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
   const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
@@ -97,6 +133,25 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
+  // Non-blocking, AI-generated note-review warnings driven by the practice-level sign-review prompt
+  const apiClient = useOystehrAPIClient();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const rosState = useRosObservationsStore();
+  const examState = useExamObservationsStore();
+  const signReviewPrompt = progressNoteConfig?.signReviewPrompt?.trim();
+  const noteDetails = useMemo(
+    () => (signReviewPrompt ? serializeNoteDetails(rosState, examState, hpi, medicalDecision) : ''),
+    [signReviewPrompt, rosState, examState, hpi, medicalDecision]
+  );
+  const { data: noteReview, isLoading: isNoteReviewLoading } = useQuery<AISuggestionNotes>({
+    queryKey: ['note-review-suggestions', encounter.id, hashInput(signReviewPrompt + noteDetails)],
+    queryFn: () => apiClient!.aiSuggestionNotes({ type: 'note-review', reviewPrompt: signReviewPrompt!, noteDetails }),
+    enabled: !!apiClient && !!signReviewPrompt && !!encounter.id && !isAppointmentReadOnly && !isChartDataLoading,
+    staleTime: Infinity,
+    retry: 0,
+  });
+  const noteReviewSuggestions = (signReviewPrompt && noteReview?.suggestions) || [];
+
   if (
     primaryDiagnosis &&
     (!mdmRequired || medicalDecision) &&
@@ -105,7 +160,9 @@ export const MissingCard: FC = () => {
     !suggestionNote &&
     !isPatientVerificationMissing &&
     !accidentMissingDate &&
-    !accidentMissingState
+    !accidentMissingState &&
+    noteReviewSuggestions.length === 0 &&
+    !isNoteReviewLoading
   ) {
     return null;
   }
@@ -148,10 +205,6 @@ export const MissingCard: FC = () => {
     <AccordionCard label="Missing & Warnings" dataTestId={dataTestIds.progressNotePage.missingCard}>
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start', position: 'relative' }}>
         {isFetching && <LoadingScreen />}
-        <Typography data-testid={dataTestIds.progressNotePage.missingCardText}>
-          Click on the item to navigate to it.
-        </Typography>
-
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
           {isPatientVerificationMissing && (
             <Link
@@ -260,6 +313,13 @@ export const MissingCard: FC = () => {
               </Link>
             </div>
           )}
+          {isNoteReviewLoading && <CircularProgress size={14} />}
+          {noteReviewSuggestions.map((suggestion) => (
+            <Box key={suggestion} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <WarningAmber sx={{ fontSize: '18px', color: otherColors.orange700 }} />
+              <Typography>{suggestion}</Typography>
+            </Box>
+          ))}
           {encounter?.id && (
             <>
               {hasExternalLabDraft(encounter.id) && (
