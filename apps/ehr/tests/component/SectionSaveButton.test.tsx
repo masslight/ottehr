@@ -45,6 +45,7 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
 }));
 
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { SaveBlockedReasonProvider } from '../../src/features/visits/shared/components/patient/SaveBlockedReasonContext';
 import { SectionSaveButton } from '../../src/features/visits/shared/components/patient/SectionSaveButton';
 
 // ============================================================================
@@ -92,9 +93,18 @@ interface HarnessProps {
   resolver?: Resolver<Record<string, unknown>>;
   patientId?: string;
   encounterId?: string;
+  blockedReason?: string;
 }
 
-const Harness: FC<HarnessProps> = ({ defaultValues, dirtyKeys = [], fieldKeys, resolver, patientId, encounterId }) => {
+const Harness: FC<HarnessProps> = ({
+  defaultValues,
+  dirtyKeys = [],
+  fieldKeys,
+  resolver,
+  patientId,
+  encounterId,
+  blockedReason,
+}) => {
   const methods = useForm<Record<string, unknown>>({ defaultValues, mode: 'onChange', resolver });
   useEffect(() => {
     dirtyKeys.forEach((key) => {
@@ -102,9 +112,11 @@ const Harness: FC<HarnessProps> = ({ defaultValues, dirtyKeys = [], fieldKeys, r
     });
   }, [dirtyKeys, defaultValues, methods]);
   return (
-    <FormProvider {...methods}>
-      <SectionSaveButton fieldKeys={fieldKeys} patientId={patientId} encounterId={encounterId} />
-    </FormProvider>
+    <SaveBlockedReasonProvider reason={blockedReason}>
+      <FormProvider {...methods}>
+        <SectionSaveButton fieldKeys={fieldKeys} patientId={patientId} encounterId={encounterId} />
+      </FormProvider>
+    </SaveBlockedReasonProvider>
   );
 };
 
@@ -149,6 +161,34 @@ describe('SectionSaveButton', () => {
       patientId: 'p1',
     });
     await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument());
+  });
+
+  it('disables Save and explains why when an outside condition blocks saving', async () => {
+    const user = userEvent.setup();
+    renderHarness({
+      defaultValues: { 'patient-email': 'a@b.co' },
+      dirtyKeys: ['patient-email'],
+      fieldKeys: ['patient-email'],
+      patientId: 'p1',
+      blockedReason: 'Consent has not been attested.',
+    });
+
+    const btn = await screen.findByRole('button', { name: /save/i });
+    expect(btn).toBeDisabled();
+
+    // The disabled button emits no pointer events, so the tooltip hangs off the wrapper span.
+    await user.hover(btn.parentElement as HTMLElement);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Consent has not been attested.');
+  });
+
+  it('leaves Save enabled when nothing outside the form blocks saving', async () => {
+    renderHarness({
+      defaultValues: { 'patient-email': 'a@b.co' },
+      dirtyKeys: ['patient-email'],
+      fieldKeys: ['patient-email'],
+      patientId: 'p1',
+    });
+    expect(await screen.findByRole('button', { name: /save/i })).toBeEnabled();
   });
 
   it('stays enabled even when a required field is empty (validation surfaces on click)', async () => {
