@@ -4,7 +4,7 @@ import Oystehr from '@oystehr/sdk';
  * Query used to warm the connection. Its result is discarded, so the only thing that matters is that
  * it is a well-formed code.
  */
-export const TERMINOLOGY_WARMUP_QUERY = 'Z00.00';
+const TERMINOLOGY_WARMUP_QUERY = 'Z00.00';
 
 /**
  * Opens a connection to the terminology host and throws the answer away.
