@@ -4,6 +4,7 @@ import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { NursingOrder } from 'utils/lib/types/data/orders/types';
 import { NotVisibleToPatientLabel } from './NotVisibleToPatientLabel';
 
@@ -34,9 +35,7 @@ export const NursingOrdersReviewContainer: FC<NursingOrdersReviewContainerProps>
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
       data-testid={dataTestIds.progressNotePage.nursingOrdersContainer}
     >
-      <Typography variant="h5" color="primary.dark">
-        Nursing Orders
-      </Typography>
+      <SectionHeading>Nursing Orders</SectionHeading>
       <NotVisibleToPatientLabel />
       {isLoading && <Typography color={theme.palette.text.secondary}>Loading nursing orders...</Typography>}
       {!isLoading && orders.length === 0 && (

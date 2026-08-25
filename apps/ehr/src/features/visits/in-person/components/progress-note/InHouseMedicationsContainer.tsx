@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { createMedicationString } from 'utils/lib/fhir/medication-administration';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
@@ -12,9 +13,7 @@ export const InHouseMedicationsContainer: FC<{
 }> = ({ medications, notes }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <Typography variant="h5" color="primary.dark">
-        In-House Medications
-      </Typography>
+      <SectionHeading>In-House Medications</SectionHeading>
       {medications.map((item) => (
         <Typography key={item.id} data-testid={dataTestIds.progressNotePage.inHouseMedicationItem}>
           {createMedicationString(item)}

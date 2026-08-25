@@ -333,7 +333,7 @@ export const dataTestIds = {
     inlineEditSection: (section: string) => `inline-edit-section-${section}`,
     inlineEditButton: (section: string) => `inline-edit-button-${section}`,
     inlineEditDoneButton: (section: string) => `inline-edit-done-button-${section}`,
-    inlineEditDoneTopButton: (section: string) => `inline-edit-done-top-button-${section}`,
+    inlineEditHeader: (section: string) => `inline-edit-header-${section}`,
     medicalConditionsContainer: 'medical-conditions-container',
     surgicalHistoryContainer: 'surgical-history-container',
     additionalQuestions: 'additional-questions',

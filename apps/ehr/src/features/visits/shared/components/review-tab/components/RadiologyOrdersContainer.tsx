@@ -2,6 +2,7 @@ import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 
 interface RadiologyOrdersContainerProps {
@@ -57,9 +58,7 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <Typography variant="h5" color="primary.dark">
-        Radiology
-      </Typography>
+      <SectionHeading>Radiology</SectionHeading>
       {/* The section previously only rendered with orders; the Review & Sign inline-edit
           prototype renders it always, so an empty state is needed. */}
       {radiologyOrders.length === 0 && (

@@ -1,16 +1,19 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import { FC, ReactNode, useEffect, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { NoteSectionIcon, NoteSectionIconKey, SectionWithIcon } from './NoteSectionIcon';
+import { NoteSectionCard } from './NoteSectionCard';
+import { NoteSectionIconKey } from './NoteSectionIcon';
 
 interface InlineEditSectionProps {
   // kebab-case section identifier used for test ids, e.g. 'allergies'
   sectionName: string;
-  // sidebar menu icon shown in the section's left gutter
+  // section name shown in the card header
+  title: string;
+  // sidebar menu icon shown in the card header
   iconKey?: NoteSectionIconKey;
   editLabel: string;
   // the reused intake screen body; mounted only while the section is open so the
@@ -23,6 +26,7 @@ interface InlineEditSectionProps {
 
 export const InlineEditSection: FC<InlineEditSectionProps> = ({
   sectionName,
+  title,
   iconKey,
   editLabel,
   editContent,
@@ -48,38 +52,34 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
 
   const canEdit = FEATURE_FLAGS.INLINE_PROGRESS_NOTE_EDITING_ENABLED && !isAppointmentReadOnly && !disabled;
 
-  if (!canEdit) return <SectionWithIcon iconKey={iconKey}>{children}</SectionWithIcon>;
+  if (!canEdit) {
+    return (
+      <NoteSectionCard title={title} iconKey={iconKey}>
+        {children}
+      </NoteSectionCard>
+    );
+  }
+
+  const closeEditor = (): void => {
+    scrollBackOnCollapse.current = true;
+    setIsEditing(false);
+  };
 
   // The editor shows the same information in more detail, so the read-only summary is
-  // replaced while editing rather than duplicated above it; the edit label stands in as
-  // the section heading so the section keeps its identity.
+  // replaced while editing rather than duplicated above it; the card header keeps the
+  // section title either way.
   if (isEditing) {
-    const closeEditor = (): void => {
-      scrollBackOnCollapse.current = true;
-      setIsEditing(false);
-    };
-
     return (
       <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-            <NoteSectionIcon iconKey={iconKey} />
-            <Typography variant="h5" color="primary.dark">
-              {editLabel}
-            </Typography>
-          </Box>
-          {/* A misclick into a long editor shouldn't require scrolling to the bottom
-              Done button to get back out. */}
-          <RoundedButton
-            variant="contained"
-            size="small"
-            onClick={closeEditor}
-            data-testid={dataTestIds.progressNotePage.inlineEditDoneTopButton(sectionName)}
-          >
-            Done
-          </RoundedButton>
-        </Box>
-        <Box>
+        <NoteSectionCard
+          title={title}
+          iconKey={iconKey}
+          // the header's collapse control leaves editing: a misclick into a long editor
+          // shouldn't require scrolling to the bottom Done button to get back out
+          onToggle={closeEditor}
+          expanded
+          headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
+        >
           {editContent}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <RoundedButton
@@ -90,7 +90,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
               Done
             </RoundedButton>
           </Box>
-        </Box>
+        </NoteSectionCard>
       </Box>
     );
   }
@@ -101,32 +101,43 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
       sx={{ width: '100%', scrollMarginTop: '72px' }}
       data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}
     >
-      <Box
-        onClick={() => setIsEditing(true)}
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1.5,
-          cursor: 'pointer',
-          borderRadius: 1,
-          mx: -1,
-          px: 1,
-          '&:hover': { backgroundColor: 'action.hover' },
-          '&:hover .inline-edit-icon': { opacity: 1 },
-        }}
+      <NoteSectionCard
+        title={title}
+        iconKey={iconKey}
+        onToggle={() => setIsEditing(true)}
+        expanded={false}
+        headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
+        headerItem={
+          <Button
+            size="small"
+            startIcon={<EditOutlinedIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsEditing(true);
+            }}
+            aria-label={editLabel}
+            data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
+            sx={{ flexShrink: 0 }}
+          >
+            Edit
+          </Button>
+        }
       >
-        <NoteSectionIcon iconKey={iconKey} />
-        <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
-        <IconButton
-          className="inline-edit-icon"
-          size="small"
-          aria-label={editLabel}
-          data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
-          sx={{ opacity: 0.5, transition: 'opacity 0.15s', color: 'primary.main' }}
+        {/* The summary itself opens the editor, so the whole section is one click away
+            from being edited — not just the Edit button. */}
+        <Box
+          onClick={() => setIsEditing(true)}
+          sx={{
+            cursor: 'pointer',
+            borderRadius: 1,
+            mx: -1,
+            px: 1,
+            '&:hover': { backgroundColor: 'action.hover' },
+          }}
         >
-          <EditOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Box>
+          {children}
+        </Box>
+      </NoteSectionCard>
     </Box>
   );
 };

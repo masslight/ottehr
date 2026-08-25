@@ -2,6 +2,7 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const ProceduresContainer: FC = () => {
@@ -25,9 +26,7 @@ export const ProceduresContainer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <Typography variant="h5" color="primary.dark">
-        Procedures
-      </Typography>
+      <SectionHeading>Procedures</SectionHeading>
       {procedures?.length ? (
         procedures.map((procedure) => (
           <Stack key={procedure.resourceId} data-testid={dataTestIds.progressNotePage.procedureItem}>

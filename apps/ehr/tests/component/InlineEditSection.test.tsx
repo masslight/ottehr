@@ -37,6 +37,7 @@ const renderSection = (props?: { disabled?: boolean }): ReturnType<typeof render
   render(
     <InlineEditSection
       sectionName="allergies"
+      title="Allergies"
       editLabel="Edit allergies"
       editContent={<EditContent />}
       disabled={props?.disabled}
@@ -74,7 +75,7 @@ describe('InlineEditSection', () => {
     // the editor shows the same information in more detail, so the read-only summary
     // is replaced while editing; the edit label stands in as the section heading
     expect(screen.queryByTestId('summary-content')).toBeNull();
-    expect(screen.getByText('Edit allergies')).toBeVisible();
+    expect(screen.getByText('Allergies')).toBeVisible();
     expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
 
     await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
@@ -83,14 +84,35 @@ describe('InlineEditSection', () => {
     expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
   });
 
-  it('also closes via the Done button in the heading row', async () => {
+  it('opens the editor from the heading', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('inline-edit-header-allergies'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+    expect(screen.queryByTestId('summary-content')).toBeNull();
+  });
+
+  it('also closes when the heading itself is clicked', async () => {
     const user = userEvent.setup();
     renderSection();
 
     await user.click(screen.getByTestId('summary-content'));
     expect(screen.getByTestId('edit-content')).toBeVisible();
 
-    await user.click(screen.getByTestId('inline-edit-done-top-button-allergies'));
+    await user.click(screen.getByTestId('inline-edit-header-allergies'));
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+  });
+
+  it('closes from the heading with the keyboard', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    screen.getByTestId('inline-edit-header-allergies').focus();
+    await user.keyboard('{Enter}');
+
     expect(screen.queryByTestId('edit-content')).toBeNull();
     expect(screen.getByTestId('summary-content')).toBeVisible();
   });

@@ -2,6 +2,7 @@ import { Box, Typography, useTheme } from '@mui/material';
 import React, { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import {
   formatScreeningQuestionWithNote,
   shouldDisplayScreeningQuestion,
@@ -48,9 +49,7 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
       data-testid={dataTestIds.progressNotePage.additionalQuestions}
     >
-      <Typography variant="h5" color="primary.dark">
-        Screening questions
-      </Typography>
+      <SectionHeading>Screening questions</SectionHeading>
 
       {emptyMessage && !chartData?.observations?.length && !notes?.length && (
         <Typography color={theme.palette.text.secondary}>{emptyMessage}</Typography>

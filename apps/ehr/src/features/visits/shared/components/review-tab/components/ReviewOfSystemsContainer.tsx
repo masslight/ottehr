@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useChartFields } from '../../../hooks/useChartFields';
 
 /**
@@ -19,9 +20,7 @@ export const ReviewOfSystemsContainer: FC = () => {
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
       data-testid={dataTestIds.telemedEhrFlow.reviewTabRosContainer}
     >
-      <Typography variant="h5" color="primary.dark">
-        Review of systems
-      </Typography>
+      <SectionHeading>Review of systems</SectionHeading>
       <Typography sx={{ whiteSpace: 'pre-wrap' }}>{formattedRos}</Typography>
     </Box>
   );

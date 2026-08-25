@@ -5,6 +5,7 @@ import { Box, Typography } from '@mui/material';
 import { FC, Fragment, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { ExternalLabOrderResult, InHouseLabResult, NonNormalResult } from 'utils/lib/types/api/lab';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 
@@ -73,9 +74,7 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
       data-testid={dataTestIds.progressNotePage.labsTitle(title)}
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
     >
-      <Typography variant="h5" color="primary.dark">
-        {title}
-      </Typography>
+      <SectionHeading>{title}</SectionHeading>
       {resultDetails.results?.map((res, idx) => (
         <Fragment key={`${keyIdentifier}-${idx}`}>
           <Box sx={{ display: 'flex', alignItems: 'end' }}>
