@@ -39,8 +39,6 @@ export const useDownloadMedicalRecord = (patientId: string | undefined): UseDown
 
     try {
       const job = await startMedicalRecordExport(oystehrZambda, { patientId });
-      // No "preparing…" snackbar here: watching the job raises the progress snackbar, which says the
-      // same thing and then keeps saying something useful. Two of them side by side was just noise.
       watchExport({ patientId, taskId: job.taskId });
     } catch (error) {
       console.error(error);

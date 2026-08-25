@@ -14,8 +14,7 @@ declare module 'notistack' {
 }
 
 /**
- * Registered as a notistack variant in `App.tsx`. Renders notistack's own `MaterialDesignContent` so it
- * matches every other snackbar in the EHR; only the message body differs. A variant rather than the
+ * Registered as a notistack variant in `App.tsx`. A variant rather than the
  * `content` option, which is deprecated and would mean assembling those props by hand.
  */
 export const MedicalRecordExportSnackbar = forwardRef<HTMLDivElement, CustomContentProps>(

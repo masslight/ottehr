@@ -27,8 +27,6 @@ import {
 const POLL_RETRIES = 3;
 
 const startDownload = (downloadUrl: string, fileName: string | undefined): void => {
-  // Straight to the presigned url rather than via a Blob: an archive can run to a gigabyte, and it is
-  // stored as application/zip so the browser downloads rather than navigating.
   const anchor = document.createElement('a');
   anchor.href = downloadUrl;
   anchor.download = fileName ?? 'medical_record.zip';
@@ -38,9 +36,8 @@ const startDownload = (downloadUrl: string, fileName: string | undefined): void 
 };
 
 /**
- * Polls every export in flight for as long as the app is open. Mounted once outside the router: a watcher
- * on the patient page would stop polling the moment the user navigated away, and only notice the result
- * when they came back. Renders nothing; its output is the progress snackbar and the finished message.
+ * Polls every export in flight for as long as the app is open. Mounted once outside the router.
+ * Renders nothing; its output is the progress snackbar and the finished message.
  */
 export const MedicalRecordExportWatcher = (): null => {
   const { oystehrZambda } = useApiClients();

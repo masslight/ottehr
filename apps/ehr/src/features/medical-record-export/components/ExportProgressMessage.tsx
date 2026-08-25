@@ -23,7 +23,6 @@ export const ExportProgressMessage = ({ taskId }: { taskId: string }): ReactElem
       <LinearProgress
         variant={percent === undefined ? 'indeterminate' : 'determinate'}
         value={percent}
-        // Shades of the text colour, since this sits on the variant's own background.
         sx={{
           mt: 0.75,
           height: 4,

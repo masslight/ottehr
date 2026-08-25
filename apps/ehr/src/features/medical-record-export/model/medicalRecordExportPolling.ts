@@ -113,7 +113,6 @@ export const describeExportOutcome = (
   };
 };
 
-/** "142 of 1,082 documents", or a neutral label until the worker has published a total. */
 export const formatExportProgress = (processed: number | undefined, total: number | undefined): string => {
   if (!total) return 'Preparing…';
   return `${(processed ?? 0).toLocaleString()} of ${total.toLocaleString()} documents`;

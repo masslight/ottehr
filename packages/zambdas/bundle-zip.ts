@@ -31,9 +31,8 @@ interface EntryOptions extends Partial<yazl.Options> {
 }
 
 /**
- * Matches what archiver was configured with. The bundles are megabytes of
- * already-minified JS built for every Zambda on every deploy, so the cheap
- * level is the right trade.
+ * The bundles are megabytes of already-minified JS built for every Zambda on
+ * every deploy, so the cheap compression level is the right trade.
  */
 const ENTRY_OPTIONS: EntryOptions = { mtime: ZIP_ENTRY_DATE, mode: ZIP_ENTRY_MODE, compressionLevel: 1 };
 
@@ -41,10 +40,10 @@ const ENTRY_OPTIONS: EntryOptions = { mtime: ZIP_ENTRY_DATE, mode: ZIP_ENTRY_MOD
  * Entry order is the caller's, not the order the reads and deflates finish in:
  * yazl appends each entry to its queue synchronously and writes strictly the
  * first one not yet done, so a zip of the same inputs is byte-identical however
- * the async work interleaves. archiver, which this replaced, deferred `file()`
- * reads and emitted them in completion order — 20 concurrent zips of identical
- * inputs gave 6 distinct hashes, each a pointless re-upload. index.js is added
- * by path so the bundle is streamed rather than held in memory.
+ * the async work interleaves. That determinism is the point — an implementation
+ * that emits entries in read-completion order gives concurrent zips of identical
+ * inputs differing hashes, and each distinct hash is a pointless re-upload.
+ * index.js is added by path so the bundle is streamed rather than held in memory.
  */
 export const zipZambda = async (
   sourceFilePath: string,
