@@ -2,6 +2,7 @@ import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } f
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNursingOrder } from 'src/api/api';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
@@ -12,16 +13,15 @@ import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
 interface NursingOrderCreatePageProps {
-  // 'inline' renders the bare form (no breadcrumbs/page title) and finishes via
-  // onFinished instead of navigating — used by the Review & Sign inline edit flow
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow to collapse back to its order list instead of
+  // navigating away; on the route it is absent and the page navigates
   onFinished?: () => void;
 }
 
-export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ variant = 'page', onFinished }) => {
-  const isInline = variant === 'inline';
+export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ onFinished }) => {
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const [loading, setLoading] = useState(false);
   const { patient, encounter } = useAppointmentData();
 
@@ -47,11 +47,8 @@ export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ 
 
   const handleBack = (): void => {
     if (encounter.id) clearDraft(encounter.id);
-    if (isInline) {
-      onFinished?.();
-      return;
-    }
-    navigate(-1);
+    if (onFinished) onFinished();
+    else navigate(-1);
   };
 
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
@@ -88,14 +85,13 @@ export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
-        {!isInline && (
-          <>
-            <BreadCrumbs />
+        <BreadCrumbs />
 
-            <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
-              Nursing Order
-            </Typography>
-          </>
+        {/* inline the note section card header already names the section */}
+        {!isInlineFlow && (
+          <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
+            Nursing Order
+          </Typography>
         )}
 
         {encounter.id && hasDraft(encounter.id) && (

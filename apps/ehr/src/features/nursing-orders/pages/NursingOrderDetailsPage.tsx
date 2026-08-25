@@ -10,22 +10,16 @@ import { OrderDetails } from '../components/details/OrderDetails';
 import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
 
 interface NursingOrderDetailsPageProps {
-  // 'inline' takes the order id from props instead of the URL, drops the breadcrumbs and
-  // leaves via onBack — used by the Review & Sign inline edit flow
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // collapses back to its order list instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
 }
 
-export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = ({
-  variant = 'page',
-  serviceRequestId,
-  onBack,
-}) => {
+export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = ({ serviceRequestId, onBack }) => {
   const navigate = useNavigate();
-  const isInline = variant === 'inline';
   const { serviceRequestID: serviceRequestIdFromUrl } = useParams<{ serviceRequestID: string }>();
-  const serviceRequestID = isInline ? serviceRequestId : serviceRequestIdFromUrl;
+  const serviceRequestID = serviceRequestId ?? serviceRequestIdFromUrl;
 
   const [showHistory, setShowHistory] = useState(true);
 
@@ -35,13 +29,7 @@ export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = (
 
   const order = nursingOrders.find((order) => order.serviceRequestId === serviceRequestID);
 
-  const handleBack = (): void => {
-    if (isInline) {
-      onBack?.();
-      return;
-    }
-    navigate(-1);
-  };
+  const handleBack = onBack ?? ((): void => navigate(-1));
 
   const handleToggleDetails = (): void => {
     setShowHistory(!showHistory);
@@ -99,7 +87,7 @@ export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = (
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px', width: '100%' }}>
-        {!isInline && <BreadCrumbs />}
+        <BreadCrumbs />
 
         <OrderDetails orderDetails={order} onSubmit={handleSubmit} />
 

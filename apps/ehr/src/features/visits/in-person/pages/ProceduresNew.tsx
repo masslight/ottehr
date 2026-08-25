@@ -40,6 +40,7 @@ import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickP
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
@@ -213,20 +214,18 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
 }
 
 interface ProceduresNewProps {
-  // 'inline' renders the bare form (no page title) and finishes via onFinished instead of
-  // navigating — used by the Review & Sign inline edit flow
-  variant?: 'page' | 'inline';
-  // Takes precedence over the :procedureId route param when provided (inline edit)
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // collapses back to its list instead of navigating away
   procedureId?: string;
   onFinished?: () => void;
 }
 
 export default function ProceduresNew({
-  variant = 'page',
   procedureId: procedureIdProp,
   onFinished,
 }: ProceduresNewProps = {}): ReactElement {
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const theme = useTheme();
   const { id: appointmentId, procedureId: procedureIdFromUrl } = useParams();
   const procedureId = procedureIdProp ?? procedureIdFromUrl;
@@ -435,11 +434,8 @@ export default function ProceduresNew({
 
   const onCancel = (): void => {
     if (!procedureId && encounter.id) clearDraft(encounter.id);
-    if (variant === 'inline') {
-      onFinished?.();
-    } else {
-      navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
-    }
+    if (onFinished) onFinished();
+    else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
   const onSave = async (): Promise<void> => {
@@ -532,11 +528,8 @@ export default function ProceduresNew({
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
       if (!procedureId && encounter.id) clearDraft(encounter.id);
-      if (variant === 'inline') {
-        onFinished?.();
-      } else {
-        navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
-      }
+      if (onFinished) onFinished();
+      else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
     } catch {
       setSaveInProgress(false);
       enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
@@ -1053,7 +1046,7 @@ export default function ProceduresNew({
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
-        {variant === 'page' && (
+        {!isInlineFlow && (
           <PageTitle
             label="Document Procedure"
             showIntakeNotesButton={false}

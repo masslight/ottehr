@@ -31,11 +31,11 @@ export const NursingOrdersInlineFlow: FC = () => {
   if (!appointmentId || !encounter?.id) return null;
 
   if (view.name === 'create') {
-    return <NursingOrderCreatePage variant="inline" onFinished={goToList} />;
+    return <NursingOrderCreatePage onFinished={goToList} />;
   }
 
   if (view.name === 'details') {
-    return <NursingOrderDetailsPage variant="inline" serviceRequestId={view.serviceRequestId} onBack={goToList} />;
+    return <NursingOrderDetailsPage serviceRequestId={view.serviceRequestId} onBack={goToList} />;
   }
 
   return (

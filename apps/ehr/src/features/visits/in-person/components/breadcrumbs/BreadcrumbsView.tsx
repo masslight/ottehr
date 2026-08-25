@@ -1,6 +1,7 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 
 interface BreadcrumbItem {
   text: string;
@@ -15,6 +16,10 @@ interface BreadcrumbsViewProps {
 
 export const BreadcrumbsView: React.FC<BreadcrumbsViewProps> = ({ items }) => {
   const theme = useTheme();
+
+  // Inline there is nowhere to navigate back to: the trail's base crumb is the very screen
+  // the user is already on.
+  if (useIsInlineFlow()) return null;
 
   return (
     <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">

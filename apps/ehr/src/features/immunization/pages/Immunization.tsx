@@ -3,6 +3,7 @@ import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -23,11 +24,8 @@ interface TabContentProps {
 export type ImmunizationTab = 'mar' | 'vaccine-details';
 
 interface ImmunizationProps {
-  /**
-   * 'inline' drops the page title, drives the active tab from props instead of the URL,
-   * and replaces navigations with callbacks — used by the Review & Sign inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which drives the active tab itself and
+  // switches views in place instead of navigating away
   tab?: ImmunizationTab;
   onTabChange?: (tab: ImmunizationTab) => void;
   onCreateOrder?: () => void;
@@ -44,18 +42,13 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
   </Box>
 );
 
-export const Immunization: React.FC<ImmunizationProps> = ({
-  variant = 'page',
-  tab,
-  onTabChange,
-  onCreateOrder,
-  onEditOrder,
-}) => {
+export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, onCreateOrder, onEditOrder }) => {
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
   const { tabName: tabNameFromUrl } = useParams();
-  const tabName = variant === 'inline' ? tab ?? 'mar' : tabNameFromUrl;
+  const tabName = tab ?? tabNameFromUrl;
+  const isInlineFlow = useIsInlineFlow();
 
   const tabContentRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -71,19 +64,16 @@ export const Immunization: React.FC<ImmunizationProps> = ({
   } = useAppointmentData(appointmentId);
 
   const onNewOrderClick = (): void => {
-    if (variant === 'inline') {
-      onCreateOrder?.();
-      return;
-    }
-    navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
+    if (onCreateOrder) onCreateOrder();
+    else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
   };
 
   const onTabChanged = useCallback(() => {
     isTabTransitionRef.current = true;
     requestAnimationFrame(() => {
-      if (variant === 'inline') {
+      if (onTabChange) {
         setInlineScrollTo(undefined);
-        onTabChange?.(tabName === 'mar' ? 'vaccine-details' : 'mar');
+        onTabChange(tabName === 'mar' ? 'vaccine-details' : 'mar');
         return;
       }
       if (tabName === 'mar') {
@@ -92,7 +82,7 @@ export const Immunization: React.FC<ImmunizationProps> = ({
         navigate(getImmunizationMARUrl(appointmentId!));
       }
     });
-  }, [appointmentId, navigate, tabName, variant, onTabChange]);
+  }, [appointmentId, navigate, tabName, onTabChange]);
 
   // Inline replacement for the MAR row's navigation to the details tab with ?scrollTo=<orderId>
   const onShowOrderDetails = useCallback(
@@ -114,18 +104,18 @@ export const Immunization: React.FC<ImmunizationProps> = ({
       mar: (
         <OrderHistoryTable
           showActions={!isReadOnly}
-          onEditOrder={variant === 'inline' ? onEditOrder : undefined}
-          onShowDetails={variant === 'inline' ? onShowOrderDetails : undefined}
+          onEditOrder={onEditOrder}
+          onShowDetails={onTabChange ? onShowOrderDetails : undefined}
         />
       ),
       details: (
         <VaccineDetailsCardList
-          onOrderFinished={variant === 'inline' ? onOrderFinished : undefined}
-          scrollToOrderId={variant === 'inline' ? inlineScrollTo : undefined}
+          onOrderFinished={onTabChange ? onOrderFinished : undefined}
+          scrollToOrderId={inlineScrollTo}
         />
       ),
     });
-  }, [isReadOnly, variant, onEditOrder, onShowOrderDetails, onOrderFinished, inlineScrollTo]);
+  }, [isReadOnly, onTabChange, onEditOrder, onShowOrderDetails, onOrderFinished, inlineScrollTo]);
 
   if (!content) {
     return <Loader />;
@@ -133,8 +123,8 @@ export const Immunization: React.FC<ImmunizationProps> = ({
 
   return (
     <Stack>
-      <Stack direction="row" justifyContent={variant === 'inline' ? 'flex-end' : 'space-between'} alignItems="center">
-        {variant === 'page' && (
+      <Stack direction="row" justifyContent={isInlineFlow ? 'flex-end' : 'space-between'} alignItems="center">
+        {!isInlineFlow && (
           <PageTitle
             label="Immunizations"
             showIntakeNotesButton={false}

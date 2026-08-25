@@ -18,6 +18,7 @@ import {
 import { ClearIcon } from '@mui/x-date-pickers';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -282,22 +283,11 @@ export const RadiologyOrderFormActions: React.FC<{
   errors: string[] | undefined;
   onCancel?: () => void;
   cancelUrl?: string;
-  // inline (Review & Sign) usage: cancel stays on the page, onCancel handles the close
-  skipCancelNavigation?: boolean;
   clearFormButton?: React.ReactNode;
   disabled?: boolean;
-}> = ({
-  appointmentId,
-  submitting,
-  submitLabel,
-  errors,
-  onCancel,
-  cancelUrl,
-  skipCancelNavigation,
-  clearFormButton,
-  disabled,
-}) => {
+}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton, disabled }) => {
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const theme = useTheme();
   return (
     <>
@@ -308,9 +298,8 @@ export const RadiologyOrderFormActions: React.FC<{
             sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
             onClick={() => {
               onCancel?.();
-              if (!skipCancelNavigation) {
-                navigate(cancelUrl ?? `/in-person/${appointmentId}/radiology`);
-              }
+              // inline there is nowhere to navigate: onCancel collapses the flow in place
+              if (!isInlineFlow) navigate(cancelUrl ?? `/in-person/${appointmentId}/radiology`);
             }}
           >
             Cancel

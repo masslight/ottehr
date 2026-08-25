@@ -2,7 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, Fragment } from 'react';
+import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -173,12 +173,13 @@ export const ProgressNoteDetails: FC = () => {
     : 'unknown';
 
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
-  const inlineEditEnabled = FEATURE_FLAGS.INLINE_PROGRESS_NOTE_EDITING_ENABLED && !isAppointmentReadOnly;
+  const inlineEditEnabled = !isAppointmentReadOnly;
   // The supervisor approval box reuses these sections as a read-only summary.
   const inlineEditDisabled = approvalStatus === 'waiting-for-approval';
 
   const medicalHistorySections = [
     <InlineEditSection
+      key="allergies"
       sectionName="allergies"
       title="Allergies"
       iconKey="Allergies"
@@ -189,6 +190,7 @@ export const ProgressNoteDetails: FC = () => {
       <AllergiesContainer notes={allergyNotes} />
     </InlineEditSection>,
     <InlineEditSection
+      key="medications"
       sectionName="medications"
       title="Medications"
       iconKey="Medications"
@@ -199,6 +201,7 @@ export const ProgressNoteDetails: FC = () => {
       <MedicationsContainer notes={intakeMedicationNotes} />
     </InlineEditSection>,
     <InlineEditSection
+      key="medical-conditions"
       sectionName="medical-conditions"
       title="Medical conditions"
       iconKey="Medical Conditions"
@@ -209,6 +212,7 @@ export const ProgressNoteDetails: FC = () => {
       <MedicalConditionsContainer notes={medicalConditionNotes} />
     </InlineEditSection>,
     <InlineEditSection
+      key="surgical-history"
       sectionName="surgical-history"
       title="Surgical history"
       iconKey="Surgical History"
@@ -219,6 +223,7 @@ export const ProgressNoteDetails: FC = () => {
       <SurgicalHistoryContainer notes={surgicalHistoryNotes} />
     </InlineEditSection>,
     <InlineEditSection
+      key="hospitalization"
       sectionName="hospitalization"
       title="Hospitalization"
       iconKey="Hospitalization"
@@ -230,6 +235,7 @@ export const ProgressNoteDetails: FC = () => {
     </InlineEditSection>,
     (showInHouseMedications || inlineEditEnabled) && (
       <InlineEditSection
+        key="in-house-medications"
         sectionName="in-house-medications"
         title="In-House Medications"
         iconKey="Med. Administration"
@@ -240,12 +246,13 @@ export const ProgressNoteDetails: FC = () => {
         {showInHouseMedications ? (
           <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
         ) : (
-          <BlankSection title="In-House Medications" message="No in-house medications" />
+          <BlankSection message="No in-house medications" />
         )}
       </InlineEditSection>
     ),
     (showImmunization || inlineEditEnabled) && (
       <InlineEditSection
+        key="immunizations"
         sectionName="immunizations"
         title="Immunization"
         iconKey="Immunization"
@@ -256,7 +263,7 @@ export const ProgressNoteDetails: FC = () => {
         {showImmunization ? (
           <ImmunizationContainer orders={immunizationOrders} />
         ) : (
-          <BlankSection title="Immunization" message="No immunizations administered" />
+          <BlankSection message="No immunizations administered" />
         )}
       </InlineEditSection>
     ),
@@ -264,10 +271,11 @@ export const ProgressNoteDetails: FC = () => {
 
   const sections = [
     displayExamMigrationWarning && !hasIncompatibleExamConfig && (
-      <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />
+      <ExamMigrationWarning key="exam-migration-warning" unmatchedFields={unmatchedExamFields} />
     ),
     (showChiefComplaint || showReasonForVisit || inlineEditEnabled) && (
       <InlineEditSection
+        key="chief-complaint"
         sectionName="chief-complaint"
         title="Chief complaint"
         iconKey="Chief Complaint"
@@ -281,6 +289,7 @@ export const ProgressNoteDetails: FC = () => {
     // subsection each; MOI only appears for the injury visits that have it.
     (showHpi || showMechanismOfInjury || inlineEditEnabled) && (
       <InlineEditSection
+        key="hpi-moi"
         sectionName="hpi-moi"
         title="HPI/MOI"
         iconKey="History"
@@ -291,12 +300,13 @@ export const ProgressNoteDetails: FC = () => {
       </InlineEditSection>
     ),
     showLegacyReviewOfSystems && (
-      <NoteSectionCard title="Review of systems" iconKey="Checklist">
+      <NoteSectionCard key="legacy-review-of-systems" title="Review of systems" iconKey="Checklist">
         <ReviewOfSystemsContainer />
       </NoteSectionCard>
     ),
     (showRosReviewContainer || inlineEditEnabled) && (
       <InlineEditSection
+        key="review-of-systems"
         sectionName="review-of-systems"
         title="Review of Systems"
         iconKey="Checklist"
@@ -308,6 +318,7 @@ export const ProgressNoteDetails: FC = () => {
     ),
     (showAdditionalQuestions || inlineEditEnabled) && (
       <InlineEditSection
+        key="screening"
         sectionName="screening"
         title="Screening questions"
         iconKey="Screening Questions"
@@ -319,6 +330,7 @@ export const ProgressNoteDetails: FC = () => {
     ),
     (showVitalsObservations || inlineEditEnabled) && (
       <InlineEditSection
+        key="vitals"
         sectionName="vitals"
         title="Vitals"
         iconKey="Vitals"
@@ -330,6 +342,7 @@ export const ProgressNoteDetails: FC = () => {
     ),
 
     <InlineEditSection
+      key="examination"
       sectionName="examination"
       title="Examination"
       iconKey="Stethoscope"
@@ -350,6 +363,7 @@ export const ProgressNoteDetails: FC = () => {
     // Assessment screen, so they read as subsections of one Assessment section.
     (showAssessment || showMedicalDecisionMaking || showEmCode || showCptCodes || inlineEditEnabled) && (
       <InlineEditSection
+        key="assessment"
         sectionName="assessment"
         title="Assessment"
         iconKey="Prescription"
@@ -361,6 +375,7 @@ export const ProgressNoteDetails: FC = () => {
     ),
     (showInHouseLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED)) && (
       <InlineEditSection
+        key="in-house-labs"
         sectionName="in-house-labs"
         title="In-House Labs"
         iconKey="In-House Labs"
@@ -373,12 +388,13 @@ export const ProgressNoteDetails: FC = () => {
             resultsPending={inHouseLabResultsPending}
           />
         ) : (
-          <BlankSection title="In-House Labs" message="No in-house lab orders" />
+          <BlankSection message="No in-house lab orders" />
         )}
       </InlineEditSection>
     ),
     (showExternalLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.LAB_ORDERS_ENABLED)) && (
       <InlineEditSection
+        key="external-labs"
         sectionName="external-labs"
         title="External Labs"
         iconKey="External Labs"
@@ -391,12 +407,13 @@ export const ProgressNoteDetails: FC = () => {
             resultsPending={externalLabResultsPending}
           />
         ) : (
-          <BlankSection title="External Labs" message="No external lab orders" />
+          <BlankSection message="No external lab orders" />
         )}
       </InlineEditSection>
     ),
     (showRadiologyContainer || (inlineEditEnabled && FEATURE_FLAGS.RADIOLOGY_ENABLED)) && (
       <InlineEditSection
+        key="radiology"
         sectionName="radiology"
         title="Radiology"
         iconKey="Radiology"
@@ -408,22 +425,20 @@ export const ProgressNoteDetails: FC = () => {
     ),
     (showProceduresContainer || inlineEditEnabled) && (
       <InlineEditSection
+        key="procedures"
         sectionName="procedures"
         title="Procedures"
         iconKey="Procedures"
         editLabel="Edit procedures"
         editContent={<ProceduresInlineFlow />}
       >
-        {showProceduresContainer ? (
-          <ProceduresContainer />
-        ) : (
-          <BlankSection title="Procedures" message="No procedures documented" />
-        )}
+        {showProceduresContainer ? <ProceduresContainer /> : <BlankSection message="No procedures documented" />}
       </InlineEditSection>
     ),
     // Staff-facing only: nursing orders are shown here for the signing provider but are
     // deliberately left out of the visit note and discharge PDFs.
     <InlineEditSection
+      key="nursing-orders"
       sectionName="nursing-orders"
       title="Nursing Orders"
       iconKey="Nursing Orders"
@@ -434,21 +449,19 @@ export const ProgressNoteDetails: FC = () => {
     </InlineEditSection>,
     (showPrescribedMedications || inlineEditEnabled) && (
       <InlineEditSection
+        key="prescriptions"
         sectionName="prescriptions"
         title="Prescriptions"
         iconKey="eRX"
         editLabel="Edit prescriptions"
         editContent={<ERXInlineFlow />}
       >
-        {showPrescribedMedications ? (
-          <PrescribedMedicationsContainer />
-        ) : (
-          <BlankSection title="Prescriptions" message="No prescriptions" />
-        )}
+        {showPrescribedMedications ? <PrescribedMedicationsContainer /> : <BlankSection message="No prescriptions" />}
       </InlineEditSection>
     ),
     (showPatientInstructions || inlineEditEnabled) && (
       <InlineEditSection
+        key="plan"
         sectionName="plan"
         title="Plan"
         iconKey="Lab profile"
@@ -458,11 +471,11 @@ export const ProgressNoteDetails: FC = () => {
         {showPatientInstructions ? (
           <PatientInstructionsContainer />
         ) : (
-          <BlankSection title="Plan" message="No patient instructions" />
+          <BlankSection message="No patient instructions" />
         )}
       </InlineEditSection>
     ),
-    <PrivacyPolicyAcknowledgement />,
+    <PrivacyPolicyAcknowledgement key="privacy-policy-acknowledgement" />,
   ].filter(Boolean);
 
   const handleApprove = async (): Promise<void> => {
@@ -522,19 +535,11 @@ export const ProgressNoteDetails: FC = () => {
                 </RoundedButton>
               </Box>
 
-              <Stack spacing={2}>
-                {medicalHistorySections.map((section, index) => (
-                  <Fragment key={index}>{section}</Fragment>
-                ))}
-              </Stack>
+              <Stack spacing={2}>{medicalHistorySections}</Stack>
             </Box>
           </>
         )}
-      <Stack spacing={2}>
-        {sections.map((section, index) => (
-          <Fragment key={index}>{section}</Fragment>
-        ))}
-      </Stack>
+      <Stack spacing={2}>{sections}</Stack>
     </Stack>
   );
 };

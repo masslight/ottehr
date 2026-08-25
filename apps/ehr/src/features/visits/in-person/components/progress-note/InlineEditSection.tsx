@@ -1,9 +1,9 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, Button } from '@mui/material';
 import { FC, ReactNode, useEffect, useRef, useState } from 'react';
+import { InlineFlowProvider } from 'src/components/InlineFlow';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { NoteSectionCard } from './NoteSectionCard';
 import { NoteSectionIconKey } from './NoteSectionIcon';
@@ -50,7 +50,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
     }
   }, [isEditing]);
 
-  const canEdit = FEATURE_FLAGS.INLINE_PROGRESS_NOTE_EDITING_ENABLED && !isAppointmentReadOnly && !disabled;
+  const canEdit = !isAppointmentReadOnly && !disabled;
 
   if (!canEdit) {
     return (
@@ -80,7 +80,9 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
           expanded
           headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
         >
-          {editContent}
+          {/* Reused page components read this to drop their page frame — breadcrumbs, the
+              detail page container — instead of branching on a prop of their own. */}
+          <InlineFlowProvider>{editContent}</InlineFlowProvider>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <RoundedButton
               variant="contained"

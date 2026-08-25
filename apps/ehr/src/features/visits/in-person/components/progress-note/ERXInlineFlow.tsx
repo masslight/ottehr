@@ -1,20 +1,12 @@
-import { FC, useEffect, useRef } from 'react';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { FC } from 'react';
 import { ERXBody } from '../erx/ERXBody';
+import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
 
-// The eRX widget prescribes through an external service, so the Prescriptions summary's
-// chart-fields query doesn't refresh on its own. Refetch chart data when the inline
-// section collapses so new prescriptions show up in the note.
+// The eRX widget prescribes through an external service, so the Prescriptions summary
+// doesn't refresh on its own. Refresh the note when the inline section collapses so new
+// prescriptions show up.
 export const ERXInlineFlow: FC = () => {
-  const { refetch } = useChartData();
-  const refetchRef = useRef(refetch);
-  refetchRef.current = refetch;
-
-  useEffect(() => {
-    return () => {
-      void refetchRef.current();
-    };
-  }, []);
+  useRefreshNoteSummaries();
 
   return <ERXBody />;
 };

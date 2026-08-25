@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import React, { useLayoutEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { Loader } from '../../shared/components/Loader';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { InHouseOrderEditBreadcrumbs } from '../components/breadcrumbs/InHouseOrderEditBreadcrumbs';
@@ -13,32 +14,24 @@ import { PageHeader } from '../components/medication-administration/PageHeader';
 import { useMedicationManagement } from '../hooks/useMedicationManagement';
 
 interface InHouseOrderEditProps {
-  /**
-   * 'inline' takes the order id from props instead of the URL, drops the breadcrumbs, and
-   * replaces navigation with callbacks — used by the Review & Sign inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // switches views in place instead of navigating away
   orderId?: string;
   onBack?: () => void;
   onOrderNew?: () => void;
 }
 
-export const InHouseOrderEdit: React.FC<InHouseOrderEditProps> = ({
-  variant = 'page',
-  orderId: orderIdProp,
-  onBack,
-  onOrderNew,
-}) => {
+export const InHouseOrderEdit: React.FC<InHouseOrderEditProps> = ({ orderId: orderIdProp, onBack, onOrderNew }) => {
   const { orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
   const { medications, isLoading } = useMedicationManagement();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const isInlineFlow = useIsInlineFlow();
   const scrollToRef = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
-    if (variant === 'page') {
-      scrollToRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
-    }
-  }, [variant]);
+    // inline the section is already scrolled into view; jumping again would fight the user
+    if (!isInlineFlow) scrollToRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+  }, [isInlineFlow]);
 
   // Wait for medications to load before rendering the form — otherwise EditableMedicationCard
   // mounts with `medication=undefined` and `type='order-edit'`, which gets latched into useRef /
@@ -55,17 +48,13 @@ export const InHouseOrderEdit: React.FC<InHouseOrderEditProps> = ({
   return (
     <>
       <span ref={scrollToRef} />
-      {variant === 'page' && <InHouseOrderEditBreadcrumbs />}
+      <InHouseOrderEditBreadcrumbs />
       <Box display="flex" justifyContent="space-between" alignItems="center" pl={0.5} mb={2}>
         <PageHeader title={pageTitle} variant="h3" component="h1" />
-        {variant === 'inline' ? !isReadOnly && <OrderButton onClick={onOrderNew} /> : <OrderButton />}
+        {(!isInlineFlow || !isReadOnly) && <OrderButton onClick={onOrderNew} />}
       </Box>
       <MedicationWarnings />
-      <EditableMedicationCard
-        medication={order}
-        type={editType}
-        onNavigateToMar={variant === 'inline' ? onBack : undefined}
-      />
+      <EditableMedicationCard medication={order} type={editType} onNavigateToMar={onBack} />
       <MedicationHistoryList />
     </>
   );

@@ -45,11 +45,8 @@ import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 interface CreateExternalRadiologyOrderProps {
   /** when provided, the form is in edit mode and submits an update instead of a create */
   initialOrder?: GetRadiologyOrderListZambdaOrder;
-  /**
-   * 'inline' renders the bare form (no page container/breadcrumbs) and finishes via
-   * onFinished instead of navigating — used by the Review & Sign inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow to collapse back to its order list instead of
+  // navigating away; on the route it is absent and the page navigates
   onFinished?: () => void;
 }
 
@@ -66,7 +63,6 @@ const formatPhoneDigits = (digits: string): string | undefined => {
 
 export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrderProps> = ({
   initialOrder,
-  variant = 'page',
   onFinished,
 }) => {
   const theme = useTheme();
@@ -174,19 +170,13 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
             edit: sharedFields,
           });
           await printOrderForm(initialOrder.serviceRequestId);
-          if (variant === 'inline') {
-            onFinished?.();
-          } else {
-            navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
-          }
+          if (onFinished) onFinished();
+          else navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
           await printOrderForm(res.serviceRequestId);
-          if (variant === 'inline') {
-            onFinished?.();
-          } else {
-            navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
-          }
+          if (onFinished) onFinished();
+          else navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
         }
       } catch (submitError) {
         console.error('error', JSON.stringify(submitError));
@@ -204,146 +194,140 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
     setSubmitting(false);
   };
 
-  const formContent = (
-    <Stack spacing={1}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-          {isEditMode ? 'Edit External Radiology Order' : 'External Radiology Order'}
-        </Typography>
-      </Box>
-
-      <form onSubmit={handleSubmit}>
-        <Paper sx={{ p: 3 }}>
-          <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-            <RadiologyOrderCoreFields form={form} lateralityLabel="Laterality" />
-
-            <Grid item xs={12}>
-              <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.secondary' }}>
-                Select if the patient has…
-              </Typography>
-              <FormGroup>
-                {RADIOLOGY_SAFETY_FLAGS.map((flag) => (
-                  <FormControlLabel
-                    key={flag}
-                    control={<Checkbox checked={safetyFlags.includes(flag)} onChange={() => toggleSafetyFlag(flag)} />}
-                    label={SAFETY_FLAG_LABELS[flag]}
-                  />
-                ))}
-              </FormGroup>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                id="time-window"
-                label="Time frame"
-                placeholder="e.g. Please perform within 4 hours"
-                fullWidth
-                size="small"
-                value={timeWindow}
-                onChange={(e) => setTimeWindow(e.target.value)}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ color: theme.palette.primary.dark, mt: 1 }}>
-                Performing Organization
-              </Typography>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                id="org-name"
-                label="Organization name"
-                fullWidth
-                size="small"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                id="org-address"
-                label="Address"
-                fullWidth
-                size="small"
-                value={orgAddress}
-                onChange={(e) => setOrgAddress(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                id="org-phone"
-                label="Phone"
-                fullWidth
-                size="small"
-                type="tel"
-                placeholder="(XXX) XXX-XXXX"
-                inputMode="numeric"
-                value={orgPhone}
-                error={orgPhoneError}
-                helperText={
-                  orgPhoneError ? 'Phone must be 10 digits in the format (xxx) xxx-xxxx and a valid number' : ' '
-                }
-                InputProps={{ inputComponent: InputMask as any }}
-                inputProps={{ mask: '(000) 000-0000' }}
-                InputLabelProps={{ shrink: true }}
-                onChange={(e) => {
-                  const number = e.target.value.replace(/\D/g, '');
-                  setOrgPhone(number);
-                  setOrgPhoneError(phoneDigitsInvalid(number));
-                }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                id="org-fax"
-                label="Fax"
-                fullWidth
-                size="small"
-                type="tel"
-                placeholder="(XXX) XXX-XXXX"
-                inputMode="numeric"
-                value={orgFax}
-                error={orgFaxError}
-                helperText={orgFaxError ? 'Fax must be 10 digits in the format (xxx) xxx-xxxx and a valid number' : ' '}
-                InputProps={{ inputComponent: InputMask as any }}
-                inputProps={{ mask: '(000) 000-0000' }}
-                InputLabelProps={{ shrink: true }}
-                onChange={(e) => {
-                  const number = e.target.value.replace(/\D/g, '');
-                  setOrgFax(number);
-                  setOrgFaxError(phoneDigitsInvalid(number));
-                }}
-              />
-            </Grid>
-
-            <RadiologyOrderFormActions
-              appointmentId={appointmentIdFromUrl || ''}
-              submitting={submitting}
-              submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
-              disabled={!hasNPI}
-              errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
-              skipCancelNavigation={variant === 'inline'}
-              onCancel={variant === 'inline' ? onFinished : undefined}
-              cancelUrl={
-                initialOrder
-                  ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
-                  : undefined
-              }
-            />
-          </Grid>
-        </Paper>
-      </form>
-    </Stack>
-  );
-
-  if (variant === 'inline') {
-    return formContent;
-  }
-
   return (
     <DetailPageContainer>
       <WithRadiologyBreadcrumbs sectionName={isEditMode ? 'Edit External Radiology Order' : 'External Radiology Order'}>
-        {formContent}
+        <Stack spacing={1}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+              {isEditMode ? 'Edit External Radiology Order' : 'External Radiology Order'}
+            </Typography>
+          </Box>
+
+          <form onSubmit={handleSubmit}>
+            <Paper sx={{ p: 3 }}>
+              <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
+                <RadiologyOrderCoreFields form={form} lateralityLabel="Laterality" />
+
+                <Grid item xs={12}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.secondary' }}>
+                    Select if the patient has…
+                  </Typography>
+                  <FormGroup>
+                    {RADIOLOGY_SAFETY_FLAGS.map((flag) => (
+                      <FormControlLabel
+                        key={flag}
+                        control={
+                          <Checkbox checked={safetyFlags.includes(flag)} onChange={() => toggleSafetyFlag(flag)} />
+                        }
+                        label={SAFETY_FLAG_LABELS[flag]}
+                      />
+                    ))}
+                  </FormGroup>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    id="time-window"
+                    label="Time frame"
+                    placeholder="e.g. Please perform within 4 hours"
+                    fullWidth
+                    size="small"
+                    value={timeWindow}
+                    onChange={(e) => setTimeWindow(e.target.value)}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ color: theme.palette.primary.dark, mt: 1 }}>
+                    Performing Organization
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    id="org-name"
+                    label="Organization name"
+                    fullWidth
+                    size="small"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    id="org-address"
+                    label="Address"
+                    fullWidth
+                    size="small"
+                    value={orgAddress}
+                    onChange={(e) => setOrgAddress(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    id="org-phone"
+                    label="Phone"
+                    fullWidth
+                    size="small"
+                    type="tel"
+                    placeholder="(XXX) XXX-XXXX"
+                    inputMode="numeric"
+                    value={orgPhone}
+                    error={orgPhoneError}
+                    helperText={
+                      orgPhoneError ? 'Phone must be 10 digits in the format (xxx) xxx-xxxx and a valid number' : ' '
+                    }
+                    InputProps={{ inputComponent: InputMask as any }}
+                    inputProps={{ mask: '(000) 000-0000' }}
+                    InputLabelProps={{ shrink: true }}
+                    onChange={(e) => {
+                      const number = e.target.value.replace(/\D/g, '');
+                      setOrgPhone(number);
+                      setOrgPhoneError(phoneDigitsInvalid(number));
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    id="org-fax"
+                    label="Fax"
+                    fullWidth
+                    size="small"
+                    type="tel"
+                    placeholder="(XXX) XXX-XXXX"
+                    inputMode="numeric"
+                    value={orgFax}
+                    error={orgFaxError}
+                    helperText={
+                      orgFaxError ? 'Fax must be 10 digits in the format (xxx) xxx-xxxx and a valid number' : ' '
+                    }
+                    InputProps={{ inputComponent: InputMask as any }}
+                    inputProps={{ mask: '(000) 000-0000' }}
+                    InputLabelProps={{ shrink: true }}
+                    onChange={(e) => {
+                      const number = e.target.value.replace(/\D/g, '');
+                      setOrgFax(number);
+                      setOrgFaxError(phoneDigitsInvalid(number));
+                    }}
+                  />
+                </Grid>
+
+                <RadiologyOrderFormActions
+                  appointmentId={appointmentIdFromUrl || ''}
+                  submitting={submitting}
+                  submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
+                  disabled={!hasNPI}
+                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
+                  cancelUrl={
+                    initialOrder
+                      ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
+                      : undefined
+                  }
+                />
+              </Grid>
+            </Paper>
+          </form>
+        </Stack>
       </WithRadiologyBreadcrumbs>
     </DetailPageContainer>
   );

@@ -8,17 +8,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   isAppointmentReadOnly: false,
-  featureFlags: { INLINE_PROGRESS_NOTE_EDITING_ENABLED: true },
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({
     isAppointmentReadOnly: mocks.isAppointmentReadOnly,
   }),
-}));
-
-vi.mock('../../src/constants/feature-flags', () => ({
-  FEATURE_FLAGS: mocks.featureFlags,
 }));
 
 import { InlineEditSection } from 'src/features/visits/in-person/components/progress-note/InlineEditSection';
@@ -53,7 +48,6 @@ const renderSection = (props?: { disabled?: boolean }): ReturnType<typeof render
 describe('InlineEditSection', () => {
   beforeEach(() => {
     mocks.isAppointmentReadOnly = false;
-    mocks.featureFlags.INLINE_PROGRESS_NOTE_EDITING_ENABLED = true;
     editContentMountCount = 0;
   });
 
@@ -138,14 +132,6 @@ describe('InlineEditSection', () => {
     expect(screen.getByTestId('summary-content')).toBeVisible();
     expect(screen.queryByTestId('inline-edit-section-allergies')).toBeNull();
     expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
-  });
-
-  it('renders plain children when the feature flag is off', () => {
-    mocks.featureFlags.INLINE_PROGRESS_NOTE_EDITING_ENABLED = false;
-    renderSection();
-
-    expect(screen.getByTestId('summary-content')).toBeVisible();
-    expect(screen.queryByTestId('inline-edit-section-allergies')).toBeNull();
   });
 
   it('renders plain children when disabled', () => {

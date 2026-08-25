@@ -1,6 +1,7 @@
 import { AppBar, Box, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
@@ -31,25 +32,15 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
 export type InHouseMedicationTab = 'mar' | 'medication-details';
 
 interface InHouseMedicationProps {
-  /**
-   * 'inline' drives the tab from the `tab`/`onTabChange` props instead of the URL, drops the
-   * page title, and replaces every navigation with callbacks — used by the Review & Sign
-   * inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which drives the active tab itself and
+  // switches views in place instead of navigating away
   tab?: InHouseMedicationTab;
   onTabChange?: (tab: InHouseMedicationTab) => void;
   onOrderNew?: () => void;
   onEditOrder?: (orderId: string) => void;
 }
 
-export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
-  variant = 'page',
-  tab,
-  onTabChange,
-  onOrderNew,
-  onEditOrder,
-}) => {
+export const InHouseMedication: React.FC<InHouseMedicationProps> = ({ tab, onTabChange, onOrderNew, onEditOrder }) => {
   const { id: appointmentId } = useParams();
   const { medications } = useMedicationAPI();
   const navigate = useNavigate();
@@ -61,7 +52,8 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const currentTab = variant === 'inline' ? tab ?? 'mar' : tabName;
+  const currentTab = tab ?? tabName;
+  const isInlineFlow = useIsInlineFlow();
 
   // In inline mode there is no URL to carry ?scrollTo=, so a pending-row click stores it locally
   const [inlineScrollTo, setInlineScrollTo] = useState<string | undefined>(undefined);
@@ -69,9 +61,9 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
   // handle tabs click navigation
   const handleChange = useCallback(() => {
     isTabTransitionRef.current = true;
-    if (variant === 'inline') {
+    if (onTabChange) {
       setInlineScrollTo(undefined);
-      onTabChange?.(currentTab === 'mar' ? 'medication-details' : 'mar');
+      onTabChange(currentTab === 'mar' ? 'medication-details' : 'mar');
       return;
     }
     requestAnimationFrame(() => {
@@ -81,10 +73,10 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
         navigate(getInHouseMedicationMARUrl(appointmentId!));
       }
     });
-  }, [appointmentId, currentTab, navigate, onTabChange, tabName, variant]);
+  }, [appointmentId, currentTab, navigate, onTabChange, tabName]);
 
   const [searchParams] = useSearchParams();
-  const scrollTo = variant === 'inline' ? inlineScrollTo : searchParams.get('scrollTo');
+  const scrollTo = inlineScrollTo ?? searchParams.get('scrollTo');
 
   // handle scroll to element (row was clicked - scroll to element, or tab was clicked - scroll to table top)
   useLayoutEffect(() => {
@@ -115,13 +107,13 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
     setContent({
       mar: (
         <MarTable
-          onPendingMedicationClick={variant === 'inline' ? handlePendingMedicationClick : undefined}
-          onEditOrder={variant === 'inline' ? onEditOrder : undefined}
+          onPendingMedicationClick={onTabChange ? handlePendingMedicationClick : undefined}
+          onEditOrder={onEditOrder}
         />
       ),
-      details: <MedicationList onNavigateToMar={variant === 'inline' ? handleNavigateToMar : undefined} />,
+      details: <MedicationList onNavigateToMar={onTabChange ? handleNavigateToMar : undefined} />,
     });
-  }, [medications, variant, handlePendingMedicationClick, handleNavigateToMar, onEditOrder]);
+  }, [medications, onTabChange, handlePendingMedicationClick, handleNavigateToMar, onEditOrder]);
 
   if (!content) {
     return <Loader />;
@@ -129,7 +121,7 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({
 
   return (
     <Box>
-      {variant === 'inline' ? (
+      {isInlineFlow ? (
         !isReadOnly && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} onClick={onOrderNew} />

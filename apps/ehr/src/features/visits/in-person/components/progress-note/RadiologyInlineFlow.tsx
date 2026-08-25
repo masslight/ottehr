@@ -1,5 +1,5 @@
 import { Box, Stack } from '@mui/material';
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FC, useCallback, useState } from 'react';
 import { RadiologyOrderCreateButton } from 'src/features/radiology/components/RadiologyOrderCreateButton';
 import { RadiologyTable } from 'src/features/radiology/components/RadiologyTable';
 import { CreateExternalRadiologyOrder } from 'src/features/radiology/pages/CreateExternalRadiologyOrder';
@@ -8,8 +8,9 @@ import { RadiologyExternalOrderDetailsPage } from 'src/features/radiology/pages/
 import { RadiologyOrderDetailsPage } from 'src/features/radiology/pages/RadiologyOrderDetails';
 import { radiologyOrderListColumns } from 'src/features/radiology/pages/RadiologyOrdersListPage';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { GetRadiologyOrderListZambdaOrder } from 'utils/lib/types/api/radiology';
+import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
 
 type RadiologyInlineView =
   | { name: 'list' }
@@ -25,24 +26,15 @@ type RadiologyInlineView =
 export const RadiologyInlineFlow: FC = () => {
   const [view, setView] = useState<RadiologyInlineView>({ name: 'list' });
   const { encounter } = useAppointmentData();
-  const { refetch } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  // Ordering and reads go through the radiology API directly (not save-chart-data), so
-  // the Review & Sign summary's chart-fields query doesn't refresh on its own. Refetch
+  // Ordering and reads go through the radiology API directly, so refresh the note summaries
   // whenever the flow returns to the list and again when the section collapses.
-  const refetchRef = useRef(refetch);
-  refetchRef.current = refetch;
-  useEffect(() => {
-    return () => {
-      void refetchRef.current();
-    };
-  }, []);
+  const refreshSummaries = useRefreshNoteSummaries();
 
   const goToList = useCallback((): void => {
     setView({ name: 'list' });
-    void refetchRef.current();
-  }, []);
+    refreshSummaries();
+  }, [refreshSummaries]);
 
   const openOrder = useCallback((order: GetRadiologyOrderListZambdaOrder): void => {
     setView(
@@ -53,21 +45,20 @@ export const RadiologyInlineFlow: FC = () => {
   }, []);
 
   if (view.name === 'create') {
-    return <CreateRadiologyOrder variant="inline" onFinished={goToList} />;
+    return <CreateRadiologyOrder onFinished={goToList} />;
   }
 
   if (view.name === 'create-external') {
-    return <CreateExternalRadiologyOrder variant="inline" onFinished={goToList} />;
+    return <CreateExternalRadiologyOrder onFinished={goToList} />;
   }
 
   if (view.name === 'details') {
-    return <RadiologyOrderDetailsPage variant="inline" serviceRequestId={view.serviceRequestId} onBack={goToList} />;
+    return <RadiologyOrderDetailsPage serviceRequestId={view.serviceRequestId} onBack={goToList} />;
   }
 
   if (view.name === 'external-details') {
     return (
       <RadiologyExternalOrderDetailsPage
-        variant="inline"
         serviceRequestId={view.serviceRequestId}
         onBack={goToList}
         onEdit={(order) => setView({ name: 'external-edit', order })}
@@ -78,7 +69,6 @@ export const RadiologyInlineFlow: FC = () => {
   if (view.name === 'external-edit') {
     return (
       <CreateExternalRadiologyOrder
-        variant="inline"
         initialOrder={view.order}
         onFinished={() => setView({ name: 'external-details', serviceRequestId: view.order.serviceRequestId })}
       />

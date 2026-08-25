@@ -22,17 +22,13 @@ import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrde
 import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 interface RadiologyOrderDetailsPageProps {
-  /**
-   * 'inline' renders without breadcrumbs, takes the order id from props instead of the
-   * URL, and Back calls onBack — used by the Review & Sign inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // collapses back to its order list instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
 }
 
 export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps> = ({
-  variant = 'page',
   serviceRequestId: serviceRequestIdProp,
   onBack,
 }) => {
@@ -69,13 +65,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     serviceRequestId,
   });
 
-  const handleBack = (): void => {
-    if (variant === 'inline') {
-      onBack?.();
-    } else {
-      navigate(-1);
-    }
-  };
+  const handleBack = onBack ?? ((): void => navigate(-1));
 
   const consentExists = useRadiologyConsentExists();
 
@@ -194,310 +184,306 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     return <RadiologyOrderLoading />;
   }
 
-  const content = (
-    <div style={{ maxWidth: '714px', margin: '0 auto' }}>
-      <Stack spacing={2} sx={{ p: 3 }}>
-        {order.isStat ? (
-          <Chip
-            size="small"
-            label="STAT"
-            sx={{
-              borderRadius: '4px',
-              border: 'none',
-              fontWeight: 900,
-              fontSize: '14px',
-              textTransform: 'uppercase',
-              background: theme.palette.error.main,
-              color: 'white',
-              padding: '8px',
-              height: '24px',
-              width: 'fit-content',
-            }}
-            variant="outlined"
-          />
-        ) : null}
-        <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
+  return (
+    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
+      <div style={{ maxWidth: '714px', margin: '0 auto' }}>
+        <Stack spacing={2} sx={{ p: 3 }}>
+          {order.isStat ? (
+            <Chip
+              size="small"
+              label="STAT"
+              sx={{
+                borderRadius: '4px',
+                border: 'none',
+                fontWeight: 900,
+                fontSize: '14px',
+                textTransform: 'uppercase',
+                background: theme.palette.error.main,
+                color: 'white',
+                padding: '8px',
+                height: '24px',
+                width: 'fit-content',
+              }}
+              variant="outlined"
+            />
+          ) : null}
+          <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
 
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 1,
-          }}
-        >
           <Box
             sx={{
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              gap: 1,
-              flexDirection: 'row',
-              fontWeight: 'bold',
-              mr: 1,
+              mb: 1,
             }}
           >
-            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-              {order.diagnosis}
-            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                flexDirection: 'row',
+                fontWeight: 'bold',
+                mr: 1,
+              }}
+            >
+              <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                {order.diagnosis}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
+              <RadiologyTableStatusChip status={order.status} />
+            </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
-            <RadiologyTableStatusChip status={order.status} />
-          </Box>
-        </Box>
 
-        {order.task && (
-          <Box>
-            <DetailTaskCard task={order.task} fetchOrders={() => fetchOrders({ serviceRequestId })}></DetailTaskCard>
-          </Box>
-        )}
+          {order.task && (
+            <Box>
+              <DetailTaskCard task={order.task} fetchOrders={() => fetchOrders({ serviceRequestId })}></DetailTaskCard>
+            </Box>
+          )}
 
-        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
-          <Box sx={{ padding: 2 }}>
-            <RadiologyViewImageBtn
-              serviceRequestId={serviceRequestId}
-              disabled={order.status === 'pending'}
-              displaySmall={false}
-            />
+          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
+            <Box sx={{ padding: 2 }}>
+              <RadiologyViewImageBtn
+                serviceRequestId={serviceRequestId}
+                disabled={order.status === 'pending'}
+                displaySmall={false}
+              />
 
-            {order.studyName && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                  Study Name
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {order.studyName}
-                </Typography>
-              </Box>
-            )}
-
-            {order.clinicalHistory && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                  Clinical History
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {order.clinicalHistory}
-                </Typography>
-              </Box>
-            )}
-
-            {canEditPerformedBy ? (
-              <Box sx={{ mt: 2 }}>
-                <TextField
-                  data-testid={dataTestIds.radiologyPage.performedBySelect}
-                  id="performed-by-field"
-                  select
-                  label="Performed by"
-                  fullWidth
-                  size="small"
-                  value={performedById}
-                  onChange={(e) => {
-                    setMissingPerformedBy(false);
-                    setPerformedById(e.target.value);
-                  }}
-                  error={missingPerformedBy}
-                  helperText={missingPerformedBy ? 'Performed by is required' : ''}
-                  disabled={isReadOnly}
-                >
-                  {!performedById && <MenuItem value="">Select</MenuItem>}
-                  {performedByOptions.map((option) => (
-                    <MenuItem key={option.id} value={option.id}>
-                      {option.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Box>
-            ) : (
-              order.performedBy && (
-                <Box sx={{ mt: 2 }} data-testid={dataTestIds.radiologyPage.performedByValue}>
+              {order.studyName && (
+                <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                    Performed by
+                    Study Name
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {order.performedBy.name}
+                    {order.studyName}
                   </Typography>
                 </Box>
-              )
-            )}
+              )}
 
-            {order.status === 'performed' && !order.preliminaryReport && (
-              <>
+              {order.clinicalHistory && (
                 <Box sx={{ mt: 2 }}>
-                  <RadiologyDiagnosisField
-                    value={preliminaryReportDx}
-                    onChange={(dx) => {
-                      setMissingPreliminaryReportDx(false);
-                      setPreliminaryReportDx(dx);
-                    }}
-                    quickPickOptions={chartData?.diagnosis}
-                    disabled={isReadOnly}
-                    error={missingPreliminaryReportDx}
-                    helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}
-                  />
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Clinical History
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {order.clinicalHistory}
+                  </Typography>
                 </Box>
+              )}
+
+              {canEditPerformedBy ? (
                 <Box sx={{ mt: 2 }}>
                   <TextField
-                    id="preliminary-report-field"
-                    label="Preliminary Report"
-                    placeholder="Enter preliminary report for the radiology order"
+                    data-testid={dataTestIds.radiologyPage.performedBySelect}
+                    id="performed-by-field"
+                    select
+                    label="Performed by"
                     fullWidth
-                    multiline
-                    minRows={2}
-                    maxRows={10}
                     size="small"
-                    value={preliminaryReport}
-                    onChange={(e) => setPreliminaryReport(e.target.value)}
+                    value={performedById}
+                    onChange={(e) => {
+                      setMissingPerformedBy(false);
+                      setPerformedById(e.target.value);
+                    }}
+                    error={missingPerformedBy}
+                    helperText={missingPerformedBy ? 'Performed by is required' : ''}
                     disabled={isReadOnly}
-                  />
+                  >
+                    {!performedById && <MenuItem value="">Select</MenuItem>}
+                    {performedByOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Box>
-              </>
-            )}
-
-            {order.preliminaryReport != null ? (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                  Preliminary Report
-                </Typography>
-                <Typography variant="body2">
-                  <div dangerouslySetInnerHTML={{ __html: atob(order.preliminaryReport) }} />
-                </Typography>
-              </Box>
-            ) : (
-              <div />
-            )}
-
-            {order.finalReport != null ? (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                  Final Report
-                </Typography>
-                <Typography variant="body2">
-                  <div dangerouslySetInnerHTML={{ __html: atob(order.finalReport) }} />
-                </Typography>
-              </Box>
-            ) : (
-              <div />
-            )}
-
-            <Box sx={{ mt: 1 }}>
-              <Box style={{ display: 'flex', alignItems: 'center' }}>
-                <Checkbox
-                  sx={{ paddingLeft: 0 }}
-                  checked={order.consentObtained}
-                  disabled={isUpdatingConsent}
-                  onChange={() => handleUpdateConsent(serviceRequestId, !order.consentObtained)}
-                />
-                <Typography>
-                  I have obtained the{' '}
-                  {consentExists ? (
-                    <Link
-                      target="_blank"
-                      to={`/consent_radiology.pdf`}
-                      style={{ color: theme.palette.primary.main }}
-                      rel="noopener noreferrer"
-                    >
-                      consent for X-ray
-                    </Link>
-                  ) : (
-                    'consent for X-ray'
-                  )}
-                </Typography>
-              </Box>
-            </Box>
-
-            {order.status === 'preliminary' && (
-              <>
-                <Box sx={{ mt: 1 }}>
-                  <Box style={{ display: 'flex', alignItems: 'center' }}>
-                    <Checkbox
-                      sx={{ paddingLeft: 0 }}
-                      checked={finalReportByUser}
-                      onChange={() => {
-                        if (finalReportByUser) setFinalReport(undefined);
-                        setFinalReportByUser(!finalReportByUser);
-                      }}
-                    />
-                    <Typography>Don't send to teleradiology, I will write the final report myself.</Typography>
+              ) : (
+                order.performedBy && (
+                  <Box sx={{ mt: 2 }} data-testid={dataTestIds.radiologyPage.performedByValue}>
+                    <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                      Performed by
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {order.performedBy.name}
+                    </Typography>
                   </Box>
-                </Box>
-                {finalReportByUser && (
-                  <Box sx={{ mt: 1 }}>
+                )
+              )}
+
+              {order.status === 'performed' && !order.preliminaryReport && (
+                <>
+                  <Box sx={{ mt: 2 }}>
+                    <RadiologyDiagnosisField
+                      value={preliminaryReportDx}
+                      onChange={(dx) => {
+                        setMissingPreliminaryReportDx(false);
+                        setPreliminaryReportDx(dx);
+                      }}
+                      quickPickOptions={chartData?.diagnosis}
+                      disabled={isReadOnly}
+                      error={missingPreliminaryReportDx}
+                      helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
                     <TextField
-                      id="final-report-field"
-                      label="Final Report"
-                      placeholder="Enter final report for the radiology order"
+                      id="preliminary-report-field"
+                      label="Preliminary Report"
+                      placeholder="Enter preliminary report for the radiology order"
                       fullWidth
                       multiline
                       minRows={2}
                       maxRows={10}
                       size="small"
-                      value={finalReport}
-                      onChange={(e) => {
-                        setMissingFinalReport(false);
-                        setFinalReport(e.target.value);
-                      }}
-                      error={missingFinalReport}
-                      helperText={missingFinalReport ? 'Final report is required' : ''}
+                      value={preliminaryReport}
+                      onChange={(e) => setPreliminaryReport(e.target.value)}
                       disabled={isReadOnly}
                     />
                   </Box>
-                )}
-              </>
-            )}
+                </>
+              )}
+
+              {order.preliminaryReport != null ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Preliminary Report
+                  </Typography>
+                  <Typography variant="body2">
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.preliminaryReport) }} />
+                  </Typography>
+                </Box>
+              ) : (
+                <div />
+              )}
+
+              {order.finalReport != null ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Final Report
+                  </Typography>
+                  <Typography variant="body2">
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.finalReport) }} />
+                  </Typography>
+                </Box>
+              ) : (
+                <div />
+              )}
+
+              <Box sx={{ mt: 1 }}>
+                <Box style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    sx={{ paddingLeft: 0 }}
+                    checked={order.consentObtained}
+                    disabled={isUpdatingConsent}
+                    onChange={() => handleUpdateConsent(serviceRequestId, !order.consentObtained)}
+                  />
+                  <Typography>
+                    I have obtained the{' '}
+                    {consentExists ? (
+                      <Link
+                        target="_blank"
+                        to={`/consent_radiology.pdf`}
+                        style={{ color: theme.palette.primary.main }}
+                        rel="noopener noreferrer"
+                      >
+                        consent for X-ray
+                      </Link>
+                    ) : (
+                      'consent for X-ray'
+                    )}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {order.status === 'preliminary' && (
+                <>
+                  <Box sx={{ mt: 1 }}>
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
+                      <Checkbox
+                        sx={{ paddingLeft: 0 }}
+                        checked={finalReportByUser}
+                        onChange={() => {
+                          if (finalReportByUser) setFinalReport(undefined);
+                          setFinalReportByUser(!finalReportByUser);
+                        }}
+                      />
+                      <Typography>Don't send to teleradiology, I will write the final report myself.</Typography>
+                    </Box>
+                  </Box>
+                  {finalReportByUser && (
+                    <Box sx={{ mt: 1 }}>
+                      <TextField
+                        id="final-report-field"
+                        label="Final Report"
+                        placeholder="Enter final report for the radiology order"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        maxRows={10}
+                        size="small"
+                        value={finalReport}
+                        onChange={(e) => {
+                          setMissingFinalReport(false);
+                          setFinalReport(e.target.value);
+                        }}
+                        error={missingFinalReport}
+                        helperText={missingFinalReport ? 'Final report is required' : ''}
+                        disabled={isReadOnly}
+                      />
+                    </Box>
+                  )}
+                </>
+              )}
+            </Box>
           </Box>
-        </Box>
 
-        <RadiologyOrderHistoryCard orderHistory={order.history} />
+          <RadiologyOrderHistoryCard orderHistory={order.history} />
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            sx={{
-              borderRadius: 28,
-              padding: '8px 22px',
-              textTransform: 'none',
-            }}
-            onClick={handleBack}
-          >
-            Back
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 2 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              sx={{
+                borderRadius: 28,
+                padding: '8px 22px',
+                textTransform: 'none',
+              }}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
 
-          {order.status === 'performed' &&
-            !order.preliminaryReport &&
-            saveReportButton('Save Preliminary Report', isSavingReport, () => {
-              if (preliminaryReportDx.length === 0) {
-                setMissingPreliminaryReportDx(true);
-                return;
-              }
-              // This is the only screen that records the performer, so it's captured here or never.
-              if (!selectedPerformedBy) {
-                setMissingPerformedBy(true);
-                return;
-              }
-              void handleSavePreliminaryReport(selectedPerformedBy.id);
-            })}
+            {order.status === 'performed' &&
+              !order.preliminaryReport &&
+              saveReportButton('Save Preliminary Report', isSavingReport, () => {
+                if (preliminaryReportDx.length === 0) {
+                  setMissingPreliminaryReportDx(true);
+                  return;
+                }
+                // This is the only screen that records the performer, so it's captured here or never.
+                if (!selectedPerformedBy) {
+                  setMissingPerformedBy(true);
+                  return;
+                }
+                void handleSavePreliminaryReport(selectedPerformedBy.id);
+              })}
 
-          {order.status === 'preliminary' &&
-            (finalReportByUser
-              ? saveReportButton('Save as Final', isSavingReport, () => {
-                  if (!finalReport || !(finalReport.length > 0)) {
-                    setMissingFinalReport(true);
-                    return;
-                  }
-                  void handleSaveReport(serviceRequestId, finalReport || '', 'final');
-                })
-              : saveReportButton('Send for Final Read', isSendingForFinalRead, () =>
-                  handleSendForFinalRead(serviceRequestId)
-                ))}
-        </Box>
-      </Stack>
-    </div>
+            {order.status === 'preliminary' &&
+              (finalReportByUser
+                ? saveReportButton('Save as Final', isSavingReport, () => {
+                    if (!finalReport || !(finalReport.length > 0)) {
+                      setMissingFinalReport(true);
+                      return;
+                    }
+                    void handleSaveReport(serviceRequestId, finalReport || '', 'final');
+                  })
+                : saveReportButton('Send for Final Read', isSendingForFinalRead, () =>
+                    handleSendForFinalRead(serviceRequestId)
+                  ))}
+          </Box>
+        </Stack>
+      </div>
+    </WithRadiologyBreadcrumbs>
   );
-
-  if (variant === 'inline') {
-    return content;
-  }
-
-  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };

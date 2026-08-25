@@ -12,6 +12,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { SendFaxButton } from 'src/features/visits/shared/components/review-tab/SendFaxButton';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
@@ -56,19 +57,14 @@ const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React
 );
 
 interface RadiologyExternalOrderDetailsPageProps {
-  /**
-   * 'inline' renders without breadcrumbs, takes the order id from props instead of the
-   * URL, shows a Back button wired to onBack, and the edit pencil calls onEdit instead
-   * of navigating — used by the Review & Sign inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // switches to the edit form in place instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
   onEdit?: (order: GetRadiologyOrderListZambdaOrder) => void;
 }
 
 export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderDetailsPageProps> = ({
-  variant = 'page',
   serviceRequestId: serviceRequestIdProp,
   onBack,
   onEdit,
@@ -77,6 +73,8 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
   const serviceRequestId = serviceRequestIdProp ?? (urlParams.serviceRequestID as string);
   const appointmentId = urlParams.id as string;
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
+  const goBack = onBack ?? ((): void => navigate(-1));
   const theme = useTheme();
 
   const { oystehrZambda } = useApiClients();
@@ -190,7 +188,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
         <Typography variant="h6">
           {ordersError ? 'Failed to load the radiology order.' : 'Radiology order not found.'}
         </Typography>
-        <Button variant="outlined" onClick={() => (variant === 'inline' ? onBack?.() : navigate(-1))}>
+        <Button variant="outlined" onClick={goBack}>
           Back
         </Button>
       </Stack>
@@ -204,186 +202,182 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
   // The order is editable only until results are uploaded (spec).
   const canEdit = !isReadOnly && results.length === 0;
 
-  const content = (
-    <div style={{ maxWidth: '714px', margin: '0 auto' }}>
-      <Stack spacing={2} sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <RadiologyExternalOrderChip />
-          {order.timeWindow && (
-            <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
-              {order.timeWindow}
-            </Typography>
-          )}
-        </Box>
-
-        <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-            {order.diagnosis}
-          </Typography>
-          <RadiologyTableStatusChip status={order.status} />
-        </Box>
-
-        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
-              Results
-            </Typography>
-            {!isReadOnly && (
-              <>
-                <input
-                  ref={resultInputRef}
-                  type="file"
-                  hidden
-                  accept=".pdf,application/pdf"
-                  onChange={handleUploadResult}
-                />
-                <LoadingButton
-                  variant="outlined"
-                  size="small"
-                  loading={uploading}
-                  startIcon={<UploadFileOutlinedIcon />}
-                  onClick={() => resultInputRef.current?.click()}
-                  sx={{ borderRadius: 28, textTransform: 'none' }}
-                >
-                  Upload Result
-                </LoadingButton>
-              </>
+  return (
+    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
+      <div style={{ maxWidth: '714px', margin: '0 auto' }}>
+        <Stack spacing={2} sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <RadiologyExternalOrderChip />
+            {order.timeWindow && (
+              <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
+                {order.timeWindow}
+              </Typography>
             )}
           </Box>
-          {results.length > 0 ? (
-            <Stack spacing={1}>
-              {results.map((result) => (
-                <Box
-                  key={result.documentReferenceId}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: '#f7f7f7',
-                    borderRadius: 1,
-                    px: 2,
-                    py: 1,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
-                    <InsertDriveFileOutlinedIcon color="primary" fontSize="small" />
-                    <Typography
-                      variant="body2"
-                      onClick={() => window.open(result.url, '_blank')}
-                      sx={{ fontWeight: 'bold', cursor: 'pointer', wordBreak: 'break-all' }}
-                    >
-                      {result.title}
-                    </Typography>
+
+          <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+              {order.diagnosis}
+            </Typography>
+            <RadiologyTableStatusChip status={order.status} />
+          </Box>
+
+          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                Results
+              </Typography>
+              {!isReadOnly && (
+                <>
+                  <input
+                    ref={resultInputRef}
+                    type="file"
+                    hidden
+                    accept=".pdf,application/pdf"
+                    onChange={handleUploadResult}
+                  />
+                  <LoadingButton
+                    variant="outlined"
+                    size="small"
+                    loading={uploading}
+                    startIcon={<UploadFileOutlinedIcon />}
+                    onClick={() => resultInputRef.current?.click()}
+                    sx={{ borderRadius: 28, textTransform: 'none' }}
+                  >
+                    Upload Result
+                  </LoadingButton>
+                </>
+              )}
+            </Box>
+            {results.length > 0 ? (
+              <Stack spacing={1}>
+                {results.map((result) => (
+                  <Box
+                    key={result.documentReferenceId}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#f7f7f7',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+                      <InsertDriveFileOutlinedIcon color="primary" fontSize="small" />
+                      <Typography
+                        variant="body2"
+                        onClick={() => window.open(result.url, '_blank')}
+                        sx={{ fontWeight: 'bold', cursor: 'pointer', wordBreak: 'break-all' }}
+                      >
+                        {result.title}
+                      </Typography>
+                    </Box>
+                    {!isReadOnly && (
+                      <ConfirmationDialog
+                        title="Delete result"
+                        description={`Delete "${result.title}"? This cannot be undone.`}
+                        response={() => handleDeleteResult(result.documentReferenceId)}
+                        actionButtons={{ proceed: { text: 'Delete' }, back: { text: 'Cancel' }, reverse: true }}
+                      >
+                        {(showDialog) => (
+                          <IconButton aria-label="delete result" onClick={showDialog}>
+                            <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
+                          </IconButton>
+                        )}
+                      </ConfirmationDialog>
+                    )}
                   </Box>
-                  {!isReadOnly && (
-                    <ConfirmationDialog
-                      title="Delete result"
-                      description={`Delete "${result.title}"? This cannot be undone.`}
-                      response={() => handleDeleteResult(result.documentReferenceId)}
-                      actionButtons={{ proceed: { text: 'Delete' }, back: { text: 'Cancel' }, reverse: true }}
-                    >
-                      {(showDialog) => (
-                        <IconButton aria-label="delete result" onClick={showDialog}>
-                          <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
-                        </IconButton>
-                      )}
-                    </ConfirmationDialog>
-                  )}
-                </Box>
-              ))}
-            </Stack>
-          ) : (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              No results uploaded yet.
-            </Typography>
-          )}
-        </Box>
-
-        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
-              Order Details
-            </Typography>
-            {canEdit && (
-              <IconButton
-                aria-label="edit external radiology order"
-                onClick={() => (variant === 'inline' ? onEdit?.(order) : navigate(editUrl))}
-              >
-                <EditIcon color="primary" />
-              </IconButton>
+                ))}
+              </Stack>
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                No results uploaded yet.
+              </Typography>
             )}
           </Box>
 
-          {order.studyName && <DetailRow label="Study Name" value={order.studyName} />}
-          {order.laterality && (
-            <DetailRow
-              label="Laterality"
-              value={`${order.laterality} (${LATERALITY_SELECTORS[order.laterality].uiDisplay})`}
-            />
-          )}
-          {order.clinicalHistory && <DetailRow label="Clinical History" value={order.clinicalHistory} />}
-          {safetyFlagLabels && (
-            <DetailRow
-              label="Patient has"
-              value={safetyFlagLabels}
-              icon={<WarningAmberOutlinedIcon fontSize="small" sx={{ color: otherColors.priorityHighText }} />}
-            />
-          )}
-          <DetailRow label="Weight" value={weight != null ? `${weight} kg` : undefined} />
+          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                Order Details
+              </Typography>
+              {canEdit && (
+                <IconButton
+                  aria-label="edit external radiology order"
+                  onClick={() => (onEdit ? onEdit(order) : navigate(editUrl))}
+                >
+                  <EditIcon color="primary" />
+                </IconButton>
+              )}
+            </Box>
 
-          <Box sx={{ mt: 2 }}>
+            {order.studyName && <DetailRow label="Study Name" value={order.studyName} />}
+            {order.laterality && (
+              <DetailRow
+                label="Laterality"
+                value={`${order.laterality} (${LATERALITY_SELECTORS[order.laterality].uiDisplay})`}
+              />
+            )}
+            {order.clinicalHistory && <DetailRow label="Clinical History" value={order.clinicalHistory} />}
+            {safetyFlagLabels && (
+              <DetailRow
+                label="Patient has"
+                value={safetyFlagLabels}
+                icon={<WarningAmberOutlinedIcon fontSize="small" sx={{ color: otherColors.priorityHighText }} />}
+              />
+            )}
+            <DetailRow label="Weight" value={weight != null ? `${weight} kg` : undefined} />
+
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+                Performing Organization
+              </Typography>
+              <DetailRow label="Organization Name" value={org?.name} />
+              <DetailRow label="Address" value={org?.address} />
+              <DetailRow label="Phone" value={org?.phone} />
+              <DetailRow label="Fax" value={org?.fax} />
+            </Box>
+          </Box>
+
+          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
             <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
-              Performing Organization
+              Print & Fax
             </Typography>
-            <DetailRow label="Organization Name" value={org?.name} />
-            <DetailRow label="Address" value={org?.address} />
-            <DetailRow label="Phone" value={org?.phone} />
-            <DetailRow label="Fax" value={org?.fax} />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <RoundedButton
+                variant="outlined"
+                color="primary"
+                startIcon={<PrintOutlinedIcon />}
+                loading={printing}
+                onClick={handlePrint}
+              >
+                Print Order
+              </RoundedButton>
+              <SendFaxButton onSend={handleSendFax} initialFaxNumber={initialFaxNumber} />
+            </Box>
           </Box>
-        </Box>
 
-        <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-          <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
-            Print & Fax
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <RoundedButton
-              variant="outlined"
-              color="primary"
-              startIcon={<PrintOutlinedIcon />}
-              loading={printing}
-              onClick={handlePrint}
-            >
-              Print Order
-            </RoundedButton>
-            <SendFaxButton onSend={handleSendFax} initialFaxNumber={initialFaxNumber} />
-          </Box>
-        </Box>
+          <RadiologyOrderHistoryCard orderHistory={order.history} label="Order History" />
 
-        <RadiologyOrderHistoryCard orderHistory={order.history} label="Order History" />
-
-        {/* The page relies on breadcrumbs to leave; inline has none, so give it a Back button. */}
-        {variant === 'inline' && (
-          <Box>
-            <Button
-              variant="outlined"
-              color="primary"
-              sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
-              onClick={onBack}
-            >
-              Back
-            </Button>
-          </Box>
-        )}
-      </Stack>
-    </div>
+          {/* The page leaves through its breadcrumbs; inline they are suppressed, so give it a Back button. */}
+          {isInlineFlow && (
+            <Box>
+              <Button
+                variant="outlined"
+                color="primary"
+                sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
+                onClick={goBack}
+              >
+                Back
+              </Button>
+            </Box>
+          )}
+        </Stack>
+      </div>
+    </WithRadiologyBreadcrumbs>
   );
-
-  if (variant === 'inline') {
-    return content;
-  }
-
-  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };

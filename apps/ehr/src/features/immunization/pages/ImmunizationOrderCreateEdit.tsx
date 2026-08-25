@@ -49,23 +49,19 @@ import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 
 interface ImmunizationOrderCreateEditProps {
-  /**
-   * 'inline' drops the breadcrumbs, takes the order id from props instead of the URL, and
-   * finishes via onFinished instead of navigating — used by the Review & Sign inline edit flow
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // collapses back to the MAR instead of navigating away
   orderId?: string;
   onFinished?: () => void;
 }
 
 export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditProps> = ({
-  variant = 'page',
   orderId: orderIdProp,
   onFinished,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
-  const orderId = variant === 'inline' ? orderIdProp : orderIdFromUrl;
+  const orderId = orderIdProp ?? orderIdFromUrl;
   const {
     resources: { encounter, patient },
   } = useAppointmentData(appointmentId);
@@ -91,13 +87,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   useMarkDraftNavigatedAway({ encounterId, setDraft, hasDraft });
 
-  const finish = (): void => {
-    if (variant === 'inline') {
-      onFinished?.();
-    } else {
-      navigate(getImmunizationMARUrl(appointmentId!));
-    }
-  };
+  const finish = onFinished ?? ((): void => navigate(getImmunizationMARUrl(appointmentId!)));
 
   const onSubmit = async (data: any): Promise<void> => {
     await createUpdateOrder({
@@ -256,12 +246,10 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
-          {variant === 'page' && (
-            <BaseBreadcrumbs
-              sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
-              baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
-            />
-          )}
+          <BaseBreadcrumbs
+            sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
+            baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
+          />
           <PageHeader
             title={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
             variant="h3"

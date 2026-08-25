@@ -10,19 +10,13 @@ import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrders';
 
 interface OrderDetailsPageProps {
-  /**
-   * 'inline' renders without the page container/breadcrumbs, takes the order id from props
-   * instead of the URL, and Back calls onBack — used by the Review & Sign inline edit flow.
-   * Only service-request driven orders are supported inline; diagnostic-report centric
-   * results (reflex/pdf attachment/unsolicited) remain page-only.
-   */
-  variant?: 'page' | 'inline';
+  // set by the Review & Sign inline edit flow, which has no URL params of its own and
+  // collapses back to its order list instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
 }
 
 export const OrderDetailsPage: React.FC<OrderDetailsPageProps> = ({
-  variant = 'page',
   serviceRequestId: serviceRequestIdProp,
   onBack,
 }) => {
@@ -33,8 +27,9 @@ export const OrderDetailsPage: React.FC<OrderDetailsPageProps> = ({
 
   // SR driven labs aka solicited labs will not have the url param diagnosticReportId
   // they could have an associated diagnostic report but it won't be passed in the url
-  // a "dr centric" lab would be a pdf attachment result or a reflex result
-  const isDrCentricLab = variant !== 'inline' && !!diagnosticReportId;
+  // a "dr centric" lab would be a pdf attachment result or a reflex result.
+  // Inline the order is addressed by service request id, so those results stay page-only.
+  const isDrCentricLab = !serviceRequestIdProp && !!diagnosticReportId;
 
   const searchBy: LabOrdersSearchBy['searchBy'] = isDrCentricLab
     ? { field: 'diagnosticReportId', value: diagnosticReportId }
@@ -75,34 +70,24 @@ export const OrderDetailsPage: React.FC<OrderDetailsPageProps> = ({
   const pageName = labOrder.testItem;
 
   if (status === 'pending' || status === 'ready' || status?.includes('sent') || status === 'rejected abn') {
-    if (variant === 'inline') {
-      return <DetailsWithoutResults labOrder={labOrder} onBack={onBack} />;
-    }
-
     return (
       <DetailPageContainer>
         <LabBreadcrumbs sectionName={pageName}>
-          <DetailsWithoutResults labOrder={labOrder} />
+          <DetailsWithoutResults labOrder={labOrder} onBack={onBack} />
         </LabBreadcrumbs>
       </DetailPageContainer>
-    );
-  }
-
-  if (variant === 'inline') {
-    return (
-      <DetailsWithResults
-        labOrder={labOrder}
-        markTaskAsReviewed={markTaskAsReviewed}
-        loading={loading}
-        onBack={onBack}
-      />
     );
   }
 
   return (
     <DetailPageContainer>
       <LabBreadcrumbs sectionName={pageName}>
-        <DetailsWithResults labOrder={labOrder} markTaskAsReviewed={markTaskAsReviewed} loading={loading} />
+        <DetailsWithResults
+          labOrder={labOrder}
+          markTaskAsReviewed={markTaskAsReviewed}
+          loading={loading}
+          onBack={onBack}
+        />
       </LabBreadcrumbs>
     </DetailPageContainer>
   );
