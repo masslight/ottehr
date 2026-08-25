@@ -134,7 +134,13 @@ export function LocationBookingLinks({ location, schedules }: LocationBookingLin
               </Typography>
               {/* These URLs carry a slug and query string and are longer than the column is
                       wide. Break them rather than let them push the card past its flex basis. */}
-              <MuiLink href={link.url} target="_blank" rel="noreferrer" variant="body2" sx={{ wordBreak: 'break-all' }}>
+              <MuiLink
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="body2"
+                sx={{ wordBreak: 'break-all' }}
+              >
                 {link.url}
               </MuiLink>
             </Box>
