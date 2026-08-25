@@ -367,12 +367,18 @@ export const index = wrapHandler(
 
     const codeValidationStart = Date.now();
 
-    // Validate ICD codes and get the descriptions for the codes.
-    // Look the codes up concurrently but preserve the AI's original ordering: Promise.all
-    // keeps results in input order regardless of which lookup settles first.
-    if (suggestions?.icdCodes) {
-      const validatedIcdCodes = await Promise.all(
-        suggestions.icdCodes.map(async (code) => {
+    // Validate the suggested codes and fetch their descriptions. The ICD phase and the CPT phase are
+    // independent of each other, so they run concurrently: as two sequential awaits they put two full
+    // terminology round trips on the critical path where one will do.
+    //
+    // Within each phase, the per-code lookups already ran concurrently. Promise.all keeps results in
+    // input order regardless of which lookup settles first, so the AI's original ordering survives at
+    // both levels. The HCPCS lookup stays sequential behind its own CPT lookup by necessity — it is
+    // only attempted when the CPT search comes back empty — so a phase is one round trip deep, or two
+    // for the CPT codes that fall through.
+    const [validatedIcdCodes, validatedCptCodes] = await Promise.all([
+      Promise.all(
+        (suggestions?.icdCodes ?? []).map(async (code) => {
           const terminologyResponse = await oystehr.terminology.searchIcd10({
             query: code.code,
             searchType: 'code',
@@ -389,26 +395,18 @@ export const index = wrapHandler(
           console.log("Didn't get an ICD code", code.code);
           return null;
         })
-      );
-      for (const entry of validatedIcdCodes) {
-        if (entry) icdSuggestions.push(entry);
-      }
-    }
-
-    // Validate CPT codes and get the descriptions for the codes.
-    // Same as above: concurrent lookups, but keep the AI's original ordering.
-    if (suggestions?.cptCodes) {
-      const validatedCptCodes = await Promise.all(
-        suggestions.cptCodes.map(async (code) => {
+      ),
+      Promise.all(
+        (suggestions?.cptCodes ?? []).map(async (code) => {
           const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
-          const terminologyResponse = await oystehr?.terminology.searchCpt({
+          const terminologyResponse = await oystehr.terminology.searchCpt({
             query: cptCode,
             searchType: 'code',
             limit: 100,
             strictMatch: true,
           });
           if (terminologyResponse.codes.length === 0) {
-            const hcpcsSearchResponse = await oystehr?.terminology.searchHcpcs({
+            const hcpcsSearchResponse = await oystehr.terminology.searchHcpcs({
               query: cptCode,
               searchType: 'code',
               limit: 100,
@@ -432,10 +430,14 @@ export const index = wrapHandler(
           }
           return null;
         })
-      );
-      for (const entry of validatedCptCodes) {
-        if (entry) cptSuggestions.push(entry);
-      }
+      ),
+    ]);
+
+    for (const entry of validatedIcdCodes) {
+      if (entry) icdSuggestions.push(entry);
+    }
+    for (const entry of validatedCptCodes) {
+      if (entry) cptSuggestions.push(entry);
     }
 
     // Validate E&M codes and get the descriptions for the codes
