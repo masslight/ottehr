@@ -636,6 +636,26 @@ export const GroupAllLocationsCoding = {
   },
 };
 
+// ── Form templates ──────────────────────────────────────────────────────────
+
+/**
+ * Broad classification for admin-authored fillable PDF form templates.
+ *
+ * Set membership lives on `DocumentReference.category` (0..*) rather than `type` (0..1) so the single
+ * `type` slot stays free for the document's actual kind. Patient education spent its `type` on a set
+ * marker and can no longer use it for anything else.
+ */
+export const DOCUMENT_CATEGORY_SYSTEM = ottehrCodeSystemUrl('document-category');
+export const FormTemplateCategoryCoding = {
+  system: DOCUMENT_CATEGORY_SYSTEM,
+  code: 'form-template',
+  display: 'Form Template',
+  fullParam: `${DOCUMENT_CATEGORY_SYSTEM}|form-template`,
+};
+
+/** Stable per-template business key, so a template survives having its PDF replaced. */
+export const FORM_TEMPLATE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('form-template');
+
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
   CONSENT_FORMS: 'consent-forms',
@@ -652,6 +672,8 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  /** Admin-authored fillable PDF form templates. Org-level: no patient path segment. */
+  FORM_TEMPLATES: 'form-templates',
   RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   BILLING_CLAIM_EXPORTS: 'billing-claim-exports',
