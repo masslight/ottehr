@@ -395,6 +395,9 @@ const READERS: Record<string, FieldReader> = {
   ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
   ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
 
+  ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
+  ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
+
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
   'billingProvider.ref': (m) => copySourceRef(m.billingProvider),
