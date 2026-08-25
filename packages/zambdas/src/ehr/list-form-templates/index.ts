@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { FormTemplateCategoryCoding } from 'utils/lib/fhir/constants';
+import { FORM_TEMPLATE_CATEGORY_SEARCH_PARAM } from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   FormTemplateItem,
@@ -65,7 +65,7 @@ const performEffect = async (
   const searchResult = await oystehr.fhir.search<DocumentReference>({
     resourceType: 'DocumentReference',
     params: [
-      { name: 'category', value: FormTemplateCategoryCoding.fullParam },
+      { name: 'category', value: FORM_TEMPLATE_CATEGORY_SEARCH_PARAM },
       // Soft-deleted templates are `superseded`; only `current` ones are live anywhere.
       { name: 'status', value: 'current' },
       { name: '_elements', value: FORM_TEMPLATE_LIST_ELEMENTS },

@@ -646,12 +646,20 @@ export const GroupAllLocationsCoding = {
  * marker and can no longer use it for anything else.
  */
 export const DOCUMENT_CATEGORY_SYSTEM = ottehrCodeSystemUrl('document-category');
-export const FormTemplateCategoryCoding = {
+
+/**
+ * Typed as `Coding` deliberately: this object is written straight into a FHIR resource, and the server
+ * rejects any property that is not part of the datatype. Keeping the search-parameter string separate
+ * (below) means a convenience field cannot accidentally ride along into a resource.
+ */
+export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
   system: DOCUMENT_CATEGORY_SYSTEM,
   code: 'form-template',
   display: 'Form Template',
-  fullParam: `${DOCUMENT_CATEGORY_SYSTEM}|form-template`,
 };
+
+/** `system|code` form, for `category=` searches. Never written to a resource. */
+export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-template`;
 
 /** Stable per-template business key, so a template survives having its PDF replaced. */
 export const FORM_TEMPLATE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('form-template');

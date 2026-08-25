@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BUCKET_NAMES, FORM_TEMPLATE_IDENTIFIER_SYSTEM, FormTemplateCategoryCoding } from 'utils/lib/fhir/constants';
+import { BUCKET_NAMES, FORM_TEMPLATE_CATEGORY_CODING, FORM_TEMPLATE_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CreateFormTemplateUploadUrlInput,
@@ -82,7 +82,7 @@ const performEffect = async (
     // at an object that does not exist yet; leaving it unpublished means a failed upload surfaces as a
     // visibly broken draft rather than reaching the patient chart.
     docStatus: FORM_TEMPLATE_DOC_STATUS.draft,
-    category: [{ coding: [FormTemplateCategoryCoding] }],
+    category: [{ coding: [FORM_TEMPLATE_CATEGORY_CODING] }],
     identifier: [{ system: FORM_TEMPLATE_IDENTIFIER_SYSTEM, value: identifierValue }],
     date: DateTime.now().setZone('UTC').toISO() ?? '',
     description,

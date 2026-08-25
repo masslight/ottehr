@@ -5,6 +5,7 @@ import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
@@ -23,6 +24,7 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { ReactElement, ReactNode } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
+import { FormTemplatesAdminPage } from 'src/features/admin/form-templates/FormTemplatesAdminPage';
 import { FeeSchedulesIcon } from 'src/features/admin/icons/FeeSchedulesIcon';
 import { InHouseLabsIcon } from 'src/features/admin/icons/InHouseLabsIcon';
 import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
@@ -221,6 +223,16 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <FolderCopyOutlinedIcon />,
         render: () => <AdminCustomFoldersPage />,
       },
+      ...(FEATURE_FLAGS.FORMS_ENABLED
+        ? [
+            {
+              label: 'Form Templates',
+              path: '/admin/form-templates',
+              icon: <DescriptionOutlinedIcon />,
+              render: () => <FormTemplatesAdminPage />,
+            },
+          ]
+        : []),
     ],
   },
   {

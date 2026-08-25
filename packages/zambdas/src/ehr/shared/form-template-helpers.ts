@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
-import { FORM_TEMPLATE_IDENTIFIER_SYSTEM, FormTemplateCategoryCoding } from 'utils/lib/fhir/constants';
+import { FORM_TEMPLATE_CATEGORY_CODING, FORM_TEMPLATE_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
 
@@ -24,7 +24,8 @@ export const FORM_TEMPLATE_LIST_ELEMENTS = 'id,identifier,description,docStatus,
 export const isFormTemplate = (docRef: DocumentReference): boolean =>
   (docRef.category ?? []).some((c) =>
     (c.coding ?? []).some(
-      (coding) => coding.system === FormTemplateCategoryCoding.system && coding.code === FormTemplateCategoryCoding.code
+      (coding) =>
+        coding.system === FORM_TEMPLATE_CATEGORY_CODING.system && coding.code === FORM_TEMPLATE_CATEGORY_CODING.code
     )
   );
 
