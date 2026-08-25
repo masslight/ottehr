@@ -37,7 +37,7 @@ import {
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
-import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { DateValue, ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
@@ -267,6 +267,27 @@ export const writeServiceLineProperty = (
   if (!writer) return false;
   if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
   return writer(line, value, operation);
+};
+
+export type DateValueResolution = { value: string } | { error: string };
+
+const resolveFirstServiceLineDate = (model: RulesEngineClaimModel): DateValueResolution => {
+  const first = model.claim.item?.[0];
+  const date = first?.servicedPeriod?.start ?? first?.servicedDate;
+  return date
+    ? { value: date }
+    : { error: 'no service date could be resolved — the claim has no existing service lines to inherit one from' };
+};
+
+// Resolve a serviceDate-shaped rule value to a concrete date string. A literal string is returned
+// as-is (unvalidated — the writer's isoDateRegex check produces the usual "invalid service date"
+// error for a bad literal). Blank/omitted, and the explicit firstServiceLineDate source, both fall
+// back to the claim's first service line's date — addServiceLine's long-standing implicit behavior,
+// now this resolver's single definition of it.
+export const resolveDateValue = (value: DateValue | undefined, model: RulesEngineClaimModel): DateValueResolution => {
+  if (value != null && typeof value === 'object') return resolveFirstServiceLineDate(model);
+  const literal = value?.trim();
+  return literal ? { value: literal } : resolveFirstServiceLineDate(model);
 };
 
 // The claim's billed total is the sum of line charges (the invariant the claim editor maintains);

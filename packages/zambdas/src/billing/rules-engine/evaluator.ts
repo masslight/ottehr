@@ -24,6 +24,7 @@ import {
   readField,
   readServiceLineProperty,
   recomputeClaimTotal,
+  resolveDateValue,
   RulesEngineClaimModel,
   writeField,
   writeServiceLineProperty,
@@ -248,11 +249,9 @@ const applyAddServiceLine = (
   const input = action.line;
   const existing = claim.item ?? [];
 
-  const serviceDate =
-    input.serviceDate?.trim() || existing[0]?.servicedPeriod?.start || existing[0]?.servicedDate || '';
-  if (!serviceDate) {
-    return 'could not add service line — specify a service date (the claim has no existing lines to inherit one from)';
-  }
+  const dateResolution = resolveDateValue(input.serviceDate, model);
+  if ('error' in dateResolution) return `could not add service line — ${dateResolution.error}`;
+  const serviceDate = dateResolution.value;
 
   const resolved = resolveDiagnosisPointers(input.diagnosisPointers, claim.diagnosis?.length ?? 0);
   if (resolved.error) return `could not add service line — ${resolved.error}`;
@@ -295,11 +294,30 @@ const applyServiceLineUpdate = (
   action: Extract<RuleAction, { type: 'updateServiceLines' }>,
   model: RulesEngineClaimModel
 ): string | undefined => {
+  const def = getServiceLinePropertyDef(action.set.property);
+  let literalValue: string;
+  if (def?.valueType === 'date') {
+    // Resolve once, before mutating any line: a derived source reads claim-level state (billable
+    // period) or the first line's original date, which must not reflect a mutation this same action
+    // is about to make (e.g. when the first line is itself among the lines being updated).
+    const resolution = resolveDateValue(action.set.value, model);
+    if ('error' in resolution) {
+      return `could not update service line property "${action.set.property}" — ${resolution.error}`;
+    }
+    literalValue = resolution.value;
+  } else if (typeof action.set.value === 'string') {
+    literalValue = action.set.value;
+  } else {
+    // Save-time validation rejects a derived-source value on a non-date property; fail safe rather
+    // than crash if one reaches here anyway (e.g. a rule created directly through the API).
+    return `could not update service line property "${action.set.property}" — this property does not accept a derived date value`;
+  }
+
   const matching = (model.claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
   const operation = action.set.operation ?? 'set';
   let changed = false;
   for (const line of matching) {
-    if (!writeServiceLineProperty(line, action.set.property, action.set.value, operation)) {
+    if (!writeServiceLineProperty(line, action.set.property, literalValue, operation)) {
       // Keep the billed total consistent with any lines already updated before failing the rule.
       if (changed && action.set.property === 'charges') recomputeClaimTotal(model.claim);
       return (
