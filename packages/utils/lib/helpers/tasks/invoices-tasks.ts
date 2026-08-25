@@ -116,3 +116,16 @@ export function getLatestTaskOutput(task: Task): { type: 'error' | 'success'; me
   }
   return undefined;
 }
+
+export function getInvoiceTaskOutputs(task: Task): { invoiceId?: string; error?: string } {
+  const outputs = task.output ?? [];
+  const invoiceId = outputs
+    .slice()
+    .reverse()
+    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId))?.valueString;
+  const error = outputs
+    .slice()
+    .reverse()
+    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))?.valueString;
+  return { invoiceId, error };
+}

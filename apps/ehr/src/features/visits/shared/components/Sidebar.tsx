@@ -328,7 +328,12 @@ export const Sidebar = (): JSX.Element => {
   const menuItems = generateMenuItems(
     Object.values(routesInPerson)
       .filter((route) => !route.isSkippedInNavigation)
-      .filter((route) => route.path !== ROUTER_PATH.OTTEHR_AI || chartData?.aiChat?.documents?.[0])
+      .filter(
+        (route) =>
+          route.path !== ROUTER_PATH.OTTEHR_AI ||
+          chartData?.aiChat?.documents?.[0] ||
+          chartData?.aiChat?.hasPendingRecording
+      )
   );
 
   return (

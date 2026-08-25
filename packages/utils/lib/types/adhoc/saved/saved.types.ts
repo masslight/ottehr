@@ -5,8 +5,7 @@ import { z } from 'zod';
 // Bump when the iframe runtime contract changes incompatibly (the execution contract the generated
 // code was written against). A saved report with an older version should be regenerated from its
 // prompt rather than run against a runtime it wasn't generated for.
-// v1: Chart.js + raw DOM function body. v2: React/JSX over the bundled Report components.
-export const ADHOC_RUNTIME_VERSION = 2;
+export const ADHOC_RUNTIME_VERSION = 3;
 
 export const SavedAdHocReportCriteriaSchema = z.object({
   dateRange: z.string(),

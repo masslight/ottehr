@@ -27,6 +27,9 @@ export const dataTestIds = {
     allergies: 'header-allergies',
     weight: 'header-weight',
   },
+  inPersonLayout: {
+    selectProviderAlert: 'select-provider-alert',
+  },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
@@ -144,6 +147,12 @@ export const dataTestIds = {
     message: 'dialog-message',
     inPersonModalContent: 'in-person-modal-content',
     alertIcon: 'WarningAmberOutlinedIcon',
+  },
+  locationConfig: {
+    bookingLinks: 'location-booking-links',
+    noScheduleWarning: 'location-no-schedule-warning',
+    createScheduleLink: 'location-create-schedule-link',
+    scheduleLink: (scheduleId: string) => `location-schedule-link-${scheduleId}`,
   },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',

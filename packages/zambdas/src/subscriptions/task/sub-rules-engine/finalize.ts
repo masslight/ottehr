@@ -21,7 +21,7 @@ import { submitClaim } from './submit-claim';
 export interface FinalizeRunInput {
   oystehr: Oystehr;
   model: RulesEngineClaimModel;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent[];
 }
 
 export interface FinalizeRunResult {
