@@ -342,13 +342,14 @@ const parseResultsToOrder = (
     orderAddedDateTime,
     providerName,
     providerId: orderingProvider.id ?? '',
-    canEditFinalReport: canCallerEditFinalReport(
+    canEditPreliminaryReport: canCallerEditReport(
       serviceRequest,
       encounter,
-      bestFinalReport,
+      preliminaryDiagnosticReport,
       status,
       callerPractitionerId
     ),
+    canEditFinalReport: canCallerEditReport(serviceRequest, encounter, bestFinalReport, status, callerPractitionerId),
     status,
     isStat: serviceRequest.priority === 'stat',
     history,
@@ -358,25 +359,42 @@ const parseResultsToOrder = (
 };
 
 /**
- * Whether the caller may correct the final read: they must have written it and have ordered the study, and
- * the order must not yet be signed off. Teleradiology's reads carry no author of ours, so they never match.
+ * Whether the caller may correct a read — the same rule for both reads, so they can't drift apart.
  *
- * "Ordered it" means either identity the order carries (see `getOrderingProviderIds`) — a nurse routinely
- * places the order on the provider's behalf, so requiring one specific one would lock out the author in
- * whichever case didn't match. `radiology-update-report` enforces the same rule on save; this is what tells
- * the UI whether to offer the pencil.
+ * Two people may correct a read, independently of each other: the practitioner who wrote it, and the
+ * provider who ordered the study. Requiring one person to be both would leave a read written by anyone else
+ * uncorrectable by anyone at all, including its own author — the very thing this feature exists to fix.
+ *
+ * "Ordered it" means either identity the order carries (see `getOrderingProviderIds`), because a nurse
+ * routinely places the order on the provider's behalf.
+ *
+ * A read with no author of ours was not written here — that is how teleradiology's reads are recognised, and
+ * they are not ours to rewrite, so nobody may edit them. It also covers reads written before authorship was
+ * recorded, which are read-only for the same reason: we can't tell whose they were.
+ *
+ * `radiology-update-report` enforces this on save; this is what tells the UI whether to offer the pencil.
  */
-export const canCallerEditFinalReport = (
+export const canCallerEditReport = (
   serviceRequest: ServiceRequest,
   encounter: Encounter | undefined,
-  finalReport: DiagnosticReport | undefined,
+  report: DiagnosticReport | undefined,
   status: RadiologyOrderStatus,
   callerPractitionerId: string | undefined
-): boolean =>
-  !!callerPractitionerId &&
-  status !== RadiologyOrderStatus.reviewed &&
-  getReportAuthorId(finalReport) === callerPractitionerId &&
-  getOrderingProviderIds(serviceRequest, encounter).includes(callerPractitionerId);
+): boolean => {
+  if (!callerPractitionerId || status === RadiologyOrderStatus.reviewed) {
+    return false;
+  }
+
+  const authorId = getReportAuthorId(report);
+  if (!authorId) {
+    return false;
+  }
+
+  return (
+    authorId === callerPractitionerId ||
+    getOrderingProviderIds(serviceRequest, encounter).includes(callerPractitionerId)
+  );
+};
 
 // External (print-only) orders: a two-row history mirroring the ordered -> reviewed lifecycle.
 const buildExternalHistory = (
