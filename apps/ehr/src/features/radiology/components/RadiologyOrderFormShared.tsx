@@ -284,8 +284,7 @@ export const RadiologyOrderFormActions: React.FC<{
   onCancel?: () => void;
   cancelUrl?: string;
   clearFormButton?: React.ReactNode;
-  disabled?: boolean;
-}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton, disabled }) => {
+}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton }) => {
   const navigate = useNavigate();
   const isInlineFlow = useIsInlineFlow();
   const theme = useTheme();
@@ -311,7 +310,6 @@ export const RadiologyOrderFormActions: React.FC<{
         <LoadingButton
           data-testid={dataTestIds.radiologyPage.submitOrderButton}
           loading={submitting}
-          disabled={disabled}
           type="submit"
           variant="contained"
           sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}

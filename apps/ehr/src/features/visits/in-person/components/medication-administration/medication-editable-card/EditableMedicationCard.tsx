@@ -796,6 +796,7 @@ export const EditableMedicationCard: React.FC<{
           handleClose={() => {
             setIsConfirmSaveModalOpen(false);
             confirmedMedicationUpdateRequestRef.current = {};
+            typeRef.current = typeFromProps;
           }}
           handleConfirm={handleConfirmSave}
           description={''}

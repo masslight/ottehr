@@ -127,6 +127,7 @@ interface LineItem {
   modifier?: string;
   description: string;
   amount: number;
+  feeUnknown?: boolean;
 }
 
 function buildLineItems(
@@ -143,6 +144,7 @@ function buildLineItems(
     const cptModifier = cpt.modifier?.[0]?.code;
     let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+    let exactMatched = false;
 
     for (const pg of feeSchedule.propertyGroup) {
       const pc = pg.priceComponent?.[0];
@@ -158,6 +160,7 @@ function buildLineItems(
           description: cpt.display || fsCoding.display || '',
           amount: pc.amount?.value ?? 0,
         });
+        exactMatched = true;
         noModifierFallbackPg = undefined;
         anyModifierFallbackPg = undefined;
         break;
@@ -169,8 +172,8 @@ function buildLineItems(
 
     const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
 
-    // No exact match found — fall back to first entry with matching code
     if (fallbackPg) {
+      // No exact match found — fall back to first entry with matching code
       const pc = fallbackPg.priceComponent![0];
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       items.push({
@@ -178,6 +181,15 @@ function buildLineItems(
         modifier: cptModifier,
         description: cpt.display || fsCoding?.display || '',
         amount: pc.amount?.value ?? 0,
+      });
+    } else if (!exactMatched) {
+      // Code not found in fee schedule — include with unknown fee
+      items.push({
+        code: cpt.code,
+        modifier: cptModifier,
+        description: cpt.display || '',
+        amount: 0,
+        feeUnknown: true,
       });
     }
   }
@@ -1015,7 +1027,9 @@ export default function PatientPaymentList({
                             </Typography>
                           </TableCell>
                           <TableCell sx={{ textAlign: 'right', width: '20%' }}>
-                            <Typography variant="body2">{formatUsd(item.amount)}</Typography>
+                            <Typography variant="body2" color={item.feeUnknown ? 'text.secondary' : undefined}>
+                              {item.feeUnknown ? 'Fee unknown' : formatUsd(item.amount)}
+                            </Typography>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1229,7 +1243,9 @@ export default function PatientPaymentList({
                                     </Typography>
                                   </TableCell>
                                   <TableCell sx={{ textAlign: 'right', width: '20%' }}>
-                                    <Typography variant="body2">{formatUsd(item.amount)}</Typography>
+                                    <Typography variant="body2" color={item.feeUnknown ? 'text.secondary' : undefined}>
+                                      {item.feeUnknown ? 'Fee unknown' : formatUsd(item.amount)}
+                                    </Typography>
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -1345,7 +1361,9 @@ export default function PatientPaymentList({
                             </Typography>
                           </TableCell>
                           <TableCell sx={{ textAlign: 'right', width: '20%' }}>
-                            <Typography variant="body2">{formatUsd(item.amount)}</Typography>
+                            <Typography variant="body2" color={item.feeUnknown ? 'text.secondary' : undefined}>
+                              {item.feeUnknown ? 'Fee unknown' : formatUsd(item.amount)}
+                            </Typography>
                           </TableCell>
                         </TableRow>
                       ))}

@@ -9,7 +9,8 @@ interface RecipientFieldsProps {
   index: number;
   /** Whether this recipient is the one that will be saved as the patient's PCP (radio across the list). */
   isPcp: boolean;
-  onSaveAsPcpChange: (value: boolean) => void;
+  /** Present only for the original single-visit flow, which is the only flow that manages the PCP. */
+  onSaveAsPcpChange?: (value: boolean) => void;
   onRemove?: () => void;
 }
 
@@ -41,7 +42,7 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
     />
     <PhoneInput
       name={`recipients.${index}.faxNumber`}
-      label="Fax number"
+      label="Recipient Fax"
       required
       dataTestId={`${dataTestIds.faxDialog.faxNumber}-${index}`}
     />
@@ -51,16 +52,18 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
       dataTestId={`${dataTestIds.faxDialog.phoneNumber}-${index}`}
     />
 
-    <FormControlLabel
-      control={
-        <Checkbox
-          size="small"
-          checked={isPcp}
-          onChange={(event) => onSaveAsPcpChange(event.target.checked)}
-          data-testid={`${dataTestIds.faxDialog.saveAsPcp}-${index}`}
-        />
-      }
-      label="Save as patient's PCP"
-    />
+    {onSaveAsPcpChange && (
+      <FormControlLabel
+        control={
+          <Checkbox
+            size="small"
+            checked={isPcp}
+            onChange={(event) => onSaveAsPcpChange(event.target.checked)}
+            data-testid={`${dataTestIds.faxDialog.saveAsPcp}-${index}`}
+          />
+        }
+        label="Save as patient's PCP"
+      />
+    )}
   </Box>
 );

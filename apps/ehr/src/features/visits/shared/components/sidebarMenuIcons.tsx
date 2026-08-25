@@ -1,5 +1,6 @@
 import { aiIcon } from '@ehrTheme/icons';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 
 // Kept out of Sidebar.tsx so modules rendered inside the sidebar's routes (e.g. the
 // Review & Sign note, which labels its sections with these icons) can import them
@@ -21,6 +22,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  Documents: <FolderOutlinedIcon />,
   'Review & Sign': (
     <svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path

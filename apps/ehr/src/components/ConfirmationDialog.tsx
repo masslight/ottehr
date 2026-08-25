@@ -24,6 +24,7 @@ type ConfirmationDialogProps = {
     };
     reverse?: boolean;
   };
+  showCloseButton?: boolean;
 };
 
 export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
@@ -40,6 +41,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
   return (
     <InnerStateDialog
       title={props.title}
+      showCloseButton={props.showCloseButton}
       content={
         props.description &&
         (typeof props.description === 'string' ? (

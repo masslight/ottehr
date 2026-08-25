@@ -396,6 +396,11 @@ interface PatientAccountComponentProps {
    * patient-info page.
    */
   photoIdCardSlot?: ReactNode;
+  /**
+   * When set, "Save All" is disabled and this text explains why on hover. Used by the visit page to
+   * require the consent attestation before any of the visit's details can be saved.
+   */
+  submitBlockedReason?: string;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -410,6 +415,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   appointmentId,
   renderInsuranceCardThumbnail,
   photoIdCardSlot,
+  submitBlockedReason,
 }) => {
   const navigate = useNavigate();
 
@@ -692,6 +698,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
+            submitBlockedReason={submitBlockedReason}
             backButtonHidden={renderBackButton === false}
           />
         </Box>

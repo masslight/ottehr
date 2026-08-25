@@ -34,7 +34,7 @@ import { getActionLogs } from '../../api/api';
 import DateSearch from '../../components/DateSearch';
 import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
-import { ACTION_LOG_CHANNEL_COPY } from './actionLogs.constants';
+import { ACTION_LOG_CHANNEL_COPY, actionLogsQueryKey } from './actionLogs.constants';
 import { RetryActionButton } from './RetryActionButton';
 
 const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
@@ -104,7 +104,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
     isError,
     refetch,
   } = useQuery<GetActionLogsOutput>({
-    queryKey: ['get-action-logs', channel, patientId, patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
+    queryKey: [...actionLogsQueryKey(channel, patientId), patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehr client is not defined');
       return getActionLogs(oystehrZambda, {
@@ -122,7 +122,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
   const logs = visitIdIsInvalid ? [] : actionLogs?.logs ?? [];
   const totalCount = visitIdIsInvalid ? 0 : actionLogs?.totalCount ?? 0;
   const showLoading = isFetching && !visitIdIsInvalid;
-  const columnsCount = patientId ? 5 : 6;
+  const columnsCount = (patientId ? 5 : 6) + (channelCopy.senderAddressLabel ? 1 : 0);
 
   const renderSearchField = (
     label: string,
@@ -201,7 +201,8 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
             {!patientId && <TableCell>Patient</TableCell>}
             <TableCell>Visit</TableCell>
             <TableCell>Recipient</TableCell>
-            <TableCell>{channelCopy.addressLabel}</TableCell>
+            <TableCell>{channelCopy.recipientAddressLabel}</TableCell>
+            {channelCopy.senderAddressLabel && <TableCell>{channelCopy.senderAddressLabel}</TableCell>}
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -227,7 +228,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
           ) : (
             logs.map((log) => (
               <TableRow key={log.attemptId}>
-                <TableCell>{log.documentReferenceId ? 'Visit Note' : '-'}</TableCell>
+                <TableCell>{log.documentTitle ?? '-'}</TableCell>
                 {!patientId && <TableCell>{log.patientName ?? '-'}</TableCell>}
                 <TableCell>
                   {log.appointmentId ? (
@@ -259,6 +260,9 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                     ? formatPhoneNumberDisplay(log.recipientAddress)
                     : log.recipientAddress || '-'}
                 </TableCell>
+                {channelCopy.senderAddressLabel && (
+                  <TableCell>{log.senderAddress ? formatPhoneNumberDisplay(log.senderAddress) : '-'}</TableCell>
+                )}
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />

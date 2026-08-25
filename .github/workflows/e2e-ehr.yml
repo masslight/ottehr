@@ -45,7 +45,10 @@ on:
 jobs:
   check-changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # 5, not 2: these steps are cheap, but the full-history checkout they depend on is
+    # network-bound and has been observed between 22s and just over 2m on a slow runner —
+    # tripping the old limit and failing the whole e2e gate. Still short enough to catch a hang.
+    timeout-minutes: 5
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
       skip-reason: ${{ steps.check.outputs.skip-reason }}

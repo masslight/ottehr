@@ -1,25 +1,12 @@
-import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { randomUUID } from 'crypto';
-import {
-  Account,
-  Coverage,
-  Encounter,
-  FhirResource,
-  Location,
-  Patient,
-  Provenance,
-  ServiceRequest,
-  Task,
-} from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Account, Coverage, Encounter, Location, Patient } from 'fhir/r4b';
 import { PATIENT_BILLING_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/orders/constants';
 import { CreateNursingOrderInputValidated } from 'utils/lib/types/data/orders/types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient, fillMeta } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -159,82 +146,17 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
 
   const location: Location | undefined = locationsSearchResults[0];
 
-  const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
-
-  const serviceRequestConfig: ServiceRequest = {
-    resourceType: 'ServiceRequest',
-    status: 'draft',
-    intent: 'order',
-    subject: {
-      reference: `Patient/${patient.id}`,
-    },
-    encounter: {
-      reference: `Encounter/${encounterId}`,
-    },
-    requester: {
-      reference: `Practitioner/${attendingPractitionerId}`,
-    },
-    authoredOn: DateTime.now().toISO() || undefined,
-    priority: 'stat',
-    ...(location && {
-      locationReference: [
-        {
-          type: 'Location',
-          reference: `Location/${location.id}`,
-        },
-      ],
-    }),
-    meta: fillMeta('nursing order', 'order-type-tag'),
-    ...(notes && { note: [{ text: notes }] }),
-    ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
-  };
-
-  const taskConfig: Task = {
-    resourceType: 'Task',
-    status: 'requested',
-    description: `Create nursing order for ${getFullestAvailableName(patient)}`,
-    basedOn: [{ reference: serviceRequestFullUrl }],
-    encounter: { reference: `Encounter/${encounterId}` },
-    authoredOn: DateTime.now().toISO(),
-    intent: 'order',
-    ...(location && { location: { reference: `Location/${location.id}` } }),
-  };
-
-  const provenanceConfig: Provenance = {
-    resourceType: 'Provenance',
-    activity: {
-      coding: [NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
-    },
-    target: [{ reference: serviceRequestFullUrl }],
-    ...(location && { location: { reference: `Location/${location.id}` } }),
-    recorded: DateTime.now().toISO(),
-    agent: [
-      {
-        who: { reference: `Practitioner/${userPractitionerId}` },
-        onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
-      },
-    ],
-  };
-
   const transactionResponse = await oystehr.fhir.transaction({
-    requests: [
-      {
-        method: 'POST',
-        url: '/ServiceRequest',
-        resource: serviceRequestConfig,
-        fullUrl: serviceRequestFullUrl,
-      },
-      {
-        method: 'POST',
-        url: '/Task',
-        resource: taskConfig,
-      },
-      {
-        method: 'POST',
-        url: '/Provenance',
-        resource: provenanceConfig,
-      },
-    ] as BatchInputRequest<FhirResource>[],
+    requests: makeNursingOrderTransactionRequests({
+      encounterId,
+      patientId: patient.id!,
+      patientName: getFullestAvailableName(patient) ?? '',
+      attendingPractitionerId,
+      createdByPractitionerId: userPractitionerId,
+      notes,
+      locationId: location?.id,
+      coverageId: coverage?.id,
+    }),
   });
 
   if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {

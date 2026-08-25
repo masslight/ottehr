@@ -11,8 +11,10 @@ import {
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import {
+  IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
   MedicationData,
   MedicationOrderStatuses,
+  MedicationOrderStatusesType,
   OrderPackage,
 } from 'utils/lib/types/api/medication-administration.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
@@ -173,4 +175,34 @@ export function getEncounterIdFromMA(medicationAdministration: MedicationAdminis
   const maContext = medicationAdministration.context?.reference;
   if (maContext?.includes('Encounter/')) return maContext?.replace('Encounter/', '');
   return undefined;
+}
+
+// Partly administered counts too: IV medication still entered the patient, so vitals still need re-taking.
+const STATUSES_REQUIRING_VITALS_RECHECK: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
+
+/**
+ * Whether this update should raise a nursing order prompting a vitals re-check — true when an order on an
+ * IV route is being moved into an administered status.
+ */
+export function shouldCreateVitalsRecheckNursingOrder({
+  previousStatus,
+  newStatus,
+  orderData,
+  medicationAdministration,
+}: {
+  previousStatus: MedicationOrderStatusesType | undefined;
+  newStatus: MedicationOrderStatusesType;
+  orderData: MedicationData;
+  medicationAdministration: MedicationAdministration;
+}): boolean {
+  if (!STATUSES_REQUIRING_VITALS_RECHECK.includes(newStatus)) return false;
+
+  // Only on the transition into an administered status. Re-saving an already-administered order through
+  // the completed-edit form sends the same status again, and must not raise a second re-check.
+  if (previousStatus === newStatus) return false;
+
+  // orderData carries the route the clinician just confirmed; fall back to the stored route, which is
+  // what an update that left dose/units (and therefore dosage.route) untouched leaves in place.
+  const routeCode = orderData.route || getDosageUnitsAndRouteOfMedication(medicationAdministration).route;
+  return Boolean(routeCode && IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK.includes(routeCode));
 }

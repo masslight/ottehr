@@ -23,6 +23,18 @@ export const MIME_TYPES = {
 
 export type MimeType = (typeof MIME_TYPES)[keyof typeof MIME_TYPES];
 
+/**
+ * Formats a fax packet can render. Anything else (zip archives, XML, HEIC, …) is left out, so the
+ * EHR and the fax builder agree on which documents offer a "Send Fax" action.
+ */
+export const FAXABLE_MIME_TYPES: string[] = [MIME_TYPES.PDF, MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG];
+
+/** Attachments don't always carry a contentType; fall back to the file extension of the URL. */
+export const isFaxableAttachment = (attachment: { url?: string; contentType?: string }): boolean => {
+  const mimeType = attachment.contentType ?? (attachment.url ? getMimeType(attachment.url) : undefined);
+  return FAXABLE_MIME_TYPES.includes(mimeType ?? '');
+};
+
 const extensionToMime: Record<string, MimeType> = {
   pdf: MIME_TYPES.PDF,
   jpg: MIME_TYPES.JPEG,

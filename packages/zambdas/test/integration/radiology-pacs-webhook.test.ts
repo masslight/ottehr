@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
-import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { SECRETS } from '../data/secrets';
 import {
@@ -98,6 +102,47 @@ describe('radiology-pacs-webhook integration — happy paths', () => {
       id: serviceRequestId,
     });
     expect(updated.status).toBe('completed');
+    // The stamp is what puts a `performed` row in the order history at all.
+    expect(
+      updated.extension?.find((ext) => ext.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL)?.valueDateTime
+    ).toBeDefined();
+  });
+
+  // The stamp keys off its own absence, not off our status still being pre-completed: an order that reached
+  // `completed` some other way used to be stuck without a `performed` row forever.
+  it('stamps performed-on even when the order is already completed', async () => {
+    const stampless = await oystehrAdmin.fhir.patch<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+      operations: [
+        {
+          op: 'remove',
+          path: `/extension/${(
+            await oystehrAdmin.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: serviceRequestId })
+          ).extension!.findIndex((ext) => ext.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL)}`,
+        },
+      ],
+    });
+    expect(stampless.status).toBe('completed');
+    expect(stampless.extension?.find((ext) => ext.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL)).toBeUndefined();
+
+    const response = await postWebhook({
+      resourceType: 'ServiceRequest',
+      id: 'advapacs-mock-service-request',
+      status: 'completed',
+      intent: 'order',
+      subject: orderServiceRequest.subject,
+      identifier: orderServiceRequest.identifier,
+    } as ServiceRequest);
+    expect(response.status).toBe(200);
+
+    const restamped = await oystehrAdmin.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    });
+    expect(
+      restamped.extension?.find((ext) => ext.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL)?.valueDateTime
+    ).toBeDefined();
   });
 
   it('DiagnosticReport webhook finalizes our matching DiagnosticReport', async () => {
@@ -142,7 +187,16 @@ describe('radiology-pacs-webhook integration — happy paths', () => {
         params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
       })
     ).unbundle();
-    expect(reports.some((r) => r.status === 'final')).toBe(true);
+    const final = reports.find((r) => r.status === 'final');
+    expect(final).toBeDefined();
+
+    // The report is teleradiology's now, so it must not still name the provider who wrote the preliminary
+    // read as its author — that would credit their read to them in the history and, worse, let them edit it.
+    expect(final?.performer ?? []).toHaveLength(0);
+
+    // The preliminary read lives on as its own report, keeping the author the finalized one just lost.
+    const preliminary = reports.find((r) => r.status === 'preliminary');
+    expect(preliminary?.performer?.[0]?.reference).toMatch(/^Practitioner\//);
   });
 
   it('ImagingStudy webhook is accepted and marks the study complete', async () => {

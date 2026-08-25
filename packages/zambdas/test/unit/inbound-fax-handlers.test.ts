@@ -80,7 +80,10 @@ import { APIErrorCode } from 'utils/lib/types/errors';
 import { index as deleteInboundFaxRaw } from '../../src/ehr/delete-inbound-fax/index';
 import { index as fileInboundFaxRaw } from '../../src/ehr/file-inbound-fax/index';
 import { Z3Error } from '../../src/shared/z3Utils';
-import { index as handleInboundFaxRaw } from '../../src/subscriptions/communication/handle-inbound-fax/index';
+import {
+  faxTaskTitle,
+  index as handleInboundFaxRaw,
+} from '../../src/subscriptions/communication/handle-inbound-fax/index';
 
 const fileInboundFax = fileInboundFaxRaw as unknown as ZambdaHandler;
 const deleteInboundFax = deleteInboundFaxRaw as unknown as ZambdaHandler;
@@ -542,10 +545,27 @@ describe('handle-inbound-fax handler', () => {
 
     const createdTask = mockOystehr.fhir.create.mock.calls[0][0] as Task;
     expect(createdTask.groupIdentifier?.value).toBe(FAX_TASK.category);
-    // FAX_NOTIFICATIONS_DISABLED: back to .toBe('inboundFax') when the mapping is uncommented.
-    expect(getUiTaskCategoryForCode(createdTask.groupIdentifier?.value)).toBeUndefined();
+    expect(getUiTaskCategoryForCode(createdTask.groupIdentifier?.value)).toBe('inboundFax');
     // The cron only considers tasks in these statuses.
     expect(createdTask.status).toBe('ready');
+  });
+
+  // This sentence becomes the Task's description, which the Tasks queue displays and the notifications
+  // cron sends verbatim to the bell and to SMS — so it has to read correctly for every fax we can receive.
+  describe('faxTaskTitle', () => {
+    it('names the sender and pluralizes the page count', () => {
+      expect(faxTaskTitle('+15551234567', 3)).toBe('Inbound fax from +15551234567 (3 pages)');
+      expect(faxTaskTitle('+15551234567', 1)).toBe('Inbound fax from +15551234567 (1 page)');
+    });
+
+    it('drops the page count entirely when the fax arrived without one', () => {
+      expect(faxTaskTitle('+15551234567', undefined)).toBe('Inbound fax from +15551234567');
+    });
+
+    it('says "unknown" rather than leaving a hole where the sender goes', () => {
+      expect(faxTaskTitle('', 2)).toBe('Inbound fax from unknown (2 pages)');
+      expect(faxTaskTitle(undefined, undefined)).toBe('Inbound fax from unknown');
+    });
   });
 
   describe('outbound faxes', () => {

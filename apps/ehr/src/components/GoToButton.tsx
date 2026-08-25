@@ -3,7 +3,7 @@ import { ReactElement, ReactNode } from 'react';
 
 interface Props {
   text: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLElement>) => void;
   loading?: boolean;
   children: ReactNode | ReactNode[];
   dataTestId?: string;

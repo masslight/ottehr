@@ -149,8 +149,10 @@ describe('radiology get-order-pdf integration tests', () => {
     await oystehrTestUserM2M.zambda.execute({
       id: 'RADIOLOGY-UPDATE-ORDER',
       serviceRequestId: orderOutput.serviceRequestId,
-      consentObtained: false,
-      edit: { ...editableFields, clinicalHistory: 'Took a second arrow to the knee' },
+      update: {
+        type: 'content',
+        order: { ...editableFields, clinicalHistory: 'Took a second arrow to the knee' },
+      },
     });
 
     const afterEditOutput = (

@@ -201,6 +201,8 @@ import {
   SendRadiologyOrderFaxZambdaOutput,
   UpdateRadiologyOrderZambdaInput,
   UpdateRadiologyOrderZambdaOutput,
+  UpdateRadiologyReportZambdaInput,
+  UpdateRadiologyReportZambdaOutput,
   UploadRadiologyResultZambdaInput,
   UploadRadiologyResultZambdaOutput,
 } from 'utils/lib/types/api/radiology';
@@ -1519,6 +1521,22 @@ export const saveFinalReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-save-final-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateRadiologyReport = async (
+  oystehr: Oystehr,
+  parameters: UpdateRadiologyReportZambdaInput
+): Promise<UpdateRadiologyReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-update-report',
       ...parameters,
     });
     return chooseJson(response);

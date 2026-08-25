@@ -36,8 +36,8 @@ import {
   useChartData,
   useSaveChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { CPTCodeOption } from 'utils';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -85,7 +85,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
   const apiClient = useOystehrAPIClient();
   const { encounter, patient, location: apptLocation, followUpOriginEncounter: mainEncounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
-  const { mutate: saveCPTChartData } = useSaveChartData();
+  const { mutateAsync: saveCPTChartData } = useSaveChartData();
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
@@ -130,8 +130,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
   );
   const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
   const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
-  // Ordering external labs is NPI-gated — block users without an NPI on file (e.g. the Clinician role).
-  const hasNPI = useEvolveUser()?.hasNPI ?? false;
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>(
     draft.selectedPaymentMethod ?? formStateDefaults.selectedPaymentMethod
   );
@@ -316,6 +314,27 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
         });
         // clear out the zustand store once the lab is created
         clearDraft(encounter.id);
+
+        // add the cpt codes for the labs to the chart
+        const cptCodesForLabs: CPTCodeOption[] = selectedLabs.flatMap((item) => {
+          return item.item.cptCodes.map((code) => ({
+            code: code.cptCode,
+            display: item.item.itemName,
+          }));
+        });
+
+        if (cptCodesForLabs.length && selectedPaymentMethod === LabPaymentMethod.ClientBill) {
+          try {
+            await saveCptsForLabs(cptCodesForLabs);
+          } catch (e) {
+            const cptSaveError = e as Oystehr.OystehrSdkError;
+            console.log('error saving cpt codes for external lab order', cptSaveError.code, cptSaveError.message);
+            enqueueSnackbar('External lab order created, but CPT codes could not be saved to the chart.', {
+              variant: 'warning',
+            });
+          }
+        }
+
         exit();
       } catch (e) {
         const sdkError = e as Oystehr.OystehrSdkError;
@@ -392,21 +411,16 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
     const codesToAdd = cptCodesToAddPerEncounter?.filter((codeToAdd) => !existingCodes.includes(codeToAdd.code));
 
     if (codesToAdd && codesToAdd.length > 0) {
-      saveCPTChartData(
-        {
-          cptCodes: codesToAdd,
-        },
-        {
-          onSuccess: (data) => {
-            const cptCode = data.chartData?.cptCodes?.[0];
-            if (cptCode) {
-              setPartialChartData({
-                cptCodes: [...chartCptCodes, cptCode],
-              });
-            }
-          },
-        }
-      );
+      await saveCptsForLabs(codesToAdd);
+    }
+  };
+
+  const saveCptsForLabs = async (cptCodesToAdd: CPTCodeOption[]): Promise<void> => {
+    const chartCptCodes = chartData?.cptCodes || [];
+    const data = await saveCPTChartData({ cptCodes: cptCodesToAdd });
+    const cptCodes = data.chartData?.cptCodes ?? [];
+    if (cptCodes.length) {
+      setPartialChartData({ cptCodes: [...chartCptCodes, ...cptCodes] });
     }
   };
 
@@ -769,7 +783,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
                     data-testid={dataTestIds.externalLabs.createPg.createExternalLabOrderBtn}
-                    disabled={isOrderingDisabled || !hasNPI}
+                    disabled={isOrderingDisabled}
                     loading={submitting}
                     type="submit"
                     variant="contained"
@@ -778,13 +792,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
                     Order
                   </LoadingButton>
                 </Grid>
-                {!hasNPI && (
-                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
-                    <Typography sx={{ color: theme.palette.error.main }}>
-                      You need an NPI on file to order external labs
-                    </Typography>
-                  </Grid>
-                )}
                 {Array.isArray(error) &&
                   error.length > 0 &&
                   error.map((msg, idx) => (

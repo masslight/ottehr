@@ -1,5 +1,6 @@
 import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
+import { RadiologyReportType } from 'utils/lib/types/api/radiology';
 import { RoleType } from 'utils/lib/types/api/user.types';
 
 export const dataTestIds = {
@@ -121,8 +122,10 @@ export const dataTestIds = {
     recipientName: 'fax-dialog-recipient-name',
     organization: 'fax-dialog-recipient-organization',
     faxNumber: 'fax-dialog-recipient-fax-number',
+    senderFax: 'fax-dialog-sender-fax',
     phoneNumber: 'fax-dialog-recipient-phone-number',
     saveAsPcp: 'fax-dialog-save-as-pcp',
+    visitCheckbox: 'fax-dialog-visit',
     addRecipient: 'fax-dialog-add-recipient',
     removeRecipient: 'fax-dialog-remove-recipient',
     sendButton: 'fax-dialog-send-button',
@@ -478,9 +481,18 @@ export const dataTestIds = {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',
     cancelVisitDialogue: 'cancel-visit-dialogue',
+    consentAttestationCheckbox: 'consent-attestation-checkbox',
+    consentAttestationSaveButton: 'consent-attestation-save-button',
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
+    faxPatientDocsButton: 'fax-patient-docs-button',
+    medicalRecordButton: 'medical-record-button',
+    downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
+    faxMedicalRecordMenuItem: 'fax-medical-record-menu-item',
+  },
+  patientDocsPage: {
+    faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
   },
   addInsuranceDialog: {
     id: 'add-insurance-dialog',
@@ -755,6 +767,11 @@ export const dataTestIds = {
     submitOrderButton: 'radiology-submit-order-button',
     performedBySelect: 'radiology-performed-by-select',
     performedByValue: 'radiology-performed-by-value',
+    savePerformedByButton: 'radiology-save-performed-by-button',
+    markAsReviewedButton: 'radiology-mark-as-reviewed-button',
+    editReportButton: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-button`,
+    editReportInput: (reportType: RadiologyReportType) => `radiology-edit-${reportType}-report-input`,
+    saveEditedReportButton: (reportType: RadiologyReportType) => `radiology-save-${reportType}-report-button`,
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
     externalOrderLabel: (serviceRequestId: string) => `radiology-external-order-label-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
@@ -809,6 +826,15 @@ export const dataTestIds = {
     rosTable: 'review-of-systems-table',
     deniesCheckboxCell: 'ros-denies-checkbox-cell',
     reportsCheckboxCell: 'ros-reports-checkbox-cell',
+    selectAllDeniesCell: 'ros-select-all-denies-cell',
+    clearRosButton: 'clear-ros-button',
+  },
+
+  examPage: {
+    selectAllNormalCheckbox: (sectionKey: string): string => `exam-select-all-normal-${sectionKey}`,
+    /** Container of a section's normal findings, i.e. its normal column minus the "Select all". */
+    normalFindings: 'exam-normal-findings',
+    clearExamButton: 'clear-exam-button',
   },
 
   externalLabs: {

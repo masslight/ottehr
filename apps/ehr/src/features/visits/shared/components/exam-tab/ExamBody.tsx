@@ -1,11 +1,13 @@
-import { CircularProgress, Stack } from '@mui/material';
+import { Box, CircularProgress, Stack } from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useExamObservationsInitializationStore } from '../../stores/appointment/exam-observations.store';
 import { ExaminationContainer } from '../review-tab/components/ExaminationContainer';
+import { ClearExamButton } from './ClearExamButton';
 import { ExamMigrationWarning } from './ExamMigrationWarning';
 import { ExamTable } from './ExamTable';
 import { useExamConfigState } from './useExamConfigState';
@@ -15,6 +17,7 @@ import { useExamConfigState } from './useExamConfigState';
 export const ExamBody: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const hasInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);
+  const isInlineFlow = useIsInlineFlow();
 
   // Derive from the appointment's FHIR module tag so the selected config matches
   // what save-chart-data validates against (it uses isInPersonAppointment on the
@@ -53,7 +56,16 @@ export const ExamBody: FC = () => {
           </Stack>
         </AccordionCard>
       ) : (
-        <ExamTable examConfig={config} />
+        <Stack spacing={1}>
+          {/* On its own screen this action sits in the page title, which the inline editor
+              doesn't render — so inline it goes above the table instead. */}
+          {isInlineFlow && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <ClearExamButton />
+            </Box>
+          )}
+          <ExamTable examConfig={config} />
+        </Stack>
       )}
     </>
   );
