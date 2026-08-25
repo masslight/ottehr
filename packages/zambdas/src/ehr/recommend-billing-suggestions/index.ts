@@ -12,6 +12,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { warmTerminologyConnection } from './terminology';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -158,6 +159,12 @@ export const index = wrapHandler(
     m2mToken = await timed('checkOrCreateM2MClientToken', () => checkOrCreateM2MClientToken(m2mToken, secrets));
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+    // Fired now and awaited only just before the terminology fan-out, so the cost of opening the first
+    // connection to the terminology host lands underneath the E&M read and the model call instead of on
+    // top of them. See warmTerminologyConnection() for why that cost is worth hiding.
+    const terminologyWarmup = warmTerminologyConnection(oystehr);
+
     const emCodeOptions = await timed('getEmCodes', () => getEmCodes(oystehr));
     const prescribedMedicationContext = formatPrescribedMedicationsForBillingPrompt(prescribedMedications);
     const currentMedicationContext = formatCurrentMedicationsForBillingPrompt(currentMedications);
@@ -366,6 +373,11 @@ export const index = wrapHandler(
     const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
 
     const codeValidationStart = Date.now();
+
+    // The warm-up fired before the E&M read, so by now it has almost certainly settled and this await
+    // is free. Awaiting it rather than ignoring it is what guarantees the fan-out below never races the
+    // very first connection to the terminology host.
+    await terminologyWarmup;
 
     // Validate the suggested codes and fetch their descriptions. The ICD phase and the CPT phase are
     // independent of each other, so they run concurrently: as two sequential awaits they put two full
