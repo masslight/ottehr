@@ -620,3 +620,18 @@ export async function fetchAllPages(
     }
   } while (hasMorePages);
 }
+
+/**
+ * compares semver strings; returns 1 if versionA > versionB, -1 if versionA < versionB, 0 if equal
+ */
+export function compareVersions(versionA: string, versionB: string): number {
+  const a = versionA.split('.').map(Number);
+  const b = versionB.split('.').map(Number);
+
+  for (let i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return 1;
+    if (a[i] < b[i]) return -1;
+  }
+
+  return 0;
+}
