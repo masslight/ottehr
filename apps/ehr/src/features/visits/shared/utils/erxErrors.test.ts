@@ -37,6 +37,27 @@ describe('getErxPatientSyncErrorMessage', () => {
       'Something is wrong with patient data.'
     );
   });
+
+  // The cases above all pass the bare phrase, so they would pass with an exact-equality check too.
+  // These pin the loose matching: the text comes from DoseSpot and can gain a prefix, a trailing
+  // period or different capitalisation without notice, and a miss silently drops the actionable hint.
+  it.each([
+    [
+      'a wrapped and punctuated message',
+      'Validation failed: Weight must be entered for patient 18 years old and under.',
+    ],
+    ['different capitalisation', 'WEIGHT MUST BE ENTERED FOR PATIENT 18 YEARS OLD AND UNDER'],
+  ])('still maps the missing-weight error given %s', (_label, message) => {
+    expect(getErxPatientSyncErrorMessage({ code: '4006', message })).toBe(
+      "Weight must be entered for patient 18 years old and under. Please specify patient's weight in the 'Vitals' tab."
+    );
+  });
+
+  it('matches the unconfigured-service error regardless of capitalisation', () => {
+    expect(getErxPatientSyncErrorMessage({ code: '4006', message: 'ERX Service Is Not Configured' })).toBe(
+      'eRx service is not configured. Please contact support.'
+    );
+  });
 });
 
 // The 4-digit cases are the important negatives, and the reason the mapper above types `code` as a

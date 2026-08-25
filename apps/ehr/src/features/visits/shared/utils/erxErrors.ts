@@ -48,16 +48,23 @@ export const isErxPermissionDeniedError = (error: unknown): boolean => {
 /**
  * Maps an eRx `syncPatient` failure to a user-facing message. Shared so both eRx flows surface
  * the same guidance (bad phone, missing weight for minors, unconfigured service, etc.).
+ *
+ * All three conditions arrive under the single code `4006`, so the message text is the only
+ * discriminator available — hence substring matching, case-insensitively. The text originates from
+ * DoseSpot via the Oystehr eRx API, so it is not ours and carries no stability contract: it can pick
+ * up a prefix, a trailing period or different capitalisation at any time. A miss is silent (it falls
+ * through to the generic message and the user loses the actionable hint), so match loosely.
  */
 export const getErxPatientSyncErrorMessage = (error: ErxError, phoneNumber?: string): string => {
   if (error.code === '4006') {
-    if (error.message?.toLowerCase()?.includes('phone')) {
+    const message = error.message?.toLowerCase() ?? '';
+    if (message.includes('phone')) {
       return `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
     }
-    if (error.message?.includes('eRx service is not configured')) {
+    if (message.includes('erx service is not configured')) {
       return `eRx service is not configured. Please contact support.`;
     }
-    if (error.message?.includes('Weight must be entered for patient 18 years old and under')) {
+    if (message.includes('weight must be entered for patient 18 years old and under')) {
       return `Weight must be entered for patient 18 years old and under. Please specify patient's weight in the 'Vitals' tab.`;
     }
     return `Something is wrong with patient data.`;
