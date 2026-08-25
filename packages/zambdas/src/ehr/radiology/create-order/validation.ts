@@ -52,8 +52,10 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
   const cpt = await validateCPTCode(cptCode, oystehr);
   const encounter = await fetchEncounter(encounterId, oystehr);
 
+  const trimmedClinicalHistory = clinicalHistory?.trim() ?? '';
+
   // Clinical history is required for in-house orders, optional for external ones.
-  if (!isExternal && !clinicalHistory) {
+  if (!isExternal && !trimmedClinicalHistory) {
     throw new Error('Clinical history is required and must be a string');
   }
 
@@ -63,7 +65,7 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
     lateralityModifier,
     encounter,
     stat,
-    clinicalHistory: clinicalHistory ?? '',
+    clinicalHistory: trimmedClinicalHistory,
     studyName: studyName?.trim() || undefined,
     consentObtained,
     external: isExternal,

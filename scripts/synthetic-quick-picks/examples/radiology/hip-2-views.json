@@ -1,0 +1,8 @@
+{
+  "name": "Hip X-Ray, 2 Views (Unilateral)",
+  "cptCode": "73502",
+  "cptDisplay": "Radiologic examination, hip, unilateral; 2-3 views",
+  "studyName": "X-Ray Hip 2 Views (AP and Lateral)",
+  "clinicalHistory": "Hip pain after fall — evaluate for fracture",
+  "stat": false
+}

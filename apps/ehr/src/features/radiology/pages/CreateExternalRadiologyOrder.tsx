@@ -18,7 +18,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { InputMask } from 'ui-components/lib/components/InputMask';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
@@ -63,7 +62,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
-  const hasNPI = useEvolveUser()?.hasNPI ?? false;
   const isEditMode = !!initialOrder;
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -82,16 +80,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
         }
       : undefined
   );
-  const {
-    orderDx,
-    orderCpt,
-    studyName,
-    clinicalHistory,
-    lateralityModifier,
-    addAdditionalDxToEncounter,
-    chartCptCodes,
-    setPartialChartData,
-  } = form;
+  const { orderDx, orderCpt, studyName, clinicalHistory, lateralityModifier, addAdditionalDxToEncounter } = form;
 
   // Priority/STAT is an in-house-only concept; external orders are routine. Preserve any prior value on edit.
   const stat = initialOrder?.isStat ?? false;
@@ -169,16 +158,12 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
         if (isEditMode && initialOrder) {
           await updateRadiologyOrder(oystehrZambda, {
             serviceRequestId: initialOrder.serviceRequestId,
-            consentObtained,
-            edit: sharedFields,
+            update: { type: 'content', order: sharedFields },
           });
           await printOrderForm(initialOrder.serviceRequestId);
           navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
-          if (res.cptCodesSaved && res.cptCodesSaved.length > 0) {
-            setPartialChartData({ cptCodes: [...chartCptCodes, ...res.cptCodesSaved] });
-          }
           await printOrderForm(res.serviceRequestId);
           navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
         }
@@ -320,8 +305,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                   appointmentId={appointmentIdFromUrl || ''}
                   submitting={submitting}
                   submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
-                  disabled={!hasNPI}
-                  errors={hasNPI ? error : [...(error ?? []), 'You need an NPI on file to order imaging']}
+                  errors={error}
                   cancelUrl={
                     initialOrder
                       ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)

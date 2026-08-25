@@ -13,6 +13,7 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
     expect(validateRequestParameters(input)).toEqual({
       claimIds,
       secrets,
+      skipRules: false,
     });
   });
 

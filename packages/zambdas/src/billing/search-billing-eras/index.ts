@@ -76,6 +76,13 @@ async function performEffect(
     });
   }
 
+  if (params.matchingStatus === 'anyUnmatched') {
+    searchParams.push({
+      name: '_has:Provenance:target:target:ClaimResponse.request',
+      value: '#claim',
+    });
+  }
+
   const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: searchParams,
@@ -104,7 +111,7 @@ async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds:
       resourceType: 'ClaimResponse',
       params: [
         { name: 'request', value: batch.join(',') },
-        { name: '_elements', value: 'identifier,extension' },
+        { name: '_elements', value: 'id,identifier,extension' },
         { name: '_count', value: '1000' },
       ],
     });

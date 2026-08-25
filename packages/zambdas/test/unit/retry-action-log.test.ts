@@ -4,7 +4,12 @@ import {
   OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { getOutboundDeliveryInput, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import {
+  getOutboundDeliveryFaxPacketSnapshot,
+  getOutboundDeliveryInput,
+  getOutboundDeliveryRecipientSnapshot,
+  makeOutboundDeliveryAttempt,
+} from 'utils/lib/fhir/outbound-delivery';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -232,6 +237,45 @@ describe('retry-action-log eligibility', () => {
     expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
     expect(retryTask.requester?.reference).toBe('Practitioner/practitioner-1');
     expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
+  });
+
+  it('retries a patient-level fax and preserves its packet and recipient metadata', async () => {
+    const original: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        recipientAddress: '+12125551234',
+        recipientName: 'Dr. Roe',
+        recipientOrganization: 'Family Practice',
+        recipientPhone: '+12125550000',
+        documentReferenceId: 'doc-1',
+        faxPacketPageCount: 12,
+        faxPacketParts: ['Insurance card', 'Lab result'],
+      }),
+      id: 'attempt-1',
+      status: 'failed',
+    };
+    const send = vi.fn().mockResolvedValue({ communicationResource: { resourceType: 'Communication', id: 'comm-1' } });
+    const { oystehr, create } = makeSuccessfulRetryHarness(original, { fax: { send } });
+    stubPresignedUrl();
+
+    await performEffect(
+      { attemptId: 'attempt-1', secrets: createMockSecrets() },
+      oystehr,
+      { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+      'token'
+    );
+
+    const retryTask = create.mock.calls[0][0] as Task;
+    expect(retryTask.focus).toBeUndefined();
+    expect(getOutboundDeliveryRecipientSnapshot(retryTask)).toMatchObject({
+      organization: 'Family Practice',
+      phone: '+12125550000',
+    });
+    expect(getOutboundDeliveryFaxPacketSnapshot(retryTask)).toEqual({
+      pageCount: 12,
+      parts: ['Insurance card', 'Lab result'],
+    });
   });
 
   it('retries an email to its stored recipient and records the retrying practitioner', async () => {

@@ -58,6 +58,14 @@ export const UI_TASK_CATEGORY_LABELS: Record<UiTaskCategoryId, string> = {
 /**
  * Maps a `Task.groupIdentifier.value` category code to a UI category id. Several task-category codes fold
  * into one UI category (e.g. auto-generated `external-lab` and `manual-external-lab` → "External Lab").
+ *
+ * A category listed here is what gives a task category a settings row and makes the notifications-updater
+ * cron's category engine notify its subscribers.
+ *
+ * Unmapping a category does NOT silence it: `resolveAssignmentDelivery` reads an unmapped category as
+ * "no V2 row to consult" and hands the decision to the legacy always-on `taskNotificationsEnabled` flag,
+ * so an *assigned* task in an unmapped category still notifies its owner — including staff who had that
+ * category switched off. Only the creation-time notification goes away.
  */
 export const TASK_CODE_TO_UI_CATEGORY: Record<string, UiTaskCategoryId> = {
   [LAB_ORDER_TASK.category]: 'externalLab',
@@ -75,12 +83,33 @@ export const TASK_CODE_TO_UI_CATEGORY: Record<string, UiTaskCategoryId> = {
   [MANUAL_TASK.category.charting]: 'charting',
   [MANUAL_TASK.category.coding]: 'coding',
   [MANUAL_TASK.category.billing]: 'billing',
+  // Inbound-fax tasks are created by the fax subscription with no location, so only an "All locations"
+  // Inbound Fax row can match them — see `UNLOCATED_TASK_CATEGORIES`, which is what keeps any other kind
+  // of Inbound Fax row from existing.
   [FAX_TASK.category]: 'inboundFax',
   [MANUAL_TASK.category.other]: 'other',
 };
 
 export const getUiTaskCategoryForCode = (code: string | undefined): UiTaskCategoryId | undefined =>
   code ? TASK_CODE_TO_UI_CATEGORY[code] : undefined;
+
+/**
+ * Categories where EVERY task is created without a location tag, so a location filter on their settings row
+ * could only ever match nothing — silently muting the category rather than narrowing it.
+ *
+ * Their rows are pinned to "all locations" by `normalizeNotificationPreferencesV2` (which repairs an already
+ * stored selection) and the settings table renders their Locations cell read-only, so the dead state is
+ * unreachable from either end.
+ *
+ * Only inbound fax qualifies: faxes arrive at the project's fax number, which maps to no Location. Note that
+ * a category is NOT a candidate just because one of its producers omits the location — `erx` folds the
+ * location-less DoseSpot subscription tasks and the always-located manual eRX tasks into one row, so pinning
+ * it would throw away a filter that does work for half its tasks.
+ */
+export const UNLOCATED_TASK_CATEGORIES: readonly UiTaskCategoryId[] = ['inboundFax'];
+
+/** Whether a category's tasks never carry a location, making its row's location filter meaningless. */
+export const taskCategoryHasNoLocation = (id: UiTaskCategoryId): boolean => UNLOCATED_TASK_CATEGORIES.includes(id);
 
 export interface ProviderNotificationPreferencesV2 {
   version: 2;
@@ -135,7 +164,12 @@ export const normalizeNotificationPreferencesV2 = (
   };
   const taskCategories = {} as Record<UiTaskCategoryId, NotificationRowPref>;
   for (const id of UI_TASK_CATEGORY_IDS) {
-    taskCategories[id] = normalizeRow(prefs?.taskCategories?.[id]);
+    const row = normalizeRow(prefs?.taskCategories?.[id]);
+    // A stored location selection on a category whose tasks carry no location matched nothing at all, which
+    // read as "notifications for this category are broken". Repaired here, at the read boundary both the
+    // settings page and the notifications cron go through, so anyone already muted this way is fixed on
+    // deploy rather than on their next visit to the settings page.
+    taskCategories[id] = taskCategoryHasNoLocation(id) ? { ...row, allLocations: true, locationIds: [] } : row;
   }
   return {
     version: 2,

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, RelatedPerson } from 'fhir/r4b';
+import { RelatedPerson } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
 import { getPayerId } from 'utils/lib/helpers/helpers';
@@ -8,16 +8,7 @@ import { BillingCoverageOption } from 'utils/lib/types/data/billing/billing.type
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import {
-  createBillingClient,
-  EXCLUDE_WORKING_COPIES_PARAMS,
-  findPatientBillingAccount,
-  findPatientWorkersCompAccount,
-  getCoverageInsuranceType,
-  getPatientAccounts,
-  resolvePayersByRef,
-  toAddressParts,
-} from '../shared';
+import { createBillingClient, fetchPatientCoverages, resolvePayersByRef, toAddressParts } from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -49,53 +40,30 @@ async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
 ): Promise<{ coverages: BillingCoverageOption[] }> {
-  const [response, relatedPersonResponse, accounts] = await Promise.all([
-    oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-    }),
-    oystehr.fhir.search<RelatedPerson>({
-      resourceType: 'RelatedPerson',
-      params: [{ name: 'patient', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-    }),
-    getPatientAccounts(oystehr, params.patientId),
-  ]);
-  const pbillAccount = findPatientBillingAccount(accounts);
-  const wcompAccount = findPatientWorkersCompAccount(accounts);
-
-  const coverages = response.unbundle();
-  const relatedPersonsById = new Map(relatedPersonResponse.unbundle().map((rp) => [rp.id ?? '', rp]));
+  // The patient's coverages (those their billing accounts reference), each already resolved to its
+  // insurance type and policy holder — the same read the rules engine's "Coverage (from patient)"
+  // prefetch performs.
+  const records = await fetchPatientCoverages(oystehr, params.patientId);
   const payersByRef = await resolvePayersByRef(
     oystehr,
-    coverages.map((cov) => cov.payor?.[0]?.reference)
+    records.map(({ coverage }) => coverage.payor?.[0]?.reference)
   );
 
-  // Filter coverages to only those that are related to the patient's accounts (PBILLACCT or WCOMPACCT). This ensures that we only return coverages that are relevant to the patient and their insurance coverage.
-  const filteredCoverages = coverages.filter((cov) => {
-    if (pbillAccount && pbillAccount.coverage?.some((c) => c.coverage.reference === `Coverage/${cov.id}`)) return true;
-    if (wcompAccount && wcompAccount.coverage?.some((c) => c.coverage.reference === `Coverage/${cov.id}`)) return true;
-    return false;
-  });
-
-  const result = filteredCoverages.map((cov): BillingCoverageOption => {
-    const payorRef = cov.payor?.[0]?.reference;
+  const result = records.map(({ coverage, insuranceType, subscriber }): BillingCoverageOption => {
+    const payorRef = coverage.payor?.[0]?.reference;
     const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
-    const subscriberRef = cov.subscriber?.reference;
-    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
-      ? relatedPersonsById.get(subscriberRef.split('/')[1])
-      : undefined;
 
     return {
-      id: cov.id,
-      status: cov.status,
-      subscriberId: cov.subscriberId ?? '',
+      id: coverage.id,
+      status: coverage.status,
+      subscriberId: coverage.subscriberId ?? '',
       payorName: payorOrg?.name ?? '',
       payorId: getPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
-      insuranceType: getCoverageInsuranceType(cov, pbillAccount, wcompAccount),
-      planType: getCoveragePlanType(cov),
-      relationship: cov.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
-      memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
+      insuranceType,
+      planType: getCoveragePlanType(coverage),
+      relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
+      memberId: coverage.subscriberId ?? getMemberIdFromCoverage(coverage) ?? '',
       policyHolder: extractPolicyHolder(subscriber),
     };
   });

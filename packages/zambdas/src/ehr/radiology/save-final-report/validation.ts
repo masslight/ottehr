@@ -39,10 +39,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
-    // userMe() (and other downstream helpers) read ENVIRONMENT via getSecret;
-    // getOptionalSecret only falls back to process.env when secrets is null, so
-    // a narrowed non-null secrets object that omits ENVIRONMENT makes those
-    // calls throw. Carry ENVIRONMENT through.
+    // Required by userMe(); see `resolveCallerPractitionerRef` in shared/practitioners.ts.
     ENVIRONMENT,
   };
 };

@@ -25,6 +25,7 @@ import {
   BillingCoverageOption,
   PatientDetailResponse,
 } from 'utils/lib/types/data/billing/billing.types';
+import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { deleteBillingCoverage, getPatientCoverages, updateBillingCoverage, updateBillingPatient } from '../api/api';
 import { AddCoverageDialog } from '../components/AddCoverageDialog';
@@ -34,7 +35,7 @@ import { EditableSection, TitleWithSourceLink } from '../components/claim/Editab
 import { CoverageFields } from '../components/CoverageFields';
 import { DemographicFields } from '../components/DemographicFields';
 import { Row } from '../components/Row';
-import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
+import { CLAIM_STATUS_COLORS } from '../constants/claimStatus';
 import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '../constants/coverage';
 import { defaultPatientFormValues, PatientForm, patientToUpdateInput } from '../constants/patient';
 import { useApiClients } from '../hooks/useAppClients';

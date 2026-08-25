@@ -663,7 +663,10 @@ export const EditableMedicationCard: React.FC<{
   const interactionsMessage: InteractionsMessage | undefined = useMemo(() => {
     if (
       (!localValues.medicationId && !medication) ||
-      (erxEnabled && erxStatus === ERXStatus.READY && interactionsCheckState.medicationId !== localValues.medicationId)
+      (erxEnabled &&
+        erxStatus === ERXStatus.READY &&
+        interactionsCheckState.status !== 'error' &&
+        interactionsCheckState.medicationId !== localValues.medicationId)
     ) {
       return undefined;
     }
@@ -774,6 +777,7 @@ export const EditableMedicationCard: React.FC<{
           handleClose={() => {
             setIsConfirmSaveModalOpen(false);
             confirmedMedicationUpdateRequestRef.current = {};
+            typeRef.current = typeFromProps;
           }}
           handleConfirm={handleConfirmSave}
           description={''}

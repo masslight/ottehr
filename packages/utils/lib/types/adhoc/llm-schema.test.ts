@@ -82,10 +82,18 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       Object.fromEntries(Object.keys(ENCOUNTER_LAYER_SCHEMAS).map((id) => [id, true])),
       ENCOUNTER_INTERNAL_FIELDS
     );
-    const allowedKeys = new Set(['name', 'type', 'description', 'nullable', 'values']);
+
+    const allowedKeys = new Set(['name', 'type', 'description', 'nullable', 'values', 'fields']);
+
     for (const field of fields) {
       for (const key of Object.keys(field)) {
         expect(allowedKeys.has(key)).toBe(true);
+      }
+
+      for (const nested of field.fields ?? []) {
+        for (const key of Object.keys(nested)) {
+          expect(allowedKeys.has(key)).toBe(true);
+        }
       }
     }
   });
@@ -100,6 +108,7 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       appointmentType: 'walk-in',
       serviceCategory: 'Urgent Care',
       visitStatus: 'completed',
+      statusHistory: [{ status: 'completed', start: '2026-07-01T14:00:00Z', end: null }],
       encounterType: 'main',
       reason: 'cough',
       scheduledSlotMinutes: null,

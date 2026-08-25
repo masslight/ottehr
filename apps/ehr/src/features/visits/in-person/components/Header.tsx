@@ -76,7 +76,6 @@ const HeaderWrapper = styled(Box)(({ theme }) => ({
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
   boxShadow: '0px 2px 4px -1px #00000033',
-  overflowX: 'hidden',
 }));
 
 const PatientName = styled(Typography)(({ theme }) => ({
@@ -216,8 +215,14 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
-  const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
-  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
+
+  // Annotation follow-ups record no vitals of their own and reference the parent visit's
+  // Appointment, so a historical lookup keyed on the follow-up encounter searches strictly
+  // before that appointment's start — skipping the parent visit's own vitals and surfacing
+  // the previous visit's values instead. Read header vitals from the origin encounter.
+  const vitalsEncounterId = isFollowup ? followUpOriginEncounter?.id : effectiveEncounterId;
+  const { data: encounterVitals } = useGetVitals(vitalsEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(vitalsEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
@@ -330,7 +335,7 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
-  const sendFaxDialog = useSendFax(appointmentID);
+  const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -399,20 +404,8 @@ export const Header = (): JSX.Element => {
         <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
           <Grid item xs={12}>
             <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
-              <Grid item sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Grid
-                  container
-                  alignItems="center"
-                  spacing={2}
-                  wrap="nowrap"
-                  sx={{
-                    overflowX: 'auto',
-                    overflowY: 'hidden',
-                    scrollbarWidth: 'thin',
-                    '&::-webkit-scrollbar': { height: '4px', width: 0 },
-                    '&::-webkit-scrollbar-thumb': { borderRadius: '2px', backgroundColor: 'rgba(0,0,0,0.2)' },
-                  }}
-                >
+              <Grid item>
+                <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
                       getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))

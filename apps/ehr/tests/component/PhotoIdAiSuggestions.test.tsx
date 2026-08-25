@@ -62,6 +62,7 @@ const makePhotoIdFields = (overrides: Partial<PhotoIdExtractionFields> = {}): Ph
   dateOfBirth: null,
   sex: null,
   addressLine1: null,
+  addressLine2: null,
   addressCity: null,
   addressState: null,
   addressZip: null,

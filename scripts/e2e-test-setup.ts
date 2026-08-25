@@ -3,23 +3,42 @@ import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/s
 import dotenv from 'dotenv';
 import { FhirResource, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import {
-  allLicensesForPractitioner,
-  FHIR_IDENTIFIER_NPI,
-  FULL_DAY_SCHEDULE,
-  getNPIIdentifier,
-  makeQualificationForPractitioner,
-  SCHEDULE_EXTENSION_URL,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
+import { SCHEDULE_EXTENSION_URL, SLUG_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import {
-  allPhysicalDefaultLocations,
-  defaultGroup,
-  virtualDefaultLocations,
-} from '../packages/zambdas/src/scripts/setup-default-locations';
+import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
+import { FULL_DAY_SCHEDULE } from 'utils/lib/utils/scheduleUtils';
 import { createClinicalOystehrClient } from '../packages/zambdas/src/shared/helpers';
+
+// Default scheduling resources moved out of Terraform into config/runtime-seed/
+// (created at runtime by seed-runtime-resources). Derive the lists this e2e setup
+// needs directly from that config, the same way the old seed script did. Read it at
+// runtime rather than as a static JSON import: a tabula-rasa instance ships no seed
+// file, and a static import would fail at module load.
+const runtimeSeedLocations = ((): { fhirResources: Record<string, { resource: any }> } => {
+  try {
+    return JSON.parse(fs.readFileSync('config/runtime-seed/locations-and-schedules.json', 'utf8'));
+  } catch {
+    return { fhirResources: {} };
+  }
+})();
+const defaultVirtualStates = new Set<string>();
+const defaultPhysical: { state: string; city: string; name: string }[] = [];
+for (const wrapper of Object.values(runtimeSeedLocations.fhirResources) as any[]) {
+  const res = wrapper.resource;
+  if (res.resourceType === 'Location' && res.address && res.name) {
+    const { state, city } = res.address;
+    if (isLocationVirtual(res)) {
+      if (state) defaultVirtualStates.add(state);
+    } else if (city && state) {
+      defaultPhysical.push({ state, city, name: res.name });
+    }
+  }
+}
+const virtualDefaultLocations = Array.from(defaultVirtualStates).map((state) => ({ state }));
+const allPhysicalDefaultLocations = defaultPhysical;
+const defaultGroup = 'Visit Followup Group';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -131,8 +150,23 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
   console.log(`Setting up locations for testing`);
   const oystehr = await getToken(ehrZambdaEnv);
 
-  const firstDefaultLocation = allPhysicalDefaultLocations[0];
+  let firstDefaultLocation = allPhysicalDefaultLocations[0];
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+
+  // Tabula-rasa fallback: an instance that ships no seed locations still needs one
+  // in-person Location for the e2e suites (EHR specs require LOCATION_ID; the intake suite
+  // self-provisions but this setup throws without a location). Synthesize a minimal one so
+  // an empty instance is e2e-runnable. Telemed self-gates off (no virtual location →
+  // isVirtualEnabled stays false) and the group specs create their own fixtures, so
+  // neither is synthesized here. Created before the search below so it's picked up.
+  if (!firstDefaultLocation) {
+    const synthetic = await ensureSyntheticE2eLocation(oystehr);
+    firstDefaultLocation = {
+      name: synthetic.name ?? '',
+      city: synthetic.address?.city ?? '',
+      state: synthetic.address?.state ?? '',
+    };
+  }
 
   // Use getAllFhirSearchPages to handle pagination when there are more than 1000 locations
   const locationsAndSchedules = await getAllFhirSearchPages<Location | Schedule>(
@@ -268,13 +302,12 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
   };
 }
 
-// The e2e provider stands in for a full Provider. NPI-gated actions (sign/co-sign, external labs &
-// imaging orders, in-house medication orders) are enforced in the zambdas via requirePractitionerNPI, so
-// without an NPI on file every ordering and signing spec fails — the zambda returns NOT_AUTHORIZED and
-// the EHR also disables the affected buttons. Same value the shared integration-test provider uses.
-const TEST_PRACTITIONER_NPI = '1234567893';
-
 async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
+  if (!isVirtualEnabled) {
+    console.warn('No virtual locations configured — skipping telemed practitioner setup');
+    return;
+  }
+
   console.log(`Setting up test EHR provider credentials`);
   const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
 
@@ -304,48 +337,30 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
     throw Error('e2e test user profile practitioner not found');
   }
 
-  const updates: Partial<Practitioner> = {};
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
-  // Not telemed-specific, so this runs even when no virtual locations are configured.
-  if (!getNPIIdentifier(practitioner)?.value) {
-    console.log(`Adding NPI to e2e test practitioner ${practitioner.id}`);
-    updates.identifier = [
-      ...(practitioner.identifier ?? []),
-      { system: FHIR_IDENTIFIER_NPI, value: TEST_PRACTITIONER_NPI },
-    ];
-  }
+  const licenses = allLicensesForPractitioner(practitioner);
+  const qualification = practitioner.qualification || [];
+  if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
+    qualification.push(
+      makeQualificationForPractitioner({
+        state: firstDefaultVirtualLocation.state,
+        number: '1234567890',
+        code: 'MD',
+        active: true,
+      })
+    );
 
-  if (isVirtualEnabled) {
-    const firstDefaultVirtualLocation = virtualDefaultLocations[0];
-    const licenses = allLicensesForPractitioner(practitioner);
-    if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
-      updates.qualification = [
-        ...(practitioner.qualification ?? []),
-        makeQualificationForPractitioner({
-          state: firstDefaultVirtualLocation.state,
-          number: '1234567890',
-          code: 'MD',
-          active: true,
-        }),
-      ];
+    try {
+      await oystehr.fhir.update<Practitioner>({
+        id: practitioner.id!,
+        ...practitioner,
+        qualification,
+      });
+    } catch (error) {
+      console.error('Error updating e2e test practitioner qualifications', error);
+      throw error;
     }
-  } else {
-    console.warn('No virtual locations configured — skipping telemed practitioner license setup');
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return;
-  }
-
-  try {
-    await oystehr.fhir.update<Practitioner>({
-      ...practitioner,
-      id: practitioner.id!,
-      ...updates,
-    });
-  } catch (error) {
-    console.error('Error updating e2e test practitioner credentials', error);
-    throw error;
   }
 }
 
@@ -500,6 +515,46 @@ createTestEnvFiles().catch((error) => {
   console.error(error?.stack);
   process.exit(1);
 });
+
+const SYNTHETIC_E2E_LOCATION_SLUG = 'e2e-fallback-in-person';
+const SYNTHETIC_E2E_LOCATION_NAME = 'E2E Fallback Location';
+
+/**
+ * Idempotently ensure a minimal in-person Location exists for e2e when the runtime seed
+ * defines none (a tabula-rasa instance). The suites only consume a physical Location's
+ * name + address + slug (EHR reads LOCATION_ID; intake self-provisions), so this stands in
+ * for a seeded default; its Schedule is added by ensureOwnerResourceSchedulesAndSlots. It
+ * carries no service-mode coding, so it's in-person and telemed stays gated off.
+ */
+async function ensureSyntheticE2eLocation(oystehr: Oystehr): Promise<Location> {
+  const existing = (
+    await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${SYNTHETIC_E2E_LOCATION_SLUG}` }],
+    })
+  ).unbundle();
+  if (existing[0]) {
+    console.log(`Using existing synthetic e2e Location ${existing[0].id}`);
+    return existing[0];
+  }
+  const created = await oystehr.fhir.create<Location>({
+    resourceType: 'Location',
+    status: 'active',
+    name: SYNTHETIC_E2E_LOCATION_NAME,
+    address: {
+      use: 'work',
+      type: 'physical',
+      line: ['1 Test Way'],
+      city: 'Testville',
+      state: 'NY',
+      postalCode: '10001',
+    },
+    identifier: [{ system: SLUG_SYSTEM, value: SYNTHETIC_E2E_LOCATION_SLUG }],
+    extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' }],
+  });
+  console.log(`Created synthetic e2e Location ${created.id} (runtime seed defines no locations)`);
+  return created;
+}
 
 async function ensureOwnerResourceSchedulesAndSlots(
   owner: Location | Practitioner,

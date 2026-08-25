@@ -14,8 +14,7 @@ export interface ResourcesForTask {
   requestingProvider: Practitioner;
   location: Location | undefined;
 }
-
-interface AllResources {
+export interface AllRadTaskResources {
   diagnosticReports: DiagnosticReport[];
   serviceRequests: ServiceRequest[];
   patients: Patient[];
@@ -26,9 +25,9 @@ interface AllResources {
 
 export const parseRadiologyResourcesForTask = (
   resources: (DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location)[]
-): AllResources => {
+): AllRadTaskResources => {
   return resources.reduce(
-    (acc: AllResources, resource) => {
+    (acc: AllRadTaskResources, resource) => {
       if (resource.resourceType === 'DiagnosticReport') acc.diagnosticReports.push(resource);
       if (resource.resourceType === 'ServiceRequest') acc.serviceRequests.push(resource);
       if (resource.resourceType === 'Patient') acc.patients.push(resource);
@@ -42,7 +41,7 @@ export const parseRadiologyResourcesForTask = (
 };
 
 export const validateResourcesAgainstDR = (
-  input: Omit<AllResources, 'diagnosticReports'> & {
+  input: Omit<AllRadTaskResources, 'diagnosticReports'> & {
     diagnosticReport: DiagnosticReport;
   }
 ): ResourcesForTask => {

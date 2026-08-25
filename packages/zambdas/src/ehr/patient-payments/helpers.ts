@@ -8,7 +8,7 @@ import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/paymen
 import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
 import { CashPaymentDTO, PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
+import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../../shared/stripeIntegration';
 
 interface GetPaymentsForEncounterInput {
   oystehrClient: Oystehr;
@@ -54,7 +54,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search(
           {
-            query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+            query: stripeEncounterMetadataQuery(encounterId),
             limit: 20, // default is 10
           },
           {
@@ -140,7 +140,7 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search(
           {
-            query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+            query: stripeEncounterMetadataQuery(encounterId),
             limit: 20,
           },
           {

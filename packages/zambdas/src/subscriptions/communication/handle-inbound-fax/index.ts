@@ -58,13 +58,25 @@ export function getPdfUrl(communication: Communication): string | undefined {
 }
 
 /**
+ * How an inbound fax is named everywhere staff see it (Tasks queue title, bell notification, SMS).
+ *
+ * The page count is dropped rather than rendered as a placeholder when the fax arrived without one — a
+ * text reading "(? pages)" tells staff nothing and reads like a bug — and the count is pluralized so a
+ * single-page fax doesn't announce itself as "1 pages".
+ */
+export function faxTaskTitle(senderFaxNumber: string | undefined, pageCount: number | undefined): string {
+  const pages = pageCount != null ? ` (${pageCount} ${pageCount === 1 ? 'page' : 'pages'})` : '';
+  return `Inbound fax from ${senderFaxNumber || 'unknown'}${pages}`;
+}
+
+/**
  * Faxes we *sent* also land in the FHIR store as `medium=FAXWRIT` Communications — `oystehr.fax.send`
  * creates one per transmission (see `sendFaxAttempt` and `radiology/send-fax`) — so the subscription
  * criteria alone cannot tell direction. Oystehr stamps every sent fax with the outbound-fax-status
  * extension it uses to track delivery, and inbound faxes never carry it; that is the discriminator.
  *
  * Without this guard every outbound fax would file itself as an inbound one: a bogus "Inbound fax
- * from …" work item plus a notification to every provider.
+ * from …" work item plus a notification to every subscriber.
  */
 export function isOutboundFax(communication: Communication): boolean {
   return !!communication.extension?.some((ext) => ext.url === OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL);
@@ -141,7 +153,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ...createTask(
         {
           category: FAX_TASK.category,
-          title: `Inbound fax from ${senderFaxNumber} (${pageCount ?? '?'} pages)`,
+          // The one place this sentence is written: it becomes the Task's `description`, which is what the
+          // Tasks queue displays AND what the notifications cron sends to the bell/SMS. Anything that needs
+          // to name this fax reads it from here rather than re-deriving it from the inputs.
+          title: faxTaskTitle(senderFaxNumber, pageCount),
           code: {
             system: FAX_TASK.system,
             code: FAX_TASK.code.matchInboundFax,

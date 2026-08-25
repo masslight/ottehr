@@ -6,6 +6,24 @@ import type { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope
 
 export type { ValueFormat };
 
+export function cellText(value: unknown): string {
+  if (value == null) return '';
+  if (Array.isArray(value)) {
+    return value
+      .map(cellText)
+      .filter((text) => text !== '')
+      .join(', ');
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => [key, cellText(item)] as const)
+      .filter(([, text]) => text !== '')
+      .map(([key, text]) => `${key}: ${text}`)
+      .join(', ');
+  }
+  return String(value);
+}
+
 export function formatValue(value: unknown, format?: ValueFormat): string {
   if (value == null) return '';
   const cleaned = typeof value === 'string' ? value.trim().replace(/^"(.*)"$/, '$1') : value;

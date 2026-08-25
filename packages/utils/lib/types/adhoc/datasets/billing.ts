@@ -41,13 +41,12 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   'state',
   'region',
   'location',
-  // coverage / claims categoricals
+  // coverage categoricals
   'primaryPayer',
   'secondaryPayer',
   'insuranceType',
   'coverageStatus',
   'subscriberRelationship',
-  'claimStatus',
   'paymentMethods',
   // codes
   'chargeCpts',
@@ -66,6 +65,24 @@ export const BILLING_LAYERS = {
       paymentCount: z.number().describe('Number of payments collected.'),
       paymentMethods: z.array(z.string()).describe('Distinct methods: "card"/"card-reader"/"cash"/"check".'),
       lastPaymentDate: z.string().nullable().describe('Date of the most recent payment (yyyy-MM-dd).'),
+      payments: z
+        .array(
+          z.object({
+            date: z
+              .string()
+              .describe(
+                "Full ISO instant the payment was taken. Format in the viewer's LOCAL timezone via " +
+                  'new Date(date); do NOT slice the ISO string (shows UTC).'
+              ),
+            amount: z.number().describe('Amount of THIS payment in USD.'),
+            method: z.string().describe('Method of THIS payment; "" when not recorded.'),
+          })
+        )
+        .describe(
+          'One record per individual payment, oldest first — use this for a payment-by-payment table. ' +
+            'paymentsCollected is their sum and paymentCount their length. Empty when the visit collected ' +
+            'nothing, which is a row worth showing when the request asks to include visits with no payment.'
+        ),
     }),
   },
   coverage: {
@@ -98,20 +115,6 @@ export const BILLING_LAYERS = {
       cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit.'),
       emCode: z.string().describe('E&M level code (e.g. "99213").'),
       icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes. HIERARCHICAL — prefix-match.'),
-    }),
-  },
-  claims: {
-    label: 'Insurance claims',
-    description:
-      'Insurance claims filed for the visit and their responses — claim status, amount billed, ' +
-      'insurance paid, and patient responsibility.',
-    schema: z.object({
-      claimCount: z.number().describe('Number of insurance claims filed.'),
-      claimStatus: z.string().describe('Status of most recent claim (open/submitted/paid/denied).'),
-      billedAmount: z.number().nullable().describe('Total billed to insurance across claims, USD.'),
-      insurancePaid: z.number().nullable().describe('Amount insurance paid (ClaimResponse), USD.'),
-      patientResponsibility: z.number().nullable().describe('Amount assigned to patient (copay/deductible), USD.'),
-      claimBalance: z.number().nullable().describe('billedAmount − insurancePaid, USD (when both known).'),
     }),
   },
 } as const satisfies AdHocLayerMap;

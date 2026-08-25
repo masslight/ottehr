@@ -5,6 +5,8 @@ import {
   AUTO_ACCIDENT_TAG_NAME,
   HOLD_SYSTEM_TAG,
   HOLD_TAG_NAME,
+  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+  SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-tags';
@@ -45,7 +47,13 @@ describe('search-billing-tags', () => {
 
     const { tags } = await performEffect(oystehr);
 
-    expect(tags.map((tag) => tag.name)).toEqual(['VIP', HOLD_TAG_NAME, AUTO_ACCIDENT_TAG_NAME]);
+    expect(tags.map((tag) => tag.name)).toEqual([
+      'VIP',
+      HOLD_TAG_NAME,
+      AUTO_ACCIDENT_TAG_NAME,
+      SECONDARY_SUBMISSION_TAG_NAME,
+      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+    ]);
     expect(tags[0]).toEqual({
       id: 'tag-1',
       name: 'VIP',
@@ -115,6 +123,12 @@ describe('search-billing-tags', () => {
 
     expect(tags.find((tag) => tag.name === 'auto-accident')?.isSystemTag).toBe(false);
     // The current system-managed tags still get their synthetic entries alongside it.
-    expect(tags.map((tag) => tag.name)).toEqual(['auto-accident', HOLD_TAG_NAME, AUTO_ACCIDENT_TAG_NAME]);
+    expect(tags.map((tag) => tag.name)).toEqual([
+      'auto-accident',
+      HOLD_TAG_NAME,
+      AUTO_ACCIDENT_TAG_NAME,
+      SECONDARY_SUBMISSION_TAG_NAME,
+      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import SettingsIcon from '@mui/icons-material/Settings';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import {
   Avatar,
@@ -37,10 +37,8 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const [pendingReviewOpen, setPendingReviewOpen] = useState<boolean>(false);
   const user = useEvolveUser();
-  // eRX enrollment/notifications require an NPI (DoseSpot). The provider notifications bell is a
-  // general, visit-linked inbox — not NPI-gated — so keep it on a role check.
-  const userHasNPI = user?.hasNPI;
   const showProviderNotifications = user?.hasRole([RoleType.Provider, RoleType.Clinician]);
+  const userIsProvider = user?.hasRole([RoleType.Provider]);
 
   const practitioner = user?.profileResource;
 
@@ -129,21 +127,24 @@ export const UserMenu: FC = () => {
         open={anchorElement !== null}
         onClose={() => setAnchorElement(null)}
       >
+        {/* Identity block: whose account this is. Previously `${projectName} Admin`, which read
+            correctly only on an instance whose users happen to be named after the project — every
+            other deployment showed the project name above the signed-in user's own email. */}
         <MenuItem>
           <Box>
-            <Typography variant="body1">{BRANDING_CONFIG.projectName} Admin</Typography>
+            <Typography variant="body1">{name ?? user?.name}</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userHasNPI && !practitionerEnrollmentStatus?.identityVerified && (
+        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>
                 <WarningIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: 'warning.light' }} />
                 <Typography variant="caption">
-                  Please complete your profile to be able to enroll in eRX or ask your administrator to complete it for
-                  you. <br /> Missing fields: {practitionerMissingFields.join(', ')}
+                  Please complete your profile to be able to enroll in eRX.
+                  <br /> Missing fields: {practitionerMissingFields.join(', ')}
                 </Typography>
               </Box>
             )}
@@ -165,9 +166,9 @@ export const UserMenu: FC = () => {
           </>
         )}
         <Link to="/profile" style={{ textDecoration: 'none', color: 'inherit' }} onClick={() => setAnchorElement(null)}>
-          <MenuItem>
-            <SettingsIcon fontSize="small" sx={{ mr: 1, color: otherColors.blackTransparent }} />
-            <Typography variant="body1">Settings</Typography>
+          <MenuItem data-testid={dataTestIds.header.myProfileMenuItem}>
+            <AccountCircleIcon fontSize="small" sx={{ mr: 1, color: otherColors.blackTransparent }} />
+            <Typography variant="body1">My Profile</Typography>
           </MenuItem>
         </Link>
         <Divider sx={{ my: 1 }} />

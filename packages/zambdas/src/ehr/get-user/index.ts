@@ -1,8 +1,11 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Practitioner, Schedule } from 'fhir/r4b';
+import { Encounter, Practitioner, Schedule } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { GetUserResponse } from 'utils/lib/types/api/get-user.types';
 import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isFhirNotFoundError } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -24,6 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const getUserResponse = await oystehr.user.get({ id: userId });
     let existingPractitionerResource: Practitioner | undefined = undefined;
     let schedule: Schedule | undefined;
+    let seenPatientRecently = false;
     const userProfile = getUserResponse.profile;
     const userProfileString = userProfile.split('/');
 
@@ -54,16 +58,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       schedule = scheduleSearch;
       console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
     } catch (error: any) {
-      if (
-        error.resourceType === 'OperationOutcome' &&
-        error.issue &&
-        error.issue.some((issue: any) => issue.severity === 'error' && issue.code === 'not-found')
-      ) {
+      // A user still on a Patient profile (signed up, never set up as an employee) has no
+      // Practitioner to fetch. That's expected here: the record page renders an empty form so the
+      // user can be given a name and a role, at which point `update-user` creates the Practitioner.
+      if (isFhirNotFoundError(error)) {
         existingPractitionerResource = undefined;
       } else {
-        throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
+        throw error;
       }
     }
+    // Only meaningful once the user actually has a Practitioner — a self-registered account still on
+    // a Patient profile has no encounters to have participated in, and querying as though it did
+    // means searching for `Practitioner/<patient-id>`.
+    seenPatientRecently = existingPractitionerResource?.id
+      ? await hasRecentEncounter(oystehr, existingPractitionerResource.id)
+      : false;
+
     const allLicenses: Array<PractitionerLicense> = [];
     console.log(existingPractitionerResource);
     if (existingPractitionerResource?.qualification) {
@@ -85,9 +95,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         licenses: allLicenses ?? [],
       },
       userScheduleId: schedule?.id,
+      seenPatientRecently,
     };
   } catch (error: unknown) {
-    throw new Error(`Failed to get User: ${JSON.stringify(error)}`);
+    // Rethrow as-is. Wrapping in `new Error(JSON.stringify(error))` reported every failure as
+    // `Failed to get User: {}` — `message` and `stack` are non-enumerable, so stringifying an Error
+    // discards exactly the detail needed to diagnose it.
+    console.error(`Failed to get user ${userId}:`, error);
+    throw error;
   }
 
   return {
@@ -95,3 +110,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     body: JSON.stringify(response),
   };
 });
+
+/**
+ * Whether this practitioner took part in an encounter in the last 30 minutes — the "been seen last 30
+ * mins" indicator on the employee record.
+ *
+ * Deliberately fail-soft, and deliberately isolated from the fetches this endpoint actually needs.
+ * The flag drives a single chip; a search failure should cost us the chip, not the whole record. It
+ * also uses Encounter search params (`participant`, `date`) that nothing else in this codebase
+ * relies on — `get-employees` sweeps by status and filters participants in application code — so if
+ * this index doesn't support them, this returns false and logs rather than failing the request.
+ */
+const hasRecentEncounter = async (oystehr: Oystehr, practitionerId: string): Promise<boolean> => {
+  const cutoff = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
+  try {
+    const bundle = await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'participant', value: `Practitioner/${practitionerId}` },
+        { name: 'status', value: 'in-progress,finished' },
+        { name: 'date', value: `gt${cutoff}` },
+        { name: '_elements', value: 'id' },
+        { name: '_count', value: '1' },
+      ],
+    });
+    return bundle.unbundle().length > 0;
+  } catch (error) {
+    console.error(`Could not determine recent encounter activity for Practitioner/${practitionerId}:`, error);
+    return false;
+  }
+};

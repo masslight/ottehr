@@ -29,6 +29,7 @@ import { DateTime } from 'luxon';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
+  AMBIENT_SCRIBE_RECORDING_PENDING_CODING,
   BODY_SITE_SYSTEM,
   CPT_CODE_SYSTEM,
   ERX_MEDICATION_META_TAG_CODE,
@@ -954,13 +955,19 @@ export function makeDispositionDTO(
       ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
       : undefined;
 
-  const followUpArr = subFollowUp?.map((element) => {
+  // Resolve each sub-follow-up's type via the shared reverse lookup (coding code OR text,
+  // so the coding-less 'other'/'lurie-ct' performer types disambiguate correctly), and skip
+  // entries whose type can't be resolved rather than emitting a bogus type that downstream
+  // consumers (visit-note PDF, review tab) can't render.
+  const followUpArr = subFollowUp?.flatMap((element) => {
     const followUpType = followUpTypeFromPerformerType(element.performerType);
-
-    return {
-      type: followUpType as DispositionFollowUpType,
-      note: element.note?.[0].text,
-    };
+    if (!followUpType) return [];
+    return [
+      {
+        type: followUpType as DispositionFollowUpType,
+        note: element.note?.[0].text,
+      },
+    ];
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
@@ -1596,6 +1603,12 @@ const mapResourceToChartDataFields = (
     resource.type?.coding?.[0].code === VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code
   ) {
     data.aiChat?.documents.push(resource);
+    resourceMapped = true;
+  } else if (
+    resource.resourceType === 'DocumentReference' &&
+    resource.type?.coding?.[0].code === AMBIENT_SCRIBE_RECORDING_PENDING_CODING.code
+  ) {
+    if (data.aiChat) data.aiChat.hasPendingRecording = true;
     resourceMapped = true;
   }
   return {

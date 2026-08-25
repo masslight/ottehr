@@ -4,7 +4,9 @@ import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Attachment,
+  DomainResource,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Meta,
@@ -274,6 +276,8 @@ export function checkPaperworkComplete(questionnaireResponse: QuestionnaireRespo
     const photoIdFrontItem = findQuestionnaireResponseItemLinkId('photo-id-front', questionnaireResponse?.item ?? []);
     if (photoIdFrontItem) {
       photoIdFront = pickFirstValueFromAnswerItem(photoIdFrontItem, 'attachment');
+    } else {
+      return true;
     }
     if (photoIdFront) {
       return true;
@@ -290,4 +294,8 @@ export function resolveTimezone(schedule?: Schedule, location?: Location, fallba
     return getTimezone(location);
   }
   return fallback;
+}
+
+export function updateExtension(resource: DomainResource, extension: Extension): void {
+  resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
 }

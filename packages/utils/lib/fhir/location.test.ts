@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { ServiceMode } from '../types/common';
 import { isValidSlug, PUBLIC_EXTENSION_BASE_URL, slugFromName } from './constants';
 import {
+  isLocationBookable,
   isLocationFacilityGroup,
   isLocationInPerson,
   isLocationManuallyCreated,
   isLocationVirtual,
+  LOCATION_BOOKABLE_SEARCH_PARAM,
   LOCATION_IN_PERSON_CODE,
   LOCATION_MANUALLY_CREATED_EXTENSION_URL,
   LOCATION_PHYSICAL_TYPE_SYSTEM,
@@ -123,6 +125,38 @@ describe('location virtual / in-person helpers', () => {
     it('is false when the marker is present but false', () => {
       expect(isLocationManuallyCreated(withMarker(false))).toBe(false);
     });
+  });
+});
+
+describe('isLocationBookable', () => {
+  const withStatus = (status?: Location['status']): Location => ({ resourceType: 'Location', id: 'loc-1', status });
+
+  it('excludes a deactivated Location', () => {
+    expect(isLocationBookable(withStatus('inactive'))).toBe(false);
+  });
+
+  it('includes an active Location', () => {
+    expect(isLocationBookable(withStatus('active'))).toBe(true);
+  });
+
+  it('includes a Location with no status set', () => {
+    // The divergence this helper exists to end: `status === 'active'` in list-bookables hid these
+    // while every other path treated them as bookable, so a status-less Location was invisible in
+    // the patient list yet reachable by direct link. `Location.status` is optional in FHIR, and
+    // anything seeded, imported, or created outside `scaffoldLocation` can arrive without one.
+    expect(isLocationBookable(withStatus(undefined))).toBe(true);
+  });
+
+  it('includes a suspended Location — only "inactive" means deactivated here', () => {
+    // `suspended` is a real FHIR status this product doesn't use. Treating any non-active value as
+    // deactivated would silently change what the admin toggle means if that ever changes.
+    expect(isLocationBookable(withStatus('suspended'))).toBe(true);
+  });
+
+  it('agrees with its server-side form', () => {
+    // `status:not` rather than `status=active`, so the query and the predicate treat status-less
+    // Locations the same way — `:not` also matches resources where the field is absent.
+    expect(LOCATION_BOOKABLE_SEARCH_PARAM).toEqual({ name: 'status:not', value: 'inactive' });
   });
 });
 

@@ -2,7 +2,6 @@ import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
-import { userMe } from 'utils/lib/auth/user-me.helper';
 import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   extractExtensionValue,
@@ -26,7 +25,7 @@ import {
 } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -34,6 +33,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { assertAssignedProviderCanSign, assertCallerCanSign } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -63,16 +63,11 @@ export const performEffect = async (
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
 
-  // Resolve the acting user once up front and reuse it below, rather than calling userMe repeatedly.
-  const currentUser = await userMe(userToken, secrets);
-  const practitionerId = removePrefix('Practitioner/', currentUser.profile);
-  if (!practitionerId) {
-    throw new Error("Can't resolve the Practitioner resource id attached to the current user");
-  }
-
-  // Signing / co-signing a note is an NPI-gated action. Block callers whose Practitioner has no NPI
-  // (e.g. the Clinician role) — this also stops the downstream claim submission the sign kicks off.
-  await requirePractitionerNPI(oystehr, practitionerId);
+  // Whether the caller may sign at all is a property of the caller, not of the visit, so it is
+  // settled before any visit data is read. The resolved user is reused below as the actor recorded
+  // on the status change and on the approval Provenance.
+  const user = await getUser(userToken, secrets);
+  assertCallerCanSign(user);
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
@@ -95,18 +90,24 @@ export const performEffect = async (
     throw new Error(`No patient found for encounter ${encounter.id}`);
   }
 
+  // Skipped for a supervisor co-signing a visit its attender already signed: the attender was valid
+  // at signing time, the supervisor cannot undo a role change, and reassigning the slot would
+  // rewrite who the note says delivered the care — so blocking here would only strand the visit.
+  // The EHR takes the same view (ReviewAndSignButton treats awaiting-approval as completed and
+  // raises no message), and the guard still covers every first sign and every re-sign after unlock.
+  if (getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled) !== 'awaiting supervisor approval') {
+    await assertAssignedProviderCanSign(oystehr, encounter);
+  }
+
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getInPersonVisitStatus(appointment, encounter);
 
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      await changeFollowupEncounterStatusToCompleted(
-        oystehr,
-        practitionerId,
-        visitResources,
-        supervisorApprovalEnabled
-      );
+      const userId = removePrefix('Practitioner/', user.profile);
+      if (!userId) throw new Error("Can't receive practitioner resource id attached to current user");
+      await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
 
@@ -128,7 +129,7 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      await changeStatusToCompleted(oystehr, currentUser, visitResources, supervisorApprovalEnabled);
+      await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
 

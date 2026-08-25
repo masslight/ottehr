@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient } from 'fhir/r4b';
 import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { hasReachedPatientAr } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
@@ -17,12 +18,10 @@ import {
   fetchById,
   formatAddress,
   getClaimStatus,
-  isWorkingCopy,
   patientSearchParam,
+  resolveClinicalPatientIds,
   resolveLinkedPatientIds,
   resolvePayersByRef,
-  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
-  SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -44,24 +43,14 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
 
   const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
 
-  let clinicalId = patient.extension
-    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-    ?.valueReference?.reference?.replace('Patient/', '');
-  let clinicalFriendlyId = patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
-  let workingCopyReferenceResourceId: string | undefined;
-  if (isWorkingCopy(patient)) {
-    workingCopyReferenceResourceId = patient.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Patient/', '');
-    if (workingCopyReferenceResourceId) {
-      const referencePatient = await fetchById<Patient>(oystehr, 'Patient', workingCopyReferenceResourceId);
-      clinicalId = referencePatient.extension
-        ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-        ?.valueReference?.reference?.replace('Patient/', '');
-      clinicalFriendlyId = referencePatient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)
-        ?.valueString;
-    }
-  }
+  const {
+    clinicalId,
+    clinicalFriendlyId,
+    workingCopyParentId: workingCopyReferenceResourceId,
+  } = await resolveClinicalPatientIds({
+    oystehr,
+    patient,
+  });
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];
@@ -148,7 +137,12 @@ async function fetchPatientClaims(
     };
   });
 
-  const balance = summarizePatientBalance(summaries);
+  const balance = summarizePatientBalance(
+    claims.map((c, idx) => ({
+      payments: summaries[idx],
+      reachedPatientAr: hasReachedPatientAr(c),
+    }))
+  );
 
   return {
     claims: claimItems,

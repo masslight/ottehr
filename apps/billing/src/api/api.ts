@@ -13,7 +13,10 @@ import {
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
   DeleteServiceFacilityInputSchema,
+  ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
+  GetBillingClaimsExportStatusInputSchema,
+  GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
@@ -48,6 +51,8 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingChargeItemDefinition,
+  BillingClaimsExportKickOffResponse,
+  BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
   ClaimDetailResponse,
@@ -56,6 +61,7 @@ import {
   DeletedResponse,
   EraDetailResponse,
   ExportClaimX12Response,
+  GetBillingCoverageResponse,
   GetBillingPatientBalanceResponse,
   GetPatientCoveragesResponse,
   OkResponse,
@@ -148,6 +154,16 @@ export const searchBillingClaims = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
+
+export const exportBillingClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportBillingClaimsInputSchema>
+): Promise<BillingClaimsExportKickOffResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
+
+export const getBillingClaimsExportStatus = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingClaimsExportStatusInputSchema>
+): Promise<BillingClaimsExportStatusResponse> => executeBillingZambda(oystehr, 'export-billing-claims', parameters);
 
 export const searchBillingPatientARClaims = (
   oystehr: Oystehr,
@@ -250,6 +266,11 @@ export const updateBillingCoverage = (
   parameters: z.input<typeof UpdateBillingCoverageInputSchema>
 ): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-coverage', parameters);
 
+export const getBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingCoverageInputSchema>
+): Promise<GetBillingCoverageResponse> => executeBillingZambda(oystehr, 'get-billing-coverage', parameters);
+
 export const deleteBillingCoverage = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteBillingCoverageInputSchema>
@@ -314,6 +335,28 @@ export const searchBillingDiagnosisCodes = async (
   }
   codes.sort((a, b) => a.code.localeCompare(b.code));
   return { codes };
+};
+
+// Display text for exact procedure codes (the ERA drill-in shows "I&D of Abscess (10060)").
+// Submitted claims store bare codes, so the terminology service is the only description source;
+// codes it doesn't know are omitted and the caller falls back to the bare code.
+export const lookupProcedureDescriptions = async (
+  oystehr: Oystehr,
+  codes: string[]
+): Promise<Record<string, string>> => {
+  const descriptions: Record<string, string> = {};
+  await Promise.all(
+    [...new Set(codes.filter(Boolean))].map(async (code) => {
+      try {
+        const { codes: found } = await searchBillingProcedureCodes(oystehr, { query: code });
+        const display = found.find((option) => option.code === code)?.display;
+        if (display) descriptions[code] = display;
+      } catch {
+        // unknown code — bare code is shown instead
+      }
+    })
+  );
+  return descriptions;
 };
 
 // --- Tags ---

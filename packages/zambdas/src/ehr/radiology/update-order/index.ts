@@ -1,13 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Extension, Procedure, ServiceRequest } from 'fhir/r4b';
+import { Extension, Procedure, ServiceRequest, Task } from 'fhir/r4b';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { getExtension } from 'utils/lib/fhir/helpers';
 import { SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
 import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { UpdateRadiologyOrderZambdaInput, UpdateRadiologyOrderZambdaOutput } from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { makeCptModifierExtension } from '../../../shared/candid';
+import { isRadiologyOrderReviewed, savePerformedBy } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { buildRadiologyOrderContent, ValidatedCPTCode } from '../create-order';
@@ -53,7 +56,7 @@ async function performEffect(
   validatedInput: ValidatedInput,
   oystehr: Oystehr
 ): Promise<UpdateRadiologyOrderZambdaOutput> {
-  const { serviceRequestId, consentObtained, edit } = validatedInput.body;
+  const { serviceRequestId, update } = validatedInput.body;
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');
@@ -64,14 +67,24 @@ async function performEffect(
   console.groupEnd();
   console.debug('Service request fetched successfully');
 
-  // Full content edit (external orders): rebuild the mutable fields and PUT the whole resource.
-  if (edit) {
-    await updateOrderContent(serviceRequest, edit, oystehr);
-    return {};
+  switch (update.type) {
+    case 'content':
+      await updateOrderContent(serviceRequest, update.order, oystehr);
+      return {};
+    case 'performed-by':
+      await recordPerformer(serviceRequest, update.performedById, oystehr);
+      return {};
+    case 'consent':
+      await updateConsent(serviceRequest, update.consentObtained, oystehr);
+      return {};
   }
+}
 
-  // Patch the consentObtained extension on the service request
-  console.group('Patching service request consentObtained extension');
+async function updateConsent(
+  serviceRequest: ServiceRequest,
+  consentObtained: boolean,
+  oystehr: Oystehr
+): Promise<void> {
   const consentOperation = getPatchOperationToUpdateExtension(serviceRequest, {
     url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
     valueBoolean: consentObtained,
@@ -79,22 +92,57 @@ async function performEffect(
 
   if (!consentOperation) {
     console.debug('No update needed for consentObtained extension');
-    return {};
+    return;
   }
 
+  console.group('Patching service request consentObtained extension');
   await oystehr.fhir.patch({
     resourceType: 'ServiceRequest',
     id: serviceRequest.id!,
     operations: [consentOperation],
   });
+  console.groupEnd();
   console.debug('Service request consentObtained extension patched successfully');
+}
 
-  return {};
+/**
+ * Records who performed the study. The PACS callback that moves an order to `performed` carries no
+ * practitioner we can resolve, so this is the only way the name is ever captured — and it is captured on its
+ * own, rather than riding along with the preliminary read, so the "performed" history row is filled at the
+ * moment someone knows the answer instead of whenever a read happens to be written.
+ */
+async function recordPerformer(serviceRequest: ServiceRequest, performedById: string, oystehr: Oystehr): Promise<void> {
+  const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+    ?.valueBoolean;
+  if (isExternal) {
+    throw RADIOLOGY_ERROR('External radiology orders are performed elsewhere, so they record no performer.');
+  }
+
+  // `completed` is what the order list reads as the `performed` status — before that the study hasn't
+  // happened, so there is nobody to record.
+  if (serviceRequest.status !== 'completed') {
+    throw RADIOLOGY_ERROR('This study has not been performed yet.');
+  }
+
+  const tasks = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
+    })
+  ).unbundle();
+  if (isRadiologyOrderReviewed(tasks, serviceRequest.id!)) {
+    throw RADIOLOGY_ERROR('This order has already been reviewed and can no longer be changed.');
+  }
+
+  console.group('Saving performed by on the service request');
+  await savePerformedBy(serviceRequest, performedById, oystehr);
+  console.groupEnd();
+  console.debug('Performed by saved successfully');
 }
 
 async function updateOrderContent(
   existing: ServiceRequest,
-  edit: NonNullable<UpdateRadiologyOrderZambdaInput['edit']>,
+  edit: Extract<UpdateRadiologyOrderZambdaInput['update'], { type: 'content' }>['order'],
   oystehr: Oystehr
 ): Promise<void> {
   // Only external (print-only) orders are editable. In-house orders are transmitted to AdvaPACS at
@@ -117,7 +165,7 @@ async function updateOrderContent(
   const diagnoses = await validateICD10Codes(edit.diagnosisCodes, oystehr);
   const cpt = await validateCPTCode(edit.cptCode, oystehr);
 
-  const clinicalHistory = edit.clinicalHistory ?? '';
+  const clinicalHistory = edit.clinicalHistory?.trim() ?? '';
 
   const content = buildRadiologyOrderContent({
     diagnoses,

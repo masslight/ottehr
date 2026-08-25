@@ -1,0 +1,39 @@
+{
+  "name": "Fishhook Removal",
+  "procedureType": "foreign-body-removal",
+  "cptCodes": [
+    {
+      "code": "10120",
+      "display": "Incision and removal of foreign body, subcutaneous tissues; simple"
+    },
+    {
+      "code": "10121",
+      "display": "Incision and removal of foreign body, subcutaneous tissues; complicated"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S61.419A",
+      "display": "Laceration without foreign body of unspecified hand, initial encounter"
+    }
+  ],
+  "bodySite": "arm",
+  "bodySide": "left",
+  "technique": [
+    "clean"
+  ],
+  "medicationUsed": "local",
+  "suppliesUsed": [
+    "forceps",
+    "other"
+  ],
+  "otherSuppliesUsed": "Lidocaine 1% w/o epi if digit, wire cutters",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "other"
+  ],
+  "otherPostInstructions": "Verify tetanus status; oral antibiotics not routinely indicated",
+  "timeSpent": "5-10-min"
+}

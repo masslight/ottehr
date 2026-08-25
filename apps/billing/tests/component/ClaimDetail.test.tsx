@@ -89,6 +89,14 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   secondaryPayerName: '',
   secondaryPayerId: '',
   secondaryMemberId: '',
+  tertiaryCoverageFhirId: '',
+  tertiaryPayerName: '',
+  tertiaryPayerId: '',
+  tertiaryMemberId: '',
+  quaternaryCoverageFhirId: '',
+  quaternaryPayerName: '',
+  quaternaryPayerId: '',
+  quaternaryMemberId: '',
   nonInsurancePayerFhirId: '',
   nonInsurancePayerName: '',
   renderingProviderId: '',
@@ -315,7 +323,9 @@ describe('ClaimDetail — run rules engine button', () => {
     const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
+    await waitFor(() =>
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+    );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
@@ -332,7 +342,9 @@ describe('ClaimDetail — run rules engine button', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
+    await waitFor(() =>
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+    );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }

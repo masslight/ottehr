@@ -48,8 +48,9 @@ import { tryGroupMemberFallback } from './groupMemberFallback';
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;
-  user: User;
-  isEHRUser: boolean;
+  user: User | undefined;
+  isM2M: boolean;
+  isEHRUser: boolean | undefined;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
 };
@@ -63,7 +64,11 @@ const CreateAppointmentBodySchema = z.object({
   followUpOptions: z.unknown().optional(),
 });
 
-export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
+export function validateCreateAppointmentParams(
+  input: ZambdaInput,
+  user: User | undefined,
+  isM2M: boolean
+): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -93,7 +98,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
-  if (!isEHRUser && !patient.email && !patient.noEmail) {
+  if (!isM2M && !isEHRUser && !patient.email && !patient.noEmail) {
     missingRequiredPatientFields.push('email');
   }
   if (missingRequiredPatientFields.length > 0) {
@@ -155,6 +160,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   return {
     slotId,
     user,
+    isM2M,
     isEHRUser,
     patient: patient as unknown as PatientInfo,
     secrets: input.secrets,
@@ -193,7 +199,7 @@ export interface CreateAppointmentEffectInput {
   scheduleOwner: ScheduleOwnerFhirResource;
   serviceMode: ServiceMode;
   patient: PatientInfo;
-  user: User;
+  user: User | undefined;
   questionnaireCanonical: CanonicalUrl;
   visitType: VisitType;
   locationState?: string;
@@ -260,14 +266,19 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, isM2M, isEHRUser, user, patient, appointmentMetadata } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
   let locationState = input.locationState;
 
   // patient input complex validation
-  if (patient.id) {
+  // M2Ms and EHR users can access any patient,
+  // Patient users can access patients they have access to.
+  if (patient.id && !isM2M) {
+    if (!user) {
+      throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+    }
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
     if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
@@ -442,9 +453,11 @@ export const createAppointmentComplexValidation = async (
   // Check if the Slot has a questionnaire canonical extension
   // This allows slots to specify which questionnaire should be used for appointments booked on them
   let questionnaireCanonical: CanonicalUrl;
+
   const slotQuestionnaireExtension = slot.extension?.find(
     (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
   );
+
   if (slotQuestionnaireExtension?.valueString) {
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);

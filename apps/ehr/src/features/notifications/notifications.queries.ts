@@ -1,43 +1,66 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { Communication, Encounter, Extension, FhirResource, Location, Task as FhirTask } from 'fhir/r4b';
+import { Communication, Encounter, Extension, FhirResource, Location } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { isPhoneNumberValid, removePrefix } from 'utils/lib/helpers/helpers';
 import {
   AppointmentProviderNotificationTypes,
+  PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   ProviderNotificationMethod,
 } from 'utils/lib/types/api/practitioner.types';
-import { getAllNotificationRows, ProviderNotificationPreferencesV2 } from 'utils/lib/types/api/provider-notifications';
-import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
+import {
+  getAllNotificationRows,
+  ProviderNotificationPreferencesV2,
+  UiTaskCategoryId,
+} from 'utils/lib/types/api/provider-notifications';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
+import { inboundFaxMatchPath } from '../inbound-fax/routes';
+
+const COMMUNICATION_REFERENCE_PREFIX = 'Communication/';
 
 export type ProviderNotification = {
   appointmentID: string;
   encounter?: Encounter;
   communication: Communication;
-  // Pre-resolved navigation target for notifications that aren't tied to an appointment
-  // (currently inbound-fax notifications, which link to the fax match page).
+  /**
+   * Pre-resolved navigation target for notifications that aren't tied to an appointment
+   * (currently inbound-fax notifications, which link to the fax match page).
+   */
   link?: string;
 };
 
 /**
- * Destination for a task-backed notification that has no appointment to fall back on. Keyed off the
- * task the notification is `basedOn` rather than the notification type, so it holds for every way a
- * task notification is produced (category subscription, assignment, …).
+ * Destination for a notification with no appointment to fall back on, resolved from the notification
+ * alone — no follow-up query on a 10-second poll, and nothing for a role without Task read to trip over.
+ *
+ * Inbound faxes are the case that needs it: the cron stamps the notification with its UI category and an
+ * `about` reference to the fax Communication (see `buildTaskNotificationAbout` in the notifications-updater),
+ * which is exactly what the match page is keyed by. Notifications written before that producer change
+ * carry no `about` and simply have no link; the bell shows the last 10, so they age out.
  */
-const getTaskNotificationLink = (task: FhirTask | undefined): string | undefined => {
-  if (task?.groupIdentifier?.value !== FAX_TASK.category) {
-    return undefined;
-  }
-  const faxCommunicationID = getTaskInputValue(task, FAX_TASK.input.communicationId);
-  return faxCommunicationID ? `/inbound-fax/${faxCommunicationID}/match` : undefined;
+export const getNotificationLink = (communication: Communication): string | undefined => {
+  // Typed against `UiTaskCategoryId` rather than asserted onto it: the coding carries whatever string the
+  // producer wrote, and this way renaming the id is a compile error instead of a link that stops resolving.
+  const inboundFaxCategory: UiTaskCategoryId = 'inboundFax';
+  const categoryCode = communication.category
+    ?.flatMap((concept) => concept.coding ?? [])
+    .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code;
+  if (categoryCode !== inboundFaxCategory) return undefined;
+
+  // Only a relative `Communication/<id>` reference names a fax we can route to. Checked with an explicit
+  // prefix strip so nothing else in `about` — a Task, or an absolute URL to some other server — can be
+  // mangled into a match-page id.
+  const faxCommunicationID = communication.about
+    ?.map((about) => removePrefix(COMMUNICATION_REFERENCE_PREFIX, about.reference ?? ''))
+    .find((id): id is string => !!id);
+  return faxCommunicationID ? inboundFaxMatchPath(faxCommunicationID) : undefined;
 };
 
 export const useGetProviderNotifications = (
@@ -61,13 +84,6 @@ export const useGetProviderNotifications = (
             {
               name: '_include',
               value: 'Communication:encounter',
-            },
-            {
-              // Task notifications have no encounter; their Communication is basedOn the Task, which
-              // is what `getTaskNotificationLink` needs to resolve a destination (e.g. an inbound fax's
-              // match page, via the fax Communication id on the Task's input).
-              name: '_include',
-              value: 'Communication:based-on',
             },
             {
               name: 'recipient',
@@ -97,25 +113,17 @@ export const useGetProviderNotifications = (
       const encounterResources = notificationResources?.filter(
         (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Encounter'
       ) as Encounter[];
-      const taskResources = notificationResources?.filter(
-        (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Task'
-      ) as FhirTask[];
 
       return communicationResources.map((communicationResource) => {
         const encounterID = communicationResource.encounter?.reference?.replace('Encounter/', '');
         const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
         const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
 
-        const basedOnTaskID = communicationResource.basedOn
-          ?.find((ref) => ref.reference?.startsWith('Task/'))
-          ?.reference?.split('/')?.[1];
-        const link = getTaskNotificationLink(taskResources?.find((taskTemp) => taskTemp.id === basedOnTaskID));
-
         const notification: ProviderNotification = {
           appointmentID: appointmentID || '',
           encounter,
           communication: communicationResource,
-          link,
+          link: getNotificationLink(communicationResource),
         };
         return notification;
       });
