@@ -70,6 +70,7 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { InHouseMedicationsInlineFlow } from './InHouseMedicationsInlineFlow';
 import { InlineEditSection } from './InlineEditSection';
 import { SectionWithIcon } from './NoteSectionIcon';
+import { NursingOrdersInlineFlow } from './NursingOrdersInlineFlow';
 import { NursingOrdersReviewContainer } from './NursingOrdersReviewContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 import { ProceduresInlineFlow } from './ProceduresInlineFlow';
@@ -413,9 +414,14 @@ export const ProgressNoteDetails: FC = () => {
     ),
     // Staff-facing only: nursing orders are shown here for the signing provider but are
     // deliberately left out of the visit note and discharge PDFs.
-    <SectionWithIcon iconKey="Nursing Orders">
+    <InlineEditSection
+      sectionName="nursing-orders"
+      iconKey="Nursing Orders"
+      editLabel="Edit nursing orders"
+      editContent={<NursingOrdersInlineFlow />}
+    >
       <NursingOrdersReviewContainer encounterId={encounter?.id} />
-    </SectionWithIcon>,
+    </InlineEditSection>,
     (showPrescribedMedications || inlineEditEnabled) && (
       <InlineEditSection
         sectionName="prescriptions"

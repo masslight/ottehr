@@ -11,7 +11,15 @@ import { useMarkDraftNavigatedAway, useNursingOrderStore } from 'src/state/draft
 import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
-export const NursingOrderCreatePage: React.FC = () => {
+interface NursingOrderCreatePageProps {
+  // 'inline' renders the bare form (no breadcrumbs/page title) and finishes via
+  // onFinished instead of navigating — used by the Review & Sign inline edit flow
+  variant?: 'page' | 'inline';
+  onFinished?: () => void;
+}
+
+export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ variant = 'page', onFinished }) => {
+  const isInline = variant === 'inline';
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -39,6 +47,10 @@ export const NursingOrderCreatePage: React.FC = () => {
 
   const handleBack = (): void => {
     if (encounter.id) clearDraft(encounter.id);
+    if (isInline) {
+      onFinished?.();
+      return;
+    }
     navigate(-1);
   };
 
@@ -76,11 +88,15 @@ export const NursingOrderCreatePage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
-        <BreadCrumbs />
+        {!isInline && (
+          <>
+            <BreadCrumbs />
 
-        <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
-          Nursing Order
-        </Typography>
+            <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
+              Nursing Order
+            </Typography>
+          </>
+        )}
 
         {encounter.id && hasDraft(encounter.id) && (
           <UnsavedDraftWarning

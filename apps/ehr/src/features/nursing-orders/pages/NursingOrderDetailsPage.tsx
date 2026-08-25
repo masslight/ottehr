@@ -9,9 +9,23 @@ import { History } from '../components/details/History';
 import { OrderDetails } from '../components/details/OrderDetails';
 import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
 
-export const NursingOrderDetailsPage: React.FC = () => {
+interface NursingOrderDetailsPageProps {
+  // 'inline' takes the order id from props instead of the URL, drops the breadcrumbs and
+  // leaves via onBack — used by the Review & Sign inline edit flow
+  variant?: 'page' | 'inline';
+  serviceRequestId?: string;
+  onBack?: () => void;
+}
+
+export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = ({
+  variant = 'page',
+  serviceRequestId,
+  onBack,
+}) => {
   const navigate = useNavigate();
-  const { serviceRequestID } = useParams<{ serviceRequestID: string }>();
+  const isInline = variant === 'inline';
+  const { serviceRequestID: serviceRequestIdFromUrl } = useParams<{ serviceRequestID: string }>();
+  const serviceRequestID = isInline ? serviceRequestId : serviceRequestIdFromUrl;
 
   const [showHistory, setShowHistory] = useState(true);
 
@@ -22,6 +36,10 @@ export const NursingOrderDetailsPage: React.FC = () => {
   const order = nursingOrders.find((order) => order.serviceRequestId === serviceRequestID);
 
   const handleBack = (): void => {
+    if (isInline) {
+      onBack?.();
+      return;
+    }
     navigate(-1);
   };
 
@@ -38,8 +56,8 @@ export const NursingOrderDetailsPage: React.FC = () => {
     try {
       await updateNursingOrder();
 
-      // Navigate back to the list view
-      navigate(-1);
+      // Back to the list view
+      handleBack();
     } catch (error) {
       console.error('Error completing nursing order:', error);
     }
@@ -81,7 +99,7 @@ export const NursingOrderDetailsPage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px', width: '100%' }}>
-        <BreadCrumbs />
+        {!isInline && <BreadCrumbs />}
 
         <OrderDetails orderDetails={order} onSubmit={handleSubmit} />
 
