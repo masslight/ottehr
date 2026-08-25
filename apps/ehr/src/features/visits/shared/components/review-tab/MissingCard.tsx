@@ -35,7 +35,8 @@ import { extractObservationsFromExamComponents } from 'utils/lib/config-helpers/
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { InPersonRosConfig, rosField, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems';
 import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
-import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ExamObservationDTO, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { hashInput } from '../../hooks/useBillingSuggestions';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -44,13 +45,26 @@ import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queri
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
+import { useGetVitals } from '../vitals/hooks/useGetVitals';
 
 // Compact text serialization of the note sections the practice-level sign-review prompt may evaluate
+const serializeVitals = (vitals: GetVitalsResponseData | undefined): string[] => {
+  return Object.entries(vitals ?? {}).flatMap(([field, observations]) =>
+    (observations as VitalsObservationDTO[]).map((obs) => {
+      const label = field.replace(/^vital-/, '').replace(/-/g, ' ');
+      const value =
+        'systolicPressure' in obs ? `${obs.systolicPressure}/${obs.diastolicPressure}` : String(obs.value ?? '');
+      return `${label}: ${value}`;
+    })
+  );
+};
+
 const serializeNoteDetails = (
   rosState: Record<string, ExamObservationDTO>,
   examState: Record<string, ExamObservationDTO>,
   hpi: string | undefined,
-  mdm: string | undefined
+  mdm: string | undefined,
+  vitals: GetVitalsResponseData | undefined
 ): string => {
   const rosLines = Object.values(InPersonRosConfig).flatMap((system) => {
     const items = Object.entries(system.items).flatMap(([baseKey, item]) =>
@@ -67,7 +81,16 @@ const serializeNoteDetails = (
     ].map((item) => `${item.label}${item.abnormal ? ' (abnormal)' : ''} (checked)`);
     return items.length > 0 ? [`${section.label}: ${items.join(', ')}`] : [];
   });
-  return [`HPI: ${hpi ?? ''}`, `MDM: ${mdm ?? ''}`, 'ROS:', ...rosLines, 'EXAM:', ...examLines].join('\n');
+  return [
+    `HPI: ${hpi ?? ''}`,
+    `MDM: ${mdm ?? ''}`,
+    'VITALS:',
+    ...serializeVitals(vitals),
+    'ROS:',
+    ...rosLines,
+    'EXAM:',
+    ...examLines,
+  ].join('\n');
 };
 
 export const MissingCard: FC = () => {
@@ -139,14 +162,21 @@ export const MissingCard: FC = () => {
   const rosState = useRosObservationsStore();
   const examState = useExamObservationsStore();
   const signReviewPrompt = progressNoteConfig?.signReviewPrompt?.trim();
+  const { data: vitals, isLoading: isVitalsLoading } = useGetVitals(signReviewPrompt ? encounter.id : undefined);
   const noteDetails = useMemo(
-    () => (signReviewPrompt ? serializeNoteDetails(rosState, examState, hpi, medicalDecision) : ''),
-    [signReviewPrompt, rosState, examState, hpi, medicalDecision]
+    () => (signReviewPrompt ? serializeNoteDetails(rosState, examState, hpi, medicalDecision, vitals) : ''),
+    [signReviewPrompt, rosState, examState, hpi, medicalDecision, vitals]
   );
   const { data: noteReview, isLoading: isNoteReviewLoading } = useQuery<AISuggestionNotes>({
     queryKey: ['note-review-suggestions', encounter.id, hashInput(signReviewPrompt + noteDetails)],
     queryFn: () => apiClient!.aiSuggestionNotes({ type: 'note-review', reviewPrompt: signReviewPrompt!, noteDetails }),
-    enabled: !!apiClient && !!signReviewPrompt && !!encounter.id && !isAppointmentReadOnly && !isChartDataLoading,
+    enabled:
+      !!apiClient &&
+      !!signReviewPrompt &&
+      !!encounter.id &&
+      !isAppointmentReadOnly &&
+      !isChartDataLoading &&
+      !isVitalsLoading,
     staleTime: Infinity,
     retry: 0,
   });
