@@ -40,6 +40,18 @@ export const useAiResourcesPolling = ({
   const pollingIntervalRef = useRef<NodeJS.Timeout>();
   const pollingExhaustedRef = useRef(false);
   const initialCheckDoneRef = useRef(false);
+  const previousEncounterIdRef = useRef(encounter?.id);
+
+  // Update polling state on encounter change
+  useEffect(() => {
+    if (previousEncounterIdRef.current === encounter?.id) return;
+    previousEncounterIdRef.current = encounter?.id;
+    setIsPolling(false);
+    setHasPendingAiSource(false);
+    pollingAttemptsRef.current = 0;
+    pollingExhaustedRef.current = false;
+    initialCheckDoneRef.current = false;
+  }, [encounter?.id]);
 
   // Mirror this instance's state into the shared store so components that don't call this hook directly
   // (e.g. OttehrAi, since this hook is only invoked from the persistently-mounted InPersonLayout) can still
