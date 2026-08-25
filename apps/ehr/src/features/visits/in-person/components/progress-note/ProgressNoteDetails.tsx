@@ -17,15 +17,11 @@ import { ExamMigrationWarning } from 'src/features/visits/shared/components/exam
 import { useExamConfigState } from 'src/features/visits/shared/components/exam-tab/useExamConfigState';
 import { AdditionalQuestionsContainer } from 'src/features/visits/shared/components/review-tab/components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from 'src/features/visits/shared/components/review-tab/components/AllergiesContainer';
-import { AssessmentContainer } from 'src/features/visits/shared/components/review-tab/components/AssessmentContainer';
+import { AssessmentGroupContainer } from 'src/features/visits/shared/components/review-tab/components/AssessmentGroupContainer';
 import { ChiefComplaintContainer } from 'src/features/visits/shared/components/review-tab/components/ChiefComplaintContainer';
-import { CPTCodesContainer } from 'src/features/visits/shared/components/review-tab/components/CPTCodesContainer';
-import { EMCodeContainer } from 'src/features/visits/shared/components/review-tab/components/EMCodeContainer';
 import { ExaminationContainer } from 'src/features/visits/shared/components/review-tab/components/ExaminationContainer';
-import { HistoryOfPresentIllnessContainer } from 'src/features/visits/shared/components/review-tab/components/HistoryOfPresentIllnessContainer';
-import { MechanismOfInjuryContainer } from 'src/features/visits/shared/components/review-tab/components/MechanismOfInjuryContainer';
+import { HpiMoiContainer } from 'src/features/visits/shared/components/review-tab/components/HpiMoiContainer';
 import { MedicalConditionsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalConditionsContainer';
-import { MedicalDecisionMakingContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalDecisionMakingContainer';
 import { MedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicationsContainer';
 import { PatientInstructionsContainer } from 'src/features/visits/shared/components/review-tab/components/PatientInstructionsContainer';
 import { PrescribedMedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/PrescribedMedicationsContainer';
@@ -73,6 +69,8 @@ import { InHouseLabsInlineFlow } from './InHouseLabsInlineFlow';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { InHouseMedicationsInlineFlow } from './InHouseMedicationsInlineFlow';
 import { InlineEditSection } from './InlineEditSection';
+import { SectionWithIcon } from './NoteSectionIcon';
+import { NursingOrdersReviewContainer } from './NursingOrdersReviewContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 import { ProceduresInlineFlow } from './ProceduresInlineFlow';
 import { RadiologyInlineFlow } from './RadiologyInlineFlow';
@@ -119,6 +117,7 @@ export const ProgressNoteDetails: FC = () => {
   const inHouseLabResults = chartFields?.inHouseLabResults;
   const radiologyOrders = chartFields?.radiologyOrders;
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
+  const reasonForVisit = chartFields?.reasonForVisit?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
   const hpi = chartFields?.chiefComplaint?.text;
   const rosLegacyText = chartFields?.ros?.text;
@@ -129,6 +128,7 @@ export const ProgressNoteDetails: FC = () => {
   const observations = chartData?.observations;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
+  const showReasonForVisit = !!(reasonForVisit && reasonForVisit.length > 0);
   const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
   const showHpi = !!(hpi && hpi.length > 0);
   const showLegacyReviewOfSystems = !!(rosLegacyText && rosLegacyText.length > 0);
@@ -181,6 +181,7 @@ export const ProgressNoteDetails: FC = () => {
   const medicalHistorySections = [
     <InlineEditSection
       sectionName="allergies"
+      iconKey="Allergies"
       editLabel="Edit allergies"
       editContent={<AllergiesBody />}
       disabled={inlineEditDisabled}
@@ -189,6 +190,7 @@ export const ProgressNoteDetails: FC = () => {
     </InlineEditSection>,
     <InlineEditSection
       sectionName="medications"
+      iconKey="Medications"
       editLabel="Edit medications"
       editContent={<MedicationsBody />}
       disabled={inlineEditDisabled}
@@ -197,6 +199,7 @@ export const ProgressNoteDetails: FC = () => {
     </InlineEditSection>,
     <InlineEditSection
       sectionName="medical-conditions"
+      iconKey="Medical Conditions"
       editLabel="Edit medical conditions"
       editContent={<MedicalConditionsBody />}
       disabled={inlineEditDisabled}
@@ -205,6 +208,7 @@ export const ProgressNoteDetails: FC = () => {
     </InlineEditSection>,
     <InlineEditSection
       sectionName="surgical-history"
+      iconKey="Surgical History"
       editLabel="Edit surgical history"
       editContent={<SurgicalHistoryBody />}
       disabled={inlineEditDisabled}
@@ -213,6 +217,7 @@ export const ProgressNoteDetails: FC = () => {
     </InlineEditSection>,
     <InlineEditSection
       sectionName="hospitalization"
+      iconKey="Hospitalization"
       editLabel="Edit hospitalization"
       editContent={<HospitalizationBody />}
       disabled={inlineEditDisabled}
@@ -222,6 +227,7 @@ export const ProgressNoteDetails: FC = () => {
     (showInHouseMedications || inlineEditEnabled) && (
       <InlineEditSection
         sectionName="in-house-medications"
+        iconKey="Med. Administration"
         editLabel="Edit in-house medications"
         editContent={<InHouseMedicationsInlineFlow />}
         disabled={inlineEditDisabled}
@@ -236,6 +242,7 @@ export const ProgressNoteDetails: FC = () => {
     (showImmunization || inlineEditEnabled) && (
       <InlineEditSection
         sectionName="immunizations"
+        iconKey="Immunization"
         editLabel="Edit immunizations"
         editContent={<ImmunizationInlineFlow />}
         disabled={inlineEditDisabled}
@@ -251,63 +258,71 @@ export const ProgressNoteDetails: FC = () => {
 
   const sections = [
     displayExamMigrationWarning && !hasIncompatibleExamConfig && (
-      <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />
+      <SectionWithIcon>
+        <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />
+      </SectionWithIcon>
     ),
-    (showChiefComplaint || inlineEditEnabled) && (
+    (showChiefComplaint || showReasonForVisit || inlineEditEnabled) && (
       <InlineEditSection
         sectionName="chief-complaint"
+        iconKey="Chief Complaint"
         editLabel="Edit chief complaint"
         editContent={<ChiefComplaintBody />}
       >
-        {showChiefComplaint ? (
-          <ChiefComplaintContainer />
-        ) : (
-          <BlankSection title="Additional information" message="No additional information provided" />
-        )}
+        <ChiefComplaintContainer />
       </InlineEditSection>
     ),
-    (showHpi || inlineEditEnabled) && (
+    // HPI and MOI are documented on the same screen and read as one section with a
+    // subsection each; MOI only appears for the injury visits that have it.
+    (showHpi || showMechanismOfInjury || inlineEditEnabled) && (
       <InlineEditSection
-        sectionName="hpi"
-        editLabel="Edit history of present illness"
+        sectionName="hpi-moi"
+        iconKey="History"
+        editLabel="Edit HPI/MOI"
         editContent={<HistoryAndTemplatesBody />}
       >
-        {showHpi ? (
-          <HistoryOfPresentIllnessContainer />
-        ) : (
-          <BlankSection title="History of Present Illness" message="No history of present illness documented" />
-        )}
+        <HpiMoiContainer />
       </InlineEditSection>
     ),
-    // MOI is edited on the HPI screen and only relevant for injury visits — no blank state.
-    showMechanismOfInjury && (
-      <InlineEditSection
-        sectionName="mechanism-of-injury"
-        editLabel="Edit mechanism of injury"
-        editContent={<HistoryAndTemplatesBody />}
-      >
-        <MechanismOfInjuryContainer />
-      </InlineEditSection>
+    showLegacyReviewOfSystems && (
+      <SectionWithIcon iconKey="Checklist">
+        <ReviewOfSystemsContainer />
+      </SectionWithIcon>
     ),
-    showLegacyReviewOfSystems && <ReviewOfSystemsContainer />,
     (showRosReviewContainer || inlineEditEnabled) && (
-      <InlineEditSection sectionName="review-of-systems" editLabel="Edit review of systems" editContent={<RosBody />}>
+      <InlineEditSection
+        sectionName="review-of-systems"
+        iconKey="Checklist"
+        editLabel="Edit review of systems"
+        editContent={<RosBody />}
+      >
         <RosReviewContainer />
       </InlineEditSection>
     ),
     (showAdditionalQuestions || inlineEditEnabled) && (
-      <InlineEditSection sectionName="screening" editLabel="Edit screening questions" editContent={<ScreeningBody />}>
+      <InlineEditSection
+        sectionName="screening"
+        iconKey="Screening Questions"
+        editLabel="Edit screening questions"
+        editContent={<ScreeningBody />}
+      >
         <AdditionalQuestionsContainer notes={screeningNotes} emptyMessage="No screening information" />
       </InlineEditSection>
     ),
     (showVitalsObservations || inlineEditEnabled) && (
-      <InlineEditSection sectionName="vitals" editLabel="Edit vitals" editContent={<PatientVitalsBody />}>
+      <InlineEditSection
+        sectionName="vitals"
+        iconKey="Vitals"
+        editLabel="Edit vitals"
+        editContent={<PatientVitalsBody />}
+      >
         <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />
       </InlineEditSection>
     ),
 
     <InlineEditSection
       sectionName="examination"
+      iconKey="Stethoscope"
       editLabel="Edit examination"
       editContent={<ExamBody />}
       disabled={displayExamMigrationWarning && hasIncompatibleExamConfig}
@@ -326,29 +341,22 @@ export const ProgressNoteDetails: FC = () => {
       </Stack>
     </InlineEditSection>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
-    (showAssessment || inlineEditEnabled) && (
-      <InlineEditSection sectionName="assessment" editLabel="Edit assessment" editContent={<AssessmentBody />}>
-        {showAssessment ? <AssessmentContainer /> : <BlankSection title="Assessment" message="No diagnoses added" />}
-      </InlineEditSection>
-    ),
-    (showMedicalDecisionMaking || inlineEditEnabled) && (
+    // Diagnoses, medical decision making and the billing codes are all documented on the
+    // Assessment screen, so they read as subsections of one Assessment section.
+    (showAssessment || showMedicalDecisionMaking || showEmCode || showCptCodes || inlineEditEnabled) && (
       <InlineEditSection
-        sectionName="medical-decision-making"
-        editLabel="Edit medical decision making"
+        sectionName="assessment"
+        iconKey="Prescription"
+        editLabel="Edit assessment"
         editContent={<AssessmentBody />}
       >
-        {showMedicalDecisionMaking ? (
-          <MedicalDecisionMakingContainer />
-        ) : (
-          <BlankSection title="Medical Decision Making" message="No medical decision making documented" />
-        )}
+        <AssessmentGroupContainer />
       </InlineEditSection>
     ),
-    showEmCode && <EMCodeContainer />,
-    showCptCodes && <CPTCodesContainer />,
     (showInHouseLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED)) && (
       <InlineEditSection
         sectionName="in-house-labs"
+        iconKey="In-House Labs"
         editLabel="Edit in-house lab orders"
         editContent={<InHouseLabsInlineFlow />}
       >
@@ -365,6 +373,7 @@ export const ProgressNoteDetails: FC = () => {
     (showExternalLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.LAB_ORDERS_ENABLED)) && (
       <InlineEditSection
         sectionName="external-labs"
+        iconKey="External Labs"
         editLabel="Edit external lab orders"
         editContent={<ExternalLabsInlineFlow />}
       >
@@ -381,6 +390,7 @@ export const ProgressNoteDetails: FC = () => {
     (showRadiologyContainer || (inlineEditEnabled && FEATURE_FLAGS.RADIOLOGY_ENABLED)) && (
       <InlineEditSection
         sectionName="radiology"
+        iconKey="Radiology"
         editLabel="Edit radiology orders"
         editContent={<RadiologyInlineFlow />}
       >
@@ -388,7 +398,12 @@ export const ProgressNoteDetails: FC = () => {
       </InlineEditSection>
     ),
     (showProceduresContainer || inlineEditEnabled) && (
-      <InlineEditSection sectionName="procedures" editLabel="Edit procedures" editContent={<ProceduresInlineFlow />}>
+      <InlineEditSection
+        sectionName="procedures"
+        iconKey="Procedures"
+        editLabel="Edit procedures"
+        editContent={<ProceduresInlineFlow />}
+      >
         {showProceduresContainer ? (
           <ProceduresContainer />
         ) : (
@@ -396,8 +411,18 @@ export const ProgressNoteDetails: FC = () => {
         )}
       </InlineEditSection>
     ),
+    // Staff-facing only: nursing orders are shown here for the signing provider but are
+    // deliberately left out of the visit note and discharge PDFs.
+    <SectionWithIcon iconKey="Nursing Orders">
+      <NursingOrdersReviewContainer encounterId={encounter?.id} />
+    </SectionWithIcon>,
     (showPrescribedMedications || inlineEditEnabled) && (
-      <InlineEditSection sectionName="prescriptions" editLabel="Edit prescriptions" editContent={<ERXInlineFlow />}>
+      <InlineEditSection
+        sectionName="prescriptions"
+        iconKey="eRX"
+        editLabel="Edit prescriptions"
+        editContent={<ERXInlineFlow />}
+      >
         {showPrescribedMedications ? (
           <PrescribedMedicationsContainer />
         ) : (
@@ -406,7 +431,7 @@ export const ProgressNoteDetails: FC = () => {
       </InlineEditSection>
     ),
     (showPatientInstructions || inlineEditEnabled) && (
-      <InlineEditSection sectionName="plan" editLabel="Edit plan" editContent={<PlanBody />}>
+      <InlineEditSection sectionName="plan" iconKey="Lab profile" editLabel="Edit plan" editContent={<PlanBody />}>
         {showPatientInstructions ? (
           <PatientInstructionsContainer />
         ) : (
@@ -414,7 +439,9 @@ export const ProgressNoteDetails: FC = () => {
         )}
       </InlineEditSection>
     ),
-    <PrivacyPolicyAcknowledgement />,
+    <SectionWithIcon>
+      <PrivacyPolicyAcknowledgement />
+    </SectionWithIcon>,
   ].filter(Boolean);
 
   const handleApprove = async (): Promise<void> => {

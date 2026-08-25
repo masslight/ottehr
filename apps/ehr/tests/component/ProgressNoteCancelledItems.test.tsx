@@ -54,6 +54,11 @@ vi.mock('../../src/features/visits/shared/components/vitals/hooks/useGetVitals',
   useGetVitals: () => ({ data: undefined }),
 }));
 
+// The nursing orders summary fetches through the zambda API client.
+vi.mock('../../src/features/nursing-orders/components/orders/useNursingOrders', () => ({
+  useGetNursingOrders: () => ({ nursingOrders: [], loading: false, error: null, fetchNursingOrders: vi.fn() }),
+}));
+
 // Mock components to avoid complex rendering
 vi.mock('../../src/features/visits/shared/components/review-tab/components/AllergiesContainer', () => ({
   AllergiesContainer: ({ notes }: { notes: any[] }) => (

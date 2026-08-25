@@ -49,7 +49,7 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
       data-testid={dataTestIds.progressNotePage.additionalQuestions}
     >
       <Typography variant="h5" color="primary.dark">
-        Additional questions
+        Screening questions
       </Typography>
 
       {emptyMessage && !chartData?.observations?.length && !notes?.length && (

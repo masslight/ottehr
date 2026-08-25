@@ -5,10 +5,13 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { NoteSectionIcon, NoteSectionIconKey, SectionWithIcon } from './NoteSectionIcon';
 
 interface InlineEditSectionProps {
   // kebab-case section identifier used for test ids, e.g. 'allergies'
   sectionName: string;
+  // sidebar menu icon shown in the section's left gutter
+  iconKey?: NoteSectionIconKey;
   editLabel: string;
   // the reused intake screen body; mounted only while the section is open so the
   // Review & Sign page doesn't pay for every section's queries up front
@@ -20,6 +23,7 @@ interface InlineEditSectionProps {
 
 export const InlineEditSection: FC<InlineEditSectionProps> = ({
   sectionName,
+  iconKey,
   editLabel,
   editContent,
   disabled,
@@ -44,7 +48,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
 
   const canEdit = FEATURE_FLAGS.INLINE_PROGRESS_NOTE_EDITING_ENABLED && !isAppointmentReadOnly && !disabled;
 
-  if (!canEdit) return <>{children}</>;
+  if (!canEdit) return <SectionWithIcon iconKey={iconKey}>{children}</SectionWithIcon>;
 
   // The editor shows the same information in more detail, so the read-only summary is
   // replaced while editing rather than duplicated above it; the edit label stands in as
@@ -58,9 +62,12 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
     return (
       <Box sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.inlineEditSection(sectionName)}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1 }}>
-          <Typography variant="h5" color="primary.dark">
-            {editLabel}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+            <NoteSectionIcon iconKey={iconKey} />
+            <Typography variant="h5" color="primary.dark">
+              {editLabel}
+            </Typography>
+          </Box>
           {/* A misclick into a long editor shouldn't require scrolling to the bottom
               Done button to get back out. */}
           <RoundedButton
@@ -72,14 +79,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
             Done
           </RoundedButton>
         </Box>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
+        <Box>
           {editContent}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <RoundedButton
@@ -106,7 +106,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
         sx={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: 1,
+          gap: 1.5,
           cursor: 'pointer',
           borderRadius: 1,
           mx: -1,
@@ -115,6 +115,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
           '&:hover .inline-edit-icon': { opacity: 1 },
         }}
       >
+        <NoteSectionIcon iconKey={iconKey} />
         <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
         <IconButton
           className="inline-edit-icon"
