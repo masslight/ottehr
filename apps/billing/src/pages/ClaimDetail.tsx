@@ -54,6 +54,7 @@ import {
   BillingCoverageOption,
   BillingProviderOption,
   BillingTag,
+  ClaimCoverageType,
   ClaimDetailResponse,
   ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
@@ -713,7 +714,7 @@ export function InsuranceSection({
   showAddButton,
   onAdd,
 }: {
-  coverageType: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  coverageType: ClaimCoverageType;
   getCoverageIdFromClaim: (claim: ClaimDetailResponse) => string | undefined;
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;

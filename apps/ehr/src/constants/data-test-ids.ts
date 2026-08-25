@@ -148,6 +148,12 @@ export const dataTestIds = {
     inPersonModalContent: 'in-person-modal-content',
     alertIcon: 'WarningAmberOutlinedIcon',
   },
+  locationConfig: {
+    bookingLinks: 'location-booking-links',
+    noScheduleWarning: 'location-no-schedule-warning',
+    createScheduleLink: 'location-create-schedule-link',
+    scheduleLink: (scheduleId: string) => `location-schedule-link-${scheduleId}`,
+  },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',
     locationValue: 'location-value',

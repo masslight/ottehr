@@ -2,6 +2,7 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Button, Tooltip, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useSaveBlockedReason } from './SaveBlockedReasonContext';
 
 type ActionBarProps = {
   handleDiscard: () => void;
@@ -10,11 +11,6 @@ type ActionBarProps = {
   hidden?: boolean;
   submitDisabled?: boolean;
   backButtonHidden?: boolean;
-  /**
-   * When set, saving is blocked by something outside the form itself: the save button is disabled
-   * and this text explains why on hover.
-   */
-  submitBlockedReason?: string;
 };
 
 export const ActionBar: FC<ActionBarProps> = ({
@@ -24,9 +20,11 @@ export const ActionBar: FC<ActionBarProps> = ({
   hidden,
   submitDisabled,
   backButtonHidden,
-  submitBlockedReason,
 }) => {
   const theme = useTheme();
+  // Set by the visit page, which requires the consent attestation before any of the patient record
+  // can be written. Undefined everywhere else, so the standalone patient-info page is unaffected.
+  const submitBlockedReason = useSaveBlockedReason();
 
   const saveButton = (
     <LoadingButton

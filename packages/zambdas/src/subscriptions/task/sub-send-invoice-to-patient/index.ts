@@ -29,23 +29,25 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { getTaskAndSecretsFromInput, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParams = validateRequestParameters(input);
-  const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
-  const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
-  console.log('Input task id: ', task.id);
-
+  const { task, secrets } = getTaskAndSecretsFromInput(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const stripe = getStripeClient(secrets);
 
   try {
+    const validatedParams = validateRequestParameters(task);
+    const { encounterId, invoiceTaskInput } = validatedParams;
+    const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
+    console.log('Input task id: ', task.id);
+
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    const stripe = getStripeClient(secrets);
+
     console.log('Fetching fhir resources');
     const fhirResources = await getFhirResources(oystehr, encounterId);
     const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;

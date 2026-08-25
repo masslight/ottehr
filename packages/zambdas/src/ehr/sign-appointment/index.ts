@@ -2,7 +2,6 @@ import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
-import { userMe } from 'utils/lib/auth/user-me.helper';
 import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   extractExtensionValue,
@@ -15,6 +14,7 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
@@ -25,16 +25,15 @@ import {
 } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
-import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { assertAssignedProviderCanSign } from './helpers';
+import { assertAssignedProviderCanSign, assertCallerCanSign } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -63,6 +62,12 @@ export const performEffect = async (
   }
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
+
+  // Whether the caller may sign at all is a property of the caller, not of the visit, so it is
+  // settled before any visit data is read. The resolved user is reused below as the actor recorded
+  // on the status change and on the approval Provenance.
+  const user = await getUser(userToken, secrets);
+  assertCallerCanSign(user);
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
@@ -100,7 +105,8 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      const userId = await getMyPractitionerId(userToken, secrets);
+      const userId = removePrefix('Practitioner/', user.profile);
+      if (!userId) throw new Error("Can't receive practitioner resource id attached to current user");
       await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
@@ -123,7 +129,6 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      const user = await userMe(userToken, secrets);
       await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);

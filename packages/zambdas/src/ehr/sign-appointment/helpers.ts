@@ -1,8 +1,12 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { canBeAssignedAsProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
-import { RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import {
+  canSignVisitNote,
+  NO_SIGN_PERMISSION_MESSAGE,
+} from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
+import { APIErrorCode, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { getPractitionerRoles } from '../../shared/auth';
 
 export const NO_PROVIDER_ASSIGNED_MESSAGE = 'No provider is assigned to this visit. Select a provider before signing.';
@@ -42,5 +46,29 @@ export const assertAssignedProviderCanSign = async (oystehr: Oystehr, encounter:
         `[${roles.join(', ')}] and can no longer be assigned as a provider; refusing to sign`
     );
     throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(ASSIGNED_PROVIDER_NOT_A_PROVIDER_MESSAGE);
+  }
+};
+
+/**
+ * Throws unless the calling user's roles permit signing a visit note.
+ *
+ * This is about who is pressing the button, not about who the note names — the assigned-provider
+ * check above answers that. Both have to pass: a Clinician may chart a Provider's visit, but only
+ * provider-level roles may sign it — see VISIT_NOTE_SIGNING_ROLES, which both sides share.
+ *
+ * The EHR greys out the sign button with the same copy, but the gate has to live here too: the
+ * zambda is directly callable, and the Clinician access policy is a near-copy of the Provider one,
+ * so nothing in the access layer would stop the write. Throws an APIError so the reason reaches the
+ * caller as a 403 instead of a Sentry-reported 500 — a refused permission is not an internal fault.
+ */
+export const assertCallerCanSign = (user: User): void => {
+  const roles = (user.roles ?? []).map((role) => role.name);
+  if (!canSignVisitNote({ roles })) {
+    console.error(`User ${user.id} holds roles [${roles.join(', ')}] and may not sign visit notes; refusing to sign`);
+    throw {
+      code: APIErrorCode.NOT_AUTHORIZED,
+      message: NO_SIGN_PERMISSION_MESSAGE,
+      statusCode: 403,
+    };
   }
 };
