@@ -287,10 +287,19 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     secrets
   );
 
-  if (transcript === NO_SPEECH_DETECTED) {
+  // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
+  // fall through and build chart resources out of the sentinel string itself.
+  if (transcript.trim() === NO_SPEECH_DETECTED) {
     console.log(
       `[transcribeAndCreateResourcesFromZ3Audio] No speech detected in recording z3URL=${args.z3URL}; skipping AI resource creation`
     );
+    // The in-person ambient scribe marks its recording with AMBIENT_SCRIBE_RECORDING_PENDING_CODING and the EHR
+    // keeps the scribe in "Loading" (and keeps polling) until something replaces that coding — normally
+    // createResourcesFromAiInterview, which we are skipping here. Clear the pending marker ourselves so the
+    // recording settles as a played-back-only document instead of loading forever.
+    if (args.existingDocumentReference) {
+      await clearPendingRecordingMarker(oystehr, args.existingDocumentReference);
+    }
     return 'no speech detected; skipped AI resource creation';
   }
 
@@ -305,6 +314,23 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     args.existingDocumentReference,
     secrets
   );
+}
+
+/**
+ * Swaps a pending ambient-scribe recording's type coding for the regular consult-note coding, without adding a
+ * transcript or AI observations. Used when the recording turns out to be silent: the audio stays listed and
+ * playable, but the EHR stops treating it as a recording still awaiting transcription.
+ */
+async function clearPendingRecordingMarker(
+  oystehr: Oystehr,
+  existingDocumentReference: DocumentReference
+): Promise<void> {
+  await oystehr.fhir.update<DocumentReference>({
+    ...existingDocumentReference,
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+  });
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
