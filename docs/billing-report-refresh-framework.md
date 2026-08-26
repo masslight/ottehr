@@ -1,440 +1,281 @@
-# Billing Report Refresh Framework — Design Proposal
+# Billing Report Refresh Framework
 
-Status: **draft for discussion** (rev 2 — consolidated to a single HTTP zambda, added
-source-adapter layer and worker-split escape hatch)
+How the billing app's reports are computed, cached, refreshed, and drilled into. This document
+describes the **mechanism**; the individual reports built on it are documented in
+[billing-reports.md](./billing-reports.md).
 
-## 1. Problem
+## 1. The model in one paragraph
 
-Today the seven billing reports use three different execution models, two different cache
-resources, and four slightly different copies of the same page-level refresh UX:
+Every billing report follows the same task/subscribe pipeline: the HTTP zambda **never
+computes** — it serves a cached snapshot plus a refresh status, and queues an async refresh as
+a FHIR `Task`. A Subscription fires a worker zambda that routes the Task to the report's
+definition, runs its `compute()` with a long timeout, streams progress back onto the Task, and
+writes the result (and optionally a drilldown dataset) to gzip caches. The frontend polls the
+cheap HTTP endpoint while a refresh runs and renders one uniform status bar everywhere.
 
-| Report | Execution today | Cache resource | Refresh UX today |
-|---|---|---|---|
-| Invoice | task/subscribe (async worker) | `DocumentReference` (gzip JSON) | chip + poll loop |
-| Cards on file | task/subscribe (async worker) | `DocumentReference` (gzip JSON) | chip + poll loop |
-| Payments | direct (inline compute) | `MeasureReport` | chip, no live progress |
-| Patient payments | direct (inline compute) | `MeasureReport` | piggybacks on Payments page |
-| Pipeline | direct (always recomputes) | `DocumentReference` (history snapshots only) | chip, no live progress |
-| Payments drilldown | direct | none | none |
-| Productivity | direct | none | none |
+There are exactly **two zambdas** for all reports:
 
-Problems this causes:
+| Zambda | Role |
+|---|---|
+| `get-billing-report` | serve cache + status; queue refreshes; serve drilldown slices |
+| `sub-refresh-billing-report` | compute; write caches; report progress (Task-subscription worker) |
 
-- **Timeout risk.** Direct reports compute inside the HTTP request; as data grows they will
-  hit the zambda timeout (the invoice/cards-on-file reports already had to migrate for this
-  reason).
-- **Duplication.** `kickOffRefreshTask` / `findActiveRefreshTask` / cache load-save /
-  poll-until-done logic is re-implemented per report with small variations.
-- **Inconsistent UX.** Some pages show live progress, some show a static chip, some show
-  nothing. The "Refreshing…" state is rendered differently everywhere.
+Adding report kind #7 means writing one `ReportDefinition` and registering it — no new zambdas,
+no new config, no new frontend plumbing beyond a typed api wrapper and a page.
 
-## 2. Goals
-
-1. **Every report** runs through the same task/subscribe pipeline: HTTP zambdas *never*
-   compute, they only serve cache + queue refreshes.
-2. **One backend framework**: a report is described by a small `ReportDefinition` object;
-   the framework provides the task queue, the worker routing, the cache store, and the
-   progress writer.
-3. **One frontend framework**: a `useBillingReport` hook + a `ReportStatusBar` component
-   shared by all report pages:
-   - idle → de-emphasized (greyed-out) "Last updated …" line
-   - running → animated progress indicator with the live phase text, periodically updated
-   - error → surfaced inline with a retry affordance
-4. Adding report #8 means writing one `compute` function, one definition entry, and one
-   page that uses the shared hook — nothing else.
-
-## 3. Architecture Overview
+## 2. Architecture
 
 ```mermaid
 flowchart LR
     subgraph Frontend["apps/billing"]
-        Page["Report page"] --> Hook["useBillingReport(kind, params)"]
+        Page["Report page"] --> Hook["useBillingReport"]
         Hook --> StatusBar["ReportStatusBar"]
+        Drawer["Drilldown drawer"]
     end
 
-    subgraph HTTP["HTTP zambda (thin, single)"]
-        GetReport["get-billing-report<br/>{ kind, params, refresh? }<br/>serve cache + status + kickoff"]
+    subgraph HTTP["get-billing-report (HTTP, thin)"]
+        GetReport["{ kind, params, refresh?, drilldown? }"]
     end
 
     subgraph FHIR["FHIR store"]
         TaskR["Task<br/>(queue + live status)"]
-        Cache["DocumentReference<br/>(gzip JSON cache per kind+params)"]
+        Cache["DocumentReference<br/>payload cache"]
+        Detail["DocumentReference<br/>detail cache (:detail)"]
     end
 
-    subgraph Worker["Subscription worker"]
-        Sub["sub-refresh-billing-report<br/>routes by kind"] --> Registry["report registry<br/>ReportDefinition[]"]
+    subgraph Worker["sub-refresh-billing-report"]
+        Sub["route by kind"] --> Registry["reportRegistry"]
         Registry --> Compute["definition.compute()"]
-        Compute --> Sources["source adapters<br/>Stripe / DoseSpot / FHIR / …"]
     end
 
     Hook -- "fetch / refresh" --> GetReport
+    Drawer -- "drilldown" --> GetReport
     GetReport -- read --> Cache
-    GetReport -- "read active task /<br/>create Task (idempotent)" --> TaskR
-    TaskR -- "Subscription:<br/>status=requested" --> Sub
+    GetReport -- "filter via drilldown.select" --> Detail
+    GetReport -- "read / conditional-create" --> TaskR
+    TaskR -- "Subscription: status=requested" --> Sub
     Compute -- "progress → businessStatus" --> TaskR
-    Compute -- "result → cache" --> Cache
+    Compute -- "payload" --> Cache
+    Compute -- "detail" --> Detail
 ```
 
-Key idea: the **Task resource is the single source of truth for refresh state**, and the
-**cache document is the single source of truth for report data**. The frontend only ever
-polls one cheap HTTP zambda; that zambda only ever reads/writes those two resources and
-never computes.
+Two invariants:
 
-**Two zambdas total**: `get-billing-report` (HTTP, fetch + kickoff) and
-`sub-refresh-billing-report` (worker). Per-report code reduces to a
-`definitions/*.report.ts` file.
+1. The **Task is the single source of truth for refresh state**; the cache documents are the
+   single source of truth for report data.
+2. The HTTP zambda only ever reads/writes those resources — filtering a cached detail dataset
+   is the heaviest thing it does.
 
-## 4. Backend Framework
-
-New directory: `packages/zambdas/src/billing/reports/framework/`
-
-### 4.1 `ReportDefinition` — the per-report contract
-
-```ts
-// packages/zambdas/src/billing/reports/framework/types.ts
-export interface ReportDefinition<Params, Result> {
-  kind: ReportKind;                       // 'payments' | 'invoice' | ... (utils constant)
-  cacheVersion: string;                   // 'v1' — bump to invalidate stale-shape caches
-  paramsSchema: ZodSchema<Params>;        // validates both HTTP input and Task input
-  cacheKeyOf: (params: Params) => string; // e.g. `${dateFrom}:${dateTo}`; '' if unparameterized
-  cacheTtlMinutes?: number;               // optional: auto-requeue refresh when cache is older
-  compute: (ctx: ReportContext, params: Params, onProgress: ProgressFn) => Promise<Result>;
-}
-
-export type ProgressFn = (message: string, percent?: number) => Promise<void>;
-
-export interface ReportContext {
-  oystehr: Oystehr;          // billing-tagged client
-  untaggedClient: Oystehr;   // clinical resources (patients/appointments)
-  secrets: Secrets;
-  sources: ReportSources;    // lazy adapters for external systems (§4.2)
-}
-```
-
-All seven reports become `ReportDefinition` instances registered in one place:
+## 3. Code layout
 
 ```
 packages/zambdas/src/billing/reports/
 ├── framework/
-│   ├── types.ts                  # ReportDefinition, ReportContext, status types
-│   ├── registry.ts               # definitions map: kind → ReportDefinition
-│   ├── refresh-task.ts           # kickOff / findActive / progress writer (generalized from today's)
-│   ├── report-cache.ts           # generic gzip DocumentReference load/save, keyed by kind+version+params
-│   └── sources/                  # external-system adapters shared by all computes (§4.2)
-│       ├── stripe.source.ts
-│       ├── dosespot.source.ts    # (when a report needs it)
-│       └── fhir.source.ts
+│   ├── types.ts          # ReportDefinition contract, ReportContext, ReportPayload
+│   ├── registry.ts       # reportRegistry: RefreshReportKind → definition
+│   ├── refresh-task.ts   # Task queue: kickoff (race-free), find active/failed, progress writer
+│   └── report-cache.ts   # gzip DocumentReference load/save, cache keys, detail envelope
 ├── definitions/
-│   ├── payments.report.ts        # compute() extracted from today's get-billing-payments-report
-│   ├── patient-payments.report.ts
-│   ├── invoice.report.ts
-│   ├── cards-on-file.report.ts
-│   ├── pipeline.report.ts
-│   └── productivity.report.ts
-├── get-billing-report/           # NEW: the single HTTP zambda { kind, params, refresh? } (§4.5)
-├── get-billing-payments-report-drilldown/  # stays direct (interactive lookup, §6)
-└── (old per-kind GET zambdas: kept one release as thin shims → deleted, §7)
+│   └── *.report.ts       # one self-contained ReportDefinition per kind (see billing-reports.md)
+├── get-billing-report/   # the HTTP zambda
+└── shared.ts             # ERA/date helpers shared by report computes
+
+packages/zambdas/src/subscriptions/task/sub-refresh-billing-report/   # the worker
+
+apps/billing/src/
+├── hooks/useBillingReport.ts        # fetch + poll-while-running loop
+├── components/ReportStatusBar.tsx   # idle / running / error header widget
+└── api/api.ts                       # typed per-kind wrappers over get-billing-report
+
+packages/utils/lib/types/data/billing/
+├── billing.constants.ts  # REFRESH_REPORT_KINDS, Task codes
+├── billing.schemas.ts    # GetBillingReportInputSchema, per-kind params schemas
+└── billing.types.ts      # payload/detail/response types, ReportRefreshStatus
 ```
 
-### 4.2 Source adapters — multi-source computes
+## 4. The `ReportDefinition` contract
 
-Report data increasingly joins **multiple external systems** (Stripe today; DoseSpot,
-clearinghouses, etc. tomorrow). The specialization per report lives in
-`definition.compute()` — the worker stays a pure dispatcher — but client construction,
-auth, pagination, and rate-limit conventions should not be re-implemented inside every
-compute. The framework provides them once as lazy adapters on the context:
+Defined in [framework/types.ts](../packages/zambdas/src/billing/reports/framework/types.ts):
 
 ```ts
-export interface ReportSources {
-  stripe(): StripeSource;       // built on first use from ctx.secrets
-  dosespot(): DoseSpotSource;
-  fhir(): FhirSource;           // paged-search helpers over ctx.oystehr / untaggedClient
+interface ReportDefinition<Params, Payload extends ReportPayload, Detail, DrillParams> {
+  kind: RefreshReportKind;          // 'payments' | 'invoice' | …
+  cacheVersion: string;             // bump to invalidate stale-shape caches
+  paramsSchema: ZodType<Params>;    // validates HTTP input AND Task input
+  cacheKeyOf: (params) => string;   // params part of the cache key ('' if unparameterized)
+  emptyPayload: () => Payload;      // served while the first refresh runs
+
+  // full recomputation, worker-side; detail is the optional drilldown dataset
+  compute: (ctx, params, onProgress) => Promise<{ payload: Payload; detail?: Detail }>;
+
+  savesOwnCache?: boolean;          // compute persists intermediate state itself (worker skips save)
+  sanitizePayload?: (p) => Payload; // strip internal state before a payload leaves the server
+  shrink?: (p) => Payload | undefined;        // shed data until an oversized payload fits
+  shrinkDetail?: (d) => Detail | undefined;   // same, for the detail dataset
+  detailCacheKeyOf?: (params) => string;      // when detail keys differently than the report
+
+  drilldown?: {
+    paramsSchema: ZodType<DrillParams>;
+    select: (detail, drillParams) => Record<string, unknown>;  // pure filter, HTTP-side
+    empty: () => Record<string, unknown>;                      // served before first compute
+  };
+
+  summarize: (payload) => string;   // one-liner for the Task's completion statusReason
 }
 ```
 
-A compute that joins Stripe + FHIR pulls exactly the adapters it needs; adding a new
-source for report #8 means one new adapter file, invisible to existing reports. Adapters
-are also the natural seam for per-source progress reporting (`onProgress('fetching Stripe
-customers 3/12…')`) and for mocking in unit tests.
+`ReportContext` gives compute a billing-tagged client (`oystehr`), an untagged client for
+clinical resources (`untaggedClient`), and `secrets` for external systems (Stripe, etc.).
 
-### 4.3 The Task — queue *and* status channel
+## 5. Request/response protocol
 
-Generalizes the existing `refresh-task.ts` (same `Task` shape, same Subscription criteria —
-config already matches on `code=refresh-billing-report&status=requested`):
+`POST get-billing-report` with `{ kind, params?, refresh?, drilldown? }`
+([GetBillingReportInputSchema](../packages/utils/lib/types/data/billing/billing.schemas.ts)):
 
-- `input[kind]` — which report (already exists)
-- `input[params]` — **new**: `valueString` with JSON-serialized, schema-validated params
-  (needed for parameterized reports like Payments date ranges)
-- `input[cacheKey]` — new: precomputed `kind:version:paramsKey`, so idempotency is
-  per *(kind, params)* not just per kind
-- `businessStatus.text` — live progress phrase written by the worker
-  (e.g. `"matching claims 3/7 (40%)"`); optionally a structured
-  `output[percent]` for the animated progress bar
-- staleness guard stays: an untouched `requested`/`in-progress` task older than 30 min no
-  longer blocks a new kickoff
+- **Fetch** (`{ kind, params }`): serve the cached payload (sanitized) + `status`. If the
+  report has never been computed, queue the first refresh and serve `emptyPayload()`.
+- **Refresh** (`refresh: true`): queue a refresh (idempotent, §6) and fall through to fetch.
+- **Drilldown** (`drilldown: {…}`): validate against the definition's drilldown schema, load
+  the detail cache, return `drilldown.select(detail, drillParams)` + `status`. Empty result
+  until the first refresh has written the detail document.
 
-Task lifecycle:
+Every response carries the uniform envelope:
+
+```ts
+interface ReportRefreshStatus {
+  state: 'idle' | 'running' | 'error';
+  lastCompletedAt?: string;  // ISO of the served snapshot
+  progress?: string;         // live worker phase text while running
+  error?: string;            // most recent failure's statusReason
+}
+// response = { ...payloadOrSlice, generatedAt, fromCache, status }
+```
+
+Error state is derived server-side: a `failed` refresh Task **newer than the served cache**
+means "your data is fine, the last attempt broke".
+
+## 6. The refresh Task
+
+Created by `kickOffRefreshTask` in
+[framework/refresh-task.ts](../packages/zambdas/src/billing/reports/framework/refresh-task.ts):
+
+- `code`: `EXPORT_TASK_SYSTEM|refresh-billing-report` — the Subscription in
+  [config/billing-app-core/zambdas.json](../config/billing-app-core/zambdas.json) matches this
+  with `status=requested`.
+- `identifier`: `ottehrIdentifierSystem('billing-report-refresh')|<cacheKey>` — the searchable
+  dedupe key.
+- `input[]`: report kind, JSON-serialized params (re-validated by the worker), and cacheKey.
+- `businessStatus.text`: live progress phrase, patched by the worker via `onProgress`.
+
+**Race-free idempotency.** Creation is a FHIR conditional create
+(`fhir.create(task, { ifNoneExist: identifier + status=requested,in-progress })`), so
+concurrent kickoffs — React StrictMode double-mounts, two users, parallel tabs — atomically
+resolve to one Task server-side. Stale tasks (untouched > 30 min, assumed hard-killed worker)
+are patched to `cancelled` before a replacement is created, so they can never wedge the
+condition.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> requested : kickoff (idempotent per kind+params)
-    requested --> in_progress : worker picks up (Subscription fires)
-    in_progress --> in_progress : onProgress() → businessStatus updated
-    in_progress --> completed : cache saved
+    [*] --> requested : kickoff (conditional create per cacheKey)
+    requested --> in_progress : worker picks up
+    in_progress --> in_progress : onProgress → businessStatus
+    in_progress --> completed : caches written (statusReason = summarize())
     in_progress --> failed : compute threw (statusReason = error)
-    requested --> stale : untouched > 30 min
-    in_progress --> stale : untouched > 30 min
-    stale --> [*] : ignored, new kickoff allowed
-    completed --> [*]
-    failed --> [*]
+    requested --> cancelled : stale (>30 min), superseded by new kickoff
+    in_progress --> cancelled : stale (>30 min), superseded by new kickoff
 ```
 
-### 4.4 Generic cache store
+## 7. Caching
 
-Standardize on **one cache mechanism**: gzipped JSON in a `DocumentReference` attachment
-(the pattern invoice / cards-on-file / pipeline already use), identified by
-`ottehrIdentifierSystem('billing-report') | <kind>:<cacheVersion>:<paramsKey>`.
+All caches are **gzipped JSON in a `DocumentReference` attachment**, identified by
+`ottehrIdentifierSystem('billing-report')|<key>` and upserted by
+[framework/report-cache.ts](../packages/zambdas/src/billing/reports/framework/report-cache.ts):
 
-- The two `MeasureReport`-based caches (payments, patient payments) migrate to this. The
-  MeasureReport group encoding buys nothing (nothing queries it as FHIR data) and costs a
-  custom encoder/decoder per report. Migration is trivial: new cache key ⇒ old
-  MeasureReports are simply never read again (cleanup script optional).
-- 4 MB gzip cap + `truncated` flag stay, enforced centrally in `report-cache.ts`.
-- Pipeline's *history* document (week-over-week snapshots) is not a cache — it stays, but
-  is written from inside `pipeline.report.ts#compute`.
+| Document | Key | Contents |
+|---|---|---|
+| payload cache | `<kind>:<cacheVersion>:<paramsKey>` | the report response payload (rows, totals, …) |
+| detail cache | `<kind>:<cacheVersion>:<detailParamsKey>:detail` | `{ generatedAt, detail }` drilldown dataset |
 
-### 4.5 The single HTTP zambda — `get-billing-report`
+- Parameterized reports get one payload document per params combination (e.g. per date window).
+- A 4 MB cap keeps documents under FHIR resource limits; oversized saves run through the
+  definition's `shrink`/`shrinkDetail` until they fit, or are skipped with a warning. A failed
+  cache write never fails the refresh.
+- `cacheVersion` bumps orphan old documents rather than migrating them.
 
-Once no HTTP path computes anything, all seven per-kind GET zambdas are literally the same
-code: *validate → load cache → read active Task → return payload + status*. So there is
-**one** HTTP zambda instead of seven-plus-a-kickoff:
+## 8. The worker
 
-```
-POST get-billing-report   { kind, params?, refresh?: true }
-```
-
-- validates `kind` against the registry and `params` against `definition.paramsSchema`
-- `refresh: true` → `kickOffRefreshTask` (idempotent per cache key), then falls through to
-  serving whatever cache exists, with `status.state = 'running'`
-- the cached payload is opaque JSON passthrough — the zambda never needs to understand
-  per-report shapes
-- "never computed" auto-kickoff stays, so a first visit self-heals
+[sub-refresh-billing-report](../packages/zambdas/src/subscriptions/task/sub-refresh-billing-report/index.ts)
+is a pure dispatcher: validate the Task inputs → look up the definition → `compute()` with an
+`onProgress` that patches `Task.businessStatus` → save payload (unless `savesOwnCache`) → save
+detail (when present) → complete the Task with `summarize()` as the statusReason. A thrown
+compute marks the Task `failed` with the error message, which the HTTP zambda surfaces as
+`status.state: 'error'`.
 
 ```mermaid
 sequenceDiagram
     participant UI as Report page
     participant Z as get-billing-report
-    participant FHIR as FHIR (Task + cache doc)
-    participant W as sub-refresh-billing-report
+    participant FHIR as FHIR (Task + caches)
+    participant W as worker
 
-    UI->>Z: POST { kind, params }
-    Z->>FHIR: load cache(kind, params) + find active Task
-    alt cache exists
-        Z-->>UI: rows + status{ state, lastCompletedAt, progress? }
-    else never computed
-        Z->>FHIR: create Task (idempotent)
-        Z-->>UI: empty + status{ state: 'running', progress: 'queued' }
-    end
-
-    UI->>Z: POST { kind, params, refresh: true }   (user hit Refresh)
-    Z->>FHIR: create Task (idempotent → returns active if running)
-    Z-->>UI: stale rows + status{ state: 'running' }
-
-    FHIR-)W: Subscription fires (status=requested)
-    W->>W: registry[kind].compute(ctx, params, onProgress)
+    UI->>Z: { kind, params, refresh: true }
+    Z->>FHIR: conditional-create Task
+    Z-->>UI: stale payload + status{running}
+    FHIR-)W: Subscription fires
+    W->>W: registry[kind].compute()
     loop phases
-        W->>FHIR: patch Task.businessStatus ("fetching ERAs 2/5 (35%)")
+        W->>FHIR: patch businessStatus ("checking cards 400/4,800…")
     end
-    W->>FHIR: save cache doc, Task → completed
-
-    loop poll every 4s while running
-        UI->>Z: POST { kind, params }
-        Z-->>UI: cached rows (stale) + live progress
+    W->>FHIR: save payload + detail caches, Task → completed
+    loop poll every 4s
+        UI->>Z: { kind, params }
+        Z-->>UI: payload + live progress
     end
-    UI->>Z: final poll → fresh rows + status{ state: 'idle' }
+    UI->>Z: final poll → fresh payload + status{idle}
+    UI->>Z: { kind, params, drilldown } (row click)
+    Z->>FHIR: load detail cache
+    Z-->>UI: select(detail, drillParams) + status
 ```
 
-Tradeoffs of consolidating (accepted, but worth stating):
+Progress reporting conventions: each `onProgress` call is a FHIR patch, so computes throttle
+streaming counts (e.g. every 250–1,000 items). Totals are only shown when known up front
+("checking cards 400/4,800…"); cursor-paginated listings show running counts
+("listing customers… 12,000 so far").
 
-- **Per-report RBAC is coarser — accepted.** Oystehr roles grant access per zambda
-  function, so one endpoint means one grant for *all* reports. Decision: billing-app
-  access (the `BILLING_ADMIN` grant on `get-billing-report`) is sufficient; no kind-level
-  enforcement. If ever needed later, a definition-level `allowedRoles` checked via the
-  existing `callerHasRole()` helper is the escape hatch — roles.json itself cannot express
-  request-body conditions.
-- **Observability**: per-report latency/error breakdowns come from the `kind` field in log
-  lines rather than per-zambda dashboards.
-- **Frontend typing is unaffected**: `api.ts` keeps typed per-report functions
-  (`getBillingPaymentsReport(...)`) that all call the same endpoint with a different
-  `kind`, so pages keep compile-time payload types.
+## 9. Frontend
 
-Response envelope, uniform across all reports:
+- [useBillingReport](../apps/billing/src/hooks/useBillingReport.ts): initial load, refetch on
+  params change (generation-counter guarded against races/unmount), `refresh()` action, and a
+  ~4 s polling loop while `status.state === 'running'`.
+- [ReportStatusBar](../apps/billing/src/components/ReportStatusBar.tsx): one widget for every
+  report header — de-emphasized "Updated 12 minutes ago" when idle (absolute time in tooltip),
+  phase text over a slim indeterminate bar when running, warning + Retry on error.
+  `mergeReportStatuses` collapses several statuses (running > error > oldest idle) for pages
+  hosting more than one kind.
+- [api.ts](../apps/billing/src/api/api.ts) keeps compile-time payload types via thin per-kind
+  wrappers that all call the same endpoint.
 
-```ts
-// utils — shared by zambdas and frontend
-export interface ReportRefreshStatus {
-  state: 'idle' | 'running' | 'error';
-  lastCompletedAt?: string;   // ISO — drives the greyed-out "Last updated" line
-  progress?: string;          // live phase text while running
-  percent?: number;           // optional, drives determinate progress bar
-  error?: string;             // last failure's statusReason
-}
+## 10. Adding a new report
 
-export interface ReportResponse<Rows> {
-  status: ReportRefreshStatus;
-  fromCache: boolean;
-  generatedAt: string;
-  // ...report-specific payload (rows, totals, etc.)
-}
-```
+1. Add the kind to `REFRESH_REPORT_KINDS` in
+   [billing.constants.ts](../packages/utils/lib/types/data/billing/billing.constants.ts).
+2. Define payload (and detail/drilldown, if any) types in `billing.types.ts`; pick or add a
+   params schema in `billing.schemas.ts`.
+3. Write `definitions/<kind>.report.ts` with `compute()` and register it in
+   [framework/registry.ts](../packages/zambdas/src/billing/reports/framework/registry.ts).
+4. Add a typed wrapper in `api.ts`, and a page using `useBillingReport` + `ReportStatusBar`.
 
-(`refreshing` / `refreshProgress` booleans on individual response types are replaced by
-this one `status` object.)
+No zambda, config, or role changes.
 
-### 4.6 The worker — one dispatcher, with a split escape hatch
+## 11. Design decisions & tradeoffs (recorded)
 
-`sub-refresh-billing-report` stays a single zambda (one Subscription, unchanged criteria)
-and its body shrinks to:
-
-```ts
-const definition = reportRegistry[params.kind];
-const result = await definition.compute(ctx, params.params, onProgress);
-await saveReportCache(oystehr, definition, params.params, result);
-return { taskStatus: 'completed', statusReason: summarize(result) };
-```
-
-On throw, `wrapTaskHandler` marks the Task `failed` with the error as `statusReason`; the
-HTTP zambda surfaces that as `status.state = 'error'` (from the most recent failed task,
-only when it's newer than the cache).
-
-**Is one worker enough for multi-source reports?** Logically yes — each Task is a separate
-invocation, so concurrent refreshes of different kinds never contend, and the per-report
-specialization is entirely inside `compute` + the source adapters. The constraints of a
-single worker are operational:
-
-- one timeout/memory profile for all reports (the heaviest report dictates it)
-- one bundle containing every vendor SDK (cold-start growth as sources accumulate)
-- one secrets surface (the worker holds Stripe + DoseSpot + … credentials)
-
-**Escape hatch** (framework-compatible, use only when a concrete report forces it): give a
-heavy report's Task a different code (e.g. `refresh-billing-report-heavy`), register a
-second worker zambda whose Subscription matches that code, and let it serve a partition of
-the same registry. Nothing else changes — `kickOffRefreshTask` picks the code from the
-definition. Start with one worker.
-
-## 5. Frontend Framework
-
-New: `apps/billing/src/features/reports/` (or `components/reports/`)
-
-### 5.1 `useBillingReport` hook
-
-Replaces the four hand-rolled fetch-and-poll loops:
-
-```ts
-const { report, status, loading, error, refresh } = useBillingReport({
-  kind: 'payments',
-  params: { dateFrom, dateTo },
-  fetch: (client, params) => getBillingPaymentsReport(client, params), // typed wrapper over get-billing-report
-});
-```
-
-Behavior:
-
-- initial load on mount / params change
-- while `status.state === 'running'`: polls `get-billing-report` every ~4 s (mild backoff
-  up to ~10 s, guard cap as today), updating `report` (stale rows) *and* `status.progress`
-  live
-- `refresh()` re-calls the same endpoint with `refresh: true`, flips into the polling loop
-  immediately
-- when the poll observes `state: 'idle'` with a newer `generatedAt`, polling stops
-
-### 5.2 `ReportStatusBar` component
-
-One component rendered in every report header, replacing the per-page Chip + Button:
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  idle:     Last updated Aug 25, 2:14 PM      [⟳ Refresh]     │   ← caption, text.disabled
-│                                                              │
-│  running:  ◐ Refreshing — matching claims 3/7…  ▓▓▓▓░░ 40%   │   ← spinner + live text
-│            (Refresh button disabled)                         │     + Linear progress
-│                                                              │
-│  error:    ⚠ Last refresh failed: <reason>   [⟳ Retry]      │
-└──────────────────────────────────────────────────────────────┘
-```
-
-- **idle**: small `Typography variant="caption" color="text.disabled"` — deliberately less
-  prominent than today's outlined Chip; relative time ("12 minutes ago") with the absolute
-  timestamp in a tooltip.
-- **running**: `CircularProgress size=14` + the live `status.progress` text, and a slim
-  `LinearProgress` — determinate when `percent` is present, indeterminate otherwise. The
-  text updates on every poll tick, giving the "periodically updated" animation.
-- **error**: inline warning with the failure reason and the Refresh button relabeled Retry.
-
-### 5.3 Page migration
-
-Each of the five report pages (`PaymentsReport`, `InvoiceReport`, `CardsOnFileReport`,
-`PipelineReport`, `ProductivityReport`) drops its local fetch/poll/chip code and renders:
-
-```tsx
-<ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
-```
-
-`PaymentsReport` runs two hook instances (payments + patient-payments) — the status bar can
-take multiple statuses and show the "most active" one, or two stacked lines. **Discussion
-point.**
-
-## 6. Per-Report Migration Notes
-
-| Report | Work needed | Notes |
-|---|---|---|
-| Invoice | extract `compute` into definition; delete local cache/task code | already async — smallest change |
-| Cards on file | same; `pendingLookups` drain state stays inside its cache doc | `continueLookups` becomes a worker-internal loop or a self-requeued Task |
-| Payments | extract compute; **parameterized** (dateFrom/dateTo) → params travel in Task input; cache moves MeasureReport → DocumentReference | per-params cache keys mean per-params tasks; TTL optional |
-| Patient payments | same as Payments | shares the Payments page status bar |
-| Pipeline | compute (incl. snapshot write) moves to worker; report itself becomes cached with a short TTL (e.g. 15 min) instead of always recomputing | history doc unchanged |
-| Productivity | wrap Provenance search as a definition | cheap today, but uniformity + future growth justify it |
-| Drilldown | **recommend keeping direct** | it's an interactive per-row lookup (small, param-heavy, low reuse); caching every drilldown as a Task+doc adds latency and resource churn for no benefit. Alternatively include it with `cacheTtlMinutes: 0` semantics. **Discussion point.** |
-
-## 7. Config / IaC changes
-
-- `config/billing-app-core/zambdas.json`: add `GET-BILLING-REPORT` (http_auth). The
-  existing `SUB-REFRESH-BILLING-REPORT` zambda and its Subscription are unchanged.
-- Old per-kind GET zambdas stay registered for one release as thin shims delegating to the
-  shared handler (no frontend/backend deploy coupling), then are removed from config and
-  code together.
-- `config/oystehr-core/roles.json`: grant the billing role access to `get-billing-report`;
-  drop the per-report grants when the shims go.
-- `REFRESH_REPORT_KINDS` in `utils` grows from 2 to ~6 kinds.
-
-## 8. Open Questions (for discussion)
-
-1. ~~Kind-level access control~~ — **resolved**: billing-app access is sufficient; one
-   grant covers all reports (§4.5).
-2. **Drilldown** — leave direct (proposed) or force into the framework? (§6)
-3. **Parameterized cache growth** — Payments creates one cache doc per (dateFrom, dateTo)
-   pair. Cap retained docs per kind (e.g. keep last N, purge in the worker)?
-4. **Auto-refresh TTL** — should a GET on a cache older than `cacheTtlMinutes` silently
-   queue a refresh (self-warming), or should refresh always be user-initiated? Proposed:
-   opt-in per definition (Pipeline wants it; Invoice probably doesn't).
-5. **Structured progress** — is `businessStatus.text` + optional percent enough, or do we
-   want phase enums (for i18n / richer UI) in `Task.output`?
-6. **Polling vs push** — polling every 4 s is simple and matches today; SSE/websocket is
-   out of scope for now. OK?
-7. **Scheduled pre-warm** — a cron-style zambda could kick off all `cacheTtlMinutes`
-   reports nightly so first morning load is instant. Phase 2?
-
-## 9. Suggested Implementation Order
-
-1. Framework skeleton: types in `utils`, `framework/` module, registry, generic cache,
-   generalized refresh-task, `get-billing-report` zambda, source adapters (Stripe + FHIR),
-   slimmed worker.
-2. Migrate **cards-on-file + invoice** (already async — validates the framework with no
-   behavior change); old GET zambdas become shims.
-3. Frontend: `useBillingReport` + `ReportStatusBar`; migrate those two pages to the
-   unified endpoint.
-4. Migrate **payments + patient-payments** (validates parameterized reports + MeasureReport
-   → DocumentReference cache move).
-5. Migrate **pipeline + productivity**; decide drilldown.
-6. Delete shims + dead per-report cache/task code; cleanup script for orphaned
-   MeasureReports (optional).
+- **Snapshot drilldowns.** Drilldowns are filtered views of the same snapshot the report was
+  built from — internally consistent with the rows the user clicked, at the cost of freshness
+  (e.g. patient-payment Stripe statuses are as-of-refresh, labeled "as of <time>" in the UI).
+- **Single grant RBAC.** Access is per-zambda in Oystehr; one `get-billing-report` grant covers
+  all kinds. Kind-level checks (via `callerHasRole`) are the escape hatch if ever needed.
+- **One worker profile.** All computes share one timeout/memory/bundle. If a report ever needs
+  a different profile, give its Task a distinct code and register a second worker over a
+  registry partition — the framework doesn't change.
+- **Polling, not push.** 4 s polling of a cheap cache read; SSE/websockets deliberately out of
+  scope.
