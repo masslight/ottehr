@@ -12,7 +12,7 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
-import { setNpi } from 'utils/lib/fhir/helpers';
+import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
@@ -25,6 +25,7 @@ import {
 import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
@@ -35,8 +36,14 @@ import {
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
+  CODE_SYSTEM_NUBC_REVENUE,
   createBillingClient,
   ensureClaimInsurance,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
   getClaimTypeCoding,
   payerDisplay,
@@ -326,6 +333,7 @@ async function attachClaimResources(
         : undefined,
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
+      revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
     }));
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {
@@ -354,6 +362,54 @@ async function attachClaimResources(
     const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
+  }
+
+  if (fields.billType != null) {
+    if (fields.billType) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+        valueString: fields.billType.substring(1, 3),
+      });
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_FREQUENCY_CODE,
+        valueString: fields.billType.substring(3, 4),
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE);
+    }
+  }
+
+  if (fields.admissionType != null) {
+    if (fields.admissionType) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+        valueString: fields.admissionType,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE);
+    }
+  }
+
+  if (fields.admissionSource != null) {
+    if (fields.admissionSource) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+        valueString: fields.admissionSource,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE);
+    }
+  }
+
+  if (fields.patientDischargeStatusCode != null) {
+    if (fields.patientDischargeStatusCode) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+        valueString: fields.patientDischargeStatusCode,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS);
+    }
   }
 
   return commitClaimResourceChange(oystehr, {
