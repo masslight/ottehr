@@ -143,16 +143,18 @@ export const MedicalRecordExportWatcher = (): null => {
   }, [watchedKey]);
 
   // A timer rather than a check per poll: the schedule itself stops at the budget, so a job that never
-  // reports would take its last poll and never be looked at again.
+  // reports would take its last poll and never be looked at again. Jobs are read from the store rather
+  // than closed over, so that recording progress — which replaces `exports` on every tick — does not
+  // rebuild these timers.
   useEffect(() => {
-    const timers = watched.map((job) =>
+    const timers = Object.values(useMedicalRecordExportStore.getState().exports).map((job) =>
       setTimeout(
         () => abandon(job, "We couldn't confirm the medical record export finished. Please try again."),
         Math.max(0, job.startedAt + EXPORT_STATUS_POLL_BUDGET_MS - Date.now())
       )
     );
     return () => timers.forEach(clearTimeout);
-  }, [watchedKey, watched, abandon]);
+  }, [watchedKey, abandon]);
 
   useEffect(() => {
     for (const { job, data, isError, error } of results) {

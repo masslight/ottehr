@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SnackbarProvider } from 'notistack';
 import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
@@ -142,6 +142,31 @@ describe('medical record export watcher', () => {
 
       await waitFor(() => expect(screen.getByText(/Preparing medical record/)).toBeInTheDocument());
       expect(container.querySelectorAll('.notistack-Snackbar')).toHaveLength(1);
+    });
+  });
+
+  describe('the give-up backstop', () => {
+    it('is not rebuilt on every store update while a job is watched', async () => {
+      // Only correct because the delay is computed from an absolute deadline; a timer rebuilt per tick
+      // would postpone the deadline forever the moment anyone simplified that to a flat budget.
+      mockGetStatus.mockResolvedValue({ taskId: TASK_ID, status: 'in-progress', processed: 1, total: 50 });
+      watchExport({ patientId: PATIENT_ID, taskId: TASK_ID });
+
+      // React Query schedules its own short timers; only the long ones are this backstop.
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+      const backstops = (): number =>
+        setTimeoutSpy.mock.calls.filter((call) => ((call[1] as number) ?? 0) > 60_000).length;
+
+      renderWatcher();
+      await waitFor(() => expect(backstops()).toBe(1));
+
+      for (const processed of [5, 12, 30]) {
+        await act(async () => {
+          recordExportStatus(PATIENT_ID, { taskId: TASK_ID, status: 'in-progress', processed, total: 50 });
+        });
+      }
+
+      expect(backstops()).toBe(1);
     });
   });
 
