@@ -46,8 +46,8 @@ export type PatientDocumentsExplorerProps = {
    * Scopes the explorer to a single visit: documents and folder counters are filtered to it, uploads
    * and scans are filed against it, and the visit filter is hidden (the visit is already fixed).
    *
-   * Both ids are needed: EHR uploads link a document by encounter, while intake paperwork links it
-   * by appointment, so a visit's documents are only complete when both are matched.
+   * Both ids are needed: EHR uploads link a document by encounter, while several intake documents
+   * link by appointment, so a visit's documents are only complete when both are matched.
    * Omit for the patient-level Docs view.
    */
   visit?: DocumentVisitRef;

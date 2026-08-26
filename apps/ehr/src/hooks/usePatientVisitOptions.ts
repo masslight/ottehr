@@ -12,8 +12,8 @@ export type UsePatientVisitOptionsReturn = {
   visitOptions: PatientVisitOption[];
   visitsByEncounterId: Map<string, PatientVisitOption>;
   /**
-   * Needed alongside the encounter lookup because intake paperwork links documents to the
-   * Appointment rather than the Encounter, so a document may only know its appointment id.
+   * Needed alongside the encounter lookup because several intake documents link to the Appointment
+   * rather than the Encounter, so a document may only know its appointment id.
    */
   visitsByAppointmentId: Map<string, PatientVisitOption>;
 };

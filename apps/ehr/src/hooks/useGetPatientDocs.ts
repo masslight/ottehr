@@ -77,10 +77,14 @@ export type PatientDocumentInfo = {
 /**
  * How a document points at the visit it belongs to.
  *
- * Two fields because the write paths disagree. EHR uploads set `context.encounter`, while intake
- * paperwork (photo IDs, insurance cards, condition photos, consent forms) records the visit as an
- * Appointment in `context.related` and never sets an encounter. A document belongs to a visit if
- * either matches, so both are carried together rather than picking one as canonical.
+ * Two fields because the write paths disagree. EHR uploads and the intake paperwork PDF set
+ * `context.encounter`, while other intake documents — consent forms, condition photos, school/work
+ * notes — record the visit as an Appointment in `context.related` and set no encounter. A document
+ * belongs to a visit if either matches, so both are carried rather than picking one as canonical.
+ *
+ * Note that some intake documents match neither on purpose: harvest files photo ID and insurance
+ * cards under `related: Patient/<id>`, treating them as patient-level records that outlive any one
+ * visit, so they stay visit-less.
  */
 export type DocumentVisitRef = {
   encounterId?: string;

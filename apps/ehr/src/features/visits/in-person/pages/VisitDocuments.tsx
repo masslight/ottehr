@@ -28,8 +28,8 @@ export const VisitDocuments: FC = () => {
       <Paper sx={{ padding: 3 }}>
         <PatientDocumentsExplorer
           patientId={patient.id}
-          // Both linkages, so intake paperwork (linked to the Appointment) shows up alongside
-          // documents uploaded in the EHR (linked to the Encounter).
+          // Both linkages: EHR uploads link by encounter, while consent forms, condition photos
+          // and school/work notes from intake link by appointment.
           visit={{ encounterId: effectiveEncounterId, appointmentId: appointment.id }}
           readOnly={isReadOnly}
         />
