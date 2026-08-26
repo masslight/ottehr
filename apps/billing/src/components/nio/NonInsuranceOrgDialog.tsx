@@ -1,6 +1,7 @@
 import { Close as CloseIcon } from '@mui/icons-material';
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -68,7 +69,11 @@ export function NonInsuranceOrgDialog({ open, onClose, onCreated }: NonInsurance
           </Alert>
         )}
         <FormProvider {...methods}>
-          <NonInsuranceOrgFormFields />
+          {/* Top margin keeps the first field's floated label from being clipped by the
+              DialogContent scroll edge (same treatment as AddServiceFacilityDialog). */}
+          <Box sx={{ mt: 1 }}>
+            <NonInsuranceOrgFormFields />
+          </Box>
         </FormProvider>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
