@@ -63,9 +63,7 @@ export async function loadReportCache<Payload extends ReportPayload>(
   }
 }
 
-// gzipped JSON in a DocumentReference attachment; oversized payloads run through the definition's
-// shrink until they fit (or the save is skipped). The cache is an optimization; a failed write
-// must not fail the refresh.
+// gzipped JSON in a DocumentReference attachment; a failed write must not fail the refresh
 export async function saveReportCache<Payload extends ReportPayload>(
   oystehr: Oystehr,
   definition: { shrink?: (payload: Payload) => Payload | undefined },

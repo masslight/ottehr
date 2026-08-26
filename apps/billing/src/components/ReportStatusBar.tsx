@@ -4,8 +4,7 @@ import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
 import { ReportRefreshStatus } from 'utils/lib/types/data/billing/billing.types';
 
-// Merges several report statuses into the "most active" one (running > error > idle), so pages
-// serving multiple kinds (e.g. Payments + Patient Payments) show a single coherent status line.
+// Merges several statuses into the "most active" one (running > error > idle).
 export function mergeReportStatuses(...statuses: (ReportRefreshStatus | undefined)[]): ReportRefreshStatus | undefined {
   const present = statuses.filter((status): status is ReportRefreshStatus => !!status);
   if (present.length === 0) return undefined;
@@ -19,10 +18,7 @@ export function mergeReportStatuses(...statuses: (ReportRefreshStatus | undefine
   );
 }
 
-// Uniform report-header status line + refresh button:
-// idle    → de-emphasized "Updated <relative time>" (absolute timestamp in the tooltip)
-// running → live worker phase text over a slim progress animation, refresh disabled
-// error   → warning + failure reason, refresh relabeled Retry
+// Report-header status line + refresh button: idle / running-with-live-progress / error+Retry.
 export function ReportStatusBar({
   status,
   loading,

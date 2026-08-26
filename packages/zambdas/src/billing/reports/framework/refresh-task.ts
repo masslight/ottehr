@@ -11,11 +11,10 @@ import {
   RefreshReportKind,
 } from 'utils/lib/types/data/billing/billing.constants';
 
-// a refresh untouched for this long is assumed dead (hard-killed worker) and no longer blocks
+// a refresh untouched for this long is assumed dead and no longer blocks
 const STALE_REFRESH_MINUTES = 30;
 
-// the cache key doubles as a searchable Task identifier, making the conditional-create
-// dedupe (and all lookups) addressable server-side
+// the cache key doubles as a searchable Task identifier for dedupe and lookups
 export const REFRESH_TASK_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report-refresh');
 const identifierTokenOf = (cacheKey: string): string => `${REFRESH_TASK_IDENTIFIER_SYSTEM}|${cacheKey}`;
 
@@ -48,15 +47,14 @@ async function searchRefreshTasksByCacheKey(
 
 const staleBeforeISO = (): string => DateTime.now().minus({ minutes: STALE_REFRESH_MINUTES }).toUTC().toISO() ?? '';
 
-// The running (or queued) refresh for one cache key, if any; stale tasks don't count.
+// the running (or queued) refresh for one cache key, if any; stale tasks don't count
 export async function findActiveRefreshTask(oystehr: Oystehr, cacheKey: string): Promise<Task | undefined> {
   const tasks = await searchRefreshTasksByCacheKey(oystehr, cacheKey, 'requested,in-progress', 10);
   const staleBefore = staleBeforeISO();
   return tasks.find((task) => (task.meta?.lastUpdated ?? '') > staleBefore);
 }
 
-// The most recent failed refresh for the cache key that is newer than the served cache — the
-// signal that "your data is fine, but the last refresh attempt broke".
+// most recent failed refresh newer than the served cache
 export async function findRecentFailedRefreshTask(
   oystehr: Oystehr,
   cacheKey: string,
@@ -66,11 +64,8 @@ export async function findRecentFailedRefreshTask(
   return tasks.find((task) => (task.meta?.lastUpdated ?? '') > sinceISO);
 }
 
-// Queues an async report refresh; idempotent while one is already running for the same cache key.
-// Concurrent kickoffs are resolved atomically server-side: the Task carries the cache key as a
-// searchable identifier, and creation is a FHIR conditional create (If-None-Exist) on that
-// identifier + active statuses, so parallel requests all land on one Task.
-// Returns the already-active or newly created task so callers can report live progress.
+// Queues a refresh; idempotent per cache key — concurrent kickoffs resolve to one Task via
+// FHIR conditional create on the identifier + active statuses.
 export async function kickOffRefreshTask(
   oystehr: Oystehr,
   input: { kind: RefreshReportKind; params: unknown; cacheKey: string }
@@ -80,8 +75,7 @@ export async function kickOffRefreshTask(
   const fresh = activeStatusTasks.find((task) => (task.meta?.lastUpdated ?? '') > staleBefore);
   if (fresh) return fresh;
 
-  // stale leftovers (hard-killed worker) would satisfy the conditional create forever;
-  // cancel them so a new refresh can start
+  // stale leftovers would satisfy the conditional create forever; cancel them first
   for (const stale of activeStatusTasks) {
     try {
       await oystehr.fhir.patch({
@@ -129,14 +123,14 @@ export async function kickOffRefreshTask(
       ],
     });
   } catch (err) {
-    // e.g. HTTP 412 when the criteria matched multiple tasks — someone else already queued one
+    // e.g. HTTP 412: multiple matches — someone else already queued one
     const existing = await findActiveRefreshTask(oystehr, input.cacheKey);
     if (existing) return existing;
     throw err;
   }
 }
 
-// Worker-side phase reporting; failures are swallowed because progress is cosmetic.
+// worker-side phase reporting; failures are swallowed because progress is cosmetic
 export async function updateRefreshTaskProgress(oystehr: Oystehr, taskId: string, progress: string): Promise<void> {
   try {
     await oystehr.fhir.patch({

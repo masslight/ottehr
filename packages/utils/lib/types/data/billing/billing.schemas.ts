@@ -668,16 +668,15 @@ const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path
 
 export const GetBillingReportInputSchema = z.object({
   kind: z.enum(REFRESH_REPORT_KINDS),
-  // per-kind params, validated against the report definition's paramsSchema server-side
+  // validated against the definition's paramsSchema server-side
   params: z.record(z.unknown()).optional(),
-  // queue an async recompute (idempotent while one is already running for the same kind+params)
+  // queue an async recompute (idempotent per kind+params)
   refresh: z.boolean().optional(),
-  // drilldown request: a filtered slice of the report's cached detail dataset, validated
-  // against the definition's drilldown paramsSchema server-side
+  // filtered slice of the report's cached detail dataset
   drilldown: z.record(z.unknown()).optional(),
 });
 
-// date-window params shared by the parameterized report kinds (payments, patient-payments, …)
+// date window shared by the parameterized report kinds
 export const ReportDateWindowParamsSchema = z
   .object({
     dateFrom: isoDate.optional(),

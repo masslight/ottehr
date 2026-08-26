@@ -10,9 +10,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'sub-refresh-billing-report';
 
-// Async worker for all billing-report refreshes; the http zambda only queues the Task and serves
-// the cache this worker writes. Routing and caching are generic — per-report logic lives in the
-// registry's ReportDefinitions.
+// Async worker for all billing-report refreshes: routes the Task to its ReportDefinition,
+// computes, and writes the payload + detail caches.
 export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   const { kind, paramsJson, taskId, secrets } = validateRequestParameters(input);
   const definition = reportRegistry[kind];
@@ -30,7 +29,7 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
     await saveReportCache(oystehr, definition, fullCacheKey(definition, params), payload);
   }
   if (detail !== undefined && definition.drilldown) {
-    // detail rides in an envelope so the generic cache sees a generatedAt; shrink adapts through it
+    // envelope gives the generic cache a generatedAt; shrink adapts through it
     await saveReportCache(
       oystehr,
       {
