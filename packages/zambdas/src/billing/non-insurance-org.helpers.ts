@@ -205,6 +205,10 @@ export function buildCoverageOrganization(params: {
     ...(existing?.id ? { id: existing.id } : {}),
     active: true,
     ...(name ? { name } : {}),
+    // FHIR org-1 requires a name or an identifier on every Organization, and an unnamed 'other'
+    // coverage has no name — carry a constant kind identifier so the invariant always holds
+    // (the same trick the WC-employer harvest uses for nameless employer orgs).
+    identifier: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, value: NIO_COVERAGE_KIND_CODE }],
     type: [
       { coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: NIO_COVERAGE_KIND_CODE }] },
       { coding: [{ system: NIO_COVERAGE_CATEGORY_SYSTEM, code: coverage.category }] },

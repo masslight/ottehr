@@ -204,7 +204,9 @@ describe('non-insurance-org CRUD', () => {
       covers: [
         { category: 'workers-comp', billingMode: 'direct' },
         { category: 'occupational-medicine' },
-        { category: 'other', name: 'Medical Clearance' },
+        // Deliberately unnamed: an 'other' coverage without a name must still satisfy FHIR org-1
+        // (the coverage org carries a kind identifier instead of a name).
+        { category: 'other' },
       ],
     });
     const affiliationsAfter = await fetchAffiliations(nioId);

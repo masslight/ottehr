@@ -163,6 +163,12 @@ describe('non-insurance-org FHIR mapping', () => {
     expect(occMed.name).toBe('FedEx — Occupational Medicine');
   });
 
+  it('always carries the kind identifier so FHIR org-1 holds even for an unnamed coverage org', () => {
+    const unnamedOther = buildCoverageOrganization({ nioName: 'FedEx', coverage: { category: 'other' } });
+    expect(unnamedOther.name).toBeUndefined();
+    expect(unnamedOther.identifier).toEqual([{ system: NIO_ORGANIZATION_KIND_SYSTEM, value: 'nio-coverage' }]);
+  });
+
   it('writes submission details to telecom, address, and extensions', () => {
     const org = buildCoverageOrganization({ nioName: 'FedEx', coverage: fullInput.covers![1] });
     expect(org.telecom).toEqual([
