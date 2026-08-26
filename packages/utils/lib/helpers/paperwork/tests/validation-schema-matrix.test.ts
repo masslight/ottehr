@@ -158,7 +158,7 @@ describe('dynamic answer options', () => {
       required: true,
       answerLoadingOptions: {
         strategy: 'dynamic',
-        answerSource: { resourceType: 'Organization', query: 'type=pharmacy' },
+        answerSource: { zambdaId: 'get-answer-options', resourceType: 'Organization', query: 'type=pharmacy' },
       },
     });
     await expect(
@@ -343,7 +343,7 @@ describe('unsupported item types', () => {
   // lazy schema is being built. A config that sneaks an unsupported type past generation
   // fails validation loudly, not silently.
   it('validating a page containing an unsupported type throws "no schema defined"', () => {
-    const unsupported = item({ linkId: 'quantity-field', type: 'integer' as IntakeQuestionnaireItem['type'] });
+    const unsupported = item({ linkId: 'quantity-field', type: 'integer' });
     expect(() => validatePage([unsupported], {})).toThrow(/no schema defined/);
   });
 });
