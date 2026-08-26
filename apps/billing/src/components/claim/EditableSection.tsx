@@ -12,9 +12,6 @@ interface EditableSectionProps<T> {
   defaultValues?: DefaultValues<T>;
   onSave: (data: T) => Promise<string | null> | Promise<void>;
   onCancel?: () => void;
-  // Swap between read and edit mode instantly. For tall edit forms the height animation reads as
-  // the form sliding in from the bottom.
-  disableTransition?: boolean;
 }
 
 export const EditableSection = <T extends FieldValues>({
@@ -24,7 +21,6 @@ export const EditableSection = <T extends FieldValues>({
   defaultValues,
   onSave,
   onCancel,
-  disableTransition,
 }: EditableSectionProps<T>): ReactElement => {
   const methods = useForm<T, unknown, T>({
     defaultValues,
@@ -95,10 +91,8 @@ export const EditableSection = <T extends FieldValues>({
             {error}
           </Alert>
         )}
-        <Collapse in={!editing} timeout={disableTransition ? 0 : undefined}>
-          {children}
-        </Collapse>
-        <Collapse in={editing} timeout={disableTransition ? 0 : undefined}>
+        <Collapse in={!editing}>{children}</Collapse>
+        <Collapse in={editing}>
           {/* {defaultValues ? ( */}
           <FormProvider {...methods}>
             <Box sx={{ mt: 2 }}>{editForm}</Box>

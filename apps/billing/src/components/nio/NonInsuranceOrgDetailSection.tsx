@@ -48,7 +48,6 @@ export function NonInsuranceOrgDetailSection({
       defaultValues={defaultValues}
       onSave={handleSave}
       editForm={<NonInsuranceOrgFormFields />}
-      disableTransition
     >
       <Row label="Name" value={item.name} />
       <Row label="Employer" value={item.employer ? 'Yes' : 'No'} />
