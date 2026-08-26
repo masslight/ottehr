@@ -10,9 +10,8 @@ export const EXPORT_CLAIMS_CSV_TASK_CODE = 'export-billing-claims-csv';
 export const EXPORT_CLAIMS_FILTERS_CODE = 'export-claims-filters';
 export const EXPORT_CLAIMS_INCOMPLETE_CODE = 'export-claims-incomplete';
 
-// Task code (under EXPORT_TASK_SYSTEM) for an async billing-report refresh; the report kind,
-// JSON-serialized params, and the cache key travel as Task inputs. The Subscription that runs
-// the refresh matches on the code; idempotency is per cache key (kind + params).
+// Async billing-report refresh Task: kind/params/cacheKey travel as Task inputs; the
+// Subscription matches on the code.
 export const REFRESH_REPORT_TASK_CODE = 'refresh-billing-report';
 export const REFRESH_REPORT_KIND_CODE = 'refresh-report-kind';
 export const REFRESH_REPORT_PARAMS_CODE = 'refresh-report-params';

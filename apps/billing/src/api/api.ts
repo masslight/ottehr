@@ -378,8 +378,7 @@ export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsRe
 
 // --- Reports ---
 
-// Unified cached-report endpoint: serves the saved report + refresh status; `refresh` queues an
-// async recompute. Per-kind wrappers below keep payload types.
+// Unified cached-report endpoint; typed per-kind wrappers below.
 const getBillingReport = <T>(
   oystehr: Oystehr,
   kind: RefreshReportKind,
@@ -434,14 +433,14 @@ export const getBillingProductivityReport = (
 ): Promise<GetBillingProductivityReportResponse> =>
   getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
 
-// ERA drilldown: a filtered slice of the payments report's cached detail (all-ERA snapshot)
+// ERA drilldown over the payments report's cached detail
 export const getBillingPaymentsReportDrilldown = (
   oystehr: Oystehr,
   drilldown: z.input<typeof GetBillingPaymentsReportDrilldownInputSchema>
 ): Promise<GetBillingPaymentsReportDrilldownResponse> =>
   getBillingReport(oystehr, 'payments', undefined, undefined, drilldown as Record<string, unknown>);
 
-// patient-payments drilldown: row-filtered slice of the window's cached detail snapshot
+// row-filtered drilldown over the window's cached detail
 export const getBillingPatientPaymentsDrilldown = (
   oystehr: Oystehr,
   params: ReportDateWindowParams,

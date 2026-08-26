@@ -605,14 +605,14 @@ export interface PaymentsReportWaterfallCell {
   paid: number;
 }
 
-// Refresh state of a cached billing report, derived from the refresh Task and the cache document.
+// Refresh state of a cached billing report.
 export interface ReportRefreshStatus {
   state: 'idle' | 'running' | 'error';
-  // when the served cache was generated (absent when the report has never completed)
+  // when the served cache was generated
   lastCompletedAt?: string;
-  // worker phase description while running (e.g. 'resolving cards 1500/3200…')
+  // worker phase text while running
   progress?: string;
-  // most recent failure's reason (state 'error')
+  // most recent failure's reason
   error?: string;
 }
 
@@ -652,8 +652,7 @@ export interface GetBillingPaymentsReportDrilldownResponse {
   status?: ReportRefreshStatus;
 }
 
-// persisted drilldown dataset for the payments report: every ERA with its claims plus the
-// dimensions the drilldown filters on
+// payments drilldown dataset: every ERA with its claims and filter dimensions
 export interface PaymentsReportDetailClaim extends PaymentsReportDrilldownClaim {
   // 'YYYY-MM' or 'unknown'
   serviceMonth: string;
@@ -704,8 +703,7 @@ export interface GetBillingPatientPaymentsReportResponse {
   status?: ReportRefreshStatus;
 }
 
-// persisted drilldown dataset for the patient-payments report: every payment in the window,
-// with the location id the drilldown filters on
+// patient-payments drilldown dataset: every payment in the window
 export interface PatientPaymentsDetailItem extends PatientPaymentItem {
   // '' when unresolved; the drilldown 'none' filter selects these
   locationId: string;

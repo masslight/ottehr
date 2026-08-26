@@ -6,7 +6,7 @@ import { TaskSubscriptionInput } from '../validateRequestParameters';
 
 export interface RefreshBillingReportParams {
   kind: RefreshReportKind;
-  // JSON-serialized report params from the Task input; validated against the definition's schema
+  // JSON-serialized report params from the Task input
   paramsJson: string;
   taskId: string;
   secrets: ZambdaInput['secrets'];

@@ -55,7 +55,7 @@ export const patientPaymentsReport: ReportDefinition<
     const detail = await detailOf(ctx.oystehr, context, ctx.secrets);
     return { payload, detail };
   },
-  // oldest payments are the least interesting slice of an oversized detail
+  // shed oldest payments first
   shrinkDetail: (detail) =>
     detail.payments.length > 1
       ? { payments: detail.payments.slice(0, Math.floor(detail.payments.length / 2)) }
@@ -63,7 +63,6 @@ export const patientPaymentsReport: ReportDefinition<
   drilldown: {
     paramsSchema: PatientPaymentsDrilldownParamsSchema,
     empty: () => ({ payments: [] }),
-    // row filter over the snapshot: location ('none' = unresolved) and/or payment category
     select: (detail, params) => ({
       payments: detail.payments.filter(
         (payment) =>
@@ -121,8 +120,7 @@ const noticeEncounterId = (notice: PaymentNotice): string | undefined => {
   return value && isValidUUID(value) ? value : undefined;
 };
 
-// Notices in the window plus the notice → encounter → appointment → location resolution graph,
-// shared by the rollup compute and the detail drill-down.
+// windowed notices + the notice → encounter → appointment → location resolution graph
 interface NoticeContext {
   notices: PaymentNotice[];
   generatedAt: string;
@@ -249,8 +247,7 @@ function rollupOf(context: NoticeContext): PatientPaymentsPayload {
   return { rows, totals: totalsOf(rows), generatedAt };
 }
 
-// Full drilldown dataset over the window's notices: every payment with Stripe status (as of
-// compute time) and the location id the drilldown filters on. Runs inside the worker.
+// drilldown dataset: every payment with snapshot Stripe status and location id
 async function detailOf(
   oystehr: Oystehr,
   context: NoticeContext,

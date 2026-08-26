@@ -44,7 +44,7 @@ import {
 
 type PaymentsReportPayload = Omit<GetBillingPaymentsReportResponse, 'fromCache' | 'status'>;
 
-// sentinel for payer rows built from ERAs that carry no payer reference at all
+// sentinel for ERAs with no payer reference
 const NO_PAYER_SENTINEL = 'none';
 
 const checkDayInRange = (checkDate: string, from?: string, to?: string): boolean => {
@@ -66,7 +66,7 @@ export const paymentsReport: ReportDefinition<
   cacheVersion: 'v1',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
-  // the detail spans all ERAs regardless of the report's check-date window
+  // detail spans all ERAs regardless of the window
   detailCacheKeyOf: () => '',
   emptyPayload: () => ({ rows: [], totals: totalsOf([]), waterfall: [], generatedAt: '' }),
   compute: async (ctx, params, onProgress) => {
@@ -77,7 +77,7 @@ export const paymentsReport: ReportDefinition<
       detail,
     };
   },
-  // oldest checks are the least interesting slice of an oversized detail
+  // shed oldest checks first
   shrinkDetail: (detail) =>
     detail.eras.length > 1
       ? {
@@ -89,7 +89,6 @@ export const paymentsReport: ReportDefinition<
   drilldown: {
     paramsSchema: GetBillingPaymentsReportDrilldownInputSchema,
     empty: () => ({ eras: [] }),
-    // mirrors the filters of the old get-billing-payments-report-drilldown zambda:
     // payer row (payerId + check window) or waterfall cell (serviceMonth + checkMonth)
     select: (detail, params) => {
       const eras = detail.eras
@@ -201,7 +200,7 @@ async function computeInsurancePayments(
       paidByMatrixKey.set(matrixKey, (paidByMatrixKey.get(matrixKey) ?? 0) + amounts.paid);
     }
 
-    // drilldown detail: every ERA with its claims and filter dimensions (window-independent)
+    // drilldown detail entry (window-independent)
     detailEras.push({
       id: era.id ?? '',
       checkNumber: getEraCheckNumber(era) ?? '',

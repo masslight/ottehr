@@ -22,9 +22,7 @@ export interface UseBillingReportResult<T extends ReportEnvelope> {
   refresh: () => void;
 }
 
-// Fetch-and-poll loop shared by all report pages: loads the cached report, and while the server
-// reports a running refresh, polls until the recomputed cache lands. `refresh()` queues a
-// server-side recompute and flips into the polling loop.
+// Shared fetch-and-poll loop: serves the cached report and polls while a server-side refresh runs.
 export function useBillingReport<T extends ReportEnvelope>(options: {
   fetch: (client: Oystehr, refresh?: boolean) => Promise<T>;
   errorMessage: string;

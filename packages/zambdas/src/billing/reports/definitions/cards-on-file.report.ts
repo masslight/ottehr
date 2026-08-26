@@ -35,8 +35,7 @@ interface PendingLookup {
   stripeAccount: string | undefined;
 }
 
-// the cached payload carries the queue of customers still awaiting a fallback card lookup;
-// sanitizePayload strips it before the payload leaves the server
+// cached payload carries the pending fallback-lookup queue; sanitizePayload strips it
 type CardsOnFilePayload = Omit<GetBillingCardsOnFileReportResponse, 'fromCache' | 'status'> & {
   pendingLookups?: PendingLookup[];
 };
@@ -58,11 +57,10 @@ export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnF
     truncated: false,
     generatedAt: '',
   }),
-  // compute persists intermediate drain state itself, so the worker must not overwrite it
+  // compute persists intermediate drain state itself
   savesOwnCache: true,
   sanitizePayload: stripState,
-  // shed data until the cache fits: the resumable lookup queue first, then tail rows
-  // (alphabetical order keeps the head stable)
+  // shed the lookup queue first, then tail rows
   shrink: (payload) => {
     if ((payload.pendingLookups?.length ?? 0) > 0) {
       console.warn('Cards-on-file cache over the size cap; dropping pending lookup queue');
@@ -84,7 +82,7 @@ const cacheKey = (): string => fullCacheKey(cardsOnFileReport, {});
 const saveState = (oystehr: Oystehr, state: CardsOnFilePayload): Promise<void> =>
   saveReportCache(oystehr, cardsOnFileReport, cacheKey(), state);
 
-// Full recomputation + queued-lookup drain; runs inside the subscription worker.
+// full recomputation + queued-lookup drain
 async function computeAndDrainCardsReport(
   oystehr: Oystehr,
   untaggedClient: Oystehr,
@@ -312,7 +310,6 @@ async function listAllCustomers(
       if (seenCustomerIds.has(customer.id)) continue;
       seenCustomerIds.add(customer.id);
       customers.push({ customer, stripeAccount });
-      // throttled: each report is a FHIR patch on the refresh Task
       if (customers.length % 1000 === 0) await onCount?.(customers.length);
       if (customers.length >= MAX_CUSTOMERS) break;
     }
@@ -369,7 +366,6 @@ async function resolveCards(
   const batch = prioritized.slice(0, PM_LOOKUPS_PER_RUN);
   const pending = prioritized.slice(PM_LOOKUPS_PER_RUN);
 
-  // throttled: each report is a FHIR patch on the refresh Task
   let lastReported = 0;
   const looked = await lookupCards(stripe, batch, async (done) => {
     if (done - lastReported >= 100 || done === batch.length) {

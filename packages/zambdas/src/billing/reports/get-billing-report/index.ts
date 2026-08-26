@@ -25,9 +25,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// Serves the cache and queues async refreshes; the subscription worker computes. Never computes
-// a report in the HTTP request. A `drilldown` request is a pure filter over the report's cached
-// detail dataset.
+// Serves the cache and queues async refreshes; the worker computes. Drilldowns are pure
+// filters over the cached detail.
 export async function performEffect(
   oystehr: Oystehr,
   kind: RefreshReportKind,
@@ -82,7 +81,7 @@ async function statusOf(
   if (active) {
     return { state: 'running', ...lastCompletedAt, progress: active.businessStatus?.text ?? 'queued' };
   }
-  // a failed refresh newer than the served cache means "your data is fine, the last attempt broke"
+  // a failed refresh newer than the served cache surfaces as an error status
   const failed = await findRecentFailedRefreshTask(oystehr, cacheKey, generatedAt ?? '');
   return failed
     ? { state: 'error', ...lastCompletedAt, error: failed.statusReason?.text ?? 'refresh failed' }

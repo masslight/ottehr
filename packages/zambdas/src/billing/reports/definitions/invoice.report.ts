@@ -48,7 +48,7 @@ export const invoiceReport: ReportDefinition<Record<string, never>, InvoiceRepor
   summarize: (payload) => `invoice report cached (${payload.rows.length} invoices)`,
 };
 
-// Full recomputation; runs inside the subscription worker's long timeout.
+// full recomputation (worker-side)
 async function computeInvoiceReport(
   oystehr: Oystehr,
   untaggedClient: Oystehr,
@@ -62,7 +62,7 @@ async function computeInvoiceReport(
   await onProgress?.('listing Stripe accounts…');
   const accounts = await listStripeAccounts(oystehr, stripe);
   await onProgress?.('listing invoices…');
-  // both listings stream in parallel; one shared line reports their combined progress
+  // one shared progress line for both parallel listings
   const listCounts = { open: 0, scanned: 0 };
   const reportListing = async (): Promise<void> => {
     await onProgress?.(
@@ -233,7 +233,6 @@ async function listAllInvoices(
       if (seenInvoiceIds.has(invoice.id)) continue;
       seenInvoiceIds.add(invoice.id);
       invoices.push({ invoice, stripeAccount });
-      // throttled: each report is a FHIR patch on the refresh Task
       if (invoices.length % 250 === 0) await onCount?.(invoices.length);
     }
   }
@@ -310,7 +309,6 @@ async function listOpenInvoices(
       if (seenInvoiceIds.has(invoice.id)) continue;
       seenInvoiceIds.add(invoice.id);
       invoices.push({ invoice, stripeAccount });
-      // throttled: each report is a FHIR patch on the refresh Task
       if (invoices.length % 250 === 0) await onCount?.(invoices.length);
     }
   }
@@ -390,7 +388,6 @@ async function resolveCards(
         }
       })
     );
-    // throttled: each report is a FHIR patch on the refresh Task
     const done = Math.min(i + PM_LOOKUP_CONCURRENCY, needLookup.length);
     if (done % 100 < PM_LOOKUP_CONCURRENCY || done === needLookup.length) {
       await onProgress?.(done, needLookup.length);
