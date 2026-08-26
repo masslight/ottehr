@@ -335,7 +335,9 @@ export async function fetchNioCoveragePairs(oystehr: Oystehr, nioId: string): Pr
   const bundle = await oystehr.fhir.search<Organization | OrganizationAffiliation>({
     resourceType: 'OrganizationAffiliation',
     params: [
-      { name: 'organization', value: `Organization/${nioId}` },
+      // The element is OrganizationAffiliation.organization, but its R4 search parameter is
+      // primary-organization (participatingOrganization's is participating-organization).
+      { name: 'primary-organization', value: `Organization/${nioId}` },
       { name: '_include', value: 'OrganizationAffiliation:participating-organization' },
       { name: '_count', value: '1000' },
     ],

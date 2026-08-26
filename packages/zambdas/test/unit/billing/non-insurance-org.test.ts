@@ -20,6 +20,7 @@ import {
   buildNioAffiliation,
   buildNioOrganization,
   computeCoverageChanges,
+  fetchNioCoveragePairs,
   mapNonInsuranceOrganization,
   resolveWcPayerReference,
 } from '../../../src/billing/non-insurance-org.helpers';
@@ -244,6 +245,21 @@ function makeOystehr(): MockOystehr {
   return { oystehr, transaction, search, getPayer, getPayerByUrl };
 }
 
+describe('fetchNioCoveragePairs', () => {
+  it('queries affiliations by the primary-organization search parameter and pairs the included orgs', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [wcAffiliation, wcCoverageOrg] });
+
+    const pairs = await fetchNioCoveragePairs(oystehr, NIO_ID);
+
+    expect(pairs).toEqual([{ affiliation: wcAffiliation, coverageOrg: wcCoverageOrg }]);
+    expect(search.mock.calls[0][0].params).toContainEqual({
+      name: 'primary-organization',
+      value: `Organization/${NIO_ID}`,
+    });
+  });
+});
+
 describe('create-billing-non-insurance-org', () => {
   it('writes the NIO, coverage orgs, and affiliations in one urn-linked transaction', async () => {
     const { oystehr, transaction } = makeOystehr();
@@ -400,6 +416,11 @@ describe('search-billing-non-insurance-orgs', () => {
       value: `${NIO_ORGANIZATION_KIND_SYSTEM}|non-insurance-organization`,
     });
     expect(orgParams).toContainEqual({ name: 'active', value: 'true' });
+    // R4 names the OrganizationAffiliation.organization search parameter primary-organization.
+    expect(search.mock.calls[1][0].params).toContainEqual({
+      name: 'primary-organization',
+      value: `Organization/${NIO_ID}`,
+    });
   });
 
   it('falls back to the stored payer display when RCM resolution fails', async () => {
@@ -442,7 +463,11 @@ describe('list-non-insurance-organizations', () => {
 
     const orgParams = search.mock.calls[0][0].params;
     expect(orgParams).toContainEqual({ name: 'type', value: `${NIO_ORGANIZATION_KIND_SYSTEM}|employer` });
-    // The affiliation pass never asks for the coverage orgs.
+    // The affiliation pass filters by primary-organization and never asks for the coverage orgs.
+    expect(search.mock.calls[1][0].params).toContainEqual({
+      name: 'primary-organization',
+      value: `Organization/${NIO_ID}`,
+    });
     expect(search.mock.calls[1][0].params.some((p: { name: string }) => p.name === '_include')).toBe(false);
   });
 

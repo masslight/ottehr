@@ -80,7 +80,7 @@ export async function performEffect(
     const affiliationBundle = await oystehr.fhir.search<Organization | OrganizationAffiliation>({
       resourceType: 'OrganizationAffiliation',
       params: [
-        { name: 'organization', value: orgs.map((org) => `Organization/${org.id}`).join(',') },
+        { name: 'primary-organization', value: orgs.map((org) => `Organization/${org.id}`).join(',') },
         { name: 'active', value: 'true' },
         { name: '_include', value: 'OrganizationAffiliation:participating-organization' },
         { name: '_count', value: '1000' },

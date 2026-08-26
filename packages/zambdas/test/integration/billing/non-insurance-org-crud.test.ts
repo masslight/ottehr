@@ -39,7 +39,7 @@ describe('non-insurance-org CRUD', () => {
     (
       await oystehr.fhir.search<OrganizationAffiliation>({
         resourceType: 'OrganizationAffiliation',
-        params: [{ name: 'organization', value: `Organization/${id}` }],
+        params: [{ name: 'primary-organization', value: `Organization/${id}` }],
       })
     ).unbundle();
 
