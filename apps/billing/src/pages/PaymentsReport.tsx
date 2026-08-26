@@ -28,10 +28,12 @@ import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } fro
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  GetBillingPatientPaymentsReportInput,
   GetBillingPaymentsReportDrilldownInput,
+  PatientPaymentsDrilldownParams,
+  ReportDateWindowParams,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
+  GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
   GetBillingPaymentsReportDrilldownResponse,
   GetBillingPaymentsReportResponse,
@@ -41,7 +43,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import {
-  getBillingPatientPaymentsDetail,
+  getBillingPatientPaymentsDrilldown,
   getBillingPatientPaymentsReport,
   getBillingPaymentsReport,
   getBillingPaymentsReportDrilldown,
@@ -247,6 +249,9 @@ function DrilldownDialog({
           {criteria && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
               {checkRangeLabel(criteria.params)}
+              {data?.generatedAt
+                ? ` — as of ${DateTime.fromISO(data.generatedAt).toLocaleString(DateTime.DATETIME_MED)}`
+                : ''}
             </Typography>
           )}
         </Box>
@@ -384,7 +389,7 @@ const patientPaymentColumns: GridColDef[] = [
 
 interface PatientPaymentsCriteria {
   title: string;
-  params: GetBillingPatientPaymentsReportInput;
+  params: ReportDateWindowParams & PatientPaymentsDrilldownParams;
 }
 
 function PatientPaymentsDrawer({
@@ -395,7 +400,7 @@ function PatientPaymentsDrawer({
   onClose: () => void;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [data, setData] = useState<GetBillingPatientPaymentsReportResponse | null>(null);
+  const [data, setData] = useState<GetBillingPatientPaymentsDrilldownResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -404,7 +409,12 @@ function PatientPaymentsDrawer({
     setData(null);
     setError(null);
     setLoading(true);
-    getBillingPatientPaymentsDetail(oystehrZambda, criteria.params)
+    const { dateFrom, dateTo, locationId, paymentMethod } = criteria.params;
+    getBillingPatientPaymentsDrilldown(
+      oystehrZambda,
+      { ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) },
+      { ...(locationId ? { locationId } : {}), ...(paymentMethod ? { paymentMethod } : {}) }
+    )
       .then(setData)
       .catch((err) => setError(getApiError({ error: err, defaultError: 'Failed to load payments' })))
       .finally(() => setLoading(false));
@@ -433,6 +443,9 @@ function PatientPaymentsDrawer({
               {criteria.params.dateFrom && criteria.params.dateTo
                 ? `Payments ${dayLabel(criteria.params.dateFrom)} – ${dayLabel(criteria.params.dateTo)}`
                 : 'All payments'}
+              {data?.generatedAt
+                ? ` — as of ${DateTime.fromISO(data.generatedAt).toLocaleString(DateTime.DATETIME_MED)}`
+                : ''}
             </Typography>
           )}
         </Box>

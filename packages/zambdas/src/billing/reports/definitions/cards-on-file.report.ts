@@ -73,8 +73,9 @@ export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnF
     }
     return undefined;
   },
-  compute: (ctx, _params, onProgress) =>
-    computeAndDrainCardsReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
+  compute: async (ctx, _params, onProgress) => ({
+    payload: await computeAndDrainCardsReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
+  }),
   summarize: (payload) => `cards-on-file report cached (${payload.totals.customers} customers)`,
 };
 
@@ -116,7 +117,9 @@ async function computeCardsReport(
   const accounts = await listStripeAccounts(oystehr, stripe);
   await onProgress?.('listing customers and invoices…');
   const [customers, openInvoicesByCustomerId] = await Promise.all([
-    listAllCustomers(stripe, accounts),
+    listAllCustomers(stripe, accounts, async (count) => {
+      await onProgress?.(`listing customers… ${count.toLocaleString('en-US')} so far`);
+    }),
     fetchOpenInvoices(stripe, accounts),
   ]);
   const truncated = customers.length >= MAX_CUSTOMERS;
@@ -131,8 +134,16 @@ async function computeCardsReport(
   }
 
   // customers with open invoices get their fallback lookups in the first batch
-  const { cardByCustomerId, pending } = await resolveCards(stripe, customers, new Set(openInvoicesByCustomerId.keys()));
-  await onProgress?.('matching patients…');
+  const { cardByCustomerId, pending } = await resolveCards(
+    stripe,
+    customers,
+    new Set(openInvoicesByCustomerId.keys()),
+    async (done, total) => {
+      await onProgress?.(
+        `checking cards for ${done.toLocaleString('en-US')}/${total.toLocaleString('en-US')} customers…`
+      );
+    }
+  );
 
   const patientIds = [
     ...new Set(
@@ -141,6 +152,7 @@ async function computeCardsReport(
         .filter((id): id is string => !!id && isValidUUID(id))
     ),
   ];
+  await onProgress?.(`matching ${patientIds.length.toLocaleString('en-US')} patients…`);
   const [patientsById, lastVisitByPatientId] = await Promise.all([
     fetchPatientsById(untaggedClient, patientIds),
     fetchLastVisits(untaggedClient, patientIds),
@@ -278,7 +290,11 @@ async function fetchOpenInvoices(
   return byCustomerId;
 }
 
-async function listAllCustomers(stripe: Stripe, accounts: (string | undefined)[]): Promise<CustomerWithAccount[]> {
+async function listAllCustomers(
+  stripe: Stripe,
+  accounts: (string | undefined)[],
+  onCount?: (count: number) => Promise<void>
+): Promise<CustomerWithAccount[]> {
   const customers: CustomerWithAccount[] = [];
   // the platform key and a connected-account listing can return the same customer objects
   const seenCustomerIds = new Set<string>();
@@ -296,6 +312,8 @@ async function listAllCustomers(stripe: Stripe, accounts: (string | undefined)[]
       if (seenCustomerIds.has(customer.id)) continue;
       seenCustomerIds.add(customer.id);
       customers.push({ customer, stripeAccount });
+      // throttled: each report is a FHIR patch on the refresh Task
+      if (customers.length % 1000 === 0) await onCount?.(customers.length);
       if (customers.length >= MAX_CUSTOMERS) break;
     }
     if (customers.length >= MAX_CUSTOMERS) break;
@@ -314,7 +332,8 @@ interface CardSummary {
 async function resolveCards(
   stripe: Stripe,
   customers: CustomerWithAccount[],
-  priorityCustomerIds: Set<string>
+  priorityCustomerIds: Set<string>,
+  onProgress?: (done: number, total: number) => Promise<void>
 ): Promise<{ cardByCustomerId: Map<string, CardSummary>; pending: PendingLookup[] }> {
   const cardByCustomerId = new Map<string, CardSummary>();
   const needLookup: CustomerWithAccount[] = [];
@@ -350,7 +369,14 @@ async function resolveCards(
   const batch = prioritized.slice(0, PM_LOOKUPS_PER_RUN);
   const pending = prioritized.slice(PM_LOOKUPS_PER_RUN);
 
-  const looked = await lookupCards(stripe, batch);
+  // throttled: each report is a FHIR patch on the refresh Task
+  let lastReported = 0;
+  const looked = await lookupCards(stripe, batch, async (done) => {
+    if (done - lastReported >= 100 || done === batch.length) {
+      lastReported = done;
+      await onProgress?.(done, prioritized.length);
+    }
+  });
   for (const [customerId, card] of looked) cardByCustomerId.set(customerId, card);
   return { cardByCustomerId, pending };
 }
@@ -358,7 +384,11 @@ async function resolveCards(
 // batched paymentMethods.list per customer, with rate-limit retries. A lookup that still fails
 // throws: "no card" is a billing fact, so an error must not be cached as one. The thrown
 // invocation leaves the previous cache and pending queue intact, making the batch retryable.
-async function lookupCards(stripe: Stripe, entries: PendingLookup[]): Promise<Map<string, CardSummary>> {
+async function lookupCards(
+  stripe: Stripe,
+  entries: PendingLookup[],
+  onDone?: (done: number) => Promise<void>
+): Promise<Map<string, CardSummary>> {
   const cardByCustomerId = new Map<string, CardSummary>();
   for (let i = 0; i < entries.length; i += PM_LOOKUP_CONCURRENCY) {
     await Promise.all(
@@ -389,6 +419,7 @@ async function lookupCards(stripe: Stripe, entries: PendingLookup[]): Promise<Ma
         }
       })
     );
+    await onDone?.(Math.min(i + PM_LOOKUP_CONCURRENCY, entries.length));
   }
   return cardByCustomerId;
 }

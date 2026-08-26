@@ -1,9 +1,17 @@
 import Oystehr from '@oystehr/sdk';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPayerId } from 'utils/lib/helpers/helpers';
-import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  GetBillingPaymentsReportDrilldownInput,
+  GetBillingPaymentsReportDrilldownInputSchema,
+  ReportDateWindowParams,
+  ReportDateWindowParamsSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingPaymentsReportResponse,
+  PaymentsReportDetail,
+  PaymentsReportDetailEra,
   PaymentsReportPayerRow,
   PaymentsReportWaterfallCell,
 } from 'utils/lib/types/data/billing/billing.types';
@@ -12,8 +20,10 @@ import {
   extractClaimResponseAmounts,
   extractReportedCharge,
   fetchClaimResponsesByPaymentReconciliations,
+  sortClaimResponsesByRecency,
 } from '../../claim-amounts';
-import { resolvePayersByRef } from '../../shared';
+import { eraPatientAccountNumber } from '../../era-remits';
+import { fhirName, getEraCheckNumber, resolvePayersByRef } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import {
   checkDateInRange,
@@ -26,6 +36,7 @@ import {
   fetchPartialClaimsById,
   payerIdFromRef,
   payerNamesByRef,
+  toDay,
   toMonth,
   UNKNOWN_PAYER_NAME,
   WATERFALL_UNKNOWN_MONTH,
@@ -33,30 +44,89 @@ import {
 
 type PaymentsReportPayload = Omit<GetBillingPaymentsReportResponse, 'fromCache' | 'status'>;
 
-export const paymentsReport: ReportDefinition<ReportDateWindowParams, PaymentsReportPayload> = {
+// sentinel for payer rows built from ERAs that carry no payer reference at all
+const NO_PAYER_SENTINEL = 'none';
+
+const checkDayInRange = (checkDate: string, from?: string, to?: string): boolean => {
+  if (!from && !to) return true;
+  const day = toDay(checkDate);
+  if (!day) return false;
+  if (from && day < (toDay(from) ?? '')) return false;
+  if (to && day > (toDay(to) ?? '')) return false;
+  return true;
+};
+
+export const paymentsReport: ReportDefinition<
+  ReportDateWindowParams,
+  PaymentsReportPayload,
+  PaymentsReportDetail,
+  GetBillingPaymentsReportDrilldownInput
+> = {
   kind: 'payments',
   cacheVersion: 'v1',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
+  // the detail spans all ERAs regardless of the report's check-date window
+  detailCacheKeyOf: () => '',
   emptyPayload: () => ({ rows: [], totals: totalsOf([]), waterfall: [], generatedAt: '' }),
   compute: async (ctx, params, onProgress) => {
     await onProgress('aggregating posted ERAs…');
-    const { rows, waterfall } = await computeInsurancePayments(ctx.oystehr, ctx.untaggedClient, params);
-    return { rows, totals: totalsOf(rows), waterfall, generatedAt: DateTime.now().toUTC().toISO() };
+    const { rows, waterfall, detail } = await computeInsurancePayments(ctx.oystehr, ctx.untaggedClient, params);
+    return {
+      payload: { rows, totals: totalsOf(rows), waterfall, generatedAt: DateTime.now().toUTC().toISO() },
+      detail,
+    };
+  },
+  // oldest checks are the least interesting slice of an oversized detail
+  shrinkDetail: (detail) =>
+    detail.eras.length > 1
+      ? {
+          eras: [...detail.eras]
+            .sort((a, b) => b.checkDate.localeCompare(a.checkDate))
+            .slice(0, Math.floor(detail.eras.length / 2)),
+        }
+      : undefined,
+  drilldown: {
+    paramsSchema: GetBillingPaymentsReportDrilldownInputSchema,
+    empty: () => ({ eras: [] }),
+    // mirrors the filters of the old get-billing-payments-report-drilldown zambda:
+    // payer row (payerId + check window) or waterfall cell (serviceMonth + checkMonth)
+    select: (detail, params) => {
+      const eras = detail.eras
+        .filter((era) =>
+          params.checkMonth
+            ? era.checkMonth === params.checkMonth
+            : checkDayInRange(era.checkDate, params.dateFrom, params.dateTo)
+        )
+        .filter(
+          (era) =>
+            !params.payerId ||
+            (params.payerId === NO_PAYER_SENTINEL ? era.payerId === '' : era.payerId === params.payerId)
+        )
+        // a waterfall cell only shows the claims whose DOS lands in its service month
+        .map((era) =>
+          params.serviceMonth
+            ? { ...era, claims: era.claims.filter((claim) => claim.serviceMonth === params.serviceMonth) }
+            : era
+        )
+        .filter((era) => era.claims.length > 0)
+        .sort((a, b) => b.checkDate.localeCompare(a.checkDate));
+      return { eras };
+    },
   },
   summarize: (payload) => `payments report cached (${payload.rows.length} payers)`,
 };
 
 // Aggregates over posted ERAs: each PaymentReconciliation and its ClaimResponses roll up to the
 // ERA's payer (paymentIssuer, else the ClaimResponses' insurer). Payer rows honor the check-date
-// window; the waterfall matrix (DOS month × check month) always spans all ERAs.
+// window; the waterfall matrix (DOS month × check month) and the drilldown detail span all ERAs.
 async function computeInsurancePayments(
   oystehr: Oystehr,
   eraReadClient: Oystehr,
   params: ReportDateWindowParams
-): Promise<{ rows: PaymentsReportPayerRow[]; waterfall: PaymentsReportWaterfallCell[] }> {
+): Promise<{ rows: PaymentsReportPayerRow[]; waterfall: PaymentsReportWaterfallCell[]; detail: PaymentsReportDetail }> {
   const allEras = await fetchAllEras(eraReadClient);
-  if (allEras.length === 0) return { rows: [], waterfall: [] };
+  if (allEras.length === 0) return { rows: [], waterfall: [], detail: { eras: [] } };
 
   const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, allEras);
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
@@ -77,28 +147,31 @@ async function computeInsurancePayments(
 
   const rowsByPayerKey = new Map<string, PaymentsReportPayerRow>();
   const paidByMatrixKey = new Map<string, number>();
+  const detailEras: PaymentsReportDetailEra[] = [];
   for (const era of allEras) {
     const claimResponses = claimResponsesByPrId.get(era.id ?? '') ?? [];
     const checkMonth = eraCheckMonth(era);
     const inWindow = erasInWindow.has(era.id);
 
+    const payerRefOfEra = eraPayerRef(era, claimResponses);
+    const refPayerIdOfEra = payerIdFromRef(payerRefOfEra);
+    const payerNameOfEra =
+      (payerRefOfEra ? payersByRef.get(payerRefOfEra)?.name : undefined) ??
+      harvestedNamesByRef.get(payerRefOfEra ?? '') ??
+      eraReportedPayerName(claimResponses) ??
+      era.paymentIssuer?.display ??
+      (refPayerIdOfEra ? `Payer ${refPayerIdOfEra}` : UNKNOWN_PAYER_NAME);
+
     let row: PaymentsReportPayerRow | undefined;
     if (inWindow) {
-      const payerRef = eraPayerRef(era, claimResponses);
-      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
-      const key = payerRef ?? 'unknown';
-      const refPayerId = payerIdFromRef(payerRef);
+      const payer = payerRefOfEra ? payersByRef.get(payerRefOfEra) : undefined;
+      const key = payerRefOfEra ?? 'unknown';
 
       row = rowsByPayerKey.get(key);
       if (!row) {
         row = {
-          payerId: getPayerId(payer) ?? refPayerId ?? '',
-          payerName:
-            payer?.name ??
-            harvestedNamesByRef.get(payerRef ?? '') ??
-            eraReportedPayerName(claimResponses) ??
-            era.paymentIssuer?.display ??
-            (refPayerId ? `Payer ${refPayerId}` : UNKNOWN_PAYER_NAME),
+          payerId: getPayerId(payer) ?? refPayerIdOfEra ?? '',
+          payerName: payerNameOfEra,
           eraCount: 0,
           claimCount: 0,
           billed: 0,
@@ -127,6 +200,36 @@ async function computeInsurancePayments(
       const matrixKey = `${serviceMonth}|${checkMonth}`;
       paidByMatrixKey.set(matrixKey, (paidByMatrixKey.get(matrixKey) ?? 0) + amounts.paid);
     }
+
+    // drilldown detail: every ERA with its claims and filter dimensions (window-independent)
+    detailEras.push({
+      id: era.id ?? '',
+      checkNumber: getEraCheckNumber(era) ?? '',
+      checkDate: era.paymentDate ?? era.created ?? '',
+      checkMonth,
+      payerId: refPayerIdOfEra ?? '',
+      payerName: payerNameOfEra,
+      checkAmount: era.paymentAmount?.value ?? 0,
+      claims: sortClaimResponsesByRecency(claimResponses).map((claimResponse) => {
+        const amounts = extractClaimResponseAmounts(claimResponse);
+        const claimId = claimResponseClaimId(claimResponse);
+        const matchedClaim = claimId ? partialClaimsById.get(claimId) : undefined;
+        const containedPatient = claimResponse.contained?.find(
+          (resource): resource is Patient => resource.resourceType === 'Patient'
+        );
+        const dos = claimResponseServiceDay(claimResponse, partialClaimsById) ?? '';
+        return {
+          patientName: fhirName(containedPatient),
+          pcn: eraPatientAccountNumber([claimResponse], matchedClaim, !!matchedClaim),
+          dos,
+          serviceMonth: toMonth(dos || undefined) ?? WATERFALL_UNKNOWN_MONTH,
+          billed: extractReportedCharge(claimResponse) ?? 0,
+          allowed: amounts.allowed ?? 0,
+          paid: amounts.paid,
+          patientResp: amounts.patientResp ?? 0,
+        };
+      }),
+    });
   }
 
   const rows = [...rowsByPayerKey.values()]
@@ -146,7 +249,7 @@ async function computeInsurancePayments(
     })
     .sort((a, b) => a.serviceMonth.localeCompare(b.serviceMonth) || a.checkMonth.localeCompare(b.checkMonth));
 
-  return { rows, waterfall };
+  return { rows, waterfall, detail: { eras: detailEras } };
 }
 
 export function totalsOf(rows: PaymentsReportPayerRow[]): GetBillingPaymentsReportResponse['totals'] {

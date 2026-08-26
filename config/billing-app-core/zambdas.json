@@ -281,20 +281,6 @@
       "src": "src/billing/reports/get-billing-report/index",
       "zip": ".dist/zips/get-billing-report.zip"
     },
-    "GET-BILLING-PAYMENTS-REPORT-DRILLDOWN": {
-      "name": "get-billing-payments-report-drilldown",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/reports/get-billing-payments-report-drilldown/index",
-      "zip": ".dist/zips/get-billing-payments-report-drilldown.zip"
-    },
-    "GET-BILLING-PATIENT-PAYMENTS-REPORT": {
-      "name": "get-billing-patient-payments-report",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/reports/get-billing-patient-payments-report/index",
-      "zip": ".dist/zips/get-billing-patient-payments-report.zip"
-    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",

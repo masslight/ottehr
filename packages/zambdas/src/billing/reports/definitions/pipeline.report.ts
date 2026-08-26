@@ -44,7 +44,7 @@ export const pipelineReport: ReportDefinition<ReportDateWindowParams, PipelineRe
   }),
   compute: async (ctx, params, onProgress) => {
     await onProgress('scanning claims…');
-    return computePipelineReport(ctx.oystehr, params);
+    return { payload: await computePipelineReport(ctx.oystehr, params) };
   },
   summarize: (payload) => `pipeline report cached (${payload.totals.claims} claims)`,
 };

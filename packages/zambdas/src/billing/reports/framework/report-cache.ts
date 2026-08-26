@@ -16,6 +16,25 @@ export function fullCacheKey<Params>(
   return `${definition.kind}:${definition.cacheVersion}:${definition.cacheKeyOf(params) || 'all'}`;
 }
 
+// sibling cache entry holding a report's full drilldown dataset
+export function detailCacheKey<Params>(
+  definition: {
+    kind: string;
+    cacheVersion: string;
+    cacheKeyOf: (params: Params) => string;
+    detailCacheKeyOf?: (params: Params) => string;
+  },
+  params: Params
+): string {
+  const keyOf = definition.detailCacheKeyOf ?? definition.cacheKeyOf;
+  return `${definition.kind}:${definition.cacheVersion}:${keyOf(params) || 'all'}:detail`;
+}
+
+// wrapper persisted to the detail cache document
+export interface ReportDetailEnvelope<Detail> extends ReportPayload {
+  detail: Detail;
+}
+
 export async function findCacheDocument(oystehr: Oystehr, cacheKey: string): Promise<DocumentReference | undefined> {
   const bundle = await oystehr.fhir.search<DocumentReference>({
     resourceType: 'DocumentReference',

@@ -9,7 +9,7 @@ import { safeValidate } from '../../../shared/validation';
 import { createBillingClient } from '../../shared';
 import { findActiveRefreshTask, findRecentFailedRefreshTask, kickOffRefreshTask } from '../framework/refresh-task';
 import { reportRegistry } from '../framework/registry';
-import { fullCacheKey, loadReportCache } from '../framework/report-cache';
+import { detailCacheKey, fullCacheKey, loadReportCache, ReportDetailEnvelope } from '../framework/report-cache';
 import { ReportPayload } from '../framework/types';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -17,25 +17,43 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { kind, params, refresh, secrets } = validateRequestParameters(input);
+  const { kind, params, refresh, drilldown, secrets } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
 
-  const response = await performEffect(oystehr, kind, params, refresh);
+  const response = await performEffect(oystehr, kind, params, refresh, drilldown);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 // Serves the cache and queues async refreshes; the subscription worker computes. Never computes
-// a report in the HTTP request.
+// a report in the HTTP request. A `drilldown` request is a pure filter over the report's cached
+// detail dataset.
 export async function performEffect(
   oystehr: Oystehr,
   kind: RefreshReportKind,
   rawParams: unknown,
-  refresh: boolean | undefined
-): Promise<ReportPayload & { fromCache: boolean; status: ReportRefreshStatus }> {
+  refresh: boolean | undefined,
+  rawDrilldown?: unknown
+): Promise<Record<string, unknown> & { fromCache: boolean; status: ReportRefreshStatus }> {
   const definition = reportRegistry[kind];
   const params = safeValidate(definition.paramsSchema, rawParams ?? {});
   const cacheKey = fullCacheKey(definition, params);
+
+  if (rawDrilldown !== undefined) {
+    if (!definition.drilldown) throw new Error(`Report kind '${kind}' does not support drilldown`);
+    const drillParams = safeValidate(definition.drilldown.paramsSchema, rawDrilldown);
+    const envelope = await loadReportCache<ReportDetailEnvelope<unknown>>(oystehr, detailCacheKey(definition, params));
+    const status = await statusOf(oystehr, kind, params, cacheKey, envelope?.generatedAt, undefined);
+    if (!envelope) {
+      return { ...definition.drilldown.empty(), generatedAt: '', fromCache: false, status };
+    }
+    return {
+      ...definition.drilldown.select(envelope.detail, drillParams),
+      generatedAt: envelope.generatedAt,
+      fromCache: true,
+      status,
+    };
+  }
 
   let active = refresh
     ? await kickOffRefreshTask(oystehr, { kind, params, cacheKey })
@@ -46,18 +64,27 @@ export async function performEffect(
     active = await kickOffRefreshTask(oystehr, { kind, params, cacheKey });
   }
 
-  const lastCompletedAt = cached?.generatedAt ? { lastCompletedAt: cached.generatedAt } : {};
-  let status: ReportRefreshStatus;
-  if (active) {
-    status = { state: 'running', ...lastCompletedAt, progress: active.businessStatus?.text ?? 'queued' };
-  } else {
-    // a failed refresh newer than the served cache means "your data is fine, the last attempt broke"
-    const failed = await findRecentFailedRefreshTask(oystehr, cacheKey, cached?.generatedAt ?? '');
-    status = failed
-      ? { state: 'error', ...lastCompletedAt, error: failed.statusReason?.text ?? 'refresh failed' }
-      : { state: 'idle', ...lastCompletedAt };
-  }
-
+  const status = await statusOf(oystehr, kind, params, cacheKey, cached?.generatedAt, active);
   const payload = cached ? definition.sanitizePayload?.(cached) ?? cached : definition.emptyPayload();
   return { ...payload, fromCache: !!cached, status };
+}
+
+async function statusOf(
+  oystehr: Oystehr,
+  kind: RefreshReportKind,
+  params: unknown,
+  cacheKey: string,
+  generatedAt: string | undefined,
+  knownActive: Awaited<ReturnType<typeof findActiveRefreshTask>>
+): Promise<ReportRefreshStatus> {
+  const active = knownActive ?? (await findActiveRefreshTask(oystehr, cacheKey));
+  const lastCompletedAt = generatedAt ? { lastCompletedAt: generatedAt } : {};
+  if (active) {
+    return { state: 'running', ...lastCompletedAt, progress: active.businessStatus?.text ?? 'queued' };
+  }
+  // a failed refresh newer than the served cache means "your data is fine, the last attempt broke"
+  const failed = await findRecentFailedRefreshTask(oystehr, cacheKey, generatedAt ?? '');
+  return failed
+    ? { state: 'error', ...lastCompletedAt, error: failed.statusReason?.text ?? 'refresh failed' }
+    : { state: 'idle', ...lastCompletedAt };
 }

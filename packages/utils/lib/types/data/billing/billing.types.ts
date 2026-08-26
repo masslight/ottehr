@@ -647,6 +647,28 @@ export interface PaymentsReportDrilldownEra {
 
 export interface GetBillingPaymentsReportDrilldownResponse {
   eras: PaymentsReportDrilldownEra[];
+  // when the drilldown detail snapshot was computed
+  generatedAt?: string;
+  status?: ReportRefreshStatus;
+}
+
+// persisted drilldown dataset for the payments report: every ERA with its claims plus the
+// dimensions the drilldown filters on
+export interface PaymentsReportDetailClaim extends PaymentsReportDrilldownClaim {
+  // 'YYYY-MM' or 'unknown'
+  serviceMonth: string;
+}
+
+export interface PaymentsReportDetailEra extends Omit<PaymentsReportDrilldownEra, 'claims'> {
+  // payer reference id ('' when the ERA has no payer reference)
+  payerId: string;
+  // 'YYYY-MM' or 'unknown'
+  checkMonth: string;
+  claims: PaymentsReportDetailClaim[];
+}
+
+export interface PaymentsReportDetail {
+  eras: PaymentsReportDetailEra[];
 }
 
 export interface PatientPaymentsReportRow {
@@ -677,10 +699,26 @@ export interface PatientPaymentItem {
 export interface GetBillingPatientPaymentsReportResponse {
   rows: PatientPaymentsReportRow[];
   totals: Omit<PatientPaymentsReportRow, 'locationId' | 'locationName' | 'paymentMethod'>;
-  // present when detail was requested
-  payments?: PatientPaymentItem[];
   generatedAt: string;
   fromCache?: boolean;
+  status?: ReportRefreshStatus;
+}
+
+// persisted drilldown dataset for the patient-payments report: every payment in the window,
+// with the location id the drilldown filters on
+export interface PatientPaymentsDetailItem extends PatientPaymentItem {
+  // '' when unresolved; the drilldown 'none' filter selects these
+  locationId: string;
+}
+
+export interface PatientPaymentsReportDetail {
+  payments: PatientPaymentsDetailItem[];
+}
+
+export interface GetBillingPatientPaymentsDrilldownResponse {
+  payments: PatientPaymentItem[];
+  // when the drilldown detail snapshot was computed
+  generatedAt?: string;
   status?: ReportRefreshStatus;
 }
 

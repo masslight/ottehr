@@ -675,6 +675,9 @@ export const GetBillingReportInputSchema = z.object({
   params: z.record(z.unknown()).optional(),
   // queue an async recompute (idempotent while one is already running for the same kind+params)
   refresh: z.boolean().optional(),
+  // drilldown request: a filtered slice of the report's cached detail dataset, validated
+  // against the definition's drilldown paramsSchema server-side
+  drilldown: z.record(z.unknown()).optional(),
 });
 
 // date-window params shared by the parameterized report kinds (payments, patient-payments, …)
@@ -700,18 +703,13 @@ export const GetBillingPaymentsReportDrilldownInputSchema = z
   })
   .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
 
-// drill-down endpoint: individual payments (optionally row-filtered) with live Stripe status;
-// the cached rollup itself is served by get-billing-report (kind 'patient-payments')
-export const GetBillingPatientPaymentsReportInputSchema = z
-  .object({
-    // payment (created) date window, ISO dates
-    dateFrom: isoDate.optional(),
-    dateTo: isoDate.optional(),
-    // FHIR Location id; 'none' selects payments with no resolvable location
-    locationId: nonEmptyString.optional(),
-    paymentMethod: nonEmptyString.optional(),
-  })
-  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+// patient-payments drilldown: row filter over the cached detail (the date window travels in the
+// report params, which key the detail cache)
+export const PatientPaymentsDrilldownParamsSchema = z.object({
+  // FHIR Location id; 'none' selects payments with no resolvable location
+  locationId: nonEmptyString.optional(),
+  paymentMethod: nonEmptyString.optional(),
+});
 
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
@@ -744,7 +742,7 @@ export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputS
 export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
 export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
-export type GetBillingPatientPaymentsReportInput = z.output<typeof GetBillingPatientPaymentsReportInputSchema>;
+export type PatientPaymentsDrilldownParams = z.output<typeof PatientPaymentsDrilldownParamsSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;

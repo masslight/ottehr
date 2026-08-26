@@ -4,10 +4,16 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  PatientPaymentsDrilldownParams,
+  PatientPaymentsDrilldownParamsSchema,
+  ReportDateWindowParams,
+  ReportDateWindowParamsSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingPatientPaymentsReportResponse,
-  PatientPaymentItem,
+  PatientPaymentsDetailItem,
+  PatientPaymentsReportDetail,
   PatientPaymentsReportRow,
 } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
@@ -28,9 +34,14 @@ const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 // locationId filter value selecting payments with no resolvable location
 const NO_LOCATION = 'none';
 
-type PatientPaymentsPayload = Omit<GetBillingPatientPaymentsReportResponse, 'fromCache' | 'status' | 'payments'>;
+type PatientPaymentsPayload = Omit<GetBillingPatientPaymentsReportResponse, 'fromCache' | 'status'>;
 
-export const patientPaymentsReport: ReportDefinition<ReportDateWindowParams, PatientPaymentsPayload> = {
+export const patientPaymentsReport: ReportDefinition<
+  ReportDateWindowParams,
+  PatientPaymentsPayload,
+  PatientPaymentsReportDetail,
+  PatientPaymentsDrilldownParams
+> = {
   kind: 'patient-payments',
   cacheVersion: 'v1',
   paramsSchema: ReportDateWindowParamsSchema,
@@ -39,17 +50,30 @@ export const patientPaymentsReport: ReportDefinition<ReportDateWindowParams, Pat
   compute: async (ctx, params, onProgress) => {
     await onProgress('rolling up patient payments…');
     const context = await loadNoticeContext(ctx.oystehr, ctx.untaggedClient, params);
-    return rollupOf(context);
+    const payload = rollupOf(context);
+    await onProgress(`resolving payment statuses for ${context.notices.length.toLocaleString('en-US')} payments…`);
+    const detail = await detailOf(ctx.oystehr, context, ctx.secrets);
+    return { payload, detail };
+  },
+  // oldest payments are the least interesting slice of an oversized detail
+  shrinkDetail: (detail) =>
+    detail.payments.length > 1
+      ? { payments: detail.payments.slice(0, Math.floor(detail.payments.length / 2)) }
+      : undefined,
+  drilldown: {
+    paramsSchema: PatientPaymentsDrilldownParamsSchema,
+    empty: () => ({ payments: [] }),
+    // row filter over the snapshot: location ('none' = unresolved) and/or payment category
+    select: (detail, params) => ({
+      payments: detail.payments.filter(
+        (payment) =>
+          (!params.locationId || payment.locationId === (params.locationId === NO_LOCATION ? '' : params.locationId)) &&
+          (!params.paymentMethod || payment.paymentMethod === params.paymentMethod)
+      ),
+    }),
   },
   summarize: (payload) => `patient payments report cached (${payload.totals.paymentCount} payments)`,
 };
-
-// drill-down params for the detail endpoint (get-billing-patient-payments-report)
-export interface PatientPaymentsDetailParams extends ReportDateWindowParams {
-  // FHIR Location id; 'none' selects payments with no resolvable location
-  locationId?: string;
-  paymentMethod?: string;
-}
 
 const noticeDay = (notice: PaymentNotice): string | null => toDay(notice.created);
 
@@ -225,19 +249,16 @@ function rollupOf(context: NoticeContext): PatientPaymentsPayload {
   return { rows, totals: totalsOf(rows), generatedAt };
 }
 
-// Live drill-down for the get-billing-patient-payments-report zambda: individual payments
-// (optionally row-filtered) with live Stripe status. Never cached.
-export async function computePatientPaymentsDetail(
+// Full drilldown dataset over the window's notices: every payment with Stripe status (as of
+// compute time) and the location id the drilldown filters on. Runs inside the worker.
+async function detailOf(
   oystehr: Oystehr,
-  untaggedClient: Oystehr,
-  secrets: ZambdaInput['secrets'],
-  params: PatientPaymentsDetailParams
-): Promise<GetBillingPatientPaymentsReportResponse> {
-  const context = await loadNoticeContext(oystehr, untaggedClient, params);
-  const { notices, generatedAt, locationIdOf, locationNameOf, encounterOf, appointmentOf } = context;
-  const { rows, totals } = rollupOf(context);
+  context: NoticeContext,
+  secrets: ZambdaInput['secrets']
+): Promise<PatientPaymentsReportDetail> {
+  const { notices, locationIdOf, locationNameOf, encounterOf, appointmentOf } = context;
   if (notices.length === 0) {
-    return { rows, totals, payments: [], generatedAt };
+    return { payments: [] };
   }
 
   const claimsById = await fetchResourcesById<Claim>(
@@ -245,12 +266,6 @@ export async function computePatientPaymentsDetail(
     'Claim',
     notices.map(noticeClaimId).filter(Boolean) as string[],
     'id,patient'
-  );
-
-  const detailNotices = notices.filter(
-    (notice) =>
-      (!params.locationId || locationIdOf(notice) === (params.locationId === NO_LOCATION ? '' : params.locationId)) &&
-      (!params.paymentMethod || noticeCategory(notice) === params.paymentMethod)
   );
 
   const patientsById = await fetchResourcesById<Patient>(
@@ -272,9 +287,9 @@ export async function computePatientPaymentsDetail(
     }
   }
 
-  const stripeStatuses = await resolveStripeStatuses(oystehr, detailNotices, refundTotalsByChargeId, secrets);
+  const stripeStatuses = await resolveStripeStatuses(oystehr, notices, refundTotalsByChargeId, secrets);
 
-  const payments: PatientPaymentItem[] = detailNotices
+  const payments: PatientPaymentsDetailItem[] = notices
     .map((notice, index) => {
       const claim = noticeClaimId(notice) ? claimsById.get(noticeClaimId(notice) ?? '') : undefined;
       const patientId = claim?.patient?.reference?.replace('Patient/', '');
@@ -283,6 +298,7 @@ export async function computePatientPaymentsDetail(
       return {
         date: notice.created ?? '',
         patientName: fhirName(patientId ? patientsById.get(patientId) : undefined),
+        locationId: locationIdOf(notice),
         locationName: locationNameOf(locationIdOf(notice)),
         paymentMethod: noticeCategory(notice),
         amount: roundNumberToDecimalPlaces(notice.amount?.value ?? 0, 2),
@@ -294,7 +310,7 @@ export async function computePatientPaymentsDetail(
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  return { rows, totals, payments, generatedAt };
+  return { payments };
 }
 
 const emptyTotals = (): GetBillingPatientPaymentsReportResponse['totals'] => ({

@@ -24,7 +24,7 @@ export const productivityReport: ReportDefinition<ReportDateWindowParams, Produc
   emptyPayload: () => ({ rows: [], totals: { actions: 0, claimsTouched: 0, actors: 0 }, generatedAt: '' }),
   compute: async (ctx, params, onProgress) => {
     await onProgress('tallying claim actions…');
-    return computeProductivityReport(ctx.oystehr, ctx.untaggedClient, params);
+    return { payload: await computeProductivityReport(ctx.oystehr, ctx.untaggedClient, params) };
   },
   summarize: (payload) => `productivity report cached (${payload.totals.actors} actors)`,
 };

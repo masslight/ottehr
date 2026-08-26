@@ -19,7 +19,6 @@ import {
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
-  GetBillingPatientPaymentsReportInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
@@ -31,6 +30,7 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
   ReportDateWindowParams,
   SaveBillingTagInputSchema,
@@ -69,6 +69,7 @@ import {
   GetBillingCoverageResponse,
   GetBillingInvoiceReportResponse,
   GetBillingPatientBalanceResponse,
+  GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
   GetBillingPaymentsReportDrilldownResponse,
   GetBillingPaymentsReportResponse,
@@ -383,12 +384,14 @@ const getBillingReport = <T>(
   oystehr: Oystehr,
   kind: RefreshReportKind,
   params?: Record<string, unknown>,
-  refresh?: boolean
+  refresh?: boolean,
+  drilldown?: Record<string, unknown>
 ): Promise<T> =>
   executeBillingZambda(oystehr, 'get-billing-report', {
     kind,
     ...(params && Object.keys(params).length > 0 ? { params } : {}),
     ...(refresh ? { refresh: true } : {}),
+    ...(drilldown ? { drilldown } : {}),
   });
 
 export const getBillingPaymentsReport = (
@@ -431,18 +434,26 @@ export const getBillingProductivityReport = (
 ): Promise<GetBillingProductivityReportResponse> =>
   getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
 
+// ERA drilldown: a filtered slice of the payments report's cached detail (all-ERA snapshot)
 export const getBillingPaymentsReportDrilldown = (
   oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingPaymentsReportDrilldownInputSchema>
+  drilldown: z.input<typeof GetBillingPaymentsReportDrilldownInputSchema>
 ): Promise<GetBillingPaymentsReportDrilldownResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-payments-report-drilldown', parameters);
+  getBillingReport(oystehr, 'payments', undefined, undefined, drilldown as Record<string, unknown>);
 
-// live drill-down: individual patient payments with Stripe status (always computed fresh)
-export const getBillingPatientPaymentsDetail = (
+// patient-payments drilldown: row-filtered slice of the window's cached detail snapshot
+export const getBillingPatientPaymentsDrilldown = (
   oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingPatientPaymentsReportInputSchema>
-): Promise<GetBillingPatientPaymentsReportResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-patient-payments-report', parameters);
+  params: ReportDateWindowParams,
+  drilldown: z.input<typeof PatientPaymentsDrilldownParamsSchema>
+): Promise<GetBillingPatientPaymentsDrilldownResponse> =>
+  getBillingReport(
+    oystehr,
+    'patient-payments',
+    params as Record<string, unknown>,
+    undefined,
+    drilldown as Record<string, unknown>
+  );
 
 export const saveBillingTag = (
   oystehr: Oystehr,

@@ -1,5 +1,5 @@
 import { Refresh as RefreshIcon, WarningAmberRounded as WarningIcon } from '@mui/icons-material';
-import { Box, Button, CircularProgress, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
 import { ReportRefreshStatus } from 'utils/lib/types/data/billing/billing.types';
@@ -21,7 +21,7 @@ export function mergeReportStatuses(...statuses: (ReportRefreshStatus | undefine
 
 // Uniform report-header status line + refresh button:
 // idle    → de-emphasized "Updated <relative time>" (absolute timestamp in the tooltip)
-// running → spinner + live worker phase text + slim progress animation, refresh disabled
+// running → live worker phase text over a slim progress animation, refresh disabled
 // error   → warning + failure reason, refresh relabeled Retry
 export function ReportStatusBar({
   status,
@@ -38,13 +38,10 @@ export function ReportStatusBar({
   return (
     <Stack direction="row" alignItems="center" gap={1.5}>
       {running ? (
-        <Box sx={{ minWidth: 180, maxWidth: 320 }}>
-          <Stack direction="row" alignItems="center" gap={1}>
-            <CircularProgress size={14} thickness={5} />
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {`Refreshing — ${status?.progress ?? 'queued'}`}
-            </Typography>
-          </Stack>
+        <Box sx={{ minWidth: 200, maxWidth: 360 }}>
+          <Typography variant="caption" color="text.secondary" noWrap component="div">
+            {`Refreshing — ${status?.progress ?? 'queued'}`}
+          </Typography>
           <LinearProgress sx={{ mt: 0.5, height: 3, borderRadius: 1 }} />
         </Box>
       ) : status?.state === 'error' ? (

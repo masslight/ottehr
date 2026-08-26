@@ -42,7 +42,9 @@ export const invoiceReport: ReportDefinition<Record<string, never>, InvoiceRepor
   paramsSchema: EmptyReportParamsSchema,
   cacheKeyOf: () => '',
   emptyPayload: () => ({ rows: [], totals: emptyTotals(), agingTrend: [], generatedAt: '' }),
-  compute: (ctx, _params, onProgress) => computeInvoiceReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
+  compute: async (ctx, _params, onProgress) => ({
+    payload: await computeInvoiceReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
+  }),
   summarize: (payload) => `invoice report cached (${payload.rows.length} invoices)`,
 };
 
@@ -60,9 +62,23 @@ async function computeInvoiceReport(
   await onProgress?.('listing Stripe accounts…');
   const accounts = await listStripeAccounts(oystehr, stripe);
   await onProgress?.('listing invoices…');
+  // both listings stream in parallel; one shared line reports their combined progress
+  const listCounts = { open: 0, scanned: 0 };
+  const reportListing = async (): Promise<void> => {
+    await onProgress?.(
+      `listing invoices… ${listCounts.open.toLocaleString('en-US')} open, ` +
+        `${listCounts.scanned.toLocaleString('en-US')} scanned for aging`
+    );
+  };
   const [invoices, allInvoices] = await Promise.all([
-    listOpenInvoices(stripe, accounts),
-    listAllInvoices(stripe, accounts),
+    listOpenInvoices(stripe, accounts, async (count) => {
+      listCounts.open = count;
+      await reportListing();
+    }),
+    listAllInvoices(stripe, accounts, async (count) => {
+      listCounts.scanned = count;
+      await reportListing();
+    }),
   ]);
   const agingTrend = computeAgingTrend(allInvoices);
 
@@ -73,8 +89,12 @@ async function computeInvoiceReport(
     const customerId = customerIdOf(invoice);
     if (customerId) pastDueCustomers.set(customerId, { customerId, stripeAccount });
   }
-  await onProgress?.(`resolving cards for ${pastDueCustomers.size} past-due customers…`);
-  const cardByCustomerId = await resolveCards(stripe, [...pastDueCustomers.values()], invoices);
+  await onProgress?.(`resolving cards for ${pastDueCustomers.size.toLocaleString('en-US')} past-due customers…`);
+  const cardByCustomerId = await resolveCards(stripe, [...pastDueCustomers.values()], invoices, async (done, total) => {
+    await onProgress?.(
+      `checking cards for ${done.toLocaleString('en-US')}/${total.toLocaleString('en-US')} past-due customers…`
+    );
+  });
 
   const patientIds = [
     ...new Set(
@@ -92,7 +112,7 @@ async function computeInvoiceReport(
     fetchPatientsById(untaggedClient, patientIds),
     fetchVisitsByEncounterId(untaggedClient, encounterIds),
   ]);
-  await onProgress?.('building report…');
+  await onProgress?.(`building report (${invoices.length.toLocaleString('en-US')} open invoices)…`);
 
   const rows: InvoiceReportRow[] = invoices.map(({ invoice, stripeAccount }) => {
     const customerId = customerIdOf(invoice) ?? '';
@@ -199,7 +219,11 @@ function computeAgingTrend(invoices: InvoiceWithAccount[]): InvoiceAgingTrendPoi
 }
 
 // all invoices regardless of status; lean listing (no expansions) used only for the aging trend
-async function listAllInvoices(stripe: Stripe, accounts: (string | undefined)[]): Promise<InvoiceWithAccount[]> {
+async function listAllInvoices(
+  stripe: Stripe,
+  accounts: (string | undefined)[],
+  onCount?: (count: number) => Promise<void>
+): Promise<InvoiceWithAccount[]> {
   const invoices: InvoiceWithAccount[] = [];
   const seenInvoiceIds = new Set<string>();
   // account failures propagate: a partial aging trend must not be cached as the complete report
@@ -209,6 +233,8 @@ async function listAllInvoices(stripe: Stripe, accounts: (string | undefined)[])
       if (seenInvoiceIds.has(invoice.id)) continue;
       seenInvoiceIds.add(invoice.id);
       invoices.push({ invoice, stripeAccount });
+      // throttled: each report is a FHIR patch on the refresh Task
+      if (invoices.length % 250 === 0) await onCount?.(invoices.length);
     }
   }
   return invoices;
@@ -259,7 +285,11 @@ async function listStripeAccounts(oystehr: Oystehr, stripe: Stripe): Promise<(st
 }
 
 // open Stripe invoices = due or past due; customer + latest charge expanded for card/failure context
-async function listOpenInvoices(stripe: Stripe, accounts: (string | undefined)[]): Promise<InvoiceWithAccount[]> {
+async function listOpenInvoices(
+  stripe: Stripe,
+  accounts: (string | undefined)[],
+  onCount?: (count: number) => Promise<void>
+): Promise<InvoiceWithAccount[]> {
   const invoices: InvoiceWithAccount[] = [];
   const seenInvoiceIds = new Set<string>();
   // account failures propagate: a partial result must not be cached as the complete report
@@ -280,6 +310,8 @@ async function listOpenInvoices(stripe: Stripe, accounts: (string | undefined)[]
       if (seenInvoiceIds.has(invoice.id)) continue;
       seenInvoiceIds.add(invoice.id);
       invoices.push({ invoice, stripeAccount });
+      // throttled: each report is a FHIR patch on the refresh Task
+      if (invoices.length % 250 === 0) await onCount?.(invoices.length);
     }
   }
   return invoices;
@@ -294,7 +326,8 @@ interface CardSummary {
 async function resolveCards(
   stripe: Stripe,
   customers: { customerId: string; stripeAccount: string | undefined }[],
-  invoices: InvoiceWithAccount[]
+  invoices: InvoiceWithAccount[],
+  onProgress?: (done: number, total: number) => Promise<void>
 ): Promise<Map<string, CardSummary>> {
   const cardByCustomerId = new Map<string, CardSummary>();
   const needLookup: { customerId: string; stripeAccount: string | undefined }[] = [];
@@ -357,6 +390,11 @@ async function resolveCards(
         }
       })
     );
+    // throttled: each report is a FHIR patch on the refresh Task
+    const done = Math.min(i + PM_LOOKUP_CONCURRENCY, needLookup.length);
+    if (done % 100 < PM_LOOKUP_CONCURRENCY || done === needLookup.length) {
+      await onProgress?.(done, needLookup.length);
+    }
   }
   return cardByCustomerId;
 }
