@@ -1720,6 +1720,25 @@ export function extractPayerIdFromUrl(maybeUrl?: string): string | undefined {
   return maybeUrl.replace('https://rcm-api.zapehr.com/v1/payer/', '');
 }
 
+// Non-insurance organizations (NIOs) are billing-app-owned FHIR resources. The clinical app never
+// stores or reads them as FHIR — a stored NIO reference uses this URL token so readers know to
+// resolve it through the billing app's zambda interface (list-non-insurance-organizations), the
+// same way payer URLs above mark payers as living in the Oystehr RCM payer list.
+export const BILLING_NIO_REFERENCE_BASE = 'https://fhir.ottehr.com/billing/non-insurance-organization';
+
+export function getNioReferenceUrl(nioId: string): string {
+  return `${BILLING_NIO_REFERENCE_BASE}/${nioId}`;
+}
+
+export function isNioReferenceUrl(maybeUrl?: string): boolean {
+  return !!maybeUrl && maybeUrl.startsWith(`${BILLING_NIO_REFERENCE_BASE}/`);
+}
+
+export function extractNioIdFromReferenceUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !isNioReferenceUrl(maybeUrl)) return undefined;
+  return maybeUrl.slice(BILLING_NIO_REFERENCE_BASE.length + 1);
+}
+
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
   let location: string | undefined;
   if (scheduleResource.resourceType === 'Location') {
