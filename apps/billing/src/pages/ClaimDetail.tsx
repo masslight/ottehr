@@ -1189,10 +1189,7 @@ function InstitutionalClaimAdditionalFieldsSection({
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
 }): ReactElement {
-  const { oystehrZambda } = useApiClients();
-
   const handleSave = async (data: InstitutionalClaimAdditionalFieldsData): Promise<string | null> => {
-    if (!oystehrZambda) return null;
     try {
       const error = await updateResource('Claim', claim.id, {
         billType: data.billType,
@@ -1207,12 +1204,14 @@ function InstitutionalClaimAdditionalFieldsSection({
     }
   };
 
-  const defaultValues = {
-    billType: claim.billType,
-    patientDischargeStatusCode: claim.patientDischargeStatusCode,
-    admissionType: claim.admissionType,
-    admissionSource: claim.admissionSource,
-  };
+  const defaultValues = useMemo(() => {
+    return {
+      billType: claim.billType,
+      patientDischargeStatusCode: claim.patientDischargeStatusCode,
+      admissionType: claim.admissionType,
+      admissionSource: claim.admissionSource,
+    };
+  }, [claim]);
 
   return (
     <EditableSection
