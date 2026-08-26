@@ -1318,7 +1318,12 @@ export default function VisitDetailsPage(): ReactElement {
                 Visit Documents
               </Typography>
               <Paper sx={{ padding: 3 }}>
-                <PatientDocumentsExplorer patientId={patientId} encounterId={encounter.id} />
+                <PatientDocumentsExplorer
+                  patientId={patientId}
+                  // Both linkages, so intake paperwork (linked to the Appointment) shows up
+                  // alongside documents uploaded in the EHR (linked to the Encounter).
+                  visit={{ encounterId: encounter.id, appointmentId: appointmentID }}
+                />
               </Paper>
             </Grid>
           </Grid>

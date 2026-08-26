@@ -9,7 +9,13 @@ import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { SendFaxDialog, useSendFax } from 'src/features/fax';
-import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import {
+  DocumentVisitRef,
+  hasVisitRef,
+  PatientDocumentsFilters,
+  PatientDocumentsFolder,
+  useGetPatientDocs,
+} from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
@@ -39,9 +45,12 @@ export type PatientDocumentsExplorerProps = {
   /**
    * Scopes the explorer to a single visit: documents and folder counters are filtered to it, uploads
    * and scans are filed against it, and the visit filter is hidden (the visit is already fixed).
+   *
+   * Both ids are needed: EHR uploads link a document by encounter, while intake paperwork links it
+   * by appointment, so a visit's documents are only complete when both are matched.
    * Omit for the patient-level Docs view.
    */
-  encounterId?: string;
+  visit?: DocumentVisitRef;
   /** Preselect this folder once folders have loaded, matched case-insensitively on display name. */
   initialFolderName?: string;
   /**
@@ -58,12 +67,12 @@ export type PatientDocumentsExplorerProps = {
  */
 export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   patientId,
-  encounterId,
+  visit,
   initialFolderName,
   readOnly = false,
 }) => {
   const theme = useTheme();
-  const isVisitScoped = !!encounterId;
+  const isVisitScoped = hasVisitRef(visit);
 
   const {
     documents,
@@ -74,7 +83,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     downloadDocument,
     renameDocument,
     documentActions,
-  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId: encounterId });
+  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId: visit?.encounterId });
 
   const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(isVisitScoped ? undefined : patientId);
 
@@ -128,19 +137,26 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const shouldShowClearFilters =
     searchDocNameFieldValue.trim().length > 0 || !!searchDocAddedDate || !!selectedFolder || !!selectedVisit;
 
-  // When the explorer is visit-scoped the encounter comes from the host page, not the filter row.
-  const activeEncounterId = encounterId ?? selectedVisit?.encounterId;
+  // When the explorer is visit-scoped the visit comes from the host page, not the filter row.
+  const activeVisit: DocumentVisitRef | undefined = useMemo(
+    () =>
+      visit ??
+      (selectedVisit
+        ? { encounterId: selectedVisit.encounterId, appointmentId: selectedVisit.appointmentId }
+        : undefined),
+    [visit, selectedVisit]
+  );
 
   useEffect(() => {
     const filters: PatientDocumentsFilters = {
       documentName: docNameTextDebounced,
       documentsFolder: selectedFolder,
       dateAdded: searchDocAddedDate ?? undefined,
-      encounterId: activeEncounterId,
+      visit: activeVisit,
     };
 
     searchDocuments(filters);
-  }, [docNameTextDebounced, searchDocAddedDate, selectedFolder, activeEncounterId, searchDocuments]);
+  }, [docNameTextDebounced, searchDocAddedDate, selectedFolder, activeVisit, searchDocuments]);
 
   const debounceTextInput = useMemo(
     () =>
