@@ -249,7 +249,10 @@ export const useExternalMedicationHistory = (
       try {
         const history = await oystehr.erx.getMedicationHistory({ patientId });
         if (history.length > 0) return history;
-        // Succeeded and the patient genuinely has nothing on file. Only this case may resolve empty.
+        // The request succeeded and the patient genuinely has nothing on file. A *successful* call is
+        // the only path allowed to resolve rather than throw — which means empty in real environments,
+        // and the stub rows in sandbox so local dev has a populated panel to build against. Note that
+        // therefore the real empty state is not reachable in sandbox; see the catch below.
         return IS_SANDBOX ? MOCK_EXTERNAL_HISTORY : [];
       } catch (error) {
         // Fail closed. The eRx SDK error does not reliably carry the HTTP status (see

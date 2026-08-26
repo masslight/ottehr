@@ -366,12 +366,14 @@ export const PROVIDER_RULES: AccessPolicy = {
 // external-medications list is empty for a Clinician.
 //
 // Everything that writes or transmits a prescription (and the DoseSpot practitioner connect/enroll flows)
-// stays Provider-only. So, for now, do eRx:SyncPatient, eRx:Check and eRx:GetPharmacy — but note those
-// three are a known gap rather than a settled decision: ERXInteractionsReadiness runs the in-house
-// medication interaction precheck with the signed-in user's token (syncPatient, then
-// checkPrecheckInteractions), and PrescribedMedicationsContainer resolves pharmacy names with getPharmacy.
-// A Clinician is permitted to order in-house medications, so today that precheck 403s and silently
-// degrades to "please review manually". Tracked separately — widen deliberately, not by accident.
+// stays Provider-only.
+//
+// eRx:SyncPatient, eRx:Check and eRx:GetPharmacy are also NOT granted below. That one is a known gap
+// rather than a settled decision: ERXInteractionsReadiness runs the in-house medication interaction
+// precheck with the signed-in user's token (syncPatient, then checkPrecheckInteractions), and
+// PrescribedMedicationsContainer resolves pharmacy names with getPharmacy. A Clinician is permitted to
+// order in-house medications, so today that precheck 403s and silently degrades to "please review
+// manually", and the pharmacy block renders blank. Tracked separately — widen deliberately, not by accident.
 const CLINICIAN_ERX_RULES: AccessPolicy['rule'] = [
   {
     action: ['eRx:SearchMedication', 'eRx:GetMedication'],
