@@ -156,5 +156,31 @@
         ]
       }
     }
+  },
+  "SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_SEARCH_PARAM": {
+    "resource": {
+      "resourceType": "SearchParameter",
+      "url": "https://fhir.ottehr.com/SearchParameter/service-request-needs-to-be-sent-to-teleradiology",
+      "name": "NeedsToBeSentToTeleradiology",
+      "status": "active",
+      "description": "Filters ServiceRequests by the presence of the needs-to-be-sent-to-teleradiology extension (valueDateTime).",
+      "code": "needs-to-be-sent-to-teleradiology",
+      "base": ["ServiceRequest"],
+      "type": "date",
+      "expression": "ServiceRequest.extension.where(url = 'https://fhir.ottehr.com/Extension/service-request-needs-to-be-sent-to-teleradiology').value"
+    }
+  },
+  "SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_SEARCH_PARAM": {
+    "resource": {
+      "resourceType": "SearchParameter",
+      "url": "https://fhir.ottehr.com/SearchParameter/service-request-has-been-sent-to-teleradiology",
+      "name": "HasBeenSentToTeleradiology",
+      "status": "active",
+      "description": "Filters ServiceRequests by the presence of the has-been-sent-to-teleradiology extension (valueDateTime).",
+      "code": "has-been-sent-to-teleradiology",
+      "base": ["ServiceRequest"],
+      "type": "date",
+      "expression": "ServiceRequest.extension.where(url = 'https://fhir.ottehr.com/Extension/service-request-has-been-sent-to-teleradiology').value"
+    }
   }
 }

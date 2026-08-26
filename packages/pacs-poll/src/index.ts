@@ -9,7 +9,6 @@ import {
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-  SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 
@@ -81,35 +80,17 @@ const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceReque
   // 1. Fetch ServiceRequests that need to be sent to teleradiology
 
   const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
-  const serviceRequests = (
+  return (
     await oystehr.fhir.search<ServiceRequest>({
       resourceType: 'ServiceRequest',
       params: [
         { name: 'status', value: 'completed' },
-        {
-          name: 'authored',
-          value: `ge${twoWeeksAgo.toISODate()}`,
-        },
+        { name: 'authored', value: `ge${twoWeeksAgo.toISODate()}` },
+        { name: 'needs-to-be-sent-to-teleradiology:missing', value: 'false' },
+        { name: 'has-been-sent-to-teleradiology:missing', value: 'true' },
       ],
     })
   ).unbundle();
-
-  const serviceRequestsToSend: ServiceRequest[] = [];
-  for (const sr of serviceRequests) {
-    const existingExtensions = sr.extension || [];
-    const needsToBeSent = existingExtensions.some(
-      (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
-    );
-    const hasBeenSent = existingExtensions.some(
-      (ext) => ext.url === SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL
-    );
-
-    if (needsToBeSent && !hasBeenSent) {
-      serviceRequestsToSend.push(sr);
-    }
-  }
-
-  return serviceRequestsToSend;
 };
 
 const sendWithMirth = async (serviceRequests: ServiceRequest[], advapacsTenant: string): Promise<ServiceRequest[]> => {
