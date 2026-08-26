@@ -17,7 +17,10 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
         name="billType"
         control={control}
         rules={{
-          validate: (value) => value.length === 4 || 'Bill Type must be 4 digits',
+          validate: (value) =>
+            !value?.trim() ||
+            (value.length === 4 && (value as string).charAt(0) === '0') ||
+            'Bill Type must be 4 digits starting with 0',
         }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
