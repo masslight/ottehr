@@ -26,7 +26,13 @@ export const VisitDocuments: FC = () => {
     <Stack spacing={1}>
       <PageTitle label="Visit Documents" showIntakeNotesButton={false} />
       <Paper sx={{ padding: 3 }}>
-        <PatientDocumentsExplorer patientId={patient.id} encounterId={effectiveEncounterId} readOnly={isReadOnly} />
+        <PatientDocumentsExplorer
+          patientId={patient.id}
+          // Both linkages: EHR uploads link by encounter, while consent forms, condition photos
+          // and school/work notes from intake link by appointment.
+          visit={{ encounterId: effectiveEncounterId, appointmentId: appointment.id }}
+          readOnly={isReadOnly}
+        />
       </Paper>
     </Stack>
   );
