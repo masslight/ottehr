@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -13,16 +13,17 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
-import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingCardsOnFileReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { useApiClients } from '../hooks/useAppClients';
+import { ReportStatusBar } from '../components/ReportStatusBar';
+import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
 
 type CardFilter = 'all' | 'with-card' | 'without-card';
@@ -188,47 +189,20 @@ function StatCard({ label, value }: { label: string; value: string }): ReactElem
 }
 
 export default function CardsOnFileReport(): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const [report, setReport] = useState<GetBillingCardsOnFileReportResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
   const [dueInvoicesOnly, setDueInvoicesOnly] = useState(true);
 
-  const fetchReport = useCallback(
-    async (opts?: { refresh?: boolean }): Promise<void> => {
-      if (!oystehrZambda) return;
-      setLoading(true);
-      setError(null);
-      try {
-        let current = await getBillingCardsOnFileReport(oystehrZambda, opts?.refresh ? { refresh: true } : {});
-        setReport(current);
-        setLoading(false);
-        // refresh runs server-side in a task; poll until the recomputed cache lands
-        let guard = 0;
-        while (current.refreshing && guard < 200) {
-          await new Promise((resolve) => setTimeout(resolve, 4000));
-          current = await getBillingCardsOnFileReport(oystehrZambda, {});
-          setReport(current);
-          guard += 1;
-        }
-      } catch (err) {
-        setError(getApiError({ error: err, defaultError: 'Failed to load cards on file report' }));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [oystehrZambda]
+  const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingCardsOnFileReportResponse>(
+    {
+      fetch: useCallback(
+        (client: Oystehr, refresh?: boolean) => getBillingCardsOnFileReport(client, undefined, refresh),
+        []
+      ),
+      errorMessage: 'Failed to load cards on file report',
+    }
   );
-
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    void fetchReport();
-  }, [oystehrZambda, fetchReport]);
 
   const filteredRows = useMemo(() => {
     let rows = report?.rows ?? [];
@@ -265,31 +239,11 @@ export default function CardsOnFileReport(): ReactElement {
             All Stripe customers matched to Oystehr patients, with card-on-file status and last visit.
           </Typography>
         </Box>
-        {report && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={
-              report.refreshing
-                ? `Refreshing… ${report.refreshProgress ?? ''}`.trim()
-                : `${report.fromCache ? 'Saved' : 'Generated'} ${
-                    report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
-                  }`
-            }
-          />
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          disabled={loading || report?.refreshing}
-          onClick={() => void fetchReport({ refresh: true })}
-        >
-          Refresh
-        </Button>
+        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
           {error}
         </Alert>
       )}
@@ -304,7 +258,7 @@ export default function CardsOnFileReport(): ReactElement {
       {(report?.pendingCardLookups ?? 0) > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Resolving card status — {(report?.pendingCardLookups ?? 0).toLocaleString()} customers remaining
-          {report?.refreshing ? '…' : '. Refresh to continue.'}
+          {status?.state === 'running' ? '…' : '. Refresh to continue.'}
         </Alert>
       )}
 

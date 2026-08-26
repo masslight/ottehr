@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -13,11 +13,11 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { Chart } from 'react-google-charts';
 import { useNavigate } from 'react-router-dom';
-import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   GetBillingInvoiceReportResponse,
   InvoiceReportCategory,
@@ -26,7 +26,8 @@ import {
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingInvoiceReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { useApiClients } from '../hooks/useAppClients';
+import { ReportStatusBar } from '../components/ReportStatusBar';
+import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
 
 type CategoryFilter = InvoiceReportCategory | 'all';
@@ -258,48 +259,16 @@ function StatCard({
 }
 
 export default function InvoiceReport(): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const [report, setReport] = useState<GetBillingInvoiceReportResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [agingFilter, setAgingFilter] = useState<AgingFilter>('all');
   const [tab, setTab] = useState<'delinquency' | 'aging'>('delinquency');
 
-  const fetchReport = useCallback(
-    async (opts?: { refresh?: boolean }): Promise<void> => {
-      if (!oystehrZambda) return;
-      setLoading(true);
-      setError(null);
-      try {
-        let current = await getBillingInvoiceReport(oystehrZambda, opts?.refresh ? { refresh: true } : {});
-        setReport(current);
-        setLoading(false);
-        // refresh runs server-side in a task; poll until the recomputed cache lands
-        let guard = 0;
-        while (current.refreshing && guard < 150) {
-          await new Promise((resolve) => setTimeout(resolve, 4000));
-          current = await getBillingInvoiceReport(oystehrZambda, {});
-          setReport(current);
-          guard += 1;
-        }
-      } catch (err) {
-        setError(getApiError({ error: err, defaultError: 'Failed to load invoice report' }));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [oystehrZambda]
-  );
-
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    void fetchReport();
-  }, [oystehrZambda, fetchReport]);
+  const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingInvoiceReportResponse>({
+    fetch: useCallback((client: Oystehr, refresh?: boolean) => getBillingInvoiceReport(client, undefined, refresh), []),
+    errorMessage: 'Failed to load invoice report',
+  });
 
   const filteredRows = useMemo(() => {
     const rows = report?.rows ?? [];
@@ -435,27 +404,7 @@ export default function InvoiceReport(): ReactElement {
             All due and past-due Stripe invoices, broken down by collectability.
           </Typography>
         </Box>
-        {report && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={
-              report.refreshing
-                ? `Refreshing… ${report.refreshProgress ?? ''}`.trim()
-                : `${report.fromCache ? 'Saved' : 'Generated'} ${
-                    report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
-                  }`
-            }
-          />
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          disabled={loading || report?.refreshing}
-          onClick={() => void fetchReport({ refresh: true })}
-        >
-          Refresh
-        </Button>
+        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
       </Stack>
 
       <Tabs
@@ -470,7 +419,7 @@ export default function InvoiceReport(): ReactElement {
       {tab === 'aging' && (
         <>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
               {error}
             </Alert>
           )}
@@ -607,7 +556,7 @@ export default function InvoiceReport(): ReactElement {
       {tab === 'delinquency' && (
         <>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
               {error}
             </Alert>
           )}

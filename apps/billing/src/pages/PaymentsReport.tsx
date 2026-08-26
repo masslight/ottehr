@@ -3,7 +3,6 @@ import {
   Close as CloseIcon,
   KeyboardArrowDown as ArrowDownIcon,
   KeyboardArrowUp as ArrowUpIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -23,8 +22,9 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -41,13 +41,16 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import {
+  getBillingPatientPaymentsDetail,
   getBillingPatientPaymentsReport,
   getBillingPaymentsReport,
   getBillingPaymentsReportDrilldown,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
+import { mergeReportStatuses, ReportStatusBar } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
+import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
 
 type DateRangePreset =
@@ -401,7 +404,7 @@ function PatientPaymentsDrawer({
     setData(null);
     setError(null);
     setLoading(true);
-    getBillingPatientPaymentsReport(oystehrZambda, { ...criteria.params, detail: true })
+    getBillingPatientPaymentsDetail(oystehrZambda, criteria.params)
       .then(setData)
       .catch((err) => setError(getApiError({ error: err, defaultError: 'Failed to load payments' })))
       .finally(() => setLoading(false));
@@ -643,77 +646,50 @@ function WaterfallMatrix({
 }
 
 export default function PaymentsReport(): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const [report, setReport] = useState<GetBillingPaymentsReportResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState(() => presetRange(DEFAULT_PRESET).from);
   const [dateTo, setDateTo] = useState(() => presetRange(DEFAULT_PRESET).to);
   const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
   const [drilldown, setDrilldown] = useState<DrilldownCriteria | null>(null);
-  const [patientReport, setPatientReport] = useState<GetBillingPatientPaymentsReportResponse | null>(null);
-  const [patientLoading, setPatientLoading] = useState(false);
-  const [patientError, setPatientError] = useState<string | null>(null);
   const [patientDrilldown, setPatientDrilldown] = useState<PatientPaymentsCriteria | null>(null);
 
-  const fetchPatientPayments = useCallback(
-    async (opts?: { from?: string; to?: string; refresh?: boolean }): Promise<void> => {
-      if (!oystehrZambda) return;
-      setPatientLoading(true);
-      setPatientError(null);
-      try {
-        const params: GetBillingPatientPaymentsReportInput = {};
-        const from = opts?.from ?? dateFrom;
-        const to = opts?.to ?? dateTo;
-        if (from) params.dateFrom = from;
-        if (to) params.dateTo = to;
-        if (opts?.refresh) params.refresh = true;
-        setPatientReport(await getBillingPatientPaymentsReport(oystehrZambda, params));
-      } catch (err) {
-        setPatientError(getApiError({ error: err, defaultError: 'Failed to load patient payments' }));
-      } finally {
-        setPatientLoading(false);
-      }
-    },
-    [oystehrZambda, dateFrom, dateTo]
+  const windowParams = useMemo(
+    () => ({ ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }),
+    [dateFrom, dateTo]
   );
 
-  const fetchReport = useCallback(
-    async (opts?: { refresh?: boolean; from?: string; to?: string }): Promise<void> => {
-      if (!oystehrZambda) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const params: { dateFrom?: string; dateTo?: string; refresh?: boolean } = {};
-        const from = opts?.from ?? dateFrom;
-        const to = opts?.to ?? dateTo;
-        if (from) params.dateFrom = from;
-        if (to) params.dateTo = to;
-        if (opts?.refresh) params.refresh = true;
-        setReport(await getBillingPaymentsReport(oystehrZambda, params));
-      } catch (err) {
-        setError(getApiError({ error: err, defaultError: 'Failed to load payments report' }));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [oystehrZambda, dateFrom, dateTo]
-  );
+  const {
+    report,
+    status: insuranceStatus,
+    loading,
+    error,
+    clearError,
+    refresh: refreshInsurance,
+  } = useBillingReport<GetBillingPaymentsReportResponse>({
+    fetch: useCallback(
+      (client: Oystehr, refresh?: boolean) => getBillingPaymentsReport(client, windowParams, refresh),
+      [windowParams]
+    ),
+    errorMessage: 'Failed to load payments report',
+  });
 
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    void fetchReport();
-    void fetchPatientPayments();
-  }, [oystehrZambda, fetchReport, fetchPatientPayments]);
+  const {
+    report: patientReport,
+    status: patientStatus,
+    loading: patientLoading,
+    error: patientError,
+    clearError: clearPatientError,
+    refresh: refreshPatient,
+  } = useBillingReport<GetBillingPatientPaymentsReportResponse>({
+    fetch: useCallback(
+      (client: Oystehr, refresh?: boolean) => getBillingPatientPaymentsReport(client, windowParams, refresh),
+      [windowParams]
+    ),
+    errorMessage: 'Failed to load patient payments',
+  });
 
   const totals = report?.totals;
-  const generatedAt = report?.generatedAt
-    ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED)
-    : '';
 
   return (
     <Box>
@@ -733,20 +709,14 @@ export default function PaymentsReport(): ReactElement {
             Insurance payments from posted ERAs, grouped by payer.
           </Typography>
         </Box>
-        {report && (
-          <Chip size="small" variant="outlined" label={`${report.fromCache ? 'Cached' : 'Generated'} ${generatedAt}`} />
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          disabled={loading || patientLoading}
-          onClick={() => {
-            void fetchReport({ refresh: true });
-            void fetchPatientPayments({ refresh: true });
+        <ReportStatusBar
+          status={mergeReportStatuses(insuranceStatus, patientStatus)}
+          loading={loading || patientLoading}
+          onRefresh={() => {
+            refreshInsurance();
+            refreshPatient();
           }}
-        >
-          Refresh
-        </Button>
+        />
       </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'center' }} mb={2.5}>
@@ -762,8 +732,6 @@ export default function PaymentsReport(): ReactElement {
               const { from, to } = presetRange(preset);
               setDateFrom(from);
               setDateTo(to);
-              void fetchReport({ from, to });
-              void fetchPatientPayments({ from, to });
             }}
           >
             {DATE_RANGE_PRESETS.map((option) => (
@@ -784,8 +752,6 @@ export default function PaymentsReport(): ReactElement {
               onChange={(from, to) => {
                 setDateFrom(from);
                 setDateTo(to);
-                void fetchReport({ from, to });
-                void fetchPatientPayments({ from, to });
               }}
             />
           </Box>
@@ -793,7 +759,7 @@ export default function PaymentsReport(): ReactElement {
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
           {error}
         </Alert>
       )}
@@ -862,7 +828,7 @@ export default function PaymentsReport(): ReactElement {
       </Typography>
 
       {patientError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPatientError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearPatientError}>
           {patientError}
         </Alert>
       )}

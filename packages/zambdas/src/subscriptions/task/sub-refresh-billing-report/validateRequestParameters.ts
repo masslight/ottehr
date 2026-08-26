@@ -1,14 +1,13 @@
-import {
-  REFRESH_REPORT_KIND_CODE,
-  REFRESH_REPORT_KINDS,
-  RefreshReportKind,
-} from 'utils/lib/types/data/billing/billing.constants';
+import { REFRESH_REPORT_KINDS, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { refreshTaskKind, refreshTaskParamsJson } from '../../../billing/reports/framework/refresh-task';
 import { ZambdaInput } from '../../../shared/types/common';
 import { TaskSubscriptionInput } from '../validateRequestParameters';
 
 export interface RefreshBillingReportParams {
   kind: RefreshReportKind;
+  // JSON-serialized report params from the Task input; validated against the definition's schema
+  paramsJson: string;
   taskId: string;
   secrets: ZambdaInput['secrets'];
 }
@@ -20,15 +19,14 @@ export function validateRequestParameters(input: TaskSubscriptionInput): Refresh
   const taskId = input.task.id;
   if (!taskId) throw new Error('Task id is not found in the input task');
 
-  const kind = input.task.input?.find(
-    (taskInput) => taskInput.type?.coding?.some((coding) => coding.code === REFRESH_REPORT_KIND_CODE)
-  )?.valueString;
+  const kind = refreshTaskKind(input.task);
   if (!kind || !REFRESH_REPORT_KINDS.includes(kind as RefreshReportKind)) {
     throw new Error(`Unknown report kind '${kind ?? ''}' on Task/${taskId}`);
   }
 
   return {
     kind: kind as RefreshReportKind,
+    paramsJson: refreshTaskParamsJson(input.task) ?? '{}',
     taskId,
     secrets: input.secrets,
   };

@@ -600,6 +600,17 @@ export interface PaymentsReportWaterfallCell {
   paid: number;
 }
 
+// Refresh state of a cached billing report, derived from the refresh Task and the cache document.
+export interface ReportRefreshStatus {
+  state: 'idle' | 'running' | 'error';
+  // when the served cache was generated (absent when the report has never completed)
+  lastCompletedAt?: string;
+  // worker phase description while running (e.g. 'resolving cards 1500/3200…')
+  progress?: string;
+  // most recent failure's reason (state 'error')
+  error?: string;
+}
+
 export interface GetBillingPaymentsReportResponse {
   rows: PaymentsReportPayerRow[];
   totals: Omit<PaymentsReportPayerRow, 'payerId' | 'payerName'>;
@@ -607,6 +618,7 @@ export interface GetBillingPaymentsReportResponse {
   waterfall: PaymentsReportWaterfallCell[];
   generatedAt: string;
   fromCache: boolean;
+  status?: ReportRefreshStatus;
 }
 
 export interface PaymentsReportDrilldownClaim {
@@ -664,6 +676,7 @@ export interface GetBillingPatientPaymentsReportResponse {
   payments?: PatientPaymentItem[];
   generatedAt: string;
   fromCache?: boolean;
+  status?: ReportRefreshStatus;
 }
 
 export interface CardOnFileReportRow {
@@ -689,16 +702,13 @@ export interface CardOnFileReportRow {
 export interface GetBillingCardsOnFileReportResponse {
   rows: CardOnFileReportRow[];
   totals: { customers: number; withCard: number; withoutCard: number; withOpenInvoices: number };
-  // customers whose fallback card lookup hasn't run yet; call again with continueLookups until 0
+  // customers whose fallback card lookup hasn't run yet; the refresh worker drains these
   pendingCardLookups: number;
   // true when the Stripe customer list was cut off at the safety cap
   truncated: boolean;
-  // true while an async refresh task is recomputing this report
-  refreshing?: boolean;
-  // worker phase description while refreshing (e.g. 'resolving cards 1500/3200')
-  refreshProgress?: string;
   generatedAt: string;
   fromCache: boolean;
+  status?: ReportRefreshStatus;
 }
 
 export type InvoiceReportCategory = 'upcoming' | 'past-due-no-card' | 'past-due-not-attempted' | 'past-due-failed';
@@ -740,12 +750,9 @@ export interface GetBillingInvoiceReportResponse {
   totals: Record<InvoiceReportCategory, { count: number; amountDue: number }>;
   // month-end snapshots reconstructed from all Stripe invoices via status_transitions
   agingTrend: InvoiceAgingTrendPoint[];
-  // true while an async refresh task is recomputing this report
-  refreshing?: boolean;
-  // worker phase description while refreshing (e.g. 'listing invoices…')
-  refreshProgress?: string;
   generatedAt: string;
   fromCache: boolean;
+  status?: ReportRefreshStatus;
 }
 
 // One cell of the pipeline overview: claims sharing an AR stage and active-group status.
@@ -777,6 +784,7 @@ export interface GetBillingPipelineReportResponse {
   previous?: { snapshotDate: string; rows: PipelineReportRow[] };
   generatedAt: string;
   fromCache: boolean;
+  status?: ReportRefreshStatus;
 }
 
 // One actor's claim-action tallies over the report window, from claim-history Provenances.
@@ -797,6 +805,8 @@ export interface GetBillingProductivityReportResponse {
   rows: ProductivityReportRow[];
   totals: { actions: number; claimsTouched: number; actors: number };
   generatedAt: string;
+  fromCache?: boolean;
+  status?: ReportRefreshStatus;
 }
 
 export type GetBillingCoverageResponse = BillingCoverageOption;

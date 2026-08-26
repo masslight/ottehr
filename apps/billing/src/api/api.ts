@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimNoteInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
@@ -15,16 +16,11 @@ import {
   DeleteServiceFacilityInputSchema,
   ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
-  GetBillingCardsOnFileReportInputSchema,
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
-  GetBillingInvoiceReportInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPatientPaymentsReportInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
-  GetBillingPaymentsReportInputSchema,
-  GetBillingPipelineReportInputSchema,
-  GetBillingProductivityReportInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
@@ -36,6 +32,7 @@ import {
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
   RecordBillingManualPaymentInputSchema,
+  ReportDateWindowParams,
   SaveBillingTagInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
@@ -380,11 +377,59 @@ export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsRe
 
 // --- Reports ---
 
+// Unified cached-report endpoint: serves the saved report + refresh status; `refresh` queues an
+// async recompute. Per-kind wrappers below keep payload types.
+const getBillingReport = <T>(
+  oystehr: Oystehr,
+  kind: RefreshReportKind,
+  params?: Record<string, unknown>,
+  refresh?: boolean
+): Promise<T> =>
+  executeBillingZambda(oystehr, 'get-billing-report', {
+    kind,
+    ...(params && Object.keys(params).length > 0 ? { params } : {}),
+    ...(refresh ? { refresh: true } : {}),
+  });
+
 export const getBillingPaymentsReport = (
   oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingPaymentsReportInputSchema>
+  params?: ReportDateWindowParams,
+  refresh?: boolean
 ): Promise<GetBillingPaymentsReportResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-payments-report', parameters);
+  getBillingReport(oystehr, 'payments', params as Record<string, unknown>, refresh);
+
+export const getBillingPatientPaymentsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPatientPaymentsReportResponse> =>
+  getBillingReport(oystehr, 'patient-payments', params as Record<string, unknown>, refresh);
+
+export const getBillingInvoiceReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingInvoiceReportResponse> => getBillingReport(oystehr, 'invoice', undefined, refresh);
+
+export const getBillingCardsOnFileReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingCardsOnFileReportResponse> => getBillingReport(oystehr, 'cards-on-file', undefined, refresh);
+
+export const getBillingPipelineReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPipelineReportResponse> =>
+  getBillingReport(oystehr, 'pipeline', params as Record<string, unknown>, refresh);
+
+export const getBillingProductivityReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingProductivityReportResponse> =>
+  getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
 
 export const getBillingPaymentsReportDrilldown = (
   oystehr: Oystehr,
@@ -392,34 +437,12 @@ export const getBillingPaymentsReportDrilldown = (
 ): Promise<GetBillingPaymentsReportDrilldownResponse> =>
   executeBillingZambda(oystehr, 'get-billing-payments-report-drilldown', parameters);
 
-export const getBillingPatientPaymentsReport = (
+// live drill-down: individual patient payments with Stripe status (always computed fresh)
+export const getBillingPatientPaymentsDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetBillingPatientPaymentsReportInputSchema>
 ): Promise<GetBillingPatientPaymentsReportResponse> =>
   executeBillingZambda(oystehr, 'get-billing-patient-payments-report', parameters);
-
-export const getBillingCardsOnFileReport = (
-  oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingCardsOnFileReportInputSchema> = {}
-): Promise<GetBillingCardsOnFileReportResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-cards-on-file-report', parameters);
-
-export const getBillingInvoiceReport = (
-  oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingInvoiceReportInputSchema> = {}
-): Promise<GetBillingInvoiceReportResponse> => executeBillingZambda(oystehr, 'get-billing-invoice-report', parameters);
-
-export const getBillingPipelineReport = (
-  oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingPipelineReportInputSchema> = {}
-): Promise<GetBillingPipelineReportResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-pipeline-report', parameters);
-
-export const getBillingProductivityReport = (
-  oystehr: Oystehr,
-  parameters: z.input<typeof GetBillingProductivityReportInputSchema> = {}
-): Promise<GetBillingProductivityReportResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-productivity-report', parameters);
 
 export const saveBillingTag = (
   oystehr: Oystehr,

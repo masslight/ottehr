@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -12,10 +12,10 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   GetBillingProductivityReportResponse,
   ProductivityReportRow,
@@ -23,7 +23,8 @@ import {
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { getBillingProductivityReport } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { useApiClients } from '../hooks/useAppClients';
+import { ReportStatusBar } from '../components/ReportStatusBar';
+import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
 
 type WindowPreset = '7d' | '30d' | '90d' | 'all';
@@ -140,39 +141,23 @@ function StatCard({ label, value }: { label: string; value: string }): ReactElem
 }
 
 export default function ProductivityReport(): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const [report, setReport] = useState<GetBillingProductivityReportResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [window, setWindow] = useState<WindowPreset>('30d');
   const [actorTypeFilter, setActorTypeFilter] = useState<ActorTypeFilter>('all');
   const [selectedActors, setSelectedActors] = useState<ProductivityReportRow[]>([]);
 
-  const fetchReport = useCallback(
-    async (preset: WindowPreset): Promise<void> => {
-      if (!oystehrZambda) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const dateFrom = windowDateFrom(preset);
-        setReport(await getBillingProductivityReport(oystehrZambda, dateFrom ? { dateFrom } : {}));
-      } catch (err) {
-        setError(getApiError({ error: err, defaultError: 'Failed to load productivity report' }));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [oystehrZambda]
-  );
-
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    void fetchReport('30d');
-  }, [oystehrZambda, fetchReport]);
+  const { report, status, loading, error, clearError, refresh } =
+    useBillingReport<GetBillingProductivityReportResponse>({
+      fetch: useCallback(
+        (client: Oystehr, refresh?: boolean) => {
+          const dateFrom = windowDateFrom(window);
+          return getBillingProductivityReport(client, dateFrom ? { dateFrom } : {}, refresh);
+        },
+        [window]
+      ),
+      errorMessage: 'Failed to load productivity report',
+    });
 
   const filteredRows = useMemo(() => {
     let rows = report?.rows ?? [];
@@ -219,27 +204,11 @@ export default function ProductivityReport(): ReactElement {
             Claim actions by user, from the claim change history — {WINDOW_LABELS[window].toLowerCase()}.
           </Typography>
         </Box>
-        {report && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`Generated ${
-              report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
-            }`}
-          />
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          disabled={loading}
-          onClick={() => void fetchReport(window)}
-        >
-          Refresh
-        </Button>
+        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
           {error}
         </Alert>
       )}
@@ -255,7 +224,6 @@ export default function ProductivityReport(): ReactElement {
           onChange={(_e, value: WindowPreset | null) => {
             if (!value) return;
             setWindow(value);
-            void fetchReport(value);
           }}
         >
           {(Object.keys(WINDOW_LABELS) as WindowPreset[]).map((preset) => (

@@ -1,35 +1,33 @@
 import Oystehr from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Practitioner, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingProductivityReportResponse,
   ProductivityReportRow,
 } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_PROVENANCE_ACTIVITY, CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { wrapHandler } from '../../../shared/sentry';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createBillingClient, createEraReadClient, fhirName } from '../../shared';
-import { GetBillingProductivityReportParams, validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
-const ZAMBDA_NAME = 'get-billing-productivity-report';
+import { fhirName } from '../../shared';
+import { ReportDefinition } from '../framework/types';
 
 const ACTOR_BATCH_SIZE = 100;
 const CLAIM_ACTIVITY_SYSTEM = CLAIM_PROVENANCE_ACTIVITY.create.system;
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const oystehr = createBillingClient(m2mToken, params.secrets);
-  // Practitioners referenced by agents are clinical (untagged) resources
-  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
+type ProductivityReportPayload = Omit<GetBillingProductivityReportResponse, 'fromCache' | 'status'>;
 
-  const response = await performEffect(oystehr, untaggedClient, params);
-  return { statusCode: 200, body: JSON.stringify(response) };
-});
+export const productivityReport: ReportDefinition<ReportDateWindowParams, ProductivityReportPayload> = {
+  kind: 'productivity',
+  cacheVersion: 'v1',
+  paramsSchema: ReportDateWindowParamsSchema,
+  cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
+  emptyPayload: () => ({ rows: [], totals: { actions: 0, claimsTouched: 0, actors: 0 }, generatedAt: '' }),
+  compute: async (ctx, params, onProgress) => {
+    await onProgress('tallying claim actions…');
+    return computeProductivityReport(ctx.oystehr, ctx.untaggedClient, params);
+  },
+  summarize: (payload) => `productivity report cached (${payload.totals.actors} actors)`,
+};
 
 interface ActorAccumulator {
   actorRef: string;
@@ -40,11 +38,11 @@ interface ActorAccumulator {
   lastActionAt: string;
 }
 
-export async function performEffect(
+async function computeProductivityReport(
   oystehr: Oystehr,
   untaggedClient: Oystehr,
-  params: GetBillingProductivityReportParams
-): Promise<GetBillingProductivityReportResponse> {
+  params: ReportDateWindowParams
+): Promise<ProductivityReportPayload> {
   const searchParams = [{ name: '_elements', value: 'id,agent,activity,recorded,target' }];
   if (params.dateFrom) searchParams.push({ name: 'recorded', value: `ge${params.dateFrom}` });
   if (params.dateTo) searchParams.push({ name: 'recorded', value: `le${params.dateTo}` });

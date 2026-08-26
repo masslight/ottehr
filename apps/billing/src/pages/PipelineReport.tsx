@@ -3,14 +3,12 @@ import {
   ArrowDownward as ArrowDownwardIcon,
   ArrowUpward as ArrowUpwardIcon,
   Close as CloseIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
   ButtonBase,
-  Chip,
   CircularProgress,
   Drawer,
   FormControl,
@@ -21,8 +19,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingClaimItem, GetBillingPipelineReportResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -37,7 +36,9 @@ import {
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingPipelineReport, searchBillingClaims } from '../api/api';
 import { DateRangeInput } from '../components/DateInput';
+import { ReportStatusBar } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
+import { useBillingReport } from '../hooks/useBillingReport';
 import { otherColors } from '../themes/ottehr/colors';
 
 const DRILLDOWN_PAGE_SIZE = 100;
@@ -383,47 +384,21 @@ function StatCard({ label, value }: { label: string; value: string }): ReactElem
 }
 
 export default function PipelineReport(): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const [report, setReport] = useState<GetBillingPipelineReportResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<StageDrilldown | null>(null);
   const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
   const [dateFrom, setDateFrom] = useState(() => presetRange(DEFAULT_PRESET).from);
   const [dateTo, setDateTo] = useState(() => presetRange(DEFAULT_PRESET).to);
 
-  const fetchReport = useCallback(
-    async (opts?: { refresh?: boolean; from?: string; to?: string }): Promise<void> => {
-      if (!oystehrZambda) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const from = opts?.from ?? dateFrom;
-        const to = opts?.to ?? dateTo;
-        setReport(
-          await getBillingPipelineReport(oystehrZambda, {
-            ...(opts?.refresh ? { refresh: true } : {}),
-            ...(from ? { dateFrom: from } : {}),
-            ...(to ? { dateTo: to } : {}),
-          })
-        );
-      } catch (err) {
-        setError(getApiError({ error: err, defaultError: 'Failed to load pipeline report' }));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [oystehrZambda, dateFrom, dateTo]
-  );
-
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    void fetchReport();
-  }, [oystehrZambda, fetchReport]);
+  const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingPipelineReportResponse>({
+    fetch: useCallback(
+      (client: Oystehr, refresh?: boolean) =>
+        getBillingPipelineReport(client, { ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }, refresh),
+      [dateFrom, dateTo]
+    ),
+    errorMessage: 'Failed to load pipeline report',
+  });
 
   // count/billed lookup keyed by `${arStage}|${status}`
   const cellByKey = useMemo(() => {
@@ -486,27 +461,11 @@ export default function PipelineReport(): ReactElement {
             {hasPrevious && ` Deltas and light bars compare with ${previousDateLabel}.`}
           </Typography>
         </Box>
-        {report && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`${report.fromCache ? 'Saved' : 'Generated'} ${
-              report.generatedAt ? DateTime.fromISO(report.generatedAt).toLocaleString(DateTime.DATETIME_MED) : ''
-            }`}
-          />
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          disabled={loading}
-          onClick={() => void fetchReport({ refresh: true })}
-        >
-          Refresh
-        </Button>
+        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
           {error}
         </Alert>
       )}
@@ -524,7 +483,6 @@ export default function PipelineReport(): ReactElement {
               const { from, to } = presetRange(preset);
               setDateFrom(from);
               setDateTo(to);
-              void fetchReport({ from, to });
             }}
           >
             {DATE_RANGE_PRESETS.map((option) => (
@@ -545,7 +503,6 @@ export default function PipelineReport(): ReactElement {
               onChange={(from, to) => {
                 setDateFrom(from);
                 setDateTo(to);
-                void fetchReport({ from, to });
               }}
             />
           </Box>

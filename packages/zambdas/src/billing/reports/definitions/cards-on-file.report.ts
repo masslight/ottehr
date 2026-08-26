@@ -1,24 +1,17 @@
 import Oystehr from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, Organization, Patient } from 'fhir/r4b';
+import { Appointment, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { EmptyReportParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { gunzipSync, gzipSync } from 'zlib';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { fetchAllPages } from '../../../shared/fhir';
-import { wrapHandler } from '../../../shared/sentry';
 import { getRateLimitedStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
-import { createBillingClient, createEraReadClient, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
-import { findActiveRefreshTask, kickOffRefreshTask } from '../refresh-task';
-import { GetBillingCardsOnFileReportParams, validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
-const ZAMBDA_NAME = 'get-billing-cards-on-file-report';
+import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import { fullCacheKey, loadReportCache, saveReportCache } from '../framework/report-cache';
+import { ReportDefinition } from '../framework/types';
 
 const CUSTOMER_PAGE_SIZE = 100;
 // hard guard against runaway accounts; the response flags truncation when hit
@@ -27,26 +20,10 @@ const PATIENT_BATCH_SIZE = 100;
 const APPOINTMENT_BATCH_SIZE = 50;
 // conservative: Stripe rate limits kicked in at higher parallelism
 const PM_LOOKUP_CONCURRENCY = 8;
-// fallback paymentMethods.list calls per invocation; the rest queue up for continueLookups calls
+// fallback paymentMethods.list calls per drain batch; the rest stay queued in the cache
 const PM_LOOKUPS_PER_RUN = 500;
 // beyond this the drain can't finish inside the worker timeout; excess customers report no card
 const MAX_PENDING_LOOKUPS = 5000;
-
-const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
-const CACHE_KEY = 'cards-on-file:v4';
-// stay well under FHIR resource size limits
-const MAX_CACHE_BYTES = 4 * 1024 * 1024;
-
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const oystehr = createBillingClient(m2mToken, params.secrets);
-  // patients/appointments are clinical (untagged) resources in the same store
-  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
-
-  const response = await performEffect(oystehr, untaggedClient, params);
-  return { statusCode: 200, body: JSON.stringify(response) };
-});
 
 interface CustomerWithAccount {
   customer: Stripe.Customer;
@@ -58,77 +35,72 @@ interface PendingLookup {
   stripeAccount: string | undefined;
 }
 
-// the saved report plus the queue of customers still awaiting a fallback card lookup
-type CachedReportState = GetBillingCardsOnFileReportResponse & { pendingLookups?: PendingLookup[] };
-
-const stripState = (state: CachedReportState, fromCache: boolean): GetBillingCardsOnFileReportResponse => {
-  const { pendingLookups: _pendingLookups, ...response } = state;
-  return { ...response, fromCache };
+// the cached payload carries the queue of customers still awaiting a fallback card lookup;
+// sanitizePayload strips it before the payload leaves the server
+type CardsOnFilePayload = Omit<GetBillingCardsOnFileReportResponse, 'fromCache' | 'status'> & {
+  pendingLookups?: PendingLookup[];
 };
 
-const emptyReport = (): GetBillingCardsOnFileReportResponse => ({
-  rows: [],
-  totals: { customers: 0, withCard: 0, withoutCard: 0, withOpenInvoices: 0 },
-  pendingCardLookups: 0,
-  truncated: false,
-  generatedAt: '',
-  fromCache: false,
-});
+const stripState = (state: CardsOnFilePayload): CardsOnFilePayload => {
+  const { pendingLookups: _pendingLookups, ...payload } = state;
+  return payload;
+};
 
-// HTTP path: serves the cache and queues async refreshes; the subscription worker computes.
-export async function performEffect(
-  oystehr: Oystehr,
-  _untaggedClient: Oystehr,
-  params: GetBillingCardsOnFileReportParams
-): Promise<GetBillingCardsOnFileReportResponse> {
-  if (params.continueLookups) {
-    const resumed = await continueCardLookups(oystehr, params.secrets);
-    if (resumed) return resumed;
-  }
+export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnFilePayload> = {
+  kind: 'cards-on-file',
+  cacheVersion: 'v1',
+  paramsSchema: EmptyReportParamsSchema,
+  cacheKeyOf: () => '',
+  emptyPayload: () => ({
+    rows: [],
+    totals: { customers: 0, withCard: 0, withoutCard: 0, withOpenInvoices: 0 },
+    pendingCardLookups: 0,
+    truncated: false,
+    generatedAt: '',
+  }),
+  // compute persists intermediate drain state itself, so the worker must not overwrite it
+  savesOwnCache: true,
+  sanitizePayload: stripState,
+  // shed data until the cache fits: the resumable lookup queue first, then tail rows
+  // (alphabetical order keeps the head stable)
+  shrink: (payload) => {
+    if ((payload.pendingLookups?.length ?? 0) > 0) {
+      console.warn('Cards-on-file cache over the size cap; dropping pending lookup queue');
+      return { ...payload, pendingLookups: undefined, pendingCardLookups: 0, truncated: true };
+    }
+    if (payload.rows.length > 1) {
+      return { ...payload, rows: payload.rows.slice(0, Math.floor(payload.rows.length / 2)), truncated: true };
+    }
+    return undefined;
+  },
+  compute: (ctx, _params, onProgress) =>
+    computeAndDrainCardsReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
+  summarize: (payload) => `cards-on-file report cached (${payload.totals.customers} customers)`,
+};
 
-  if (params.refresh) {
-    const task = await kickOffRefreshTask(oystehr, 'cards-on-file');
-    const cached = await loadCachedState(oystehr);
-    return {
-      ...(cached ? stripState(cached, true) : emptyReport()),
-      refreshing: true,
-      refreshProgress: task.businessStatus?.text ?? 'queued',
-    };
-  }
+const cacheKey = (): string => fullCacheKey(cardsOnFileReport, {});
 
-  const cached = await loadCachedState(oystehr);
-  if (cached) {
-    const active = await findActiveRefreshTask(oystehr, 'cards-on-file');
-    return {
-      ...stripState(cached, true),
-      refreshing: !!active,
-      ...(active?.businessStatus?.text ? { refreshProgress: active.businessStatus.text } : {}),
-    };
-  }
+const saveState = (oystehr: Oystehr, state: CardsOnFilePayload): Promise<void> =>
+  saveReportCache(oystehr, cardsOnFileReport, cacheKey(), state);
 
-  // never computed: queue the first build instead of risking the request timeout
-  const task = await kickOffRefreshTask(oystehr, 'cards-on-file');
-  return { ...emptyReport(), refreshing: true, refreshProgress: task.businessStatus?.text ?? 'queued' };
-}
-
-// Full recomputation + cache save + queued-lookup drain; runs inside the subscription worker.
-export async function computeAndCacheCardsOnFileReport(
+// Full recomputation + queued-lookup drain; runs inside the subscription worker.
+async function computeAndDrainCardsReport(
   oystehr: Oystehr,
   untaggedClient: Oystehr,
   secrets: ZambdaInput['secrets'],
   onProgress?: (message: string) => Promise<void>
-): Promise<GetBillingCardsOnFileReportResponse> {
-  let response = await computeCardsReport(oystehr, untaggedClient, secrets, onProgress);
-  const totalLookups = response.pendingCardLookups;
+): Promise<CardsOnFilePayload> {
+  let state = await computeCardsReport(oystehr, untaggedClient, secrets, onProgress);
+  const totalLookups = state.pendingCardLookups;
   let guard = 0;
-  while (response.pendingCardLookups > 0 && guard < 200) {
-    const previousPending = response.pendingCardLookups;
+  while (state.pendingCardLookups > 0 && guard < 200) {
+    const previousPending = state.pendingCardLookups;
     await onProgress?.(`resolving cards ${totalLookups - previousPending}/${totalLookups}…`);
-    response = (await continueCardLookups(oystehr, secrets)) ?? response;
-    if (response.pendingCardLookups >= previousPending) break;
+    state = (await continueCardLookups(oystehr, secrets)) ?? state;
+    if (state.pendingCardLookups >= previousPending) break;
     guard += 1;
   }
-  return response;
+  return state;
 }
 
 async function computeCardsReport(
@@ -136,7 +108,7 @@ async function computeCardsReport(
   untaggedClient: Oystehr,
   secrets: ZambdaInput['secrets'],
   onProgress?: (message: string) => Promise<void>
-): Promise<GetBillingCardsOnFileReportResponse> {
+): Promise<CardsOnFilePayload> {
   const stripe = getRateLimitedStripeClient(secrets);
   const generatedAt = DateTime.now().toUTC().toISO();
 
@@ -155,7 +127,6 @@ async function computeCardsReport(
       pendingCardLookups: 0,
       truncated,
       generatedAt,
-      fromCache: false,
     };
   }
 
@@ -207,28 +178,27 @@ async function computeCardsReport(
   if (boundedPending.length < pending.length) {
     console.warn(`Capping fallback card lookups at ${MAX_PENDING_LOOKUPS} of ${pending.length}`);
   }
-  const state: CachedReportState = {
+  const state: CardsOnFilePayload = {
     rows,
     totals: { customers: rows.length, withCard, withoutCard: rows.length - withCard, withOpenInvoices },
     pendingCardLookups: boundedPending.length,
     truncated: truncated || boundedPending.length < pending.length,
     generatedAt,
-    fromCache: false,
     ...(boundedPending.length > 0 ? { pendingLookups: boundedPending } : {}),
   };
-  await saveCachedReport(oystehr, state);
-  return stripState(state, false);
+  await saveState(oystehr, state);
+  return state;
 }
 
 // One batch of queued fallback lookups against the saved report; undefined when there is no saved report.
 async function continueCardLookups(
   oystehr: Oystehr,
   secrets: ZambdaInput['secrets']
-): Promise<GetBillingCardsOnFileReportResponse | undefined> {
-  const state = await loadCachedState(oystehr);
+): Promise<CardsOnFilePayload | undefined> {
+  const state = await loadReportCache<CardsOnFilePayload>(oystehr, cacheKey());
   if (!state) return undefined;
   const pending = state.pendingLookups ?? [];
-  if (pending.length === 0) return stripState(state, true);
+  if (pending.length === 0) return state;
 
   const stripe = getRateLimitedStripeClient(secrets);
   const batch = pending.slice(0, PM_LOOKUPS_PER_RUN);
@@ -249,82 +219,8 @@ async function continueCardLookups(
   state.totals = { ...state.totals, withCard, withoutCard: state.rows.length - withCard };
   state.pendingCardLookups = rest.length;
   state.pendingLookups = rest;
-  await saveCachedReport(oystehr, state);
-  return stripState(state, false);
-}
-
-async function findCacheDocument(oystehr: Oystehr): Promise<DocumentReference | undefined> {
-  const bundle = await oystehr.fhir.search<DocumentReference>({
-    resourceType: 'DocumentReference',
-    params: [
-      { name: 'identifier', value: `${REPORT_IDENTIFIER_SYSTEM}|${CACHE_KEY}` },
-      { name: '_sort', value: '-_lastUpdated' },
-      { name: '_count', value: '1' },
-    ],
-  });
-  return bundle.unbundle()[0];
-}
-
-async function loadCachedState(oystehr: Oystehr): Promise<CachedReportState | undefined> {
-  try {
-    const document = await findCacheDocument(oystehr);
-    const data = document?.content?.[0]?.attachment?.data;
-    if (!data) return undefined;
-    // plain Uint8Array keeps zlib typings happy across @types/node versions
-    return JSON.parse(gunzipSync(new Uint8Array(Buffer.from(data, 'base64'))).toString('utf8'));
-  } catch (err) {
-    console.warn('Failed to load saved cards-on-file report:', (err as Error)?.message);
-    return undefined;
-  }
-}
-
-// gzipped JSON in a DocumentReference attachment: the full row set is too large for a readable
-// FHIR structure, and this project's M2M has FHIR write access where z3 is forbidden
-async function saveCachedReport(oystehr: Oystehr, state: CachedReportState): Promise<void> {
-  try {
-    const encode = (s: CachedReportState): string =>
-      gzipSync(new Uint8Array(Buffer.from(JSON.stringify(s), 'utf8'))).toString('base64');
-    // an unsaved cache would strand the async refresh loop, so shed data until it fits:
-    // the resumable lookup queue first, then tail rows (alphabetical order keeps the head stable)
-    let toSave = state;
-    let data = encode(toSave);
-    if (data.length > MAX_CACHE_BYTES && (toSave.pendingLookups?.length ?? 0) > 0) {
-      console.warn(`Cards-on-file cache over ${MAX_CACHE_BYTES} bytes; dropping pending lookup queue`);
-      toSave = { ...toSave, pendingLookups: undefined, pendingCardLookups: 0, truncated: true };
-      data = encode(toSave);
-    }
-    while (data.length > MAX_CACHE_BYTES && toSave.rows.length > 1) {
-      toSave = { ...toSave, rows: toSave.rows.slice(0, Math.floor(toSave.rows.length / 2)), truncated: true };
-      data = encode(toSave);
-    }
-    if (toSave !== state) {
-      console.warn(`Cards-on-file cache truncated to ${toSave.rows.length}/${state.rows.length} rows to fit`);
-    }
-    const document: DocumentReference = {
-      resourceType: 'DocumentReference',
-      status: 'current',
-      identifier: [{ system: REPORT_IDENTIFIER_SYSTEM, value: CACHE_KEY }],
-      date: state.generatedAt,
-      content: [
-        {
-          attachment: {
-            contentType: 'application/gzip',
-            title: 'cards-on-file.json.gz',
-            data,
-          },
-        },
-      ],
-    };
-    const existing = await findCacheDocument(oystehr);
-    if (existing?.id) {
-      await oystehr.fhir.update<DocumentReference>({ ...document, id: existing.id });
-    } else {
-      await oystehr.fhir.create<DocumentReference>(document);
-    }
-  } catch (err) {
-    // the cache is an optimization; a failed write must not fail the report
-    console.error('Failed to save cards-on-file report:', err);
-  }
+  await saveState(oystehr, state);
+  return state;
 }
 
 // platform account plus connected accounts stamped on billing provider organizations; the

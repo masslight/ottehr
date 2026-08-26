@@ -1,20 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { GetBillingPipelineReportResponse, PipelineReportRow } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, getActiveStatusGroup, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { gunzipSync, gzipSync } from 'zlib';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { wrapHandler } from '../../../shared/sentry';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createBillingClient } from '../../shared';
-import { GetBillingPipelineReportParams, validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
-const ZAMBDA_NAME = 'get-billing-pipeline-report';
+import { ReportDefinition } from '../framework/types';
 
 const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
 const HISTORY_KEY = 'pipeline-report-history:v1';
@@ -30,19 +23,33 @@ interface PipelineSnapshot {
   rows: PipelineReportRow[];
 }
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const oystehr = createBillingClient(m2mToken, params.secrets);
+type PipelineReportPayload = Omit<GetBillingPipelineReportResponse, 'fromCache' | 'status'>;
 
-  const response = await performEffect(oystehr, params);
-  return { statusCode: 200, body: JSON.stringify(response) };
-});
+export const pipelineReport: ReportDefinition<ReportDateWindowParams, PipelineReportPayload> = {
+  kind: 'pipeline',
+  cacheVersion: 'v1',
+  paramsSchema: ReportDateWindowParamsSchema,
+  cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
+  emptyPayload: () => ({
+    rows: [],
+    totals: { claims: 0, totalBilled: 0 },
+    insuranceBreakout: {
+      denied: { claimCount: 0, totalBilled: 0 },
+      rejected: { claimCount: 0, totalBilled: 0 },
+      stale: { claimCount: 0, totalBilled: 0 },
+      staleDays: STALE_DAYS,
+      staleBefore: '',
+    },
+    generatedAt: '',
+  }),
+  compute: async (ctx, params, onProgress) => {
+    await onProgress('scanning claims…');
+    return computePipelineReport(ctx.oystehr, params);
+  },
+  summarize: (payload) => `pipeline report cached (${payload.totals.claims} claims)`,
+};
 
-export async function performEffect(
-  oystehr: Oystehr,
-  params: Pick<GetBillingPipelineReportParams, 'dateFrom' | 'dateTo'> = {}
-): Promise<GetBillingPipelineReportResponse> {
+async function computePipelineReport(oystehr: Oystehr, params: ReportDateWindowParams): Promise<PipelineReportPayload> {
   const searchParams = [{ name: '_elements', value: 'id,meta,total' }];
   if (params.dateFrom) searchParams.push({ name: 'created', value: `ge${params.dateFrom}` });
   if (params.dateTo) searchParams.push({ name: 'created', value: `le${params.dateTo}` });
@@ -110,7 +117,6 @@ export async function performEffect(
     insuranceBreakout,
     ...(previous && { previous: { snapshotDate: previous.date, rows: previous.rows } }),
     generatedAt: DateTime.now().toUTC().toISO(),
-    fromCache: false,
   };
 }
 
@@ -121,11 +127,11 @@ async function recordSnapshotAndFindLastWeek(
   snapshot: PipelineSnapshot
 ): Promise<PipelineSnapshot | undefined> {
   const history = await loadHistory(oystehr);
-  const cutoff = DateTime.fromISO(snapshot.date).minus({ days: 7 }).toISODate();
+  const cutoff = DateTime.fromISO(snapshot.date).minus({ days: 7 }).toISODate() ?? '';
   const past = history.filter((s) => s.date < snapshot.date).sort((a, b) => a.date.localeCompare(b.date));
   const previous = [...past].reverse().find((s) => s.date <= cutoff) ?? past[0];
 
-  const keepAfter = DateTime.fromISO(snapshot.date).minus({ days: HISTORY_MAX_DAYS }).toISODate();
+  const keepAfter = DateTime.fromISO(snapshot.date).minus({ days: HISTORY_MAX_DAYS }).toISODate() ?? '';
   const updated = [...past.filter((s) => s.date >= keepAfter), snapshot];
   await saveHistory(oystehr, updated);
 
