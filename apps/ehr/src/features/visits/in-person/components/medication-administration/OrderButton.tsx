@@ -9,13 +9,18 @@ interface OrderButtonProps {
   size?: 'medium' | 'large';
   sx?: SxProps;
   dataTestId?: string;
+  onClick?: () => void;
 }
 
-export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'medium', sx, dataTestId }) => {
+export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'medium', sx, dataTestId, onClick: onClickProp }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
 
   const onClick = (): void => {
+    if (onClickProp) {
+      onClickProp();
+      return;
+    }
     if (!appointmentId) {
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;

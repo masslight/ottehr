@@ -51,7 +51,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({ f
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`RR (/min) ${latestRespRateValue ?? ''}`}
         collapsed={isCollapsed}
