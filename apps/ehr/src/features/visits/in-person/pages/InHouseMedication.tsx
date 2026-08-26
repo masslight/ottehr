@@ -1,4 +1,4 @@
-import { AppBar, Box, Tab, Tabs, useTheme } from '@mui/material';
+import { AppBar, Box, Tab, Tabs } from '@mui/material';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
@@ -45,7 +45,6 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({ tab, onTab
   const tabContentRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const { tabName } = useParams();
-  const theme = useTheme();
   const isTabTransitionRef = useRef(false);
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -154,7 +153,6 @@ export const InHouseMedication: React.FC<InHouseMedicationProps> = ({ tab, onTab
               marginLeft: '-20px',
               padding: '0 24px',
               width: 'calc(100% + 40px)',
-              backgroundColor: theme.palette.background.default,
             }}
           >
             <Tabs value={currentTab === 'mar' ? 0 : 1} onChange={handleChange} aria-label="medication tabs">

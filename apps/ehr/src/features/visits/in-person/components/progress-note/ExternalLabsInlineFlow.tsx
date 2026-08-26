@@ -23,7 +23,7 @@ export const ExternalLabsInlineFlow: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   // Ordering and reads go through the labs API directly, so refresh the note summaries
   // whenever the flow returns to the list and again when the section collapses.
-  const refreshSummaries = useRefreshNoteSummaries();
+  const refreshSummaries = useRefreshNoteSummaries({ fields: ['externalLabResults'] });
 
   const goToList = useCallback((): void => {
     setView({ name: 'list' });

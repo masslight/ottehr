@@ -343,6 +343,7 @@ export const dataTestIds = {
     supervisorApprovalCheckbox: 'supervisor-approval-checkbox',
     hpiContainer: 'hpi-container',
     moiContainer: 'moi-container',
+    accidentContainer: 'accident-container',
     reasonForVisitConfirmed: 'reason-for-visit-confirmed',
     nursingOrdersContainer: 'nursing-orders-container',
     nursingOrderItem: 'nursing-order-item',

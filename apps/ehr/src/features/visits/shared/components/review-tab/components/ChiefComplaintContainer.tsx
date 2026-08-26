@@ -41,7 +41,7 @@ export const ChiefComplaintContainer: FC = () => {
       {reasonForVisit ? (
         <Typography data-testid={dataTestIds.progressNotePage.reasonForVisitConfirmed}>{reasonForVisit}</Typography>
       ) : (
-        <Typography color={theme.palette.text.secondary}>No reason for visit confirmed</Typography>
+        <Typography color={theme.palette.text.secondary}>No reason for visit</Typography>
       )}
     </Box>,
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -49,7 +49,7 @@ export const ChiefComplaintContainer: FC = () => {
       {additionalInformation ? (
         <Typography sx={{ whiteSpace: 'pre-line' }}>{additionalInformation}</Typography>
       ) : (
-        <Typography color={theme.palette.text.secondary}>No additional information provided</Typography>
+        <Typography color={theme.palette.text.secondary}>No additional information</Typography>
       )}
       {isTelemedAppointment(appointment) && addToVisitNote && spentTime && (
         <Typography variant="body2" color="secondary.light">

@@ -263,7 +263,7 @@ export const ProgressNoteDetails: FC = () => {
         {showImmunization ? (
           <ImmunizationContainer orders={immunizationOrders} />
         ) : (
-          <BlankSection message="No immunizations administered" />
+          <BlankSection message="No immunizations" />
         )}
       </InlineEditSection>
     ),
@@ -359,20 +359,6 @@ export const ProgressNoteDetails: FC = () => {
       )}
     </InlineEditSection>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
-    // Diagnoses, medical decision making and the billing codes are all documented on the
-    // Assessment screen, so they read as subsections of one Assessment section.
-    (showAssessment || showMedicalDecisionMaking || showEmCode || showCptCodes || inlineEditEnabled) && (
-      <InlineEditSection
-        key="assessment"
-        sectionName="assessment"
-        title="Assessment"
-        iconKey="Prescription"
-        editLabel="Edit assessment"
-        editContent={<AssessmentBody />}
-      >
-        <AssessmentGroupContainer />
-      </InlineEditSection>
-    ),
     (showInHouseLabsResultsContainer || (inlineEditEnabled && FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED)) && (
       <InlineEditSection
         key="in-house-labs"
@@ -432,7 +418,7 @@ export const ProgressNoteDetails: FC = () => {
         editLabel="Edit procedures"
         editContent={<ProceduresInlineFlow />}
       >
-        {showProceduresContainer ? <ProceduresContainer /> : <BlankSection message="No procedures documented" />}
+        {showProceduresContainer ? <ProceduresContainer /> : <BlankSection message="No procedures" />}
       </InlineEditSection>
     ),
     // Staff-facing only: nursing orders are shown here for the signing provider but are
@@ -457,6 +443,20 @@ export const ProgressNoteDetails: FC = () => {
         editContent={<ERXInlineFlow />}
       >
         {showPrescribedMedications ? <PrescribedMedicationsContainer /> : <BlankSection message="No prescriptions" />}
+      </InlineEditSection>
+    ),
+    // Diagnoses, medical decision making and the billing codes are all documented on the
+    // Assessment screen, so they read as subsections of one Assessment section.
+    (showAssessment || showMedicalDecisionMaking || showEmCode || showCptCodes || inlineEditEnabled) && (
+      <InlineEditSection
+        key="assessment"
+        sectionName="assessment"
+        title="Assessment"
+        iconKey="Prescription"
+        editLabel="Edit assessment"
+        editContent={<AssessmentBody />}
+      >
+        <AssessmentGroupContainer />
       </InlineEditSection>
     ),
     (showPatientInstructions || inlineEditEnabled) && (

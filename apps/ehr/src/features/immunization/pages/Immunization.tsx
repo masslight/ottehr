@@ -1,5 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
+import { AppBar, Box, Stack, Tab, Tabs } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
@@ -43,7 +43,6 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
 export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, onCreateOrder, onEditOrder }) => {
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
   const { tabName: tabNameFromUrl } = useParams();
   const tabName = tab ?? tabNameFromUrl;
   const isInlineFlow = useIsInlineFlow();
@@ -152,7 +151,6 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
               marginLeft: '-20px',
               padding: '0 24px',
               width: 'calc(100% + 40px)',
-              backgroundColor: theme.palette.background.default,
             }}
           >
             <Tabs value={tabName === 'mar' ? 0 : 1} onChange={onTabChanged} aria-label="medication tabs">

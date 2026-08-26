@@ -158,14 +158,13 @@ export const RadiologyTable = ({
   };
 
   return (
-    <Paper
+    <Box
       sx={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 3,
         mt: 2,
-        p: 3,
         position: 'relative',
       }}
     >
@@ -194,7 +193,7 @@ export const RadiologyTable = ({
             )}
           </Box>
         ) : (
-          <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
+          <TableContainer sx={{ border: '1px solid #e0e0e0', backgroundColor: 'background.paper' }}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -254,6 +253,6 @@ export const RadiologyTable = ({
       </Box>
 
       {DeleteOrderDialog}
-    </Paper>
+    </Box>
   );
 };

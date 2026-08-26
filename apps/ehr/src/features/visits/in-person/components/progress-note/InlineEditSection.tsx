@@ -107,6 +107,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
         onToggle={() => setIsEditing(true)}
         expanded={false}
         headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
+        onBodyClick={() => setIsEditing(true)}
         headerItem={
           <Button
             size="small"
@@ -123,20 +124,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
           </Button>
         }
       >
-        {/* The summary itself opens the editor, so the whole section is one click away
-            from being edited — not just the Edit button. */}
-        <Box
-          onClick={() => setIsEditing(true)}
-          sx={{
-            cursor: 'pointer',
-            borderRadius: 1,
-            mx: -1,
-            px: 1,
-            '&:hover': { backgroundColor: 'action.hover' },
-          }}
-        >
-          {children}
-        </Box>
+        {children}
       </NoteSectionCard>
     </Box>
   );

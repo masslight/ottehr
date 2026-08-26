@@ -6,7 +6,15 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
+import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
 import { useChartFields } from '../../../hooks/useChartFields';
+
+// Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
+const ACCIDENT_TYPE_LABELS: Record<string, string> = {
+  AA: 'Auto Accident',
+  EM: 'Employment',
+  OA: 'Other Accident',
+};
 
 export const HpiMoiContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
@@ -20,6 +28,9 @@ export const HpiMoiContainer: FC = () => {
       mechanismOfInjury: {
         _tag: 'mechanism-of-injury',
       },
+      accident: {
+        _tag: 'accident',
+      },
     },
   });
 
@@ -27,6 +38,13 @@ export const HpiMoiContainer: FC = () => {
   // chief-complaint tag.
   const historyOfPresentIllness = chartFields?.chiefComplaint?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
+
+  const accident = chartFields?.accident;
+  const accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
+  const accidentDetails = [
+    accident?.date ? `Date of accident: ${formatISODateToLocaleDate(accident.date) ?? accident.date}` : undefined,
+    accident?.state ? `State: ${accident.state}` : undefined,
+  ].filter(Boolean);
 
   const subSections = [
     <Box
@@ -37,7 +55,7 @@ export const HpiMoiContainer: FC = () => {
       {historyOfPresentIllness ? (
         <Typography sx={{ whiteSpace: 'pre-line' }}>{historyOfPresentIllness}</Typography>
       ) : (
-        <Typography color={theme.palette.text.secondary}>No history of present illness documented</Typography>
+        <Typography color={theme.palette.text.secondary}>No history of present illness</Typography>
       )}
     </Box>,
     !!mechanismOfInjury && (
@@ -47,6 +65,16 @@ export const HpiMoiContainer: FC = () => {
       >
         <AssessmentTitle>Mechanism of Injury</AssessmentTitle>
         <Typography sx={{ whiteSpace: 'pre-line' }}>{mechanismOfInjury}</Typography>
+      </Box>
+    ),
+    accidentTypes.length > 0 && (
+      <Box
+        sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
+        data-testid={dataTestIds.progressNotePage.accidentContainer}
+      >
+        <AssessmentTitle>Patient's condition related to</AssessmentTitle>
+        <Typography>{accidentTypes.join(', ')}</Typography>
+        {accidentDetails.length > 0 && <Typography>{accidentDetails.join(' · ')}</Typography>}
       </Box>
     ),
   ].filter(Boolean);

@@ -11,7 +11,7 @@ export const InHouseMedicationsInlineFlow: FC = () => {
   const [tab, setTab] = useState<InHouseMedicationTab>('mar');
   // Medication orders go through the create-update-medication-order API, so refresh the note
   // summaries whenever the flow returns to the MAR and again when the section collapses.
-  const refreshSummaries = useRefreshNoteSummaries();
+  const refreshSummaries = useRefreshNoteSummaries({ fields: ['notes'] });
 
   const goToMar = useCallback((): void => {
     setView({ name: 'mar' });

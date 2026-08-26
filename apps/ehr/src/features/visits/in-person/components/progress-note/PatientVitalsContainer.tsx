@@ -39,9 +39,13 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
     entries: encounterVitals?.[field] ?? [],
   })).filter((group) => group.entries.length > 0);
 
+  const hasNotes = !!notes?.length;
+
   return (
     <Stack spacing={1} sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.vitalsContainer}>
       {!titleInCardHeader && <SectionHeading>Vitals</SectionHeading>}
+
+      {!vitalGroups.length && !hasNotes && <Typography color="text.secondary">No vitals</Typography>}
 
       {vitalGroups.map((group) => (
         <Box key={group.label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

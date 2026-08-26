@@ -63,7 +63,7 @@ export const RosReviewContainer: FC = () => {
         </Box>
       ) : (
         <Box>
-          <Typography>No recorded review of systems</Typography>
+          <Typography color="text.secondary">No review of systems</Typography>
         </Box>
       )}
     </Stack>

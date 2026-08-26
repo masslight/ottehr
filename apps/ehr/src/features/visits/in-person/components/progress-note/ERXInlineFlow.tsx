@@ -6,7 +6,7 @@ import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
 // doesn't refresh on its own. Refresh the note when the inline section collapses so new
 // prescriptions show up.
 export const ERXInlineFlow: FC = () => {
-  useRefreshNoteSummaries();
+  useRefreshNoteSummaries({ fields: ['prescribedMedications'] });
 
   return <ERXBody />;
 };

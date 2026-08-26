@@ -16,6 +16,8 @@ interface NoteSectionCardProps {
   onToggle?: () => void;
   // rotates the expand/collapse control; the section body itself is always visible
   expanded?: boolean;
+  // makes the whole body — padding included — a click target for entering edit mode
+  onBodyClick?: () => void;
   dataTestId?: string;
   headerTestId?: string;
   children: ReactNode;
@@ -29,6 +31,7 @@ export const NoteSectionCard: FC<NoteSectionCardProps> = ({
   headerItem,
   onToggle,
   expanded,
+  onBodyClick,
   dataTestId,
   headerTestId,
   children,
@@ -79,7 +82,18 @@ export const NoteSectionCard: FC<NoteSectionCardProps> = ({
       {headerItem}
     </Box>
     <NoteSectionTitleInCardHeaderProvider value={true}>
-      <Box sx={{ p: 2 }}>{children}</Box>
+      <Box
+        onClick={onBodyClick}
+        sx={{
+          p: 2,
+          ...(onBodyClick && {
+            cursor: 'pointer',
+            '&:hover': { backgroundColor: 'action.hover' },
+          }),
+        }}
+      >
+        {children}
+      </Box>
     </NoteSectionTitleInCardHeaderProvider>
   </Box>
 );

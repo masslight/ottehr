@@ -1,6 +1,7 @@
 import { Box, Stack, Typography, useTheme } from '@mui/material';
-import { FC, Fragment } from 'react';
+import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   SectionHeading,
@@ -30,10 +31,12 @@ export const AssessmentGroupContainer: FC = () => {
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
 
-  const subSections = [
+  // Same split as the Assessment editor: diagnoses and decision making on the left,
+  // billing codes on the right.
+  const diagnosesSection = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <AssessmentTitle>Dx</AssessmentTitle>
-      {!diagnoses?.length && <Typography color={theme.palette.text.secondary}>No diagnoses added</Typography>}
+      {!diagnoses?.length && <Typography color={theme.palette.text.secondary}>No diagnoses</Typography>}
       {primaryDiagnosis && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <AssessmentTitle>Primary:</AssessmentTitle>
@@ -52,42 +55,58 @@ export const AssessmentGroupContainer: FC = () => {
           ))}
         </Box>
       )}
-    </Box>,
+    </Box>
+  );
+
+  const medicalDecisionSection = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <AssessmentTitle>Medical Decision Making</AssessmentTitle>
       {medicalDecision ? (
         <Typography sx={{ whiteSpace: 'pre-line' }}>{medicalDecision}</Typography>
       ) : (
-        <Typography color={theme.palette.text.secondary}>No medical decision making documented</Typography>
+        <Typography color={theme.palette.text.secondary}>No medical decision making</Typography>
       )}
-    </Box>,
-    !!emCode && (
+    </Box>
+  );
+
+  const billingSection = (
+    <Stack spacing={1}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <AssessmentTitle>E&M code</AssessmentTitle>
-        <Typography>{emCode.display}</Typography>
+        {emCode ? (
+          <Typography>{emCode.display}</Typography>
+        ) : (
+          <Typography color={theme.palette.text.secondary}>No E&M code</Typography>
+        )}
       </Box>
-    ),
-    !!cptCodes?.length && (
       <Box
         sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
         data-testid={dataTestIds.progressNotePage.cptCodes}
       >
         <AssessmentTitle>CPT codes</AssessmentTitle>
-        {cptCodes.map((code) => (
-          <Typography key={code.resourceId}>{makeCptCodeDisplay(code)}</Typography>
-        ))}
+        {cptCodes?.length ? (
+          cptCodes.map((code) => <Typography key={code.resourceId}>{makeCptCodeDisplay(code)}</Typography>)
+        ) : (
+          <Typography color={theme.palette.text.secondary}>No CPT codes</Typography>
+        )}
       </Box>
-    ),
-  ].filter(Boolean);
+    </Stack>
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
       {!titleInCardHeader && <SectionHeading>Assessment</SectionHeading>}
-      <Stack spacing={1} sx={{ width: '100%' }}>
-        {subSections.map((subSection, index) => (
-          <Fragment key={index}>{subSection}</Fragment>
-        ))}
-      </Stack>
+      <DoubleColumnContainer
+        divider
+        padding
+        leftColumn={
+          <Stack spacing={1}>
+            {diagnosesSection}
+            {medicalDecisionSection}
+          </Stack>
+        }
+        rightColumn={billingSection}
+      />
     </Box>
   );
 };
