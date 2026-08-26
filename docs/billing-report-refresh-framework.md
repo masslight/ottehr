@@ -20,8 +20,8 @@ There are exactly **two zambdas** for all reports:
 | `get-billing-report` | serve cache + status; queue refreshes; serve drilldown slices |
 | `sub-refresh-billing-report` | compute; write caches; report progress (Task-subscription worker) |
 
-Adding report kind #7 means writing one `ReportDefinition` and registering it — no new zambdas,
-no new config, no new frontend plumbing beyond a typed api wrapper and a page.
+Adding a new report kind means writing one `ReportDefinition` and registering it — no new
+zambdas, no new config, no new frontend plumbing beyond a typed api wrapper and a page.
 
 ## 2. Architecture
 
