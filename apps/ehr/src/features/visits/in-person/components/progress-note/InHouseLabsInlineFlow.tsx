@@ -27,8 +27,6 @@ export const InHouseLabsInlineFlow: FC = () => {
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const encounterId = encounter?.id;
-  // Ordering and reads go through the labs API directly, so refresh the note summaries
-  // whenever the flow returns to the list and again when the section collapses.
   const refreshSummaries = useRefreshNoteSummaries({ fields: ['inHouseLabResults'] });
 
   const goToList = useCallback((): void => {

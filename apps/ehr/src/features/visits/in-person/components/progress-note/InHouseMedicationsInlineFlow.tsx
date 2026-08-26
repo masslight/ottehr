@@ -9,8 +9,6 @@ type InHouseMedicationsInlineView = { name: 'mar' } | { name: 'order-new' } | { 
 export const InHouseMedicationsInlineFlow: FC = () => {
   const [view, setView] = useState<InHouseMedicationsInlineView>({ name: 'mar' });
   const [tab, setTab] = useState<InHouseMedicationTab>('mar');
-  // Medication orders go through the create-update-medication-order API, so refresh the note
-  // summaries whenever the flow returns to the MAR and again when the section collapses.
   const refreshSummaries = useRefreshNoteSummaries({ fields: ['notes'] });
 
   const goToMar = useCallback((): void => {

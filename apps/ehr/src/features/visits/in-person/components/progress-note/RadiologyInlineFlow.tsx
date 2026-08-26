@@ -24,8 +24,6 @@ export const RadiologyInlineFlow: FC = () => {
   const [view, setView] = useState<RadiologyInlineView>({ name: 'list' });
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  // Ordering and reads go through the radiology API directly, so refresh the note summaries
-  // whenever the flow returns to the list and again when the section collapses.
   const refreshSummaries = useRefreshNoteSummaries({ fields: ['radiologyOrders'] });
 
   const goToList = useCallback((): void => {

@@ -2,6 +2,7 @@ import { Box, Stack } from '@mui/material';
 import { FC, useCallback, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { LabsTablePatientChart } from 'src/features/external-labs/components/labs-orders/LabsTablePatientChart';
+import { useLabOrderRowNavigation } from 'src/features/external-labs/components/labs-orders/useLabOrderRowNavigation';
 import { CreateExternalLabOrder } from 'src/features/external-labs/pages/CreateExternalLabOrder';
 import { externalLabsColumns } from 'src/features/external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from 'src/features/external-labs/pages/OrderDetails';
@@ -13,7 +14,6 @@ import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
 
 type ExternalLabsInlineView = { name: 'list' } | { name: 'create' } | { name: 'details'; serviceRequestId: string };
 
-// default is 10, but to handle edge cases, we're upping the number. realistically most encounters won't have more than 10 anyway
 const ITEMS_PER_PAGE = 100;
 
 export const ExternalLabsInlineFlow: FC = () => {
@@ -21,9 +21,10 @@ export const ExternalLabsInlineFlow: FC = () => {
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  // Ordering and reads go through the labs API directly, so refresh the note summaries
-  // whenever the flow returns to the list and again when the section collapses.
   const refreshSummaries = useRefreshNoteSummaries({ fields: ['externalLabResults'] });
+  // Diagnostic-report centric results (reflex, pdf attachment) are keyed by diagnosticReportId
+  // and have no inline screen, so those rows still navigate.
+  const { openDrDrivenResult } = useLabOrderRowNavigation();
 
   const goToList = useCallback((): void => {
     setView({ name: 'list' });
@@ -74,6 +75,7 @@ export const ExternalLabsInlineFlow: FC = () => {
         allowSubmit={!isReadOnly}
         onCreateOrder={!isReadOnly ? () => setView({ name: 'create' }) : undefined}
         onRowClick={openOrder}
+        onDrDrivenRowClick={openDrDrivenResult}
       />
     </Stack>
   );
