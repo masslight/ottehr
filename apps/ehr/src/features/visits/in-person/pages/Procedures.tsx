@@ -30,9 +30,6 @@ interface ProceduresBodyProps {
   pageTitle?: ReactNode;
 }
 
-// The full procedures list (header button, AI suggestions, table, delete dialog) with the
-// navigation targets injected — used by the page with navigate() callbacks and by the
-// Review & Sign inline edit flow with local view-switch callbacks.
 export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: ProceduresBodyProps): ReactElement {
   const { isChartDataLoading, chartData, refetch: refetchChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();

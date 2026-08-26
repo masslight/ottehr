@@ -55,8 +55,6 @@ type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   titleText?: string;
   onCreateOrder?: () => void;
   followUpAppointmentLookup?: FollowUpAppointmentLookup;
-  // overrides the default navigation to the order details page — used by the
-  // Review & Sign inline flow to open details in place
   onRowClick?: (order: InHouseOrderListPageItemDTO) => void;
 };
 

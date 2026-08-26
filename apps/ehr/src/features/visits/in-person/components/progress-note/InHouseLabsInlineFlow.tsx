@@ -22,9 +22,6 @@ type InHouseLabsInlineView =
   | { name: 'create'; prefill?: InHouseLabOrderPrefill }
   | { name: 'details'; serviceRequestId: string };
 
-// The in-house labs screens are an orders list plus create/details sub-screens reached by
-// navigation, so unlike the intake sections this edit content is a small local view
-// switcher over the same reused components — the whole flow stays on Review & Sign.
 export const InHouseLabsInlineFlow: FC = () => {
   const [view, setView] = useState<InHouseLabsInlineView>({ name: 'list' });
   const { encounter } = useAppointmentData();

@@ -6,8 +6,6 @@ import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-question
 import { ERxContainer } from '../../../shared/components/plan-tab/ERxContainer';
 import { useChartData } from '../../../shared/stores/appointment/appointment.store';
 
-// Everything on the eRX screen. Rendered by the ERXPage and inline on the Review &
-// Sign page (InlineEditSection).
 export const ERXBody: FC = () => {
   const { chartData } = useChartData();
 

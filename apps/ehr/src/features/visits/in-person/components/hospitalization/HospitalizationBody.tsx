@@ -6,8 +6,6 @@ import { HospitalizationForm } from './HospitalizationForm';
 import { HospitalizationNotes } from './HospitalizationNotes';
 import { HospitalizationPatientComponent } from './HospitalizationPatientComponent';
 
-// Everything on the Hospitalization intake screen below the page title. Rendered by
-// the Hospitalization page and inline on the Review & Sign page (InlineEditSection).
 export const HospitalizationBody: FC = () => (
   <Stack spacing={1}>
     <InfoAlert text="Ask: Has the patient had any prior overnight hospital stays or hospital admissions?" />

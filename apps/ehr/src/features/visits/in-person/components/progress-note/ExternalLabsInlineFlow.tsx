@@ -16,11 +16,6 @@ type ExternalLabsInlineView = { name: 'list' } | { name: 'create' } | { name: 'd
 // default is 10, but to handle edge cases, we're upping the number. realistically most encounters won't have more than 10 anyway
 const ITEMS_PER_PAGE = 100;
 
-// The external labs screens are an orders list plus create/details sub-screens reached by
-// navigation, so unlike the intake sections this edit content is a small local view
-// switcher over the same reused components — the whole flow stays on Review & Sign.
-// Diagnostic-report centric results (reflex/pdf attachment) still navigate to their own
-// page since that screen is keyed by diagnosticReportId rather than serviceRequestId.
 export const ExternalLabsInlineFlow: FC = () => {
   const [view, setView] = useState<ExternalLabsInlineView>({ name: 'list' });
   const { encounter } = useAppointmentData();

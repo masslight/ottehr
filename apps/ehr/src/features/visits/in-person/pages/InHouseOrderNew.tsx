@@ -9,8 +9,6 @@ import { MedicationHistoryList } from '../components/medication-administration/m
 import { PageHeader } from '../components/medication-administration/PageHeader';
 
 interface InHouseOrderNewProps {
-  // set by the Review & Sign inline edit flow to collapse back to the MAR instead of
-  // navigating away; on the route it is absent and the medication card navigates
   onFinished?: () => void;
 }
 
@@ -25,7 +23,7 @@ export const InHouseOrderNew: React.FC<InHouseOrderNewProps> = ({ onFinished }) 
   return (
     <Stack spacing={2}>
       <span ref={scrollToRef} />
-      <InHouseOrderNewBreadcrumbs />
+      {!isInlineFlow && <InHouseOrderNewBreadcrumbs />}
       <PageHeader title="Order Medication" variant="h3" component="h1" />
       <InfoAlert text="Make sure an AssociatedDx is selected first in the Assessment menu item." />
       <MedicationWarnings />

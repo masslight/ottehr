@@ -19,8 +19,6 @@ interface InHouseLabResultsProps {
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
   entryMode: EntryMode;
-  // overrides the repeat/reflex buttons' navigation to the create page — the Review & Sign
-  // inline flow uses it to open the create view in place with the prefill data
   onOrderTest?: (prefill: InHouseLabOrderPrefill) => void;
 }
 

@@ -2,7 +2,10 @@ import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -28,6 +31,7 @@ const VITAL_LABELS: [VitalFieldNames, string][] = [
 ];
 
 export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes, encounterId }) => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { data: encounterVitals } = useGetVitals(encounterId);
 
   const vitalGroups = VITAL_LABELS.map(([field, label]) => ({
@@ -37,7 +41,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
 
   return (
     <Stack spacing={1} sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.vitalsContainer}>
-      <SectionHeading>Vitals</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>Vitals</SectionHeading>}
 
       {vitalGroups.map((group) => (
         <Box key={group.label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

@@ -11,9 +11,6 @@ import { OrderHistoryTable } from './OrderHistoryTable';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 
 interface Props {
-  // Called after a card administers/deletes its order instead of navigating back to the
-  // MAR, and the scroll target normally carried by the ?scrollTo search param — used by
-  // the Review & Sign inline edit flow
   onOrderFinished?: () => void;
   scrollToOrderId?: string;
 }

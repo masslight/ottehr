@@ -41,8 +41,6 @@ const sortByDateTimeCreated = (
 };
 
 interface MarTableProps {
-  // Override the default row-click navigations (details tab / order edit page) — used by the
-  // Review & Sign inline edit flow
   onPendingMedicationClick?: (medicationId: string) => void;
   onEditOrder?: (medicationId: string) => void;
 }

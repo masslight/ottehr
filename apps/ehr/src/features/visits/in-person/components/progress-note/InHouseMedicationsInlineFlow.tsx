@@ -6,10 +6,6 @@ import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
 
 type InHouseMedicationsInlineView = { name: 'mar' } | { name: 'order-new' } | { name: 'order-edit'; orderId: string };
 
-// The in-house medications screens are the MAR (with its MAR / Medication Details tabs) plus
-// order create/edit sub-screens reached by navigation, so like the radiology section this edit
-// content is a small local view switcher over the same reused components — the whole flow stays
-// on Review & Sign. The MAR tab is driven by local state instead of the URL.
 export const InHouseMedicationsInlineFlow: FC = () => {
   const [view, setView] = useState<InHouseMedicationsInlineView>({ name: 'mar' });
   const [tab, setTab] = useState<InHouseMedicationTab>('mar');

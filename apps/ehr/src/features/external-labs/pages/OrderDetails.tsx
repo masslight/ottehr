@@ -1,5 +1,6 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs/labs.types';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
@@ -10,8 +11,6 @@ import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrders';
 
 interface OrderDetailsPageProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // collapses back to its order list instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
 }
@@ -20,6 +19,9 @@ export const OrderDetailsPage: React.FC<OrderDetailsPageProps> = ({
   serviceRequestId: serviceRequestIdProp,
   onBack,
 }) => {
+  const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
+  const handleBack = onBack ?? ((): void => navigate(-1));
   const urlParams = useParams();
   const id = urlParams.id as string;
   const serviceRequestId = serviceRequestIdProp ?? (urlParams.serviceRequestID as string);
@@ -69,26 +71,23 @@ export const OrderDetailsPage: React.FC<OrderDetailsPageProps> = ({
 
   const pageName = labOrder.testItem;
 
-  if (status === 'pending' || status === 'ready' || status?.includes('sent') || status === 'rejected abn') {
-    return (
-      <DetailPageContainer>
-        <LabBreadcrumbs sectionName={pageName}>
-          <DetailsWithoutResults labOrder={labOrder} onBack={onBack} />
-        </LabBreadcrumbs>
-      </DetailPageContainer>
+  const content =
+    status === 'pending' || status === 'ready' || status?.includes('sent') || status === 'rejected abn' ? (
+      <DetailsWithoutResults labOrder={labOrder} onBack={handleBack} />
+    ) : (
+      <DetailsWithResults
+        labOrder={labOrder}
+        markTaskAsReviewed={markTaskAsReviewed}
+        loading={loading}
+        onBack={handleBack}
+      />
     );
-  }
+
+  if (isInlineFlow) return content;
 
   return (
     <DetailPageContainer>
-      <LabBreadcrumbs sectionName={pageName}>
-        <DetailsWithResults
-          labOrder={labOrder}
-          markTaskAsReviewed={markTaskAsReviewed}
-          loading={loading}
-          onBack={onBack}
-        />
-      </LabBreadcrumbs>
+      <LabBreadcrumbs sectionName={pageName}>{content}</LabBreadcrumbs>
     </DetailPageContainer>
   );
 };

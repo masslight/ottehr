@@ -4,7 +4,6 @@ import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router-dom';
 import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';
 import { LabQuestionnaireResponse } from 'utils/lib/types/api/lab';
 import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO } from 'utils/lib/types/data/labs/labs.types';
@@ -21,9 +20,7 @@ interface SampleCollectionProps {
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
-  // overrides the default navigation back to the external labs list (both the Back button
-  // and the post-submit redirect) — used by the Review & Sign inline edit flow
-  onBack?: () => void;
+  onBack: () => void;
 }
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
@@ -36,8 +33,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
-  const navigate = useNavigate();
-  const { id: appointmentID } = useParams();
   // const currentUser = useEvolveUser();
   const questionnaireData = labOrder?.questionnaire[0];
   const orderStatus = labOrder.orderStatus;
@@ -110,11 +105,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           userTimezone,
         });
       }
-      if (onBack) {
-        onBack();
-      } else {
-        navigate(`/in-person/${appointmentID}/external-lab-orders`);
-      }
+      onBack();
     } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
       console.log('error updating collection data and marking as ready', sdkError.code, sdkError.message);
@@ -194,21 +185,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
         {showActionButtons && (
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            {onBack ? (
-              <Button
-                variant="outlined"
-                sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                onClick={onBack}
-              >
-                Back
-              </Button>
-            ) : (
-              <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
-                <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
-                  Back
-                </Button>
-              </Link>
-            )}
+            <Button
+              variant="outlined"
+              sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+              onClick={onBack}
+            >
+              Back
+            </Button>
             {orderStatus === 'pending' && (
               <Stack>
                 <LoadingButton

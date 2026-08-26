@@ -7,8 +7,7 @@ import { ClearExamButton } from './ClearExamButton';
 import { ExamBody } from './ExamBody';
 
 export const ExamTab: FC = () => {
-  // Only to gate the page-title action; everything else lives in ExamBody, which is also
-  // rendered inline on Review & Sign (where there is no page title to hang actions off).
+  // Read only to gate the page-title action; the rest of the screen lives in ExamBody.
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const hasInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);
 

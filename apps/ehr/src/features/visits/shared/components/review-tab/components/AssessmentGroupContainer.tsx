@@ -2,14 +2,16 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { FC, Fragment } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
-// Everything documented on the Assessment screen — diagnoses, medical decision making and
-// the billing codes — as one Review & Sign section with a subsection each.
 export const AssessmentGroupContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
   const theme = useTheme();
 
@@ -80,7 +82,7 @@ export const AssessmentGroupContainer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <SectionHeading>Assessment</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>Assessment</SectionHeading>}
       <Stack spacing={1} sx={{ width: '100%' }}>
         {subSections.map((subSection, index) => (
           <Fragment key={index}>{subSection}</Fragment>

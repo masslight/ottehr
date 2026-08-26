@@ -1,13 +1,17 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { ExamReviewGroup } from '../review-tab/components/ExamReviewGroup';
 
 export const RosReviewContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const state = useRosObservationsStore();
 
   const sections: { key: string; label: string; items: { field: string; label: string; abnormal: boolean }[] }[] = [];
@@ -50,7 +54,7 @@ export const RosReviewContainer: FC = () => {
 
   return (
     <Stack spacing={1} data-testid={dataTestIds.progressNotePage.rosReviewContainer}>
-      <SectionHeading>Review of Systems</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>Review of Systems</SectionHeading>}
       {sections.length ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {sections.map((section) => (

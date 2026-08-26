@@ -14,8 +14,6 @@ import { PageHeader } from '../components/medication-administration/PageHeader';
 import { useMedicationManagement } from '../hooks/useMedicationManagement';
 
 interface InHouseOrderEditProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // switches views in place instead of navigating away
   orderId?: string;
   onBack?: () => void;
   onOrderNew?: () => void;
@@ -48,7 +46,7 @@ export const InHouseOrderEdit: React.FC<InHouseOrderEditProps> = ({ orderId: ord
   return (
     <>
       <span ref={scrollToRef} />
-      <InHouseOrderEditBreadcrumbs />
+      {!isInlineFlow && <InHouseOrderEditBreadcrumbs />}
       <Box display="flex" justifyContent="space-between" alignItems="center" pl={0.5} mb={2}>
         <PageHeader title={pageTitle} variant="h3" component="h1" />
         {(!isInlineFlow || !isReadOnly) && <OrderButton onClick={onOrderNew} />}

@@ -6,19 +6,11 @@ import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
 
 type ImmunizationInlineView = { name: 'mar' } | { name: 'order-create' } | { name: 'order-edit'; orderId: string };
 
-// The immunization screens are the MAR page (with its MAR/details tabs) plus an order
-// create/edit sub-screen reached by navigation, so unlike the intake sections this edit
-// content is a small local view switcher over the same reused components — the whole flow
-// stays on Review & Sign.
 export const ImmunizationInlineFlow: FC = () => {
   const [view, setView] = useState<ImmunizationInlineView>({ name: 'mar' });
   const [tab, setTab] = useState<ImmunizationTab>('mar');
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  // Ordering and reads go through the immunization API directly, so refresh the note
-  // summaries — including the immunization orders query the Review & Sign immunization
-  // summary reads — whenever the flow returns to the MAR and again when the section
-  // collapses.
   const refreshSummaries = useRefreshNoteSummaries({ extraQueryKeys: [['get-immunization-orders']] });
 
   const goToMar = useCallback((): void => {

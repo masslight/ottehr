@@ -20,9 +20,6 @@ type RadiologyInlineView =
   | { name: 'external-details'; serviceRequestId: string }
   | { name: 'external-edit'; order: GetRadiologyOrderListZambdaOrder };
 
-// The radiology screens are an orders list plus create/details sub-screens reached by
-// navigation, so unlike the intake sections this edit content is a small local view
-// switcher over the same reused components — the whole flow stays on Review & Sign.
 export const RadiologyInlineFlow: FC = () => {
   const [view, setView] = useState<RadiologyInlineView>({ name: 'list' });
   const { encounter } = useAppointmentData();

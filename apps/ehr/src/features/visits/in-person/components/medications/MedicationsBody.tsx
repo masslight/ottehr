@@ -11,8 +11,6 @@ import { MedicationHistoryList } from '../medication-administration/medication-h
 import { AskMedicationsAlert } from './AskMedicationsAlert';
 import { MedicationsNotes } from './MedicationsNotes';
 
-// Everything on the Medications intake screen below the page title. Rendered by the
-// Medications page and inline on the Review & Sign page (InlineEditSection).
 export const MedicationsBody: FC = () => {
   const { refetchHistory } = useMedicationHistory();
 

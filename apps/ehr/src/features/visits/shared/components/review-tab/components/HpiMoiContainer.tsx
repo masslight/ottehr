@@ -2,12 +2,14 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { FC, Fragment } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useChartFields } from '../../../hooks/useChartFields';
 
-// HPI and MOI are documented on the same screen, so they are one Review & Sign section
-// with a subsection each (MOI only shows for the injury visits that have it).
 export const HpiMoiContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const theme = useTheme();
 
   const { data: chartFields } = useChartFields({
@@ -51,7 +53,7 @@ export const HpiMoiContainer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <SectionHeading>HPI/MOI</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>HPI/MOI</SectionHeading>}
       <Stack spacing={1} sx={{ width: '100%' }}>
         {subSections.map((subSection, index) => (
           <Fragment key={index}>{subSection}</Fragment>

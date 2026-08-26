@@ -7,8 +7,7 @@ import { ClearRosButton } from './ClearRosButton';
 import { RosBody } from './RosBody';
 
 export const RosTab: FC = () => {
-  // Only to gate the page-title action; everything else lives in RosBody, which is also
-  // rendered inline on Review & Sign (where there is no page title to hang actions off).
+  // Read only to gate the page-title action; the rest of the screen lives in RosBody.
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const hasInitialData = useRosObservationsInitializationStore((state) => state.hasInitialData);
 

@@ -12,8 +12,6 @@ import { ExamMigrationWarning } from './ExamMigrationWarning';
 import { ExamTable } from './ExamTable';
 import { useExamConfigState } from './useExamConfigState';
 
-// Everything on the Exam screen below the page title. Rendered by the ExamTab page and
-// inline on the Review & Sign page (InlineEditSection).
 export const ExamBody: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const hasInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);

@@ -16,6 +16,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useCompleteTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -51,8 +52,6 @@ const DetailRow: React.FC<{ label: string; dataTestId?: string; children: React.
 );
 
 interface RadiologyOrderDetailsPageProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // collapses back to its order list instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
 }
@@ -64,6 +63,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   const urlParams = useParams();
   const serviceRequestId = serviceRequestIdProp ?? (urlParams.serviceRequestID as string);
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const theme = useTheme();
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
@@ -274,8 +274,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     return <RadiologyOrderLoading />;
   }
 
-  return (
-    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
+  const content = (
+    <>
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
           {order.isStat ? (
@@ -368,7 +368,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                     ))}
                   </TextField>
                   {/* Saved on its own so the "performed" history row is filled at the moment someone records
-                      who took the image, rather than riding along with the preliminary read. */}
+                    who took the image, rather than riding along with the preliminary read. */}
                   <Tooltip placement="top" title="Save performed by">
                     <span>
                       <IconButton
@@ -582,6 +582,10 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
           </Box>
         </Stack>
       </div>
-    </WithRadiologyBreadcrumbs>
+    </>
   );
+
+  if (isInlineFlow) return content;
+
+  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };

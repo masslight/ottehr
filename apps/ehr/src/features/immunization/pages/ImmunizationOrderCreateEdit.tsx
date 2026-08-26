@@ -22,6 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
@@ -49,8 +50,6 @@ import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 
 interface ImmunizationOrderCreateEditProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // collapses back to the MAR instead of navigating away
   orderId?: string;
   onFinished?: () => void;
 }
@@ -60,6 +59,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   onFinished,
 }) => {
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
   const {
@@ -246,10 +246,12 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
-          <BaseBreadcrumbs
-            sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
-            baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
-          />
+          {!isInlineFlow && (
+            <BaseBreadcrumbs
+              sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
+              baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
+            />
+          )}
           <PageHeader
             title={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
             variant="h3"

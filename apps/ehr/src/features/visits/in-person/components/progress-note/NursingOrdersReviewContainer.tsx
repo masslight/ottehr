@@ -4,9 +4,11 @@ import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { NursingOrder } from 'utils/lib/types/data/orders/types';
-import { NotVisibleToPatientLabel } from './NotVisibleToPatientLabel';
 
 const formatOrderedAt = (order: NursingOrder): string => {
   const ordered = DateTime.fromISO(order.orderAddedDate);
@@ -21,6 +23,7 @@ interface NursingOrdersReviewContainerProps {
 // Nursing orders are staff-facing only: they're summarized here for the provider signing
 // the note, but are deliberately left out of the visit note / discharge PDFs.
 export const NursingOrdersReviewContainer: FC<NursingOrdersReviewContainerProps> = ({ encounterId }) => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const theme = useTheme();
   const { nursingOrders, loading } = useGetNursingOrders({
     searchBy: { field: 'encounterId', value: encounterId ?? '' },
@@ -35,8 +38,7 @@ export const NursingOrdersReviewContainer: FC<NursingOrdersReviewContainerProps>
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
       data-testid={dataTestIds.progressNotePage.nursingOrdersContainer}
     >
-      <SectionHeading>Nursing Orders</SectionHeading>
-      <NotVisibleToPatientLabel />
+      {!titleInCardHeader && <SectionHeading>Nursing Orders</SectionHeading>}
       {isLoading && <Typography color={theme.palette.text.secondary}>Loading nursing orders...</Typography>}
       {!isLoading && orders.length === 0 && (
         <Typography color={theme.palette.text.secondary}>No nursing orders</Typography>

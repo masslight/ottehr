@@ -214,8 +214,6 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
 }
 
 interface ProceduresNewProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // collapses back to its list instead of navigating away
   procedureId?: string;
   onFinished?: () => void;
 }

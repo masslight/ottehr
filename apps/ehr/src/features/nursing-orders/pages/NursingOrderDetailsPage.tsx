@@ -2,6 +2,7 @@ import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCi
 import { Box, Button, CircularProgress, Collapse, Divider, IconButton, Paper, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { BreadCrumbs } from '../components/BreadCrumbs';
@@ -10,14 +11,13 @@ import { OrderDetails } from '../components/details/OrderDetails';
 import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
 
 interface NursingOrderDetailsPageProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // collapses back to its order list instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
 }
 
 export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = ({ serviceRequestId, onBack }) => {
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const { serviceRequestID: serviceRequestIdFromUrl } = useParams<{ serviceRequestID: string }>();
   const serviceRequestID = serviceRequestId ?? serviceRequestIdFromUrl;
 
@@ -87,7 +87,7 @@ export const NursingOrderDetailsPage: React.FC<NursingOrderDetailsPageProps> = (
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px', width: '100%' }}>
-        <BreadCrumbs />
+        {!isInlineFlow && <BreadCrumbs />}
 
         <OrderDetails orderDetails={order} onSubmit={handleSubmit} />
 

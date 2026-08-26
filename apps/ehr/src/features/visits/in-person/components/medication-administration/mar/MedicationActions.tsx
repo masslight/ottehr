@@ -12,7 +12,6 @@ import { getEditOrderUrl } from '../../../routing/helpers';
 
 interface MedicationActionsProps {
   medication: ExtendedMedicationDataForResponse;
-  // Overrides the default navigation to the order edit page — used by the Review & Sign inline edit flow
   onEditOrder?: (medicationId: string) => void;
 }
 

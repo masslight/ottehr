@@ -6,8 +6,6 @@ import { EditableMedicationCard } from '../medication-editable-card/EditableMedi
 import { MedicationWarnings } from './MedicationWarnings';
 
 interface MedicationListProps {
-  // Replaces each card's navigation to the MAR page (after dispense save/delete) — used by the
-  // Review & Sign inline edit flow
   onNavigateToMar?: () => void;
 }
 

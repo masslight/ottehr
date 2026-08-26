@@ -11,8 +11,6 @@ type LabsTablePatientChartProps<SearchBy extends GetLabOrdersParameters> = {
   allowDelete: boolean;
   allowSubmit: boolean;
   onCreateOrder?: () => void;
-  // overrides the default navigation to the order details page for service-request driven
-  // orders — used by the Review & Sign inline flow to open details in place
   onRowClick?: (labOrderData: LabOrderListPageDTO) => void;
 };
 

@@ -3,8 +3,6 @@ import { Button, ButtonGroup, ClickAwayListener, Grow, MenuItem, MenuList, Paper
 import React, { useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 
-// "Order Radiology" split button with the external-order dropdown. Shared by the
-// radiology list page (navigates) and the Review & Sign inline flow (switches views).
 export const RadiologyOrderCreateButton: React.FC<{
   onCreateOrder: () => void;
   onCreateExternalOrder: () => void;

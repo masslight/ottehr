@@ -5,8 +5,6 @@ import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarM
 export type NoteSectionIconKey = keyof typeof sidebarMenuIcons;
 
 interface NoteSectionIconProps {
-  // sidebar menu key, so a Review & Sign section is labelled with the same icon as the
-  // screen it is edited on
   iconKey?: NoteSectionIconKey;
 }
 

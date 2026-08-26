@@ -26,8 +26,6 @@ type NursingOrdersTableProps = {
   appointmentId: string;
   allowDelete?: boolean;
   onCreateOrder?: () => void;
-  // when provided, opening an order is handled by the caller instead of navigating —
-  // used by the Review & Sign inline edit flow
   onRowClick?: (order: NursingOrder) => void;
 };
 

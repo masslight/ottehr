@@ -8,8 +8,6 @@ import { ASQ } from './ASQ';
 import { Questions } from './PaperworkAndConfirmedQuestions';
 import { ScreeningNotes } from './ScreeningNotes';
 
-// Everything on the Screening Questions intake screen below the page title. Rendered
-// by the Screening page and inline on the Review & Sign page (InlineEditSection).
 export const ScreeningBody: FC = () => {
   const { isLoading } = useChartFields({
     requestedFields: {

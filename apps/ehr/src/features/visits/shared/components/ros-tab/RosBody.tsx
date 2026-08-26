@@ -9,8 +9,6 @@ import { ClearRosButton } from './ClearRosButton';
 import { RosReviewContainer } from './RosReviewContainer';
 import { RosTable } from './RosTable';
 
-// Everything on the Review of Systems screen below the page title. Rendered by the
-// RosTab page and inline on the Review & Sign page (InlineEditSection).
 export const RosBody: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const hasInitialData = useRosObservationsInitializationStore((state) => state.hasInitialData);

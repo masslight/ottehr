@@ -6,8 +6,6 @@ import { SurgicalHistoryProviderColumn } from '../../../shared/components/medica
 import { InfoAlert } from '../InfoAlert';
 import { SurgicalHistoryNotes } from './SurgicalHistoryNotes';
 
-// Everything on the Surgical History intake screen below the page title. Rendered by
-// the SurgicalHistory page and inline on the Review & Sign page (InlineEditSection).
 export const SurgicalHistoryBody: FC = () => (
   <Stack spacing={1}>
     <InfoAlert text="Ask: Has the patient ever had surgery? If yes, what was the surgery?" />

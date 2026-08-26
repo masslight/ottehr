@@ -3,7 +3,10 @@ import { FC, Fragment } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import {
   dispositionCheckboxOptions,
@@ -22,6 +25,7 @@ import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstr
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const PatientInstructionsContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { data: chartFields } = useChartFields({
     requestedFields: { disposition: {} },
   });
@@ -115,7 +119,7 @@ export const PatientInstructionsContainer: FC = () => {
 
   return (
     <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
-      <SectionHeading>Plan</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>Plan</SectionHeading>}
 
       <Stack spacing={1} sx={{ width: '100%' }}>
         {sections.map((section, index) => (

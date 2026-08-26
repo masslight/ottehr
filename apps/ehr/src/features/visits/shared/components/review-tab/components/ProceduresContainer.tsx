@@ -2,10 +2,14 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const ProceduresContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { chartData } = useChartData();
   const theme = useTheme();
   const procedures = chartData?.procedures;
@@ -26,7 +30,7 @@ export const ProceduresContainer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
-      <SectionHeading>Procedures</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>Procedures</SectionHeading>}
       {procedures?.length ? (
         procedures.map((procedure) => (
           <Stack key={procedure.resourceId} data-testid={dataTestIds.progressNotePage.procedureItem}>

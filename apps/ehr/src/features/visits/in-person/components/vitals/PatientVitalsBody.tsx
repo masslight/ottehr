@@ -22,8 +22,6 @@ import { AbnormalVitalsModal } from '../../../shared/components/vitals/AbnormalV
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 
-// Everything on the Vitals intake screen below the page title. Rendered by the
-// PatientVitals page and inline on the Review & Sign page (InlineEditSection).
 export const PatientVitalsBody: FC = () => {
   const {
     resources: { encounter },

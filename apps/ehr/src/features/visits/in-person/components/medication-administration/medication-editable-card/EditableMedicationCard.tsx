@@ -91,8 +91,6 @@ const INTERACTIONS_CHECK_STATE_ERROR: InteractionsCheckState = {
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
-  // Replaces every navigation to the MAR page (back / after save / after delete) — used by the
-  // Review & Sign inline edit flow
   onNavigateToMar?: () => void;
 }> = ({ medication, type: typeFromProps, onNavigateToMar }) => {
   const [isOrderUpdating, setIsOrderUpdating] = useState<boolean>(false);

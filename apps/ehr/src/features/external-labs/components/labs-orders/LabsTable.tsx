@@ -35,8 +35,6 @@ interface LabsTableProps {
   bundleRow?: ReactElement;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
   followUpAppointmentLookup?: FollowUpAppointmentLookup;
-  // overrides the default navigation to the order details page for service-request driven
-  // orders — used by the Review & Sign inline flow to open details in place
   onRowClick?: (labOrderData: LabOrderListPageDTO) => void;
 }
 

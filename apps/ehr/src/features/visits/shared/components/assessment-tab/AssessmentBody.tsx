@@ -11,8 +11,6 @@ import { BillingCodesContainer } from './BillingCodesContainer';
 import { DiagnosesContainer } from './DiagnosesContainer';
 import { MedicalDecisionContainer } from './MedicalDecisionContainer';
 
-// Everything on the Assessment screen below the page title. Rendered by the
-// AssessmentCard page and inline on the Review & Sign page (InlineEditSection).
 export const AssessmentBody: FC = () => {
   const billingSuggestions = useBillingSuggestions();
   const { encounter } = useAppointmentData();

@@ -13,8 +13,6 @@ import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
 interface NursingOrderCreatePageProps {
-  // set by the Review & Sign inline edit flow to collapse back to its order list instead of
-  // navigating away; on the route it is absent and the page navigates
   onFinished?: () => void;
 }
 
@@ -85,13 +83,13 @@ export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
-        <BreadCrumbs />
-
-        {/* inline the note section card header already names the section */}
         {!isInlineFlow && (
-          <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
-            Nursing Order
-          </Typography>
+          <>
+            <BreadCrumbs />
+            <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.nursingOrderCreatePage.title}>
+              Nursing Order
+            </Typography>
+          </>
         )}
 
         {encounter.id && hasDraft(encounter.id) && (

@@ -10,8 +10,7 @@ import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-  // overrides the default back navigation — used by the Review & Sign inline edit flow
-  onBack?: () => void;
+  onBack: () => void;
 }> = ({ labOrder, onBack }) => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -54,9 +53,8 @@ export const DetailsWithoutResults: React.FC<{
         showActionButtons={!isReadOnly}
         onBack={onBack}
       />
-      {/* the action buttons (and with them the Back button) are hidden when read-only, but the
-          inline flow still needs a way back to the orders list */}
-      {isReadOnly && onBack && (
+      {/* OrderCollection hides its own Back button along with the rest of the action row */}
+      {isReadOnly && (
         <Button
           variant="outlined"
           sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600, alignSelf: 'flex-start' }}

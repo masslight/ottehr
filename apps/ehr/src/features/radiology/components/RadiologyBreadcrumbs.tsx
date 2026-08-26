@@ -2,7 +2,6 @@ import { Box, Link as MuiLink, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { FC } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 
 interface RadiologyBreadcrumbsProps {
@@ -36,12 +35,6 @@ export const WithRadiologyBreadcrumbs: FC<RadiologyBreadcrumbsProps> = ({
   children,
 }) => {
   const { id: appointmentIdFromUrl } = useParams();
-  const isInlineFlow = useIsInlineFlow();
-
-  // Inline there is nowhere to navigate back to: the trail's base crumb is the very screen
-  // the user is already on, so only the content is kept.
-  if (isInlineFlow) return <>{children}</>;
-
   return (
     <PageWrapper>
       <BreadcrumbsContainer>

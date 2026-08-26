@@ -35,8 +35,6 @@ type RadiologyTableProps = {
   titleText?: string;
   onCreateOrder?: () => void;
   followUpAppointmentLookup?: FollowUpAppointmentLookup;
-  // overrides the default navigation to the order details/edit pages — used by the
-  // Review & Sign inline flow to open details in place
   onRowClick?: (order: GetRadiologyOrderListZambdaOrder) => void;
 };
 

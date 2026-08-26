@@ -1,7 +1,6 @@
 import { Breadcrumbs, Link as MuiLink, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useIsInlineFlow } from './InlineFlow';
 
 interface BaseCrumb {
   label: string;
@@ -31,10 +30,6 @@ interface BaseBreadcrumbsProps {
  * </Page>
  */
 export const BaseBreadcrumbs: FC<BaseBreadcrumbsProps> = ({ sectionName, baseCrumb, children, dataTestId }) => {
-  // Inline there is nowhere to navigate back to: the trail's base crumb is the very screen
-  // the user is already on, so only the content is kept.
-  if (useIsInlineFlow()) return <>{children}</>;
-
   return (
     <>
       <Breadcrumbs

@@ -24,8 +24,6 @@ interface TabContentProps {
 export type ImmunizationTab = 'mar' | 'vaccine-details';
 
 interface ImmunizationProps {
-  // set by the Review & Sign inline edit flow, which drives the active tab itself and
-  // switches views in place instead of navigating away
   tab?: ImmunizationTab;
   onTabChange?: (tab: ImmunizationTab) => void;
   onCreateOrder?: () => void;

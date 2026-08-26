@@ -2,7 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import { Box, IconButton, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
-import { NoteSectionTitleInCardHeaderContext } from 'src/features/visits/shared/components/NoteSectionHeading';
+import { NoteSectionTitleInCardHeaderProvider } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { NoteSectionIcon, NoteSectionIconKey } from './NoteSectionIcon';
 
 interface NoteSectionCardProps {
@@ -78,8 +78,8 @@ export const NoteSectionCard: FC<NoteSectionCardProps> = ({
       <Box sx={{ flexGrow: 1 }} />
       {headerItem}
     </Box>
-    <NoteSectionTitleInCardHeaderContext.Provider value={true}>
+    <NoteSectionTitleInCardHeaderProvider value={true}>
       <Box sx={{ p: 2 }}>{children}</Box>
-    </NoteSectionTitleInCardHeaderContext.Provider>
+    </NoteSectionTitleInCardHeaderProvider>
   </Box>
 );

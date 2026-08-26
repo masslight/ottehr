@@ -57,8 +57,6 @@ import { OrderStatusChip } from './OrderStatusChip';
 
 interface Props {
   order: ImmunizationOrder;
-  // Called after administer/delete instead of navigating back to the MAR — used by the
-  // Review & Sign inline edit flow
   onFinished?: () => void;
 }
 

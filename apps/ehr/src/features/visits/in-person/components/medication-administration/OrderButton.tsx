@@ -9,7 +9,6 @@ interface OrderButtonProps {
   size?: 'medium' | 'large';
   sx?: SxProps;
   dataTestId?: string;
-  // Overrides the default navigation to the order-new page — used by the Review & Sign inline edit flow
   onClick?: () => void;
 }
 

@@ -24,8 +24,6 @@ interface Props {
   order: ImmunizationOrder;
   showActions: boolean;
   showGiven?: boolean;
-  // Callback overrides for the edit/details actions; default to the page navigation — used
-  // by the Review & Sign inline edit flow
   onEditOrder?: (orderId: string) => void;
   onShowDetails?: (orderId: string) => void;
 }

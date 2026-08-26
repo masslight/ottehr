@@ -16,8 +16,6 @@ interface InlineEditSectionProps {
   // sidebar menu icon shown in the card header
   iconKey?: NoteSectionIconKey;
   editLabel: string;
-  // the reused intake screen body; mounted only while the section is open so the
-  // Review & Sign page doesn't pay for every section's queries up front
   editContent: ReactNode;
   // render children without any edit affordance (e.g. supervisor approval box)
   disabled?: boolean;

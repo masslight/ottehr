@@ -6,8 +6,6 @@ import { MedicalHistoryDoubleCard } from '../../../shared/components/medical-his
 import { InfoAlert } from '../InfoAlert';
 import { MedicalConditionsNotes } from './MedicalConditionsNotes';
 
-// Everything on the Medical Conditions intake screen below the page title. Rendered by
-// the MedicalConditions page and inline on the Review & Sign page (InlineEditSection).
 export const MedicalConditionsBody: FC = () => (
   <Stack spacing={1}>
     <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />

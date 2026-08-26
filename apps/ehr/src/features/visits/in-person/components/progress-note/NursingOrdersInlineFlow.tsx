@@ -16,9 +16,6 @@ const nursingOrdersColumns: NursingOrdersTableColumn[] = ['order', 'orderAdded',
 
 type NursingOrdersInlineView = { name: 'list' } | { name: 'create' } | { name: 'details'; serviceRequestId: string };
 
-// The nursing orders screens are a list plus create/details sub-screens reached by
-// navigation, so like the radiology section this edit content is a small local view
-// switcher over the same reused components — the whole flow stays on Review & Sign.
 export const NursingOrdersInlineFlow: FC = () => {
   const [view, setView] = useState<NursingOrdersInlineView>({ name: 'list' });
   const { id: appointmentId } = useParams();

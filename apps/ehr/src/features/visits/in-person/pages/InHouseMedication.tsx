@@ -32,8 +32,6 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
 export type InHouseMedicationTab = 'mar' | 'medication-details';
 
 interface InHouseMedicationProps {
-  // set by the Review & Sign inline edit flow, which drives the active tab itself and
-  // switches views in place instead of navigating away
   tab?: InHouseMedicationTab;
   onTabChange?: (tab: InHouseMedicationTab) => void;
   onOrderNew?: () => void;

@@ -13,8 +13,6 @@ interface Props {
   showActions: boolean;
   administeredOnly?: boolean;
   immunizationInput?: GetImmunizationOrdersRequest;
-  // Callback overrides for the row actions; default to the page navigation — used by the
-  // Review & Sign inline edit flow
   onEditOrder?: (orderId: string) => void;
   onShowDetails?: (orderId: string) => void;
 }

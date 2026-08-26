@@ -1,13 +1,17 @@
 import { Box, Typography } from '@mui/material';
 import { useQueries } from '@tanstack/react-query';
 import { FC } from 'react';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 
 export const PrescribedMedicationsContainer: FC = () => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { oystehr } = useApiClients();
   const { data: chartFields } = useChartFields({
     requestedFields: { prescribedMedications: {} },
@@ -39,7 +43,7 @@ export const PrescribedMedicationsContainer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
-      <SectionHeading>Prescriptions</SectionHeading>
+      {!titleInCardHeader && <SectionHeading>Prescriptions</SectionHeading>}
       {Array.from(groups.entries()).map(([pharmacyId, meds]) => {
         const pharmacy = pharmacyId ? pharmacyMap.get(pharmacyId) : undefined;
         return (

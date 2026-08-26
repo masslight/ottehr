@@ -57,8 +57,6 @@ const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React
 );
 
 interface RadiologyExternalOrderDetailsPageProps {
-  // set by the Review & Sign inline edit flow, which has no URL params of its own and
-  // switches to the edit form in place instead of navigating away
   serviceRequestId?: string;
   onBack?: () => void;
   onEdit?: (order: GetRadiologyOrderListZambdaOrder) => void;
@@ -202,8 +200,8 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
   // The order is editable only until results are uploaded (spec).
   const canEdit = !isReadOnly && results.length === 0;
 
-  return (
-    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
+  const content = (
+    <>
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -378,6 +376,10 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
           )}
         </Stack>
       </div>
-    </WithRadiologyBreadcrumbs>
+    </>
   );
+
+  if (isInlineFlow) return content;
+
+  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };

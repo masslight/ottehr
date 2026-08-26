@@ -9,8 +9,6 @@ import { SchoolWorkExcuseCard } from '../../../shared/components/SchoolWorkExcus
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { useInPersonNavigationContext } from '../../context/InPersonNavigationContext';
 
-// Everything on the Plan screen below the page title. Rendered by the Plan page and
-// inline on the Review & Sign page (InlineEditSection).
 export const PlanBody: FC = () => {
   const { location } = useAppointmentData();
   const { interactionMode } = useInPersonNavigationContext();
