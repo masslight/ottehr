@@ -8,6 +8,7 @@ import {
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { GetLocationResponse } from 'utils/lib/types/api/locations';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,7 +20,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // which is why nothing caught it. These pin the payload itself.
 
 const mockUpdateLocation = vi.fn<(...args: any[]) => Promise<Location>>();
-const mockGetLocation = vi.fn<(...args: any[]) => Promise<Location>>();
+const mockGetLocation = vi.fn<(...args: any[]) => Promise<GetLocationResponse>>();
 
 vi.mock('src/api/api', async (importOriginal) => ({
   ...((await importOriginal()) as any),
@@ -84,7 +85,8 @@ describe('LocationConfigPage payment fields', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHasRole.mockReturnValue(true);
-    mockGetLocation.mockResolvedValue(location);
+    // get-location returns the Location together with the Schedules it actors; this page reads both.
+    mockGetLocation.mockResolvedValue({ location, schedules: [] });
     mockUpdateLocation.mockResolvedValue(location);
   });
 

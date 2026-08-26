@@ -131,6 +131,10 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   otherClaims: [],
   tags: [],
   pcn: '',
+  billType: '',
+  patientDischargeStatusCode: '',
+  admissionType: '',
+  admissionSource: '',
 });
 
 function renderDetail(): void {

@@ -47,6 +47,7 @@ import {
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
   CODE_SYSTEM_NUBC_REVENUE,
+  copySourceRef,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
@@ -62,7 +63,6 @@ import {
   setClia,
   setTaxId,
   setTaxonomy,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 
 // The rules' view of a claim: the working-copy Claim plus the working-copy resources its rules can
@@ -138,12 +138,6 @@ const policyHolder = (
 
 type Provider = Practitioner | Organization;
 type NamedResource = Patient | RelatedPerson | Practitioner;
-
-// The "ResourceType/id" of the reference resource a working copy was copied from (the
-// source-resource extension prepareWorkingCopy stamps). Copies made before the extension existed
-// read as absent.
-const sourceRef = (resource: Practitioner | Organization | Location | Coverage | undefined): string | undefined =>
-  resource?.extension?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
 
 const getProviderFamily = (p?: Provider): string | undefined => {
   if (!p) return undefined;
@@ -318,7 +312,7 @@ const coverageReaders = (
   resolve: (m: RulesEngineClaimModel) => Coverage | undefined
 ): Record<string, FieldReader> => ({
   [`${prefix}.coverageFromPatient`]: (m) => {
-    const source = sourceRef(resolve(m));
+    const source = copySourceRef(resolve(m));
     return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
   },
   [`${prefix}.payerId`]: (m) => extractPayerIdFromUrl(resolve(m)?.payor?.[0]?.reference),
@@ -401,13 +395,13 @@ const READERS: Record<string, FieldReader> = {
   ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
   ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
 
-  'renderingProvider.ref': (m) => sourceRef(m.renderingProvider),
+  'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
-  'billingProvider.ref': (m) => sourceRef(m.billingProvider),
+  'billingProvider.ref': (m) => copySourceRef(m.billingProvider),
   ...providerReaders('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m) => (m.billingProvider ? getTaxID(m.billingProvider) : undefined),
 
-  'serviceFacility.ref': (m) => sourceRef(m.serviceFacility),
+  'serviceFacility.ref': (m) => copySourceRef(m.serviceFacility),
   'serviceFacility.name': (m) => m.serviceFacility?.name,
   'serviceFacility.npi': (m) => (m.serviceFacility ? getNPI(m.serviceFacility) : undefined),
   'serviceFacility.clia': (m) => (m.serviceFacility ? getCLIA(m.serviceFacility) : undefined),

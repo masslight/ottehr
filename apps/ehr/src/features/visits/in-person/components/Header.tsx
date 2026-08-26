@@ -215,8 +215,14 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
-  const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
-  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
+
+  // Annotation follow-ups record no vitals of their own and reference the parent visit's
+  // Appointment, so a historical lookup keyed on the follow-up encounter searches strictly
+  // before that appointment's start — skipping the parent visit's own vitals and surfacing
+  // the previous visit's values instead. Read header vitals from the origin encounter.
+  const vitalsEncounterId = isFollowup ? followUpOriginEncounter?.id : effectiveEncounterId;
+  const { data: encounterVitals } = useGetVitals(vitalsEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(vitalsEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 

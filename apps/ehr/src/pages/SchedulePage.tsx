@@ -50,32 +50,23 @@ export default function SchedulePage(): ReactElement {
   // (the Employee page's schedule list); the schedule page never edits it.
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
-  // Booking links for this schedule. Always at least the prebook link; for
-  // Location-actored schedules we also surface a walk-in link (the walk-in
-  // route resolves Schedule IDs and is only modeled for Location actors —
-  // per the requirements doc, walk-in is the front-desk-assigns-whoever-is-
-  // free pattern that lives on a Location, not a per-provider role).
-  const bookingLinks = (() => {
-    const fhirType = item?.owner.type;
-    const links: Array<{ label: string; url: string; copyKey: string }> = [];
-    // One prebook link per enabled service mode — a Location may be both.
-    for (const link of buildPrebookModeLinks({
-      fhirType,
-      slug,
-      isVirtual: item?.owner.isVirtual,
-      isInPerson: item?.owner.isInPerson,
-    })) {
-      links.push({ label: link.label, url: `${INTAKE_URL}${link.relativeUrl}`, copyKey: link.key });
-    }
-    if (fhirType === 'Location' && scheduleId && isValidUUID(scheduleId)) {
-      links.push({
-        label: 'Walk-in',
-        url: `${INTAKE_URL}/walkin/schedule/${scheduleId}`,
-        copyKey: 'walkin',
-      });
-    }
-    return links;
-  })();
+  // Booking links for this schedule, for owners that have nowhere better to put them.
+  //
+  // Location-owned schedules are excluded: their links now live on the location page, which is the
+  // resource those links actually name. Keeping a copy here would mean two places to look and one
+  // to forget — and the location page can additionally warn when no schedule exists at all, which
+  // this page structurally can't. A pointer to that page is rendered in place of the links.
+  //
+  // Practitioner- and group-owned schedules keep theirs, because there is no second home for them.
+  const ownerIsLocation = item?.owner.type === 'Location';
+  const bookingLinks = ownerIsLocation
+    ? []
+    : buildPrebookModeLinks({
+        fhirType: item?.owner.type,
+        slug,
+        isVirtual: item?.owner.isVirtual,
+        isInPerson: item?.owner.isInPerson,
+      }).map((link) => ({ label: link.label, url: `${INTAKE_URL}${link.relativeUrl}`, copyKey: link.key }));
 
   useEffect(() => {
     if (item) {
@@ -277,6 +268,13 @@ export default function SchedulePage(): ReactElement {
                         sx={{ width: '250px' }}
                       />
                       <br />
+
+                      {ownerIsLocation && item?.owner.id && (
+                        <Typography variant="body2" sx={{ pt: 1, pb: 3 }}>
+                          Share booking links from the{' '}
+                          <Link to={`/admin/locations/${item.owner.id}`}>location page</Link>.
+                        </Typography>
+                      )}
 
                       <Typography
                         variant="body2"

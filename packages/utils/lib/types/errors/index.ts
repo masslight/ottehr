@@ -122,6 +122,9 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   return false;
 };
 
+export const errorHasStatusCode = (error: any, statusCode: number): boolean =>
+  error?.code === statusCode || error?.statusCode === statusCode || error?.message?.includes(`${statusCode}`);
+
 export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
   message: 'You are not authorized to access this data',

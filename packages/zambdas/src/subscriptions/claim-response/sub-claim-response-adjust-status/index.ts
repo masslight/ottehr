@@ -3,8 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse } from 'fhir/r4b';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
-import { createBillingClient, getTag } from '../../../billing/shared';
+import {
+  HOLD_TAG_NAME,
+  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+  SECONDARY_SUBMISSION_TAG_NAME,
+} from 'utils/lib/types/data/billing/system-tags';
+import { createBillingClient, ensureSystemManagedTags, getTag } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -63,7 +69,7 @@ export async function complexValidation(oystehr: Oystehr, claimResponseId: strin
 }
 
 export async function performEffect(oystehr: Oystehr, validated: ComplexValidationOutput): Promise<void> {
-  const { claim } = validated;
+  const { claim, claimResponse } = validated;
   const arStage = getTag(claim, CLAIM_STATUS_TAG_SYSTEMS.arStage);
   if (arStage !== AR_STAGE.insurancePayer) {
     return;
@@ -72,10 +78,54 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
   if (insuranceArStatus === 'adjudicated') {
     return;
   }
+  let targetARStatus = 'adjudicated';
+  const tagsToAdd: string[] = [];
+  if (claim.insurance.length > 1) {
+    // Flag for secondary submission
+    tagsToAdd.push(SECONDARY_SUBMISSION_TAG_NAME);
+    if (claimWasForwarded(claimResponse)) {
+      // No action necessary by biller
+      targetARStatus = 'submitted';
+      tagsToAdd.push(SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME);
+    } else {
+      // Hold for biller to manually submit
+      targetARStatus = 'adjudicated';
+      tagsToAdd.push(HOLD_TAG_NAME);
+    }
+  }
+
+  try {
+    await ensureSystemManagedTags(oystehr);
+  } catch (error) {
+    console.error('Failed to ensure system-managed tags exist:', error);
+  }
+
   await patchWithOptimisticLock(oystehr, claim, (claim) => [
     getPatchOperationForNewMetaTag(claim, {
       system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
-      code: 'adjudicated',
+      code: targetARStatus,
     }),
+    ...tagsToAdd.map((t) => getPatchOperationForNewMetaTag(claim, { system: CLAIM_TAG_SYSTEM, code: t })),
   ]);
+}
+
+function claimWasForwarded(claimResponse: ClaimResponse): boolean {
+  const medicareRemarkCodes = (claimResponse.extension ?? [])
+    .filter(
+      (ext) =>
+        ext.url.startsWith('https://extensions.fhir.oystehr.com/era-inpatient-remark-code-') ||
+        ext.url.startsWith('https://extensions.fhir.oystehr.com/era-outpatient-remark-code-')
+    )
+    .map((ext) => ext.valueString)
+    .filter((val): val is string => !!val);
+  const serviceLineRemarkCodes = (claimResponse.item ?? []).flatMap((item) =>
+    (item.extension ?? [])
+      .filter((ext) => ext.url === 'https://extensions.fhir.oystehr.com/era-item-remark-code')
+      .map((ext) => ext.valueString)
+      .filter((val): val is string => !!val)
+  );
+  if (medicareRemarkCodes.some((val) => val === 'MA18') || serviceLineRemarkCodes.some((val) => val === 'N89')) {
+    return true;
+  }
+  return false;
 }

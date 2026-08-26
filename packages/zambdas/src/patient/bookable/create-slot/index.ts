@@ -14,6 +14,7 @@ import {
   SlotServiceCategory,
 } from 'utils/lib/fhir/constants';
 import { getGroupAllLocations, isPractitionerRoleMemberOfGroup } from 'utils/lib/fhir/healthcareService';
+import { isLocationBookable } from 'utils/lib/fhir/location';
 import { BOOKING_CONFIG, getServiceCategoryCodeSchema, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
 import { Secrets } from 'utils/lib/secrets';
 import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
@@ -387,7 +388,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       }
       const inactiveLocationIds = new Set<string>();
       for (const res of groupBundle) {
-        if (res.resourceType === 'Location' && res.id && (res as Location).status === 'inactive') {
+        if (res.resourceType === 'Location' && res.id && !isLocationBookable(res as Location)) {
           inactiveLocationIds.add(res.id);
         }
       }

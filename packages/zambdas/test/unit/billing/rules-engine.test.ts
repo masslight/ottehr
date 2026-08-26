@@ -6,6 +6,7 @@ import {
   Location,
   Organization,
   Practitioner,
+  Reference,
   RelatedPerson,
 } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
@@ -1552,22 +1553,29 @@ describe('rules-engine serialization', () => {
 
 describe('rules-engine kickoff task', () => {
   it("builds a requested Task focused on the claim, carrying the engine's own code", () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
     for (const engine of RULES_ENGINE_TYPES) {
-      const task = buildRulesEngineKickoffTask(engine, 'claim-123', false);
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', false, requester);
       expect(task.status).toBe('requested');
       expect(task.focus?.reference).toBe('Claim/claim-123');
       expect(task.code?.coding?.[0]).toEqual({
         system: RULES_ENGINE_TASK_SYSTEM,
         code: RULES_ENGINE_FHIR[engine].taskCode,
       });
+      expect(task.requester).toBe(requester);
     }
     const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
     expect(new Set(codes).size).toBe(codes.length);
   });
 
   it("builds a requested Task focused on the claim, carrying the engine's own code, skipping rules", () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
     for (const engine of RULES_ENGINE_TYPES) {
-      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true);
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester);
       expect(task.status).toBe('requested');
       expect(task.focus?.reference).toBe('Claim/claim-123');
       expect(task.code?.coding?.[0]).toEqual({
@@ -1578,6 +1586,7 @@ describe('rules-engine kickoff task', () => {
         system: RULES_ENGINE_INPUT_SYSTEM,
         code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
       });
+      expect(task.requester).toBe(requester);
     }
     const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
     expect(new Set(codes).size).toBe(codes.length);
