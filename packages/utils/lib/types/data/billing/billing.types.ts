@@ -586,6 +586,17 @@ export interface SearchBillingTagsResponse {
   tags: BillingTag[];
 }
 
+// Refresh state of a cached billing report, derived from the refresh Task and the cache document.
+export interface ReportRefreshStatus {
+  state: 'idle' | 'running' | 'error';
+  // when the served cache was generated (absent when the report has never completed)
+  lastCompletedAt?: string;
+  // worker phase description while running (e.g. 'resolving cards 1500/3200…')
+  progress?: string;
+  // most recent failure's reason (state 'error')
+  error?: string;
+}
+
 export type GetBillingCoverageResponse = BillingCoverageOption;
 
 export interface GetPatientCoveragesResponse {

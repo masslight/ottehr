@@ -5,7 +5,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
+import { BILLING_MANUAL_PAYMENT_METHODS, REFRESH_REPORT_KINDS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -659,6 +659,36 @@ export const MatchClaimResponseToClaimInputSchema = z.object({
 export const UnmatchClaimResponseInputSchema = z.object({
   claimResponseId: nonEmptyString,
 });
+
+// report date-window fields: ISO date (YYYY-MM-DD), with from <= to when both are set
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected an ISO date (YYYY-MM-DD)');
+const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
+  !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
+const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
+
+export const GetBillingReportInputSchema = z.object({
+  kind: z.enum(REFRESH_REPORT_KINDS),
+  // per-kind params, validated against the report definition's paramsSchema server-side
+  params: z.record(z.unknown()).optional(),
+  // queue an async recompute (idempotent while one is already running for the same kind+params)
+  refresh: z.boolean().optional(),
+  // drilldown request: a filtered slice of the report's cached detail dataset, validated
+  // against the definition's drilldown paramsSchema server-side
+  drilldown: z.record(z.unknown()).optional(),
+});
+
+// date-window params shared by the parameterized report kinds (payments, patient-payments, …)
+export const ReportDateWindowParamsSchema = z
+  .object({
+    dateFrom: isoDate.optional(),
+    dateTo: isoDate.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+
+export const EmptyReportParamsSchema = z.object({});
+
+export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
+export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),

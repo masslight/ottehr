@@ -301,6 +301,7 @@
             "Zambda:Function:update-billing-provider",
             "Zambda:Function:create-billing-claim",
             "Zambda:Function:search-billing-claims",
+            "Zambda:Function:get-billing-report",
             "Zambda:Function:get-patient-coverages",
             "Zambda:Function:search-billing-locations",
             "Zambda:Function:create-billing-patient",
