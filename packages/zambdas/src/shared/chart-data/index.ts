@@ -29,6 +29,7 @@ import { DateTime } from 'luxon';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
+  AMBIENT_SCRIBE_RECORDING_PENDING_CODING,
   BODY_SITE_SYSTEM,
   CPT_CODE_SYSTEM,
   ERX_MEDICATION_META_TAG_CODE,
@@ -1602,6 +1603,12 @@ const mapResourceToChartDataFields = (
     resource.type?.coding?.[0].code === VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code
   ) {
     data.aiChat?.documents.push(resource);
+    resourceMapped = true;
+  } else if (
+    resource.resourceType === 'DocumentReference' &&
+    resource.type?.coding?.[0].code === AMBIENT_SCRIBE_RECORDING_PENDING_CODING.code
+  ) {
+    if (data.aiChat) data.aiChat.hasPendingRecording = true;
     resourceMapped = true;
   }
   return {

@@ -1,4 +1,4 @@
-import { Address } from 'fhir/r4b';
+import { Address, Location } from 'fhir/r4b';
 import { TelecomUpdate } from '../schedules';
 
 /**
@@ -34,6 +34,28 @@ export interface UpdateLocationParams extends LocationFieldsInput {
 
 export interface GetLocationParams {
   locationId: string;
+}
+
+/**
+ * A Schedule actored by the Location, reduced to what a caller needs to name and link to it.
+ *
+ * A Location may own several — one per service category is an established pattern — so this is
+ * always a list rather than an optional "the" schedule.
+ */
+export interface LocationScheduleSummary {
+  id: string;
+  /** The schedule's display-name extension, if it carries one. Schedule has no `name` in R4B. */
+  name?: string;
+}
+
+export interface GetLocationResponse {
+  location: Location;
+  /**
+   * Returned alongside the Location because the two are read together: booking links are built from
+   * Location config but only vend slots if a Schedule exists, so a caller that has one without the
+   * other can't tell a working link from a dead one.
+   */
+  schedules: LocationScheduleSummary[];
 }
 
 export interface ToggleLocationActiveParams {

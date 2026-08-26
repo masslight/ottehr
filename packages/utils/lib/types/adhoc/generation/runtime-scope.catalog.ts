@@ -139,12 +139,17 @@ export const REPORT_COMPONENTS = {
   },
   Table: {
     props:
-      'rows={rowsArray} columns={[{ field, label?, format? }]} links={[{ field, route, idField? }]} ' +
+      'rows={rowsArray} columns={[{ field, label?, format?, value? }]} links={[{ field, route, idField? }]} ' +
       'title="…" pageSize={25} onRowClick={fn?}',
     summary:
       'a FULL interactive data grid (sorting, filtering, a column picker, pagination) rendered inside the frame.',
     rules: [
       'columns defaults to every key of the first row — usually pass an explicit list.',
+      `column "format" is a NAME (${VALUE_FORMATS.join('|')}), never a function.`,
+      'For a column that is NOT a plain row field, either add the field to each row when you build them, or ' +
+        'pass value={(row) => …} — a "field" no row carries renders an empty cell.',
+      'A cell value that is an array or an object is rendered readably (joined, "key: value"), so a nested ' +
+        'record does not have to be flattened first.',
       'NEVER render a raw HTML <table>; always use Report.Table.',
       'onRowClick gives the clicked row (for drill-down — see PATTERNS).',
       {

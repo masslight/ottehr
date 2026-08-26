@@ -23,6 +23,7 @@ import { uuid } from 'short-uuid';
 import { BookableScheduleData, ScheduleStrategy, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
 import { scheduleStrategyForHealthcareService, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
+import { LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
 import { checkResourceHasSlug } from 'utils/lib/helpers/helpers';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import {
@@ -75,7 +76,7 @@ export async function getSchedules(
   // a 400, so the filter has to branch by resource type rather than be
   // applied uniformly.
   const ownerActiveFilter: SearchParam =
-    fhirType === 'Location' ? { name: 'status:not', value: 'inactive' } : { name: 'active:not', value: 'false' };
+    fhirType === 'Location' ? LOCATION_BOOKABLE_SEARCH_PARAM : { name: 'active:not', value: 'false' };
   const searchParams: SearchParam[] = [
     ownerLookupParam,
     { name: '_revinclude', value: `Schedule:actor:${fhirType}` },

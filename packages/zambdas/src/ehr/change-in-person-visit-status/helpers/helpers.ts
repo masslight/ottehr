@@ -12,7 +12,7 @@ import {
 } from 'utils/lib/types/api/appointment.types';
 import { User } from 'utils/lib/types/api/user.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
-import { CONCURRENT_UPDATE_WITH_MESSAGE } from 'utils/lib/types/errors';
+import { CONCURRENT_UPDATE_WITH_MESSAGE, errorHasStatusCode } from 'utils/lib/types/errors';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const changeInPersonVisitStatusIfPossible = async (
@@ -72,8 +72,7 @@ export const changeInPersonVisitStatusIfPossible = async (
         requests,
       });
     } catch (error: any) {
-      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
-      if (is412) {
+      if (errorHasStatusCode(error, 412) || errorHasStatusCode(error, 410)) {
         throw CONCURRENT_UPDATE_WITH_MESSAGE('The encounter was modified during the operation');
       }
       captureException(error, {

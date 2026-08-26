@@ -111,7 +111,7 @@ async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds:
       resourceType: 'ClaimResponse',
       params: [
         { name: 'request', value: batch.join(',') },
-        { name: '_elements', value: 'identifier,extension' },
+        { name: '_elements', value: 'id,identifier,extension' },
         { name: '_count', value: '1000' },
       ],
     });
