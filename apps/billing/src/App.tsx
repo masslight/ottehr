@@ -4,6 +4,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_RULES_ENGINE } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { Layout } from './components/Layout';
@@ -21,6 +22,7 @@ import CreateClaim from './pages/CreateClaim';
 import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
+import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
@@ -81,6 +83,12 @@ export default function App(): ReactElement {
               <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
               <Route path="/service-facilities" element={<ServiceFacilitiesList />} />
               <Route path="/service-facilities/:id" element={<ServiceFacilityDetail />} />
+              {FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled && (
+                <>
+                  <Route path="/non-insurance-organizations" element={<NonInsuranceOrganizationsList />} />
+                  <Route path="/non-insurance-organizations/:id" element={<NonInsuranceOrganizationDetail />} />
+                </>
+              )}
               <Route
                 path={`/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`}
                 element={<ChargeItemDefinitionList type="charge-master" />}
