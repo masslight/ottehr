@@ -782,14 +782,11 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
             }
             if (lineField.options) {
               const options = lineField.options;
-              // diagnosisMode is blank on rules saved before it existed; show the same default the
-              // engine would apply instead of an unselected dropdown.
-              const displayValue = lineField.id === 'diagnosisMode' ? fieldValue ?? effectiveMode : fieldValue;
               return (
                 <Autocomplete
                   size="small"
                   options={options}
-                  value={options.find((option) => option.value === displayValue) ?? null}
+                  value={options.find((option) => option.value === fieldValue) ?? null}
                   onChange={(_, option) => onChange(option?.value ?? '')}
                   getOptionLabel={(option) => option.label}
                   isOptionEqualToValue={(option, v) => option.value === v.value}

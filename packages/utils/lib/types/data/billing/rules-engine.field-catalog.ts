@@ -969,10 +969,8 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     id: 'diagnosisMode',
     label: 'Diagnoses',
     valueType: 'select',
-    // The rule builder always sets this explicitly (defaulting to 'primary' for a new line), so it's
-    // never actually blank in practice; a rule saved before this field existed falls back the same
-    // way via effectiveDiagnosisMode() rather than leaving it unset.
-    required: true,
+    required: false,
+    whenBlank: "uses the claim's primary diagnosis",
     options: DIAGNOSIS_POINTER_MODE_OPTIONS,
   },
   {
