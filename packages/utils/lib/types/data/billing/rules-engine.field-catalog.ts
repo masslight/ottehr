@@ -9,6 +9,8 @@ import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
+  DIAGNOSIS_POINTER_MODES,
+  effectiveDiagnosisMode,
   operatorIsMultiValue,
   operatorIsRegex,
   operatorNeedsValue,
@@ -229,6 +231,13 @@ const POS_OPTIONS: RuleFieldOption[] = CMS_PLACE_OF_SERVICE_CODES.map((pos) => (
   label: `${pos.code} - ${pos.display}`,
 }));
 const POS_OPTIONS_DOC_NOTE = 'any CMS place-of-service code';
+
+// Menu options for the addServiceLine action's diagnosis-selection mode (DIAGNOSIS_POINTER_MODES).
+const DIAGNOSIS_POINTER_MODE_OPTIONS: RuleFieldOption[] = [
+  { value: 'primary', label: "Claim's primary diagnosis" },
+  { value: 'all', label: "All of the claim's diagnoses" },
+  { value: 'specific', label: 'Specific diagnoses (pointers)' },
+];
 
 // One catalog entry per claim status indicator (AR stage, insurance/patient/non-insurance statuses),
 // generated from the same CLAIM_STATUS_FIELDS definition the claim screens use.
@@ -957,11 +966,23 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     whenBlank: "inherited from the claim's first service line; the action fails if the claim has no lines",
   },
   {
+    id: 'diagnosisMode',
+    label: 'Diagnoses',
+    valueType: 'select',
+    // The rule builder always sets this explicitly (defaulting to 'primary' for a new line), so it's
+    // never actually blank in practice; a rule saved before this field existed falls back the same
+    // way via effectiveDiagnosisMode() rather than leaving it unset.
+    required: true,
+    options: DIAGNOSIS_POINTER_MODE_OPTIONS,
+  },
+  {
     id: 'diagnosisPointers',
     label: 'Diagnosis pointers (comma-separated)',
     valueType: 'string',
-    required: false,
-    whenBlank: 'points at the first diagnosis (1)',
+    // Only shown (and only meaningful) when Diagnoses is 'Specific diagnoses' — see the diagnosisMode
+    // field above and effectiveDiagnosisMode() — so whenever it's on screen, leaving it blank isn't a
+    // valid "use the default" choice.
+    required: true,
   },
   { id: 'revenueCode', label: 'Revenue code', valueType: 'string', required: false },
 ];
@@ -969,9 +990,13 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
 // builder (per-field validation messages) and save-time validation; claim-dependent checks (e.g. a
 // pointer beyond the claim's diagnosis count) happen at apply time in the engine.
+//
+// `line` carries the sibling diagnosisMode so diagnosisPointers can be validated as required exactly
+// when the mode makes it meaningful ('specific') — the rest of the fields don't need it.
 export function addServiceLineFieldProblem(
   fieldId: AddServiceLineFieldDef['id'],
-  value: string | undefined
+  value: string | undefined,
+  line?: Pick<AddServiceLineInput, 'diagnosisMode'>
 ): string | undefined {
   const trimmed = value?.trim() ?? '';
   switch (fieldId) {
@@ -987,8 +1012,15 @@ export function addServiceLineFieldProblem(
       const units = Number(trimmed);
       return Number.isFinite(units) && units > 0 ? undefined : 'Units must be a positive number';
     }
-    case 'diagnosisPointers': {
+    case 'diagnosisMode':
       if (!trimmed) return undefined;
+      return (DIAGNOSIS_POINTER_MODES as readonly string[]).includes(trimmed) ? undefined : 'Unknown diagnosis mode';
+    case 'diagnosisPointers': {
+      if (!trimmed) {
+        return effectiveDiagnosisMode({ diagnosisMode: line?.diagnosisMode, diagnosisPointers: value }) === 'specific'
+          ? "Diagnosis pointers are required when Diagnoses is 'Specific diagnoses'"
+          : undefined;
+      }
       const pointers = trimmed.split(',').map((part) => Number(part.trim()));
       return pointers.every((pointer) => Number.isInteger(pointer) && pointer >= 1)
         ? undefined
@@ -1311,7 +1343,7 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
     }
     if (action.type === 'addServiceLine') {
       for (const field of ADD_SERVICE_LINE_FIELDS) {
-        const problem = addServiceLineFieldProblem(field.id, action.line[field.id]);
+        const problem = addServiceLineFieldProblem(field.id, action.line[field.id], action.line);
         if (problem) problems.push(`rule "${rule.name}" adds a service line: ${problem}`);
       }
       return;

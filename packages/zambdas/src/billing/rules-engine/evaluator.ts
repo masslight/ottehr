@@ -4,6 +4,8 @@ import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billin
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
+  DiagnosisPointerMode,
+  effectiveDiagnosisMode,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_OUTCOME_TYPE,
@@ -216,15 +218,26 @@ export const serviceLineMatches = (line: ClaimServiceLine, match: ServiceLineMat
   });
 };
 
-// Resolve the diagnosis pointers for a new line: explicit pointers are validated strictly against
-// the claim's diagnosis list (a rule must never silently re-point a line), while a blank input falls
-// back to the claim editor's default — the first diagnosis, or none when the claim has none.
+// Resolve the diagnosis pointers for a new line, per the action's diagnosisMode:
+// - primary: the claim's first diagnosis.
+// - all: every diagnosis on the claim.
+// - specific: explicit pointers, required (a blank list is a mistake, not "use the default") and
+//   validated strictly against the claim's diagnosis list (a rule must never silently re-point a
+//   line).
+// primary/all resolve to no pointers when the claim has no diagnoses.
 const resolveDiagnosisPointers = (
+  mode: DiagnosisPointerMode,
   raw: string | undefined,
   diagnosisCount: number
 ): { pointers?: number[]; error?: string } => {
+  if (mode === 'all') {
+    return { pointers: diagnosisCount > 0 ? Array.from({ length: diagnosisCount }, (_, i) => i + 1) : undefined };
+  }
+  if (mode === 'primary') {
+    return { pointers: diagnosisCount > 0 ? [1] : undefined };
+  }
   const trimmed = raw?.trim() ?? '';
-  if (!trimmed) return { pointers: diagnosisCount > 0 ? [1] : undefined };
+  if (!trimmed) return { error: 'diagnosis pointers are required when Diagnoses is set to Specific diagnoses' };
   const pointers = trimmed.split(',').map((part) => Number(part.trim()));
   if (pointers.length === 0 || pointers.some((pointer) => !Number.isInteger(pointer) || pointer < 1)) {
     return { error: `invalid diagnosis pointers "${raw}"` };
@@ -254,7 +267,11 @@ const applyAddServiceLine = (
     return 'could not add service line — specify a service date (the claim has no existing lines to inherit one from)';
   }
 
-  const resolved = resolveDiagnosisPointers(input.diagnosisPointers, claim.diagnosis?.length ?? 0);
+  const resolved = resolveDiagnosisPointers(
+    effectiveDiagnosisMode(input),
+    input.diagnosisPointers,
+    claim.diagnosis?.length ?? 0
+  );
   if (resolved.error) return `could not add service line — ${resolved.error}`;
 
   const line: ClaimServiceLine = {

@@ -302,7 +302,8 @@ A matched branch's outcome is a list of actions, applied in order:
 | Modifiers (comma-separated) (`modifiers`) | text | no | no modifiers |
 | Place of service code (`placeOfService`) | text | no | none |
 | Service date (`serviceDate`) | date | no | inherited from the claim's first service line; the action fails if the claim has no lines |
-| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | no | points at the first diagnosis (1) |
+| Diagnoses (`diagnosisMode`) | one of the listed values | yes | — |
+| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | yes | — |
 | Revenue code (`revenueCode`) | text | no | — |
 
 Actions after a failed action or after the **Hold** tag do not run.

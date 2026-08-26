@@ -283,6 +283,17 @@ describe('rule value validation', () => {
     expect(addServiceLineFieldProblem('serviceDate', '02/02/2026')).toContain('ISO date');
   });
 
+  it('requires diagnosis pointers only when diagnosisMode is "specific"', () => {
+    // No mode and no pointers: defaults to the primary diagnosis, so blank is fine.
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined)).toBeUndefined();
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined, { diagnosisMode: 'primary' })).toBeUndefined();
+    expect(addServiceLineFieldProblem('diagnosisPointers', undefined, { diagnosisMode: 'all' })).toBeUndefined();
+    // Explicit 'specific' with no pointers is a mistake, not "use the default".
+    expect(addServiceLineFieldProblem('diagnosisPointers', '', { diagnosisMode: 'specific' })).toContain('required');
+    expect(addServiceLineFieldProblem('diagnosisPointers', '  ', { diagnosisMode: 'specific' })).toContain('required');
+    expect(addServiceLineFieldProblem('diagnosisPointers', '1,2', { diagnosisMode: 'specific' })).toBeUndefined();
+  });
+
   it('collects applyTag names across nested conditionals', () => {
     const names = collectApplyTagNames({
       conditional: {

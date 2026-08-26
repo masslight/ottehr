@@ -189,6 +189,11 @@ export const ServiceLineMatchSchema: z.ZodType<ServiceLineMatch> = z.discriminat
 export const SERVICE_LINE_SET_OPERATIONS = ['set', 'add', 'remove'] as const;
 export type ServiceLineSetOperation = (typeof SERVICE_LINE_SET_OPERATIONS)[number];
 
+// Which claim diagnoses the addServiceLine action points the new line at: the claim's primary
+// (first) diagnosis, every diagnosis on the claim, or an explicit set of pointers (diagnosisPointers).
+export const DIAGNOSIS_POINTER_MODES = ['primary', 'all', 'specific'] as const;
+export type DiagnosisPointerMode = (typeof DIAGNOSIS_POINTER_MODES)[number];
+
 // The fields of a new service line added by the addServiceLine action. All values are strings (the
 // rule value model) and are validated at save time (format) and apply time (claim-dependent checks);
 // blank optional fields fall back to the same defaults the claim editor uses — see
@@ -201,11 +206,23 @@ export const AddServiceLineInputSchema = z.object({
   charges: z.string().min(1),
   placeOfService: z.string().optional(),
   serviceDate: z.string().optional(),
-  // Comma-separated 1-based pointers into the claim's diagnosis list.
+  // Blank/omitted behaves like 'primary' unless diagnosisPointers is set, in which case it behaves
+  // like 'specific' — see effectiveDiagnosisMode(), which keeps rules saved before this field
+  // existed pointing at the same diagnoses instead of silently switching to 'primary'.
+  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional(),
+  // Comma-separated 1-based pointers into the claim's diagnosis list; only read when diagnosisMode
+  // is 'specific'.
   diagnosisPointers: z.string().optional(),
   revenueCode: z.string().optional(),
 });
 export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
+
+// The addServiceLine action's diagnosis-selection mode, defaulting blank/omitted input the same way
+// the engine and the rule builder both need to: 'specific' when legacy diagnosisPointers is set
+// (rules saved before diagnosisMode existed), 'primary' otherwise.
+export const effectiveDiagnosisMode = (
+  line: Pick<AddServiceLineInput, 'diagnosisMode' | 'diagnosisPointers'>
+): DiagnosisPointerMode => line.diagnosisMode ?? (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
 
 // --- Action ---
 export type RuleAction =
