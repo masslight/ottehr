@@ -4,7 +4,9 @@ import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Attachment,
+  DomainResource,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Meta,
@@ -14,22 +16,15 @@ import {
   Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BILLING_RESOURCE_TAG,
-  EncounterVirtualServiceExtension,
-  findQuestionnaireResponseItemLinkId,
-  getSecret,
-  getTimezone,
-  INVALID_INPUT_ERROR,
-  pickFirstValueFromAnswerItem,
-  PRIVATE_EXTENSION_BASE_URL,
-  PUBLIC_EXTENSION_BASE_URL,
-  Secrets,
-  SecretsKeys,
-  TELEMED_VIDEO_ROOM_CODE,
-  TIMEZONES,
-} from 'utils';
-import { ZambdaInput } from './types';
+import { BILLING_RESOURCE_TAG, PRIVATE_EXTENSION_BASE_URL, PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TELEMED_VIDEO_ROOM_CODE, TIMEZONES } from 'utils/lib/types/constants';
+import { EncounterVirtualServiceExtension } from 'utils/lib/types/data/oystehr-api.types.ts/telemed.types';
+import { findQuestionnaireResponseItemLinkId } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { ZambdaInput } from './types/common';
 import { safeJsonParse } from './validation';
 
 export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
@@ -281,6 +276,8 @@ export function checkPaperworkComplete(questionnaireResponse: QuestionnaireRespo
     const photoIdFrontItem = findQuestionnaireResponseItemLinkId('photo-id-front', questionnaireResponse?.item ?? []);
     if (photoIdFrontItem) {
       photoIdFront = pickFirstValueFromAnswerItem(photoIdFrontItem, 'attachment');
+    } else {
+      return true;
     }
     if (photoIdFront) {
       return true;
@@ -297,4 +294,8 @@ export function resolveTimezone(schedule?: Schedule, location?: Location, fallba
     return getTimezone(location);
   }
   return fallback;
+}
+
+export function updateExtension(resource: DomainResource, extension: Extension): void {
+  resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
 }

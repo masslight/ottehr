@@ -5,7 +5,8 @@ import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutl
 import { Box } from '@mui/material';
 import { displayOrdersToolTip } from 'src/helpers';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { InPersonAppointmentInformation, OrdersForTrackingBoardRow } from 'utils';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
 import { ApptTab } from '../../../../components/AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from '../../../../components/GenericToolTip';
 import { OrdersIconsToolTip } from './OrdersIconsToolTip';

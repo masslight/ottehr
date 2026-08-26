@@ -1,5 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
-import { getNPIIdentifier } from 'utils';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
 
 export const getPractitionerMissingFields = (practitioner: Practitioner): string[] => {
   const missingFields: string[] = [];

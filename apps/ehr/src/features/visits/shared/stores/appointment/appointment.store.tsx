@@ -29,23 +29,23 @@ import {
 } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import {
   AllChartValues,
-  APIErrorCode,
-  ChartDataRequestedFields,
-  GetChartDataResponse,
-  isLocationInPerson,
-  isLocationVirtual,
   NOTE_TYPE,
-  ObservationDTO,
-  PromiseReturnType,
   RequestedFields,
-  SaveChartDataRequest,
+  SchoolWorkNoteExcuseDocFileDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { PromiseReturnType } from 'utils/lib/types/common';
+import {
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-  SchoolWorkNoteExcuseDocFileDTO,
-} from 'utils';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';

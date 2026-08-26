@@ -3,7 +3,7 @@ import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { Box, Grid, Typography, useTheme } from '@mui/material';
 import { FC, useMemo } from 'react';
-import { PatientPaymentBenefit } from 'utils';
+import { PatientPaymentBenefit } from 'utils/lib/types/data/telemed/eligibility.types';
 
 interface CopayWidgetProps {
   copay: PatientPaymentBenefit[];

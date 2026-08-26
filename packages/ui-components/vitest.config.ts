@@ -7,7 +7,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'happy-dom',
-      setupFiles: ['../test-utils/lib/no-network.setup.ts'],
+      setupFiles: ['../test-utils/lib/no-network.setup.ts', './vitest.setup.ts'],
       coverage: {
         provider: 'v8',
         reporter: ['lcov', 'text-summary', 'json'],

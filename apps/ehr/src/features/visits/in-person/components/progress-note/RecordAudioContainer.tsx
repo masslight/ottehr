@@ -11,7 +11,8 @@ import {
 } from 'src/features/visits/shared/stores/audioRecording.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { AIChatDetails, getFormatDuration } from 'utils';
+import { getFormatDuration } from 'utils/lib/helpers/helpers';
+import { AIChatDetails } from 'utils/lib/types/api/chart-data/chart-data.types';
 import WaveSurfer from 'wavesurfer.js';
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record';
 import { getSource, getSourceFormat } from '../../../shared/components/OttehrAi';
@@ -141,7 +142,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
               const audioSource = getSource(item, oystehr, aiChat.providers);
               return <RecordedAudio duration={audioDuration} status="ready" source={audioSource} />;
             })}
-          {uploading && (
+          {(uploading || aiChat?.hasPendingRecording) && (
             <RecordedAudio
               duration={getFormatDuration(uploadedDuration)}
               status="loading"

@@ -11,6 +11,7 @@ import {
   ClaimResponseItem,
   Coding,
   Coverage,
+  DomainResource,
   FhirResource,
   Identifier,
   List,
@@ -27,67 +28,74 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  AR_STAGE,
-  BILLING_INSURANCE_TYPE_LABELS,
   BILLING_RESOURCE_TAG,
-  BillingChargeItemDefinitionProcedureCode,
-  BillingInsuranceType,
-  BillingPolicyHolderInput,
-  BillingProviderOption,
-  BillingRule,
-  BillingSubscriberRelationship,
+  CPT_CODE_SYSTEM,
+  FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_CODE_TAX_SS,
+  FHIR_IDENTIFIER_CODE_TAXONOMY,
+  FHIR_IDENTIFIER_SYSTEM,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  WORKERS_COMP_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
+import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import {
   buildCoverageSubscriberRelatedPerson,
-  ChargeItemDefinitionDefault,
-  ChargeItemDefinitionType,
-  CLAIM_STATUS_FIELDS,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimStatusFieldKey,
-  ClaimStatusValues,
-  claimStatusValuesToTags,
+  createCoverageMemberIdentifier,
+  getNPI,
+  getResourcesFromBatchInlineRequests,
+  getSubscriberRelationshipCodeableConcept,
+  getTaxID,
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  convertFhirNameToDisplayName,
-  CPT_CODE_SYSTEM,
-  createCoverageMemberIdentifier,
   EXTENSION_URL_CPT_MODIFIER,
-  FHIR_IDENTIFIER_CLIA,
-  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
-  FHIR_IDENTIFIER_CODE_TAX_SS,
-  FHIR_IDENTIFIER_CODE_TAXONOMY,
-  FHIR_IDENTIFIER_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
+} from 'utils/lib/helpers/rcm/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  BillingInsuranceType,
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BILLING_INSURANCE_TYPE_LABELS,
+  BillingChargeItemDefinitionProcedureCode,
+  BillingProviderOption,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
+  ClaimCoverageType,
+} from 'utils/lib/types/data/billing/billing.types';
+import {
+  AR_STAGE,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   getClaimStatusFieldValue,
   getClaimStatusValues,
-  getNPI,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  getPayerId,
-  getPayerUrl,
-  getResourcesFromBatchInlineRequests,
-  getSecret,
-  getSubscriberRelationshipCodeableConcept,
-  getTaxID,
-  INVALID_INPUT_ERROR,
-  isPayerUrl,
   isValidClaimStatusValue,
-  isValidUUID,
-  patchWithOptimisticLock,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RulesEngineType,
-  Secrets,
-  SecretsKeys,
-  setCoveragePlanType,
   withArStageInitialization,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { fetchAllPages, sendErrors } from '../shared';
+} from 'utils/lib/types/data/billing/claim-status';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { SYSTEM_MANAGED_TAGS, SystemManagedTag } from 'utils/lib/types/data/billing/system-tags';
+import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { sendErrors } from '../shared/errors';
+import { fetchAllPages } from '../shared/fhir';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -231,6 +239,9 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
+// A working copy can itself be copied, so a copy is not always one hop from its main Patient
+const MAX_COPY_CHAIN_HOPS = 10;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
@@ -247,6 +258,14 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
+export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
+export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
+  'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
+export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
+export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
@@ -264,10 +283,14 @@ export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
-export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
-  return patient.extension
-    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-    ?.valueReference?.reference?.replace('Patient/', '');
+export function copySourceRef(resource?: DomainResource): string | undefined {
+  return resource?.extension?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
+}
+
+export function copySourceId(resource?: DomainResource): string | undefined {
+  const ref = copySourceRef(resource);
+  if (!ref) return undefined;
+  return ref.includes('/') ? ref.slice(ref.lastIndexOf('/') + 1) : ref;
 }
 
 export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
@@ -344,45 +367,70 @@ export async function searchPatientsByClinicalIds({
   return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
 }
 
-export function hasIdentifier(patient: Patient, identifier: Identifier): boolean {
-  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+export interface ClinicalPatientIds {
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+  workingCopyParentId?: string;
 }
 
-export function missingClinicalPatientIdentifiers(patient: Patient, clinicalPatientId: string): Identifier[] {
-  const friendlyId = clinicalFriendlyIdOfCopy(patient);
-  const wanted = [
-    clinicalPatientIdentifier(clinicalPatientId),
-    ...(friendlyId ? [clinicalFriendlyIdIdentifier(friendlyId)] : []),
-  ];
-  return wanted.filter((identifier) => !hasIdentifier(patient, identifier));
-}
-
-export async function addClinicalPatientIdentifiers({
+export async function resolveClinicalPatientIds({
   oystehr,
   patient,
-  clinicalPatientId,
+  fetchBillingPatient = (id) => findById<Patient>(oystehr, 'Patient', id),
 }: {
   oystehr: Oystehr;
   patient: Patient;
-  clinicalPatientId: string;
-}): Promise<void> {
-  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
-    const missing = missingClinicalPatientIdentifiers(current, clinicalPatientId);
-    if (missing.length === 0) return [];
-    return current.identifier?.length
-      ? missing.map((identifier) => ({
-          op: 'add' as const,
-          path: '/identifier/-',
-          value: identifier,
-        }))
-      : [
-          {
-            op: 'add' as const,
-            path: '/identifier',
-            value: missing,
-          },
-        ];
+  fetchBillingPatient?: (id: string) => Promise<Patient | undefined>;
+}): Promise<ClinicalPatientIds> {
+  const sourceId = copySourceId(patient);
+  if (!isWorkingCopy(patient)) {
+    return {
+      clinicalId: sourceId,
+      clinicalFriendlyId: clinicalFriendlyIdOfCopy(patient),
+    };
+  }
+  const main = await findMainPatientOfWorkingCopy({
+    patient,
+    sourceId,
+    fetchBillingPatient,
   });
+  return {
+    clinicalId: main ? copySourceId(main) : undefined,
+    clinicalFriendlyId: (main ? clinicalFriendlyIdOfCopy(main) : undefined) ?? clinicalFriendlyIdOfCopy(patient),
+    workingCopyParentId: sourceId,
+  };
+}
+
+async function findMainPatientOfWorkingCopy({
+  patient,
+  sourceId,
+  fetchBillingPatient,
+}: {
+  patient: Patient;
+  sourceId?: string;
+  fetchBillingPatient: (id: string) => Promise<Patient | undefined>;
+}): Promise<Patient | undefined> {
+  const visited = new Set<string>(patient.id ? [patient.id] : []);
+  let ancestorId = sourceId;
+  if (!ancestorId) return noMainPatient(patient, 'it has no source reference');
+  for (let hop = 0; hop < MAX_COPY_CHAIN_HOPS; hop++) {
+    if (visited.has(ancestorId)) return noMainPatient(patient, `the chain cycles back to Patient/${ancestorId}`);
+    visited.add(ancestorId);
+    const ancestor = await fetchBillingPatient(ancestorId);
+    if (!ancestor) return noMainPatient(patient, `Patient/${ancestorId} in the chain no longer exists`);
+    if (!isWorkingCopy(ancestor)) return ancestor;
+    const nextAncestorId = copySourceId(ancestor);
+    if (!nextAncestorId) return noMainPatient(patient, `Patient/${ancestorId} in the chain has no source reference`);
+    ancestorId = nextAncestorId;
+  }
+  return noMainPatient(patient, `the chain is deeper than ${MAX_COPY_CHAIN_HOPS} hops`);
+}
+
+// A copy that resolves no main patient is written with no clinical identifiers, which nothing
+// downstream can tell apart from a copy that never had a clinical patient, so say which chain broke.
+function noMainPatient(patient: Patient, reason: string): undefined {
+  console.warn(`No main billing Patient resolved for working copy Patient/${patient.id}: ${reason}`);
+  return undefined;
 }
 
 export async function searchOnClinicalIDs(
@@ -414,8 +462,7 @@ export async function searchOnClinicalIDs(
   }, CLINICAL_ID_SCAN_PAGE_SIZE);
   if (uuid || friendlyId) {
     results = results.filter(
-      (p) =>
-        (!!uuid && clinicalPatientIdOfCopy(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
+      (p) => (!!uuid && copySourceId(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
     );
   }
   const total = results.length;
@@ -473,8 +520,35 @@ export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
+// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
+// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
+// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
+// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
+// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
+// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
-  return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+  return isSystemManagedTagName(tag.code?.text);
+}
+
+// The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
+export function systemTagBasic(def: SystemManagedTag): Basic {
+  return {
+    resourceType: 'Basic',
+    code: { text: def.name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+    extension: [
+      { url: TAG_DESCRIPTION_URL, valueString: def.description },
+      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+    ],
+  };
+}
+
+// Create the Basic definition of any system-managed tag that doesn't have one yet. Callers decide
+// whether a failure matters — seeding is cosmetic (search-billing-tags reports system-managed tags
+// whether or not their Basics exist).
+export async function ensureSystemManagedTags(oystehr: Oystehr): Promise<void> {
+  const defined = await fetchDefinedTagNames(oystehr);
+  const missing = SYSTEM_MANAGED_TAGS.filter((def) => !defined.has(def.name));
+  await Promise.all(missing.map((def) => oystehr.fhir.create<Basic>(systemTagBasic(def))));
 }
 
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
@@ -516,9 +590,6 @@ export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Refere
     careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
   }));
 }
-
-export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
-export const AUTO_ACCIDENT_TAG_DESCRIPTION = 'Claim is for a clinical encounter resulting from an auto accident';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -566,13 +637,29 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
   });
 }
 
+export async function findById<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string
+): Promise<T | undefined> {
+  const result = await oystehr.fhir.search<T>({
+    resourceType,
+    params: [
+      {
+        name: '_id',
+        value: id,
+      },
+    ],
+  });
+  return result.unbundle()[0];
+}
+
 export async function fetchById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   id: string
 ): Promise<T> {
-  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
-  const resource = result.unbundle()[0];
+  const resource = await findById<T>(oystehr, resourceType, id);
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
 }
@@ -624,12 +711,13 @@ export async function kickOffRulesEngine(
   oystehr: Oystehr,
   engine: RulesEngineType,
   claimId: string,
+  requester: Reference,
   secrets: Secrets | null
 ): Promise<void> {
   // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   try {
-    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId));
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId, false, requester));
   } catch (error) {
     console.error(`Failed to enqueue ${engine} rules-engine Task for Claim/${claimId}:`, error);
     await sendErrors(error, env, { claimId, engine });
@@ -864,6 +952,60 @@ export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: 
   return copy;
 }
 
+export function copyBillingPatient({
+  patient,
+  workingCopy,
+  clinicalId,
+  clinicalFriendlyId,
+}: {
+  patient: Patient;
+  workingCopy?: boolean;
+  clinicalId?: string;
+  clinicalFriendlyId?: string;
+}): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  if (!clinicalId && !clinicalFriendlyId) return copy;
+  copy.identifier ??= [];
+  if (clinicalId) {
+    // Source reference in extension is managed by prepareCopy
+    copy.identifier.push(clinicalPatientIdentifier(clinicalId));
+  }
+  if (clinicalFriendlyId) {
+    copy.extension = [
+      ...(copy.extension ?? []),
+      {
+        url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+        valueString: clinicalFriendlyId,
+      },
+    ];
+    copy.identifier.push(clinicalFriendlyIdIdentifier(clinicalFriendlyId));
+  }
+  return copy;
+}
+
+export async function copyBillingPatientWithClinicalIds({
+  oystehr,
+  patient,
+  workingCopy,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  workingCopy?: boolean;
+}): Promise<Patient> {
+  const { clinicalId, clinicalFriendlyId } = await resolveClinicalPatientIds({
+    oystehr,
+    patient,
+  });
+  return copyBillingPatient({
+    patient,
+    workingCopy,
+    clinicalId,
+    clinicalFriendlyId,
+  });
+}
+
 /**
  * Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
  */
@@ -1048,7 +1190,6 @@ export function buildBillingCoverage(params: {
   payerOrg: Organization;
   memberId: string;
   status: Coverage['status'];
-  insuranceType: BillingInsuranceType;
   planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
@@ -1070,11 +1211,57 @@ export function buildBillingCoverage(params: {
   return coverage;
 }
 
+// The per-claim working copies of one of the patient's coverages and its standalone policy holder,
+// re-pointed at the claim's patient. Linking and persisting them is the caller's job, because the
+// reference form differs: the claim editor creates them and stores real ids, while the rules engine
+// mints urn:uuid placeholders resolved inside its own transaction. When the claim has no patient
+// reference the copies keep the original's references (nothing to re-point at) and no policy-holder
+// copy is made — matching what the claim editor does.
+export function buildClaimCoverageCopies(params: {
+  coverage: Coverage;
+  subscriber?: RelatedPerson;
+  patientReference?: string;
+}): { coverage: Coverage; subscriber?: RelatedPerson } {
+  const coverage = prepareWorkingCopy<Coverage>(params.coverage, params.coverage.id);
+  if (!params.patientReference) return { coverage };
+
+  coverage.beneficiary = { reference: params.patientReference };
+  // Self by default; a standalone policy holder is linked by the caller once its reference exists.
+  coverage.subscriber = { reference: params.patientReference };
+  if (!params.subscriber?.id) return { coverage };
+
+  const subscriber = prepareWorkingCopy<RelatedPerson>(params.subscriber, params.subscriber.id);
+  subscriber.patient = { reference: params.patientReference };
+  return { coverage, subscriber };
+}
+
+// Point the claim's coverage slot at `coverageReference` and its insurer at the
+// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
+// ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
+export function attachCoverageToClaim(params: {
+  claim: Claim;
+  coverageReference: string;
+  type: ClaimCoverageType;
+  display?: string;
+  payerReference?: string;
+}): void {
+  const { claim, coverageReference, display, payerReference } = params;
+  const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
+  const focal = params.type === 'primary';
+  claim.insurance = ensureClaimInsurance([
+    { sequence, focal, coverage: { reference: coverageReference, display } },
+    ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
+  ]);
+  if (payerReference) claim.insurer = { reference: payerReference, display };
+}
+
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
 // account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
 const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
   primary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 1 },
   secondary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 2 },
+  tertiary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 3 },
+  quaternary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 4 },
   workersComp: { type: WORKERS_COMP_ACCOUNT_TYPE, code: 'WCOMPACCT', priority: 1 },
 };
 
@@ -1111,7 +1298,65 @@ export function getCoverageInsuranceType(
   const pbillEntry = pbillAccount?.coverage?.find((c) => c.coverage?.reference === ref);
   if (pbillEntry?.priority === 1) return 'primary';
   if (pbillEntry?.priority === 2) return 'secondary';
+  if (pbillEntry?.priority === 3) return 'tertiary';
+  if (pbillEntry?.priority === 4) return 'quaternary';
   return undefined;
+}
+
+// One of the patient's coverages as the billing app sees it: the coverage, the slot its billing
+// accounts place it in, and its standalone policy holder (when the subscriber is a RelatedPerson
+// rather than the patient).
+export interface PatientCoverageRecord {
+  coverage: Coverage;
+  // Undefined when an account references the coverage without one of the canonical placements
+  // (PBILLACCT priority 1/2, WCOMPACCT).
+  insuranceType?: BillingInsuranceType;
+  subscriber?: RelatedPerson;
+}
+
+// Every coverage the patient's billing accounts reference, resolved to its slot and policy holder.
+// Shared by the claim detail coverage picker (get-patient-coverages) and the rules engine's
+// "Coverage (from patient)" prefetch so both read the patient's coverages one way. Working copies
+// are excluded — these are the patient's reference coverages, which claims copy from.
+export async function fetchPatientCoverages(oystehr: Oystehr, patientId: string): Promise<PatientCoverageRecord[]> {
+  const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientAccounts(oystehr, patientId),
+  ]);
+
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+  const subscribersById = new Map(subscriberBundle.unbundle().map((rp) => [rp.id ?? '', rp]));
+
+  // Only coverages an account references are the patient's billing coverages; anything else on the
+  // patient is not part of their insurance setup.
+  const referencedByAccount = (coverage: Coverage): boolean => {
+    const ref = `Coverage/${coverage.id}`;
+    return [pbillAccount, wcompAccount].some(
+      (account) => account?.coverage?.some((c) => c.coverage?.reference === ref)
+    );
+  };
+
+  return coverageBundle
+    .unbundle()
+    .filter(referencedByAccount)
+    .map((coverage) => {
+      const subscriberRef = coverage.subscriber?.reference;
+      return {
+        coverage,
+        insuranceType: getCoverageInsuranceType(coverage, pbillAccount, wcompAccount),
+        subscriber: subscriberRef?.startsWith('RelatedPerson/')
+          ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
+          : undefined,
+      };
+    });
 }
 
 type AccountWriteRequest = BatchInputPostRequest<Account> | BatchInputPutRequest<Account>;
@@ -1344,13 +1589,7 @@ export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
 });
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
-  let workingCopyReferenceResourceId: string | undefined;
-  if (isWorkingCopy(resource)) {
-    workingCopyReferenceResourceId = resource.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Practitioner/', '')
-      ?.replace('Organization/', '');
-  }
+  const workingCopyReferenceResourceId = isWorkingCopy(resource) ? copySourceId(resource) : undefined;
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',

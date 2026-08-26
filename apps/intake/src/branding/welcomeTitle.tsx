@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 
 export const getWelcomeTitle = (): ReactNode => {
   if (!BRANDING_CONFIG.intake.welcomeTitleBreak) {

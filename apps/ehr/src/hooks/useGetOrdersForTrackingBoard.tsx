@@ -5,7 +5,7 @@ import { useGetNursingOrders } from 'src/features/nursing-orders/components/orde
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { useGetImmunizationOrders } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { OrdersForTrackingBoardTable } from 'utils';
+import { OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
 import { useGetErxOrders } from './useGetErxOrders';
 import { useGetProcedures } from './useGetProcedures';
 
@@ -48,6 +48,8 @@ export const useGetOrdersForTrackingBoard = (
 
   const { orders: radiologyOrders } = usePatientRadiologyOrders({ encounterIds, refreshKey });
 
+  const internalRadiologyOrders = useMemo(() => radiologyOrders.filter((order) => !order.external), [radiologyOrders]);
+
   const erxOrdersQuery = useGetErxOrders({ encounterIds });
 
   const proceduresQuery = useGetProcedures({ encounterIds });
@@ -60,7 +62,7 @@ export const useGetOrdersForTrackingBoard = (
       inHouseLabOrdersByAppointmentId: groupByAppointmentId(inHouseOrders?.labOrders),
       nursingOrdersByAppointmentId: groupByAppointmentId(nursingOrders),
       inHouseMedicationsByEncounterId: groupByEncounterId(medicationOrdersQuery.data?.orders),
-      radiologyOrdersByAppointmentId: groupByAppointmentId(radiologyOrders),
+      radiologyOrdersByAppointmentId: groupByAppointmentId(internalRadiologyOrders),
       erxOrdersByEncounterId: groupByEncounterId(erxOrdersQuery.data?.orders),
       proceduresByEncounterId: groupByEncounterId(proceduresQuery.data),
       immunizationOrdersByEncounterId: groupByEncounterId(immunizationOrdersQuery.data?.orders),
@@ -70,7 +72,7 @@ export const useGetOrdersForTrackingBoard = (
       inHouseOrders?.labOrders,
       nursingOrders,
       medicationOrdersQuery.data?.orders,
-      radiologyOrders,
+      internalRadiologyOrders,
       erxOrdersQuery.data?.orders,
       proceduresQuery.data,
       immunizationOrdersQuery.data,

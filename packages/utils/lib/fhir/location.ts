@@ -1,16 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, HealthcareService, Location, Practitioner, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  AvailableLocationInformation,
-  OVERRIDE_DATE_FORMAT,
-  ScheduleListItem,
-  ScheduleType,
-  ServiceMode,
-  TelemedLocation,
-  TIMEZONES,
-} from '../types';
-import { DOW, getScheduleExtension, getTimezone } from '../utils';
+import { ScheduleListItem } from '../types/api/schedules';
+import { AvailableLocationInformation, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode } from '../types/common';
+import { TIMEZONES } from '../types/constants';
+import { TelemedLocation } from '../types/data/telemed/get-telemed-locations.types';
+import { DOW, getScheduleExtension, getTimezone } from '../utils/scheduleUtils';
 import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
 import { getAllFhirSearchPages } from './getAllFhirSearchPages';
 import { getFullName } from './patient';
@@ -36,6 +31,34 @@ export const isLocationManuallyCreated = (location: Location): boolean =>
   Boolean(
     location.extension?.some((ext) => ext.url === LOCATION_MANUALLY_CREATED_EXTENSION_URL && ext.valueBoolean === true)
   );
+
+/**
+ * Whether a Location is bookable at all, as far as its active state is concerned.
+ *
+ * Deactivating a Location in Admin > Locations must remove it from *every* booking flow — the staff
+ * picker, the patient list, slug resolution, group-member resolution and slot creation. Each of
+ * those filters independently (some server-side, some over resources already in hand), so this pair
+ * exists to keep the rule identical across all of them rather than restated at each site.
+ *
+ * The rule is "not explicitly inactive", not "is explicitly active": `Location.status` is optional
+ * in FHIR, and a Location without one — seeded, imported, or created outside `scaffoldLocation` —
+ * must stay bookable. Using `=== 'active'` in some places and `!== 'inactive'` in others is exactly
+ * how a status-less Location came to be hidden from the patient list while still bookable by link.
+ *
+ * This does NOT cover the other bookability criteria (a slug, a service mode, an actual Schedule);
+ * callers still apply those. See {@link LOCATION_BOOKABLE_SEARCH_PARAM} for the server-side form.
+ */
+export const isLocationBookable = (location: Pick<Location, 'status'>): boolean => location.status !== 'inactive';
+
+/**
+ * The FHIR search-param form of {@link isLocationBookable}, for queries that must exclude
+ * deactivated Locations at the server rather than after the fact.
+ *
+ * `status:not` because Location has no `active` search param (unlike PractitionerRole and
+ * HealthcareService, which use `active:not`), and because `:not` also matches resources where the
+ * field is absent — the status-less Locations described above.
+ */
+export const LOCATION_BOOKABLE_SEARCH_PARAM = { name: 'status:not', value: 'inactive' } as const;
 
 const hasLocationFormCoding = (location: Location | Schedule, code: string): boolean =>
   Boolean(location.extension?.some((ext) => ext.url === LOCATION_FORM_EXTENSION_URL && ext.valueCoding?.code === code));

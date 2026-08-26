@@ -1,7 +1,9 @@
 import { Box, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { PERSON_GENDER_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { DateInput } from './DateInput';
 
 interface DemographicForm {
   firstName: string | null;
@@ -77,14 +79,11 @@ export function DemographicFields({ showMiddle }: { showMiddle?: boolean }): Rea
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           render={({ field, fieldState: { error: fieldError } }) => (
-            <TextField
+            <DateInput
               label="Date of birth *"
               size="small"
-              fullWidth
-              type="date"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              value={field.value ?? ''}
+              onChange={(value) => field.onChange(value)}
               error={!!fieldError}
               helperText={fieldError?.message}
             />

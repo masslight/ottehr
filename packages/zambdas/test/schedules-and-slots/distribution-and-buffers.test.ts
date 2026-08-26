@@ -7,7 +7,7 @@ import {
   getPostTelemedSlots,
   getScheduleExtension,
   getTimezone,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
 import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {

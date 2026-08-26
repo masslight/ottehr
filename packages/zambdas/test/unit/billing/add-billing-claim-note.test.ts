@@ -1,14 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Claim, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { AddClaimNoteInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
-  AddClaimNoteInputSchema,
   CLAIM_NOTE_MAX_LENGTH,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/add-billing-claim-note';
 

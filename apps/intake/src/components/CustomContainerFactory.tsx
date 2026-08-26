@@ -5,7 +5,7 @@ import { FC, ReactElement, ReactNode, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { home } from 'src/themes/ottehr';
-import { BRANDING_CONFIG } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { dataTestIds } from '../helpers/data-test-ids';
 
 export interface ContainerProps {

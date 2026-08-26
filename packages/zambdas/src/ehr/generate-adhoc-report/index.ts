@@ -1,25 +1,26 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Secrets } from 'utils/lib/secrets';
+import { LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import {
-  AD_HOC_REPORT_EDIT_ROLES,
-  buildComponentsPromptSection,
-  buildExecutionContractPromptSection,
-  fixAndParseJsonObjectFromString,
   GenerateAdHocReportInput,
   GenerateAdHocReportOutput,
   GenerateAdHocReportOutputSchema,
-  INVALID_INPUT_ERROR,
-  LlmDatasetSchema,
-  REPORT_FACTORY_NAME,
-  REPORT_ROOT_NAME,
-  Secrets,
-} from 'utils';
-import { getUserToken, requireUserWithRole, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/adhoc/generation/generate.types';
+import {
+  buildComponentsPromptSection,
+  buildExecutionContractPromptSection,
+} from 'utils/lib/types/adhoc/generation/runtime-scope';
+import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
+import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { getUserToken, requireUserWithRole } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
-// The browser reports runtime failures with production-React's opaque TypeErrors; translate the
-// known ones into instructions the model can act on before they go into the repair prompt.
 export const explainRuntimeError = (message: string): string => {
   if (/null \(reading 'use[A-Z]/.test(message) || /Invalid hook call/i.test(message)) {
     return (
@@ -48,9 +49,6 @@ export const explainRuntimeError = (message: string): string => {
 
 const ZAMBDA_NAME = 'generate-adhoc-report';
 
-// Vertex model used to GENERATE the report code. Code generation benefits from a stronger model than
-// the default flash-lite, so this is split out for easy tuning — bump to a larger Gemini model
-// (one provisioned in this project) to improve generated-report quality.
 const REPORT_MODEL = VERTEX_AI_MODEL;
 
 const RESPONSE_SCHEMA = {
@@ -119,6 +117,23 @@ RULES:
   visit" as "patients with follow-up encounters"). Use the real field when one exists; if you must
   approximate, the approximation MUST be disclosed prominently; if you cannot reasonably approximate,
   say the concept is not available.
+- RESPECT A FIELD'S STATED QUALIFIER. A field means exactly what its description says, including any
+  temporal qualifier. A field documented as "(most recent)" is NOT the initial/first value, and a
+  field documented as the FIRST charting is NOT the latest. If the request asks for a first/initial
+  (or latest/final) value, use the field whose description says so; if no such field exists, treat the
+  request as unavailable per the rules above. NEVER relabel a field to match the wording of the
+  request.
+- A COUNT OF POPULATED COLUMNS IS NOT A COUNT OF EVENTS. Do not answer "how many X were done" by
+  counting how many fields on the row are non-null, or by counting rows when a row is not one X.
+  Only use a field that explicitly counts the thing asked about; otherwise report it as unavailable.
+- WHEN SOMETHING IS UNAVAILABLE, SAY IT WHERE IT CANNOT BE MISSED: render a Report.Note with
+  tone="warn" at the TOP of the report naming the requested metric and why it is not available. Never
+  bury it in a caption, and never emit a plausible-looking number (e.g. 0 or a repeated constant) in
+  its place — a wrong number that looks right is the worst possible outcome.
+- DISCLOSE THE RULES YOU APPLIED. Whenever you classify values (abnormal/critical/high/low/on-time,
+  etc.), state the exact thresholds in the report (a Report.Note is fine), because the reader cannot
+  otherwise tell what the flags mean. If the thresholds are not age-adjusted but the population
+  includes children, say so explicitly — adult vital-sign cutoffs misclassify pediatric patients.
 - AUTO-LOAD MISSING LAYERS — DON'T tell the user to enable anything. The schema may include
   "availableLayers" (opt-in data layers that EXIST but are NOT loaded; each has id/label/description)
   and "otherDatasets". When the requested concept is not in "fields" but clearly matches an

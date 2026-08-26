@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CLAIM_NOT_READY_FOR_X12_EXPORT, ExportClaimX12Response, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { ExportClaimX12Response } from 'utils/lib/types/data/billing/billing.types';
+import { CLAIM_NOT_READY_FOR_X12_EXPORT, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient } from '../shared';
 import { ExportClaimX12Params, validateRequestParameters } from './validateRequestParameters';
 

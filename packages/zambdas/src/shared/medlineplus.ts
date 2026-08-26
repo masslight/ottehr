@@ -4,7 +4,7 @@
 // resources can import it; promote to packages/utils if the EHR/intake apps ever
 // need to call it directly.
 
-import { PatientEducationLanguage } from 'utils';
+import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 
 const MEDLINE_BASE_URL = 'https://connect.medlineplus.gov/service';
 

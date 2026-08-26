@@ -5,8 +5,11 @@ import {
   mapDisplayToInvoiceTaskStatus,
   mapInvoiceTaskStatusToDisplay,
   parseInvoiceTaskInput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/helpers/tasks/invoices-tasks';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,11 +28,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     id: taskId,
   });
 
+  const originalStatus = task.status;
   task.status = status as any;
   console.log('New status: ', status);
   if (
     mapInvoiceTaskStatusToDisplay(status as any) === 'updating' &&
-    mapInvoiceTaskStatusToDisplay(task.status) === 'updating'
+    mapInvoiceTaskStatusToDisplay(originalStatus) === 'updating'
   ) {
     // this is for preventing task stack in "updating" status
     console.log(

@@ -1,12 +1,14 @@
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CancelRadiologyOrderZambdaInput,
-  EMPTY_PAGINATION,
-  getApiError,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
-} from 'utils';
+  RadiologyReportType,
+} from 'utils/lib/types/api/radiology';
+import { EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
 import {
   cancelRadiologyOrder,
   getRadiologyOrders,
@@ -14,6 +16,7 @@ import {
   savePreliminaryReport,
   sendForFinalRead,
   updateRadiologyOrder,
+  updateRadiologyReport,
 } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
@@ -40,13 +43,18 @@ interface UsePatientRadiologyOrdersResult {
   handleSaveReport: (
     serviceRequestId: string,
     report: string,
-    reportType: 'preliminary' | 'final',
+    reportType: RadiologyReportType,
     diagnosisCodes?: string[],
     performedById?: string
   ) => Promise<void>;
+  /** Corrects a read that was already saved. Resolves `true` only when the edit was persisted. */
+  handleUpdateReport: (serviceRequestId: string, report: string, reportType: RadiologyReportType) => Promise<boolean>;
+  /** Records who performed the study, on its own. Resolves `true` only when it was persisted. */
+  handleSavePerformedBy: (serviceRequestId: string, performedById: string) => Promise<boolean>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
   handleUpdateConsent: (serviceRequestId: string, consentObtained: boolean) => Promise<void>;
   isSavingReport: boolean;
+  isSavingPerformedBy: boolean;
   isSendingForFinalRead: boolean;
   isUpdatingConsent: boolean;
 }
@@ -70,6 +78,7 @@ export const usePatientRadiologyOrders = (options: {
   const [page, setPage] = useState(1);
   const [showPagination, setShowPagination] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
+  const [isSavingPerformedBy, setIsSavingPerformedBy] = useState(false);
   const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
   const [isUpdatingConsent, setIsUpdatingConsent] = useState(false);
 
@@ -223,11 +232,52 @@ export const usePatientRadiologyOrders = (options: {
     [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
+  /**
+   * The shape every order mutation shares: call the zambda, then refetch so the page reflects the write.
+   * On failure it surfaces the API's own message (falling back to `defaultError`) and leaves the list alone.
+   * Resolves true only when the write landed, so callers can keep an edit field open on failure.
+   */
+  const runOrderAction = useCallback(
+    async ({
+      call,
+      setBusy,
+      defaultError,
+    }: {
+      call: (client: Oystehr) => Promise<unknown>;
+      setBusy?: (busy: boolean) => void;
+      defaultError: string;
+    }): Promise<boolean> => {
+      if (!oystehrZambda) {
+        console.error(`${defaultError}: API client is not available`);
+        setError(new Error('API client is not available'));
+        return false;
+      }
+
+      setBusy?.(true);
+      setError(null);
+
+      try {
+        await call(oystehrZambda);
+        await fetchOrders(getCurrentSearchParamsForPage(page));
+        return true;
+      } catch (err) {
+        console.error(defaultError, err);
+        const errorMsg = getApiError({ error: err, defaultError });
+        setError(err instanceof Error ? err : new Error(errorMsg));
+        enqueueSnackbar(errorMsg, { variant: 'error' });
+        return false;
+      } finally {
+        setBusy?.(false);
+      }
+    },
+    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+  );
+
   const handleSaveReport = useCallback(
     async (
       serviceRequestId: string,
       report: string,
-      reportType: 'preliminary' | 'final',
+      reportType: RadiologyReportType,
       diagnosisCodes?: string[],
       performedById?: string
     ): Promise<void> => {
@@ -236,98 +286,67 @@ export const usePatientRadiologyOrders = (options: {
         return;
       }
 
-      if (!oystehrZambda) {
-        console.error('Cannot save preliminary report: API client is not available');
-        setError(new Error('API client is not available'));
-        return;
-      }
-
-      setIsSavingReport(true);
-      setError(null);
-
-      try {
-        if (reportType === 'preliminary') {
-          // Diagnosis is captured with the preliminary read (it is optional at order time).
-          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report, diagnosisCodes, performedById });
-        } else {
-          await saveFinalReport(oystehrZambda, { serviceRequestId, report });
-        }
-
-        // Refetch the orders to get the updated data
-        const searchParams = getCurrentSearchParamsForPage(page);
-        await fetchOrders(searchParams);
-      } catch (err) {
-        console.error('Error saving report:', err, JSON.stringify(err));
-        const defaultError = `Failed to save ${reportType} report`;
-        const errorMsg = getApiError({ error: err, defaultError });
-
-        const errorObj = err instanceof Error ? err : new Error(errorMsg);
-        setError(errorObj);
-
-        enqueueSnackbar(errorMsg, { variant: 'error' });
-      } finally {
-        setIsSavingReport(false);
-      }
+      await runOrderAction({
+        call: (client) =>
+          reportType === 'preliminary'
+            ? // Diagnosis is captured with the preliminary read (it is optional at order time).
+              savePreliminaryReport(client, { serviceRequestId, report, diagnosisCodes, performedById })
+            : saveFinalReport(client, { serviceRequestId, report }),
+        setBusy: setIsSavingReport,
+        defaultError: `Failed to save ${reportType} report`,
+      });
     },
-    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+    [runOrderAction]
+  );
+
+  const handleUpdateReport = useCallback(
+    async (serviceRequestId: string, report: string, reportType: RadiologyReportType): Promise<boolean> => {
+      if (!report) {
+        enqueueSnackbar(`Please enter a ${reportType} report before saving.`, { variant: 'error' });
+        return false;
+      }
+
+      // No shared busy flag: the two reads can be edited at once, and each field tracks its own save.
+      return runOrderAction({
+        call: (client) => updateRadiologyReport(client, { serviceRequestId, report, reportType }),
+        defaultError: `Failed to update ${reportType} report`,
+      });
+    },
+    [runOrderAction]
+  );
+
+  const handleSavePerformedBy = useCallback(
+    async (serviceRequestId: string, performedById: string): Promise<boolean> =>
+      runOrderAction({
+        call: (client) =>
+          updateRadiologyOrder(client, { serviceRequestId, update: { type: 'performed-by', performedById } }),
+        setBusy: setIsSavingPerformedBy,
+        defaultError: 'Failed to save performed by',
+      }),
+    [runOrderAction]
   );
 
   const handleSendForFinalRead = useCallback(
     async (serviceRequestId: string): Promise<void> => {
-      if (!oystehrZambda) {
-        console.error('Cannot send for final read: API client is not available');
-        setError(new Error('API client is not available'));
-        return;
-      }
-
-      setIsSendingForFinalRead(true);
-      setError(null);
-
-      try {
-        await sendForFinalRead(oystehrZambda, { serviceRequestId });
-
-        // Refetch the orders to get the updated data
-        const searchParams = getCurrentSearchParamsForPage(page);
-        await fetchOrders(searchParams);
-      } catch (err) {
-        console.error('Error sending for final read:', err);
-        enqueueSnackbar('An error occurred while sending for final read', { variant: 'error' });
-        const errorObj = err instanceof Error ? err : new Error('Failed to send for final read');
-        setError(errorObj);
-      } finally {
-        setIsSendingForFinalRead(false);
-      }
+      await runOrderAction({
+        call: (client) => sendForFinalRead(client, { serviceRequestId }),
+        setBusy: setIsSendingForFinalRead,
+        defaultError: 'An error occurred while sending for final read',
+      });
     },
-    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+    [runOrderAction]
   );
 
   const handleUpdateConsent = useCallback(
     async (serviceRequestId: string, consentObtained: boolean): Promise<void> => {
-      if (!oystehrZambda) {
-        console.error('Cannot update consent: API client is not available');
-        setError(new Error('API client is not available'));
-        return;
-      }
-
-      setIsUpdatingConsent(true);
-      setError(null);
-
-      try {
-        await updateRadiologyOrder(oystehrZambda, { serviceRequestId, consentObtained });
-
-        // Refetch the orders to get the updated data
-        const searchParams = getCurrentSearchParamsForPage(page);
-        await fetchOrders(searchParams);
-      } catch (err) {
-        console.error('Error updating consent:', err);
-        enqueueSnackbar('An error occurred while updating consent', { variant: 'error' });
-        const errorObj = err instanceof Error ? err : new Error('Failed to update consent');
-        setError(errorObj);
-      } finally {
-        setIsUpdatingConsent(false);
-      }
+      await runOrderAction({
+        call: (client) =>
+          updateRadiologyOrder(client, { serviceRequestId, update: { type: 'consent', consentObtained } }),
+        setBusy: setIsUpdatingConsent,
+        defaultError: 'An error occurred while updating consent',
+      });
     },
-    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+    [runOrderAction]
   );
 
   // handle delete dialog
@@ -349,9 +368,12 @@ export const usePatientRadiologyOrders = (options: {
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
     handleSaveReport,
+    handleUpdateReport,
+    handleSavePerformedBy,
     handleSendForFinalRead,
     handleUpdateConsent,
     isSavingReport,
+    isSavingPerformedBy,
     isSendingForFinalRead,
     isUpdatingConsent,
   };

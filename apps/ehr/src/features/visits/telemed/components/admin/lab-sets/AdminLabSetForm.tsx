@@ -15,18 +15,16 @@ import {
 } from '@mui/material';
 import { PropsWithChildren, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
+import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import {
-  DataEntryTestItem,
   ExternalLabSetDTO,
   InHouseLabSetDTO,
   LabSetDTO,
   LabSetDTOSchema,
   LabSetStatus,
-  LabType,
-  LabTypeDisplay,
-  nameLabTest,
-  OrderableItemSearchResult,
-} from 'utils';
+} from 'utils/lib/types/data/labs/lab-set.schema';
+import { LabType, LabTypeDisplay, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 import { AdminLabSetExternalSelection } from './components/AdminLabSetExternalSelection';
 import { AdminLabSetInHouseSelection } from './components/AdminLabSetInHouseSelection';
 

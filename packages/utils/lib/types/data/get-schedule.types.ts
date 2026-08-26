@@ -1,5 +1,5 @@
-import { ServiceCategoryCode } from '../../ottehr-config';
-import { SlotListItem } from '../../utils';
+import { ServiceCategoryCode } from '../../ottehr-config/booking';
+import { SlotListItem } from '../../utils/scheduleUtils';
 import { AvailableLocationInformation, ScheduleType, ServiceMode, Timezone } from '../common';
 
 export interface GetScheduleResponse {

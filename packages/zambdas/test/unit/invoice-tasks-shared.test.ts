@@ -1,11 +1,12 @@
-import { Encounter } from 'fhir/r4b';
+import { Encounter, Task, TaskInput } from 'fhir/r4b';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { Secrets } from 'utils/lib/secrets';
 import {
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
   INVOICE_TASK_SOURCE_SYSTEM,
-  parseInvoiceTaskInput,
-  Secrets,
   ZERO_BALANCE_BUSINESS_STATUS,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
 import { describe, expect, it } from 'vitest';
 import {
   buildInvoiceTask,
@@ -45,6 +46,39 @@ const buildParams = {
   encounter: encounter(),
   config,
 };
+
+const makeTaskWithDueDate = (dueDate: string): Task => {
+  const input: TaskInput[] = [
+    {
+      type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code: 'dueDate' }] },
+      valueString: dueDate,
+    },
+  ];
+  return { resourceType: 'Task', id: 'task-1', status: 'ready', intent: 'order', input } as Task;
+};
+
+describe('parseInvoiceTaskInput dueDate validation', () => {
+  it('accepts a valid YYYY-MM-DD dueDate', () => {
+    const result = parseInvoiceTaskInput(makeTaskWithDueDate('2099-12-31'));
+    expect(result.dueDate).toBe('2099-12-31');
+  });
+
+  it('rejects a dueDate that is not YYYY-MM-DD format', () => {
+    expect(() => parseInvoiceTaskInput(makeTaskWithDueDate('not-a-date'))).toThrow();
+  });
+
+  it('rejects a dueDate with wrong separators (MM/DD/YYYY)', () => {
+    expect(() => parseInvoiceTaskInput(makeTaskWithDueDate('12/31/2099'))).toThrow();
+  });
+
+  it('rejects a dueDate with an impossible month', () => {
+    expect(() => parseInvoiceTaskInput(makeTaskWithDueDate('2099-13-01'))).toThrow();
+  });
+
+  it('rejects a dueDate with an impossible day', () => {
+    expect(() => parseInvoiceTaskInput(makeTaskWithDueDate('2099-01-32'))).toThrow();
+  });
+});
 
 describe('producer gates', () => {
   it('runs the candid producer for every candid-integrated env', () => {

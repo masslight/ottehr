@@ -5,7 +5,8 @@
 //   - only JSON crosses the boundary; events are validated against AdHocFrameEventSchema.
 import { captureException } from '@sentry/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AdHocFrameEventSchema, AdHocRow, LlmDatasetSchema } from 'utils';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { AdHocFrameEventSchema } from 'utils/lib/types/adhoc/sandbox/events';
 import { showAdHocDebugLog } from '../debug';
 import { hrefForOpenLink } from './links';
 
@@ -16,7 +17,6 @@ const CSP = [
   'img-src data: blob:',
   'font-src data:',
   "connect-src 'none'",
-  // Redundant with the sandbox (no allow-forms already blocks form submission) but explicit.
   "form-action 'none'",
 ].join('; ');
 
@@ -42,7 +42,7 @@ function buildSrcDoc(runtimeBundle: string): string {
 }
 
 let srcDocPromise: Promise<string> | null = null;
-// Load the runtime chunk + assemble the srcDoc once per app session; every frame reuses the string.
+
 function loadSrcDoc(): Promise<string> {
   return (srcDocPromise ??= import('virtual:adhoc-report-runtime').then((m) => buildSrcDoc(m.default)));
 }
@@ -51,29 +51,19 @@ const TIMEOUT_MS = 10000;
 const MIN_HEIGHT = 160;
 const MAX_HEIGHT = 4000;
 
-// Distinguishable timeout message: a watchdog timeout means "slow or stuck", NOT "wrong code" — the
-// caller shows it without regenerating (the code may be fine, merely slow here).
 export const SANDBOX_TIMEOUT_MESSAGE = 'Report timed out — the generated code may be too slow or stuck.';
 
-// Same DataGridPro license key the app uses — the frame is a separate window and activates its own copy.
 const MUI_X_LICENSE_KEY: string | undefined = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 
 export interface UseSandboxOptions {
-  /** The generated JSX artifact (the body of buildReport) — from generate or a saved report,
-   *  exactly as shown in the code preview. The frame's runtime transpiles it before execution. */
   code: string;
-  /** The fetched, Zod-validated rows. Provided to the frame at creation; never sent to the LLM. */
   data: AdHocRow[];
   schema: LlmDatasetSchema;
-  /** Generation/runtime failure inside the frame (drives the bounded auto-repair). */
   onError: (message: string) => void;
-  /** The report rendered cleanly. */
   onRendered?: () => void;
 }
 
 export interface UseSandbox {
-  /** Spread onto the <iframe>. Null until the runtime bundle chunk has loaded — the frame must not
-   *  be mounted before then (an empty-then-real srcDoc swap would look like a navigation). */
   frameProps: {
     ref: React.RefObject<HTMLIFrameElement>;
     sandbox: string;
@@ -82,6 +72,7 @@ export interface UseSandbox {
     style: React.CSSProperties;
     title: string;
   } | null;
+  rendering: boolean;
 }
 
 export function useSandbox({ code, data, schema, onError, onRendered }: UseSandboxOptions): UseSandbox {
@@ -95,12 +86,15 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
   const loadCountRef = useRef(0);
   const tornDownRef = useRef(false);
   const [height, setHeight] = useState(400);
-  // The runtime bundle is code-split into its own chunk; load it before mounting the frame.
+  const [rendering, setRendering] = useState(false);
   const [srcDoc, setSrcDoc] = useState<string | null>(null);
 
-  // Egress backstop: the srcdoc loads exactly once (nothing inside navigates the frame). A later
-  // load event means the frame navigated its own document — the one exfiltration channel CSP/sandbox
-  // can't block — so blank it.
+  const finishRendering = useCallback((): void => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setRendering(false);
+  }, []);
+
   const handleLoad = useCallback((): void => {
     loadCountRef.current += 1;
     if (loadCountRef.current > 1 && !tornDownRef.current) {
@@ -109,17 +103,22 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       if (frame) frame.srcdoc = '<!DOCTYPE html><html><body></body></html>';
       console.error('[AdHocReport] report frame attempted to navigate away — blanked for safety');
       captureException(new Error('Ad-hoc report frame attempted to navigate away — blanked for safety'));
+      finishRendering();
       onErrorRef.current('The report was stopped because it attempted to navigate away from the page.');
     }
-  }, []);
+  }, [finishRendering]);
 
   const postRender = useCallback(() => {
     const win = ref.current?.contentWindow;
     if (!readyRef.current || !win) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => onErrorRef.current(SANDBOX_TIMEOUT_MESSAGE), TIMEOUT_MS);
+    timerRef.current = setTimeout(() => {
+      finishRendering();
+      onErrorRef.current(SANDBOX_TIMEOUT_MESSAGE);
+    }, TIMEOUT_MS);
+    setRendering(true);
     win.postMessage({ type: 'render', code, data, schema, muiLicenseKey: MUI_X_LICENSE_KEY }, '*');
-  }, [code, data, schema]);
+  }, [code, data, schema, finishRendering]);
 
   const handleFrameEvent = useCallback((raw: unknown): void => {
     const parsed = AdHocFrameEventSchema.safeParse(raw);
@@ -145,8 +144,6 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
     }
   }, []);
 
-  // Pull the code-split runtime chunk once, then mount the frame. A load failure surfaces as a
-  // render error rather than a silently blank frame.
   useEffect(() => {
     let alive = true;
     void loadSrcDoc()
@@ -178,19 +175,17 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
         readyRef.current = true;
         postRender();
       } else if (msg.type === 'rendered') {
-        if (timerRef.current) clearTimeout(timerRef.current);
+        finishRendering();
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 24, MIN_HEIGHT), MAX_HEIGHT));
         onRenderedRef.current?.();
       } else if (msg.type === 'resize') {
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 24, MIN_HEIGHT), MAX_HEIGHT));
       } else if (msg.type === 'error') {
-        // fatal=false: an interaction/async error of an ALREADY-RENDERED report — log it, but never
-        // regenerate (or overwrite) a working report over it.
         if (msg.fatal === false) {
           showAdHocDebugLog('sandbox', 'non-fatal error in a rendered report (ignored)', msg.message);
           return;
         }
-        if (timerRef.current) clearTimeout(timerRef.current);
+        finishRendering();
         const errorMessage = msg.message || 'The report code threw an error.';
         onErrorRef.current(errorMessage);
         captureException(new Error(errorMessage));
@@ -201,7 +196,7 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       window.removeEventListener('message', handler);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [postRender, handleFrameEvent]);
+  }, [postRender, handleFrameEvent, finishRendering]);
 
   // (Re)render whenever the code or data changes and the frame is ready.
   useEffect(() => {
@@ -229,5 +224,5 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
     [handleLoad, height, srcDoc]
   );
 
-  return { frameProps };
+  return { frameProps, rendering };
 }

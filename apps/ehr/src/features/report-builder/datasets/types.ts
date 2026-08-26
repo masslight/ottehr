@@ -1,16 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { QueryClient } from '@tanstack/react-query';
-import { AdHocLayer, AdHocRow, LlmDatasetSchema } from 'utils';
+import { AdHocLayerMap } from 'utils/lib/types/adhoc/datasets/dataset';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
+import { z } from 'zod';
 
 export type { AdHocRow };
 
-// An opt-in data layer (checkbox on the page); selected layers are passed to fetch + buildSchema.
-export type AdHocDatasetOption = AdHocLayer;
-
 export interface FetchContext {
   oystehrZambda: Oystehr;
-  // Window fetches go through queryClient.fetchQuery so identical requests are deduped/cached (no
-  // duplicate zambda calls from StrictMode re-runs or re-renders).
   queryClient: QueryClient;
   dateRange: { start: string; end: string };
   options?: Record<string, boolean>;
@@ -21,7 +19,10 @@ export interface AdHocDataset {
   id: string;
   label: string;
   description: string;
-  options?: AdHocDatasetOption[];
+  options?: AdHocLayer[];
+  layers?: AdHocLayerMap;
+  baseSchema?: z.ZodObject<z.ZodRawShape>;
+  internalFields?: readonly string[];
   fetch: (ctx: FetchContext) => Promise<AdHocRow[]>;
   buildSchema: (rows: AdHocRow[], options?: Record<string, boolean>) => LlmDatasetSchema;
 }

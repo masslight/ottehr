@@ -1,17 +1,31 @@
 import Oystehr from '@oystehr/sdk';
-import { ChargeItemDefinition, Claim, Organization, ProvenanceAgent } from 'fhir/r4b';
 import {
-  AR_STAGE,
-  BillingRule,
+  Account,
+  ChargeItemDefinition,
+  Claim,
+  Coverage,
+  Organization,
+  Patient,
+  ProvenanceAgent,
+  RelatedPerson,
+} from 'fhir/r4b';
+import { ACCOUNT_TYPE_CODE_SYSTEM, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import {
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-  CLAIM_TAG_SYSTEM,
+  ClaimFieldChange,
+  ClaimHistoryRuleRef,
+} from 'utils/lib/types/data/billing/claim-history';
+import {
+  AR_STAGE,
   claimStatusValuesToTags,
-  CPT_CODE_SYSTEM,
-  getPayerUrl,
-  HOLD_TAG_NAME,
   withArStageInitialization,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';
 import { rulesToList } from '../../../src/billing/rules-engine/serialization';
@@ -20,12 +34,14 @@ import {
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   PROVIDER_ROLE_TAG,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
 import {
   complexValidation,
   ensureClaimHeld,
   performEffect,
   persistModel,
+  RuleFailureError,
   snapshotModel,
 } from '../../../src/subscriptions/task/sub-rules-engine';
 
@@ -91,6 +107,20 @@ const alwaysRule = (id: string, actions: BillingRule['conditional']['branches'][
 
 const HOLD_TAG = { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME };
 
+// The stored diff JSON of the Provenance targeting `targetRef` (across all transactions).
+const provenanceChanges = (transaction: ReturnType<typeof vi.fn>, targetRef: string): ClaimFieldChange[] => {
+  for (const call of transaction.mock.calls) {
+    for (const request of call[0].requests) {
+      if (request.url !== '/Provenance' || request.resource?.target?.[0]?.reference !== targetRef) continue;
+      const diff = (request.resource.extension ?? []).find(
+        (e: { url: string }) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL
+      );
+      if (diff) return JSON.parse(diff.valueString);
+    }
+  }
+  return [];
+};
+
 // A finalizer's status change travels as a base64 json-patch Binary; decode it to see the tags written.
 const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
   for (const call of transaction.mock.calls) {
@@ -115,8 +145,27 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
+    );
+
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('submitted');
+    // Status change (insuranceArStatus -> submitted) commits with its Provenance.
+    expect(transaction).toHaveBeenCalled();
+  });
+
+  it('submits the claim when skipping rules and it is in Insurance Payer AR', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // submitClaim re-fetches the claim to lock the status patch against the latest version.
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: true },
+      [AGENT]
     );
 
     expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
@@ -140,8 +189,8 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules, model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      [AGENT]
     );
 
     // persistModel skips the shared-resource write; completing would submit the claim as if the
@@ -166,8 +215,8 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -185,8 +234,8 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(submitClaimRcm).not.toHaveBeenCalled();
@@ -201,8 +250,8 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('failed');
@@ -216,6 +265,44 @@ describe('sub-rules-engine performEffect', () => {
     expect(claimPut.ifMatch).toBe('W/"1"');
     expect(claimPut.resource.meta.tag).toContainEqual({ system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME });
     expect(requests.some((r: { url: string }) => r.url === '/Provenance')).toBe(true);
+    // The history record attributes the Hold to the rule that applied it.
+    expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual({
+      id: 'hold',
+      name: 'Rule hold',
+      engine: 'claim-submission',
+    });
+  });
+
+  it('attributes each change to the rule that made it, per resource, last writer winning', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
+    const rules = [
+      alwaysRule('r1', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
+      alwaysRule('r2', {
+        type: 'actions',
+        actions: [{ type: 'setField', field: 'patient.lastName', value: 'Smith' }],
+      }),
+      alwaysRule('r3', { type: 'actions', actions: [{ type: 'applyTag', tag: 'Reviewed' }] }),
+    ];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      [AGENT]
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalled();
+    const ruleRef = (id: string): ClaimHistoryRuleRef => ({ id, name: `Rule ${id}`, engine: 'claim-submission' });
+    // The claim's combined tags change (VIP + Reviewed) spans r1 and r3; the last writer is recorded.
+    const claimChanges = provenanceChanges(transaction, 'Claim/claim-1');
+    expect(claimChanges.find((c) => c.field === 'tags')?.rule).toEqual(ruleRef('r3'));
+    // The patient's name change belongs to r2 alone.
+    const patientChanges = provenanceChanges(transaction, 'Patient/patient-1');
+    expect(patientChanges).toEqual([
+      { field: 'name', label: 'Name', previousValue: 'Doe, Jane', newValue: 'Smith, Jane', rule: ruleRef('r2') },
+    ]);
   });
 
   it('holds the claim and fails the task when a rule action cannot be applied', async () => {
@@ -226,21 +313,77 @@ describe('sub-rules-engine performEffect', () => {
       actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
     });
 
-    const result = await performEffect(
-      oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
-      AGENT
+    await expect(
+      async () =>
+        await performEffect(
+          oystehr,
+          { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+          [AGENT]
+        )
+    ).rejects.toMatchInlineSnapshot(
+      `[RuleFailureError: Rule "Rule bad" failed: could not set "renderingProvider.npi" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim. The claim was held for review.]`
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule bad" failed');
-    expect(result.statusReason).toContain('held for review');
     expect(submitClaimRcm).not.toHaveBeenCalled();
     const requests = transaction.mock.calls[0][0].requests;
     const claimPut = requests.find(
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
     );
     expect(claimPut.resource.meta.tag).toContainEqual({ system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME });
+  });
+
+  it('attributes the failure Hold to the failing rule and throws a RuleFailureError carrying it', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer); // no rendering provider → the setField fails
+    const rule = alwaysRule('bad', {
+      type: 'actions',
+      actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
+    });
+
+    let thrown: unknown;
+    try {
+      await performEffect(
+        oystehr,
+        { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+        [AGENT]
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    const expectedRule: ClaimHistoryRuleRef = { id: 'bad', name: 'Rule bad', engine: 'claim-submission' };
+    expect(thrown).toBeInstanceOf(RuleFailureError);
+    expect((thrown as RuleFailureError).name).toBe('RuleFailureError');
+    expect((thrown as RuleFailureError).rule).toEqual(expectedRule);
+    // The persisted Hold's history record names the failing rule.
+    expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual(expectedRule);
+  });
+
+  it("does not blame a rule for the engine's own unwritable-changes Hold", async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    model.patient!.meta = { versionId: '1' }; // shared patient → its change is unwritable
+    const rules = [
+      alwaysRule('tagger', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
+      alwaysRule('shared', {
+        type: 'actions',
+        actions: [{ type: 'setField', field: 'patient.lastName', value: 'Corrected' }],
+      }),
+    ];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      [AGENT]
+    );
+
+    expect(result.taskStatus).toBe('failed');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    // The combined tags change (VIP + the engine's Hold) carries no rule — the Hold is the
+    // engine's, and attributing it to "Rule tagger" would send the biller to the wrong rule.
+    const tagsChange = provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags');
+    expect(tagsChange?.newValue).toContain(HOLD_TAG_NAME);
+    expect(tagsChange?.rule).toBeUndefined();
   });
 });
 
@@ -255,8 +398,8 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -275,8 +418,8 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -293,8 +436,8 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -310,8 +453,8 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -329,8 +472,8 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model },
-      AGENT
+      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -346,8 +489,8 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model },
-      AGENT
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('failed');
@@ -414,7 +557,7 @@ describe('sub-rules-engine charge master pricing', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim, chargeMasters: [selfPayChargeMaster] });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
     const calls = chargeMasterSearchCalls(search);
@@ -442,7 +585,7 @@ describe('sub-rules-engine charge master pricing', () => {
       chargeMasters: [selfPayChargeMaster],
     });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
 
     expect(validated.model.chargeMasters).toBeUndefined();
     expect(chargeMasterSearchCalls(search)).toHaveLength(0);
@@ -465,8 +608,8 @@ describe('sub-rules-engine charge master pricing', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
+      [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
@@ -481,8 +624,8 @@ describe('sub-rules-engine charge master pricing', () => {
     expect(requests.some((r: { url: string }) => r.url.includes('ChargeItemDefinition'))).toBe(false);
   });
 
-  it('holds the claim instead of submitting when no charge master applies', async () => {
-    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+  it('submits with unchanged charges when no charge master applies (the action never holds)', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);
     model.claim.item = [
       {
@@ -493,23 +636,323 @@ describe('sub-rules-engine charge master pricing', () => {
       },
     ];
     model.chargeMasters = []; // nothing designated
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model },
-      AGENT
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
+      [AGENT]
     );
 
-    expect(result.taskStatus).toBe('failed');
-    expect(result.statusReason).toContain('Rule "Rule price" failed');
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    // The pricing action changed nothing, so no claim write was persisted and the line kept its charges.
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    expect(requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1')).toBe(
+      false
+    );
+    expect(model.claim.item[0].net).toEqual({ value: 5, currency: 'USD' });
+  });
+});
+
+describe('sub-rules-engine patient coverage context', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const coverageRule = alwaysRule('cov', {
+    type: 'actions',
+    actions: [{ type: 'setField', field: 'insurance.coverageFromPatient', value: 'primary' }],
+  });
+
+  // The claim's working-copy patient; the source extension names the reference patient whose
+  // coverages and accounts the context is built from.
+  const workingPatient = (withSource: boolean): Patient => ({
+    resourceType: 'Patient',
+    id: 'p1',
+    meta: { versionId: '1', tag: [workingCopyTag] },
+    name: [{ given: ['Jane'], family: 'Doe' }],
+    extension: withSource
+      ? [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/src-patient' } }]
+      : undefined,
+  });
+
+  const srcPrimary: Coverage = {
+    resourceType: 'Coverage',
+    id: 'cov-src-primary',
+    status: 'active',
+    beneficiary: { reference: 'Patient/src-patient' },
+    subscriber: { reference: 'RelatedPerson/rp-src' },
+    subscriberId: 'PRIM-001',
+    payor: [{ reference: getPayerUrl('111222') }],
+    class: [{ type: { coding: [{ code: 'plan' }] }, value: '111222', name: 'Prime Health' }],
+  };
+  const srcSecondary: Coverage = {
+    resourceType: 'Coverage',
+    id: 'cov-src-secondary',
+    status: 'active',
+    beneficiary: { reference: 'Patient/src-patient' },
+    subscriber: { reference: 'Patient/src-patient' },
+    subscriberId: 'SEC-002',
+    payor: [{ reference: getPayerUrl('333444') }],
+  };
+  const srcWcCancelled: Coverage = {
+    resourceType: 'Coverage',
+    id: 'cov-src-wc-cancelled',
+    status: 'cancelled',
+    beneficiary: { reference: 'Patient/src-patient' },
+    subscriber: { reference: 'Patient/src-patient' },
+    payor: [{ reference: getPayerUrl('999001') }],
+  };
+  const srcWcActive: Coverage = {
+    resourceType: 'Coverage',
+    id: 'cov-src-wc-active',
+    status: 'active',
+    beneficiary: { reference: 'Patient/src-patient' },
+    subscriber: { reference: 'Patient/src-patient' },
+    subscriberId: 'WC-789',
+    payor: [{ reference: getPayerUrl('999001') }],
+  };
+  const rpSrc: RelatedPerson = {
+    resourceType: 'RelatedPerson',
+    id: 'rp-src',
+    patient: { reference: 'Patient/src-patient' },
+    name: [{ given: ['Sam'], family: 'Guardian' }],
+    birthDate: '1975-02-02',
+  };
+  // PBILLACCT holds primary (priority 1) and secondary (priority 2); WCOMPACCT holds workers comp.
+  const accounts: Account[] = [
+    {
+      resourceType: 'Account',
+      id: 'acct-pbill',
+      status: 'active',
+      type: { coding: [{ system: ACCOUNT_TYPE_CODE_SYSTEM, code: 'PBILLACCT' }] },
+      subject: [{ reference: 'Patient/src-patient' }],
+      coverage: [
+        { coverage: { reference: 'Coverage/cov-src-primary' }, priority: 1 },
+        { coverage: { reference: 'Coverage/cov-src-secondary' }, priority: 2 },
+      ],
+    },
+    {
+      resourceType: 'Account',
+      id: 'acct-wcomp',
+      status: 'active',
+      type: { coding: [{ system: ACCOUNT_TYPE_CODE_SYSTEM, code: 'WCOMPACCT' }] },
+      subject: [{ reference: 'Patient/src-patient' }],
+      coverage: [
+        { coverage: { reference: 'Coverage/cov-src-wc-cancelled' }, priority: 1 },
+        { coverage: { reference: 'Coverage/cov-src-wc-active' }, priority: 1 },
+      ],
+    },
+  ];
+
+  const dispatchContextSearch = (
+    search: ReturnType<typeof vi.fn>,
+    { rules, claim, patient }: { rules: BillingRule[]; claim: Claim; patient: Patient }
+  ): void => {
+    search.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'List') {
+        return Promise.resolve({ unbundle: () => [rulesToList('claim-submission', rules)] });
+      }
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [claim, patient] });
+      if (resourceType === 'Coverage') {
+        return Promise.resolve({ unbundle: () => [srcWcCancelled, srcPrimary, srcSecondary, srcWcActive] });
+      }
+      if (resourceType === 'RelatedPerson') return Promise.resolve({ unbundle: () => [rpSrc] });
+      if (resourceType === 'Account') return Promise.resolve({ unbundle: () => accounts });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+  };
+
+  const searchedTypes = (search: ReturnType<typeof vi.fn>): string[] =>
+    search.mock.calls.map((call) => call[0].resourceType);
+
+  it("builds the context from the reference patient's coverages and accounts, skipping cancelled ones", async () => {
+    const { oystehr, search } = makeOystehrMock();
+    dispatchContextSearch(search, { rules: [coverageRule], claim: makeModel().claim, patient: workingPatient(true) });
+
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
+
+    const context = validated.model.patientCoverageContext!;
+    expect(context.byType.primary?.coverage.id).toBe('cov-src-primary');
+    expect(context.byType.primary?.subscriber?.id).toBe('rp-src');
+    expect(context.byType.secondary?.coverage.id).toBe('cov-src-secondary');
+    expect(context.byType.secondary?.subscriber).toBeUndefined();
+    // The cancelled workers-comp coverage is skipped; the active one takes the slot.
+    expect(context.byType.workersComp?.coverage.id).toBe('cov-src-wc-active');
+    expect([...context.typeByCoverageRef.entries()].sort()).toEqual([
+      ['Coverage/cov-src-primary', 'primary'],
+      ['Coverage/cov-src-secondary', 'secondary'],
+      ['Coverage/cov-src-wc-active', 'workersComp'],
+    ]);
+
+    // The lookups are scoped to the reference patient and exclude per-claim working copies.
+    const coverageCall = search.mock.calls.map((call) => call[0]).find((arg) => arg.resourceType === 'Coverage');
+    expect(coverageCall.params).toContainEqual({ name: 'beneficiary', value: 'Patient/src-patient' });
+    expect(coverageCall.params).toContainEqual({
+      name: '_tag:not',
+      value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`,
+    });
+  });
+
+  it('prefetches for a rule that only references the field in a condition', async () => {
+    const { oystehr, search } = makeOystehrMock();
+    const conditionRule: BillingRule = {
+      id: 'cond',
+      name: 'Rule cond',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'insurance.coverageFromPatient', operator: 'notExists' },
+            outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: HOLD_TAG_NAME }] },
+          },
+        ],
+      },
+    };
+    dispatchContextSearch(search, { rules: [conditionRule], claim: makeModel().claim, patient: workingPatient(true) });
+
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
+
+    expect(validated.model.patientCoverageContext).toBeDefined();
+    expect(searchedTypes(search)).toContain('Coverage');
+  });
+
+  it('skips the prefetch when no enabled rule references the field, or the patient has no source', async () => {
+    const { oystehr, search } = makeOystehrMock();
+    const tagRule = alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] });
+    const disabledCoverageRule = { ...coverageRule, enabled: false };
+    dispatchContextSearch(search, {
+      rules: [tagRule, disabledCoverageRule],
+      claim: makeModel().claim,
+      patient: workingPatient(true),
+    });
+
+    let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
+    expect(validated.model.patientCoverageContext).toBeUndefined();
+    expect(searchedTypes(search)).not.toContain('Coverage');
+    expect(searchedTypes(search)).not.toContain('Account');
+
+    // A rule that needs the context but a working-copy patient without a source stamp: the context
+    // stays absent (the setField later fails the rule) and no lookups run.
+    const second = makeOystehrMock();
+    dispatchContextSearch(second.search, {
+      rules: [coverageRule],
+      claim: makeModel().claim,
+      patient: workingPatient(false),
+    });
+    validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test', false);
+    expect(validated.model.patientCoverageContext).toBeUndefined();
+    expect(searchedTypes(second.search)).not.toContain('Coverage');
+  });
+
+  it('attaches the chosen coverage: copies POST with the claim update in one transaction, then submits', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    model.patientCoverageContext = {
+      byType: { primary: { coverage: srcPrimary, subscriber: rpSrc } },
+      typeByCoverageRef: new Map<string, BillingInsuranceType>([['Coverage/cov-src-primary', 'primary']]),
+    };
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
+      [AGENT]
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+
+    const covUrn = `urn:uuid:${model.coverages[0].id}`;
+    const rpUrn = `urn:uuid:${model.subscribers[0].id}`;
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+
+    // The coverage copy: POST with no id under its urn fullUrl, re-pointed at the claim's patient,
+    // its subscriber referencing the policy-holder copy POSTed in the same transaction.
+    const covPost = requests.find((r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Coverage');
+    expect(covPost.fullUrl).toBe(covUrn);
+    expect(covPost.resource.id).toBeUndefined();
+    expect(covPost.resource.meta.tag).toContainEqual(workingCopyTag);
+    expect(covPost.resource.beneficiary).toEqual({ reference: 'Patient/p1' });
+    expect(covPost.resource.subscriber).toEqual({ reference: rpUrn });
+    const rpPost = requests.find(
+      (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/RelatedPerson'
+    );
+    expect(rpPost.fullUrl).toBe(rpUrn);
+    expect(rpPost.resource.id).toBeUndefined();
+    expect(rpPost.resource.patient).toEqual({ reference: 'Patient/p1' });
+
+    // The claim points at the copy through the urn, with the payer display; the insurer follows.
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.insurance[0]).toEqual({
+      sequence: 1,
+      focal: true,
+      coverage: { reference: covUrn, display: 'Prime Health (111222)' },
+    });
+    expect(claimPut.resource.insurer).toEqual({ reference: getPayerUrl('111222'), display: 'Prime Health (111222)' });
+
+    // Each copy gets a create-Provenance targeting its urn (rewritten by the server).
+    const createProvenances = requests.filter(
+      (r: { url: string; resource: { activity?: { coding: { code: string }[] } } }) =>
+        r.url === '/Provenance' && r.resource.activity?.coding?.[0]?.code === 'CREATE'
+    );
+    expect(
+      createProvenances
+        .map((r: { resource: { target: { reference: string }[] } }) => r.resource.target[0].reference)
+        .sort()
+    ).toEqual([covUrn, rpUrn].sort());
+
+    // The diff JSONs never record the transient urns (references live in rewritable entities), and
+    // the reference patient's originals are never written.
+    const diffStrings = requests
+      .filter((r: { url: string }) => r.url === '/Provenance')
+      .flatMap((r: { resource: { extension?: { url: string; valueString: string }[] } }) =>
+        (r.resource.extension ?? []).filter((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
+      )
+      .map((e: { valueString: string }) => e.valueString);
+    expect(diffStrings.length).toBeGreaterThan(0);
+    expect(diffStrings.join('')).not.toContain('urn:uuid');
+    expect(
+      requests.some(
+        (r: { url?: string }) => (r.url ?? '').includes('cov-src-primary') || (r.url ?? '').includes('rp-src')
+      )
+    ).toBe(false);
+
+    // Every change the rule made — the minted copies and the claim's re-point — is attributed to it.
+    const covRuleRef: ClaimHistoryRuleRef = { id: 'cov', name: 'Rule cov', engine: 'claim-submission' };
+    const covCreateChanges = provenanceChanges(transaction, covUrn);
+    expect(covCreateChanges.length).toBeGreaterThan(0);
+    covCreateChanges.forEach((change) => expect(change.rule).toEqual(covRuleRef));
+    expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'coverage')?.rule).toEqual(
+      covRuleRef
+    );
+  });
+
+  it('holds the claim instead of submitting when the patient has no coverage of the chosen type', async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    model.patientCoverageContext = { byType: {}, typeByCoverageRef: new Map() };
+
+    // The rule fails, so the run throws — but the claim is persisted (held) first.
+    await expect(
+      async () =>
+        await performEffect(
+          oystehr,
+          { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
+          [AGENT]
+        )
+    ).rejects.toThrow('Rule "Rule cov" failed');
+
     expect(submitClaimRcm).not.toHaveBeenCalled();
     const requests = transaction.mock.calls[0][0].requests;
     const claimPut = requests.find(
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
     );
     expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
-    // The failed pricing changed nothing else on the claim.
-    expect(claimPut.resource.item[0].net).toEqual({ value: 5, currency: 'USD' });
+    // The failed attach changed nothing else on the claim.
+    expect(claimPut.resource.insurance).toEqual([]);
   });
 });
 
@@ -522,7 +965,7 @@ describe('sub-rules-engine persistModel', () => {
     const snapshot = snapshotModel(model);
     model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(1);
     const requests = transaction.mock.calls[0][0].requests;
@@ -535,7 +978,7 @@ describe('sub-rules-engine persistModel', () => {
     const model = makeModel();
     const snapshot = snapshotModel(model);
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
@@ -548,7 +991,7 @@ describe('sub-rules-engine persistModel', () => {
     const snapshot = snapshotModel(model);
     model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
@@ -578,7 +1021,7 @@ describe('sub-rules-engine persistModel', () => {
     const localId = model.billingProvider.id!;
     const urn = `urn:uuid:${localId}`;
 
-    const written = await persistModel(oystehr, model, snapshot, AGENT);
+    const written = await persistModel(oystehr, model, snapshot, [AGENT]);
 
     expect(written).toBe(2); // the new copy + the claim
     // One atomic transaction: the copy's POST, its create-Provenance, the claim PUT, and the
@@ -651,7 +1094,7 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     const claim = makeModel().claim;
     search.mockResolvedValue({ unbundle: () => [claim] });
 
-    await ensureClaimHeld(oystehr, claim, AGENT);
+    await ensureClaimHeld(oystehr, claim, [AGENT]);
 
     expect(transaction).toHaveBeenCalledTimes(1);
     const requests = transaction.mock.calls[0][0].requests;
@@ -664,7 +1107,7 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     claim.meta!.tag = [...(claim.meta?.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
     search.mockResolvedValue({ unbundle: () => [claim] });
 
-    await ensureClaimHeld(oystehr, claim, AGENT);
+    await ensureClaimHeld(oystehr, claim, [AGENT]);
 
     expect(transaction).not.toHaveBeenCalled();
   });

@@ -32,7 +32,7 @@ import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { GLOBAL_TEMPLATES_URL } from 'src/features/admin/adminRoutes';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ListTemplatesZambdaOutput, TemplateInfo, TemplateVersionData } from 'utils';
+import { ListTemplatesZambdaOutput, TemplateInfo, TemplateVersionData } from 'utils/lib/types/data/list-template.types';
 
 export default function GlobalTemplatesAdminPage(): ReactElement {
   const { oystehrZambda } = useApiClients();

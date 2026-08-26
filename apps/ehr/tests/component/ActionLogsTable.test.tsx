@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { ActionLogEntry } from 'utils';
+import { ActionLogEntry } from 'utils/lib/types/api/action-logs.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetActionLogs = vi.fn<(...args: any[]) => Promise<any>>();
@@ -38,10 +38,12 @@ const sentLog: ActionLogEntry = {
   channel: 'fax',
   status: 'sent',
   recipientAddress: '+11112223333',
+  senderAddress: '+19998887777',
   patientName: 'Black, Oliver',
   recipientName: 'Dr. Green',
   appointmentId: 'e2e6b8f0-0000-0000-0000-000000000001',
   visitDate: '2024-07-29T14:30:00.000Z',
+  documentTitle: 'Fax packet (2 documents)',
   canRetry: false,
 };
 const failedLog: ActionLogEntry = {
@@ -59,12 +61,25 @@ describe('ActionLogsTable', () => {
   });
   afterEach(() => vi.useRealTimers());
 
+  it('dashes out a fax whose sending organization has no number on file', async () => {
+    mockGetActionLogs.mockResolvedValue({ logs: [{ ...sentLog, senderAddress: undefined }], totalCount: 1 });
+    render(<ActionLogsTable channel="fax" />, { wrapper: createWrapper() });
+    await screen.findByText('sent');
+
+    expect(screen.getByText('Sender Fax')).toBeVisible();
+    expect(screen.getByText('-')).toBeVisible();
+  });
+
   it('renders fax details and only offers retry for failed attempts', async () => {
     render(<ActionLogsTable channel="fax" />, { wrapper: createWrapper() });
     expect(await screen.findAllByText('Black, Oliver')).toHaveLength(2);
+    expect(screen.getByText('Recipient Fax')).toBeVisible();
     expect(screen.getAllByText('(111) 222-3333')).toHaveLength(2);
+    expect(screen.getByText('Sender Fax')).toBeVisible();
+    expect(screen.getAllByText('(999) 888-7777')).toHaveLength(2);
     expect(screen.getByText('sent')).toBeVisible();
     expect(screen.getByText('failed')).toBeVisible();
+    expect(screen.getAllByText('Fax packet (2 documents)')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
   });
 
@@ -135,7 +150,15 @@ describe('ActionLogsTable', () => {
 
   it('renders email addresses without phone formatting and dashes out unknown recipients', async () => {
     mockGetActionLogs.mockResolvedValue({
-      logs: [{ ...sentLog, channel: 'email', recipientAddress: 'patient@example.com', recipientName: undefined }],
+      logs: [
+        {
+          ...sentLog,
+          channel: 'email',
+          recipientAddress: 'patient@example.com',
+          recipientName: undefined,
+          documentTitle: undefined,
+        },
+      ],
       totalCount: 1,
     });
     render(<ActionLogsTable channel="email" />, { wrapper: createWrapper() });
@@ -143,6 +166,8 @@ describe('ActionLogsTable', () => {
     expect(await screen.findAllByText('patient@example.com')).toHaveLength(1);
     expect(screen.getByText('Email Address')).toBeVisible();
     expect(screen.getAllByText('-')).toHaveLength(2);
+    // email has no sender address of its own to report, so the column stays out of the table
+    expect(screen.queryByText('Sender Fax')).toBeNull();
   });
 
   it('renders empty and error states', async () => {

@@ -1,11 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { BillingPatientOption } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { BillingPatientOption } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   clinicalFriendlyIdOfCopy,
-  clinicalPatientIdOfCopy,
+  copySourceId,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
@@ -55,7 +57,7 @@ async function performEffect(
 
   const patients = results.map((p) => {
     const clinicalFriendlyId = clinicalFriendlyIdOfCopy(p);
-    const clinicalId = clinicalPatientIdOfCopy(p);
+    const clinicalId = copySourceId(p);
 
     return {
       id: p.id,

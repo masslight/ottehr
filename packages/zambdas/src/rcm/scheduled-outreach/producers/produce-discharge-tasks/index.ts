@@ -1,7 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
-import { produceDischargeOutreach } from '../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { produceDischargeOutreach } from '../shared/produce-discharge-outreach';
 
 let m2mToken: string;
 

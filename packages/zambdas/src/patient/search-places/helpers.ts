@@ -1,5 +1,5 @@
 import Oystehr, { ErxSearchPharmaciesParams, ErxSearchPharmaciesResponse } from '@oystehr/sdk';
-import { standardizePhoneWithExtension } from 'utils';
+import { standardizePhoneWithExtension } from 'utils/lib/helpers/helpers';
 
 export const PLACES_API_BASE_URL = 'https://places.googleapis.com/v1/places';
 

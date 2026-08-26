@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
-import { Closure, ClosureType, HourOfDay, OVERRIDE_DATE_FORMAT } from 'utils';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
+import { HourOfDay } from 'utils/lib/utils/scheduleUtils';
 
 export const todaySlotScheduleOverride = [
   {

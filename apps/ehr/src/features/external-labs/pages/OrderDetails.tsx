@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { LabOrdersSearchBy } from 'utils';
+import { LabOrdersSearchBy } from 'utils/lib/types/data/labs/labs.types';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
 import { DiagnosticReportCentricResultDetails } from '../components/details/DiagnosticReportCentricResultDetails';

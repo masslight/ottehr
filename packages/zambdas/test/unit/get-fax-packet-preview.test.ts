@@ -1,16 +1,26 @@
-import { Appointment, Encounter, Patient, Practitioner } from 'fhir/r4b';
-import { FaxDocumentAvailability, GetFaxPacketPreviewOutput, PRACTICE_NAME_URL } from 'utils';
+import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
 const mockFhirSearch = vi.fn();
-const mockOystehrClient = { fhir: { search: mockFhirSearch } };
+const mockFhirGet = vi.fn();
+const mockOystehrClient = { fhir: { search: mockFhirSearch, get: mockFhirGet } };
 
-vi.mock('../../src/shared', async (importOriginal) => ({
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
   getUser: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/prac-1' }),
+}));
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+}));
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
 }));
 
@@ -42,6 +52,15 @@ const encounter: Encounter = {
   id: ENCOUNTER_ID,
   status: 'finished',
   class: { code: 'ACUTE' },
+};
+
+const senderOrganization: Organization = {
+  resourceType: 'Organization',
+  id: 'org-123',
+  telecom: [
+    { system: 'phone', value: '+12125550001' },
+    { system: 'fax', value: '+12125550000' },
+  ],
 };
 
 const patientWith = (contained?: Practitioner[]): Patient => ({
@@ -76,6 +95,33 @@ describe('get-fax-packet-preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolveFaxDocumentAvailability.mockResolvedValue(AVAILABILITY);
+    mockFhirGet.mockResolvedValue(senderOrganization);
+  });
+
+  it('names the fax number the packet is sent from, read off the sending organization', async () => {
+    const output = await runPreview(patientWith());
+
+    expect(mockFhirGet).toHaveBeenCalledWith({ resourceType: 'Organization', id: 'org-123' });
+    expect(output.senderFaxNumber).toBe('+12125550000');
+  });
+
+  it('previews the sender alone when no visit is named', async () => {
+    const result: any = await (index as any)(createMockZambdaInput({}, { secrets: createMockSecrets() }));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toEqual({ documents: [], hasSavedPcp: false, senderFaxNumber: '+12125550000' });
+    // Nothing visit-specific is resolved, so no document availability work is done either.
+    expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+    expect(mockFhirSearch).not.toHaveBeenCalled();
+  });
+
+  it('still previews the visit when the sending organization cannot be read', async () => {
+    mockFhirGet.mockRejectedValue(new Error('forbidden'));
+
+    const output = await runPreview(patientWith());
+
+    expect(output.senderFaxNumber).toBeUndefined();
+    expect(output.documents).toEqual(AVAILABILITY);
   });
 
   it('passes the resolved document availability straight through', async () => {

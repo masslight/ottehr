@@ -2,24 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import archiver from 'archiver';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { DocumentReference, List, Patient } from 'fhir/r4b';
+import { List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  getAllFhirSearchPages,
-  getFileNameFromUrl,
-  GetPatientMedicalRecordOutput,
-  MEDICAL_RECORD_EXPORT_CODE,
-  MEDICAL_RECORD_TOO_LARGE_ERROR,
-  MIME_TYPES,
-  OTTEHR_CODE_SYSTEM_BASE_URL,
-  PATIENT_FOLDERS_CODE,
-  sanitizeFileNameForZ3,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { BUCKET_NAMES, OTTEHR_CODE_SYSTEM_BASE_URL } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
+import { Secrets } from 'utils/lib/secrets';
+import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
+import { MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { MEDICAL_RECORD_TOO_LARGE_ERROR } from 'utils/lib/types/errors';
+import { getFileNameFromUrl, MIME_TYPES, sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { collectPatientRecordAttachments, getAllPatientDocumentReferences } from '../../shared/patient-documents';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -70,16 +69,7 @@ export const performEffect = async (
 
   const [patient, documentReferences, folderLists] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }).catch(() => undefined),
-    // Page through all results: a "complete" record must not be truncated by a single page.
-    // No status filter: include every document the patient/staff sees in the Docs UI
-    // (e.g. superseded discharge summaries), matching "all patient documents".
-    getAllFhirSearchPages<DocumentReference>(
-      {
-        resourceType: 'DocumentReference',
-        params: [{ name: 'subject', value: `Patient/${patientId}` }],
-      },
-      oystehr
-    ),
+    getAllPatientDocumentReferences(oystehr, patientId),
     getAllFhirSearchPages<List>(
       {
         resourceType: 'List',
@@ -92,25 +82,12 @@ export const performEffect = async (
     ),
   ]);
 
-  // Exclude previously generated medical-record archives so they are never bundled into a new one.
-  const collectibleDocuments = documentReferences.filter((docRef) => !isMedicalRecordExport(docRef));
-
-  const attachments = collectibleDocuments.flatMap((docRef) =>
-    (docRef.content ?? [])
-      .map((content) => content.attachment)
-      .filter((attachment) => !!attachment?.url)
-      .map((attachment) => ({
-        url: attachment.url as string,
-        title: attachment.title,
-        contentType: attachment.contentType,
-        // Creation date of the owning document, used to disambiguate duplicate file names.
-        date: docRef.date,
-      }))
-  );
+  // Excludes previously generated medical-record archives and sent fax packets. Besides preventing
+  // recursive exports, this keeps another recipient's cover-sheet details out of a downloaded record.
+  const attachments = collectPatientRecordAttachments(documentReferences);
 
   console.log(
-    `Found ${collectibleDocuments.length} collectible DocumentReferences ` +
-      `(of ${documentReferences.length} total) with ${attachments.length} attachments`
+    `Found ${attachments.length} attachments to archive (of ${documentReferences.length} DocumentReferences)`
   );
 
   // Resolve archive entry names up front from metadata alone, so no bytes are held while naming.
@@ -185,11 +162,6 @@ export const performEffect = async (
     documentCount: archivedCount,
   };
 };
-
-// Identifies the DocumentReference we create for a generated archive, so prior exports
-// are excluded from the collection query (otherwise each export would be bundled into the next).
-const isMedicalRecordExport = (docRef: DocumentReference): boolean =>
-  (docRef.type?.coding ?? []).some((coding) => coding.code === MEDICAL_RECORD_EXPORT_CODE);
 
 // Returns the attachment's bytes, or undefined if it can't be fetched — one bad file is skipped
 // rather than failing the whole export.

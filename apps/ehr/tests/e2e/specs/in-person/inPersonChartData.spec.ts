@@ -20,6 +20,7 @@ import { VitalsPage } from 'tests/e2e/page/VitalsPage';
 import {
   captureAllCheckboxStates,
   ComponentTestResult,
+  normalFindingCheckboxes,
   testCheckboxComponent,
   testDropdownComponent,
   testFormComponent,
@@ -27,14 +28,11 @@ import {
   testTextComponent,
   waitForFieldSave,
 } from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
-import {
-  chooseJson,
-  DEFAULT_PROGRESS_NOTE_CONFIG,
-  getFirstName,
-  getLastName,
-  ProgressNoteConfig,
-  PROVIDER_CONFIG,
-} from 'utils';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
+import { ProgressNoteConfig } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { AllergiesPage, expectAllergiesPage } from '../../page/in-person/AllergiesPage';
 
@@ -115,7 +113,9 @@ test.describe('In-Person Visit Chart Data', async () => {
   let context: BrowserContext;
 
   test.beforeAll(async ({ browser }) => {
-    await resourceHandler.setResources();
+    // Chart data only; nothing here reads a paperwork-derived field, and submitting paperwork
+    // costs ~12s of sequential patches and polling per appointment.
+    await resourceHandler.setResources({ skipPaperwork: true });
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     const oystehr = await ResourceHandler.getOystehr();
@@ -926,7 +926,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           preReloadAbnormalStates.push(await abnormalCheckboxes.nth(i).isChecked());
         }
 
-        const normalCheckboxes = normalCell.getByRole('checkbox');
+        const normalCheckboxes = normalFindingCheckboxes(normalCell);
         const normalCount = await normalCheckboxes.count();
         for (let i = 0; i < normalCount; i++) {
           preReloadNormalStates.push(await normalCheckboxes.nth(i).isChecked());
@@ -951,7 +951,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         const normalCell = row.getByRole('cell').nth(1);
 
         const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
-        const normalCheckboxes = normalCell.getByRole('checkbox');
+        const normalCheckboxes = normalFindingCheckboxes(normalCell);
 
         // Verify ALL abnormal checkboxes match expected states IN THE TESTED ROW
         const abnormalCount = await abnormalCheckboxes.count();

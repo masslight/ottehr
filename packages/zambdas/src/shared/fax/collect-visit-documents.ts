@@ -1,20 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, ServiceRequest } from 'fhir/r4b';
+import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { docRefIsOttehrGeneratedResultAndCurrent } from 'utils/lib/helpers/labs/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  DISCHARGE_SUMMARY_CODE,
-  docRefIsOttehrGeneratedResultAndCurrent,
   FAX_DOCUMENT_LABELS,
   FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
   FaxDocumentAvailability,
   FaxDocumentKind,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  ORDER_TYPE_CODE_SYSTEM,
+} from 'utils/lib/types/api/fax.types';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
-  Secrets,
   VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { searchRadiologyResultDocRefs } from '../../ehr/radiology/shared/result-doc-refs';
 import { assembleProgressNoteInput } from '../pdf/assemble-progress-note-input';
 import { createProgressNotePdfBytes } from '../pdf/progress-note-pdf';
@@ -25,12 +27,15 @@ import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
  * the usual case) or it was generated for this packet only (`bytes`, e.g. an unsigned visit note).
  */
 export interface FaxPacketPart {
-  kind: FaxDocumentKind;
+  /** Absent for patient-level documents, which are not one of the visit document kinds. */
+  kind?: FaxDocumentKind;
   /** Human label, used for logging and for the Task.input snapshot of what was faxed. */
   title: string;
   documentReferenceId?: string;
   /** Set when the part comes from an existing DocumentReference. */
   z3Url?: string;
+  /** MIME type of a stored part. Patient-level documents may be PDF, PNG, or JPEG. */
+  contentType?: string;
   /** Set when the part was generated on the fly. */
   bytes?: Uint8Array;
 }
@@ -197,6 +202,7 @@ const partsFromDocRefs = (kind: FaxDocumentKind, docRefs: DocumentReference[]): 
       title: docRef.content?.[0]?.attachment?.title || FAX_DOCUMENT_LABELS[kind],
       documentReferenceId: docRef.id,
       z3Url: docRef.content?.[0]?.attachment?.url,
+      contentType: docRef.content?.[0]?.attachment?.contentType,
     }))
     .filter((part) => !!part.z3Url);
 

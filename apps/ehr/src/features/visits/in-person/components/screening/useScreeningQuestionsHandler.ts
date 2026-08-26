@@ -1,18 +1,16 @@
 import { useCallback, useMemo } from 'react';
+import { shouldDisplayScreeningQuestion } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { Field, NoteField, ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import {
-  Field,
-  GetChartDataResponse,
   getFhirValueOrFallback,
   getFieldById,
   getNoteFieldById,
   getUiValueOrFallback,
   isNoteFieldConditional,
-  NoteField,
-  ObservationDTO,
-  patientScreeningQuestionsConfig,
-  shouldDisplayScreeningQuestion,
   shouldWaitForNote,
-} from 'utils';
+} from 'utils/lib/types/data/screening-questions/utils';
 
 type FieldValue = string | boolean | [string | null, string | null] | null;
 

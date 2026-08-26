@@ -2,19 +2,37 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import {
-  getPatientsForUser,
-  getSecret,
-  MISSING_AUTH_TOKEN,
-  NOT_AUTHORIZED,
-  RoleType,
-  Secrets,
-  SecretsKeys,
-  TEST_USER_ID,
-  userMe,
-} from 'utils';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
 
+/**
+ * Authorization gate for role-restricted endpoints. Resolves the caller from a
+ * Bearer `Authorization` header and returns true iff they hold at least one of
+ * `allowedRoles`. Fails closed: a missing/blank header or any userMe failure
+ * yields false, never a throw. This is the generalized form of
+ * callerCanEditPaymentFields (which now delegates here).
+ */
+export async function callerHasRole(
+  authorizationHeader: string | undefined,
+  secrets: Secrets | null,
+  allowedRoles: ReadonlyArray<string>
+): Promise<boolean> {
+  if (!authorizationHeader) return false;
+  const token = authorizationHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  try {
+    const caller = await userMe(token, secrets);
+    const callerRoles = (caller.roles ?? []).map((role) => role.name);
+    return callerRoles.some((role) => allowedRoles.includes(role));
+  } catch (err) {
+    console.error('Failed to resolve caller from Authorization header:', err);
+    return false;
+  }
+}
 export const getUserToken = (input: { headers?: { Authorization?: string } }): string => {
   const token = input.headers?.Authorization?.replace('Bearer ', '');
   if (!token) throw MISSING_AUTH_TOKEN;
@@ -53,6 +71,30 @@ export const requireUserWithRole = async (
 
 export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
   await requireUserWithRole(userToken, secrets, [RoleType.Administrator]);
+};
+
+/**
+ * Roles held by the Oystehr user behind the given Practitioner, or `undefined` when no user owns
+ * that profile.
+ *
+ * Roles live in Oystehr, not in FHIR, so answering this takes two calls: `listV2` resolves the
+ * Practitioner profile to a user id, and `get` is what actually returns the roles (`UserListItem`
+ * from a list does not carry them).
+ *
+ * The `undefined` case is deliberately distinct from "holds no roles": a Practitioner can be the
+ * profile of an M2M client rather than a user — see the M2M-as-user branch in `userMe` — so callers
+ * gating on a role must decide for themselves whether an unresolvable profile is a denial. It
+ * generally should not be: in production every employee is a user, so `undefined` means the caller
+ * asked about something that is not an employee at all.
+ */
+export const getPractitionerRoles = async (oystehr: Oystehr, practitionerId: string): Promise<string[] | undefined> => {
+  const { data } = await oystehr.user.listV2({ profile: `Practitioner/${practitionerId}`, limit: 1 });
+  const userId = data[0]?.id;
+  if (!userId) {
+    return undefined;
+  }
+  const user = await oystehr.user.get({ id: userId });
+  return (user.roles ?? []).map((role) => role.name);
 };
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {
@@ -133,6 +175,16 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
   console.log('cached token expired - getting new token');
   return await getAuth0Token(secrets);
 }
+
+export const isM2MClient = (token: string): boolean => {
+  const decoded = decodeJwt(token);
+  return decoded.sub?.endsWith('@clients') || false;
+};
+
+export const getM2MClientId = (token: string): string | undefined => {
+  const decoded = decodeJwt(token);
+  return decoded.sub?.split('@')[0];
+};
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {
   const decoded = decodeJwt(token);

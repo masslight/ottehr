@@ -1,20 +1,18 @@
 import {
+  AdHocBillingOutput,
   AdHocBillingRow,
   BILLING_DOMAIN_FIELDS,
   BILLING_INTERNAL_FIELDS,
   BILLING_LAYERS,
   BillingBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-} from 'utils';
-import { getAdHocBilling } from '../../../api/api';
-import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from '../query/batching';
+} from 'utils/lib/types/adhoc/datasets/billing';
+import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
+import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, AdHocRow, FetchContext } from './types';
 
-// One row per encounter, billing-focused. Base = visit/patient/location identity; opt-in layers add
-// financial/insurance subsets. Checkboxes derive from the Zod layer map (id/label/description).
-export const ADHOC_BILLING_OPTIONS: AdHocDatasetOption[] = layerOptions(BILLING_LAYERS);
+export const ADHOC_BILLING_OPTIONS: AdHocLayer[] = layerOptions(BILLING_LAYERS);
 
 async function fetchAdHocBilling({
   oystehrZambda,
@@ -23,31 +21,25 @@ async function fetchAdHocBilling({
   options,
 }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
-  const flags = layerIncludeFlags(BILLING_LAYERS, opts);
 
-  // Zambda emits date/lastPaymentDate as raw ISO; derive viewer-local yyyy-MM-dd here.
-  const rows = await fetchBatchedRange(
-    dateRange,
-    (range) =>
-      queryClient
-        .fetchQuery({
-          queryKey: ['adhoc-billing', range, flags],
-          queryFn: () => getAdHocBilling(oystehrZambda, { dateRange: range, ...flags }),
-          staleTime: ADHOC_QUERY_STALE_MS,
-        })
-        .then((r) =>
-          r.rows.map(
-            (row): AdHocBillingRow => ({
-              ...row,
-              date: toLocalYmd(row.date),
-              lastPaymentDate: row.lastPaymentDate == null ? row.lastPaymentDate : toLocalYmd(row.lastPaymentDate),
-            })
-          )
-        ),
-    dedupeByEncounter
+  const result = await queryClient.fetchQuery({
+    queryKey: ['adhoc-billing', dateRange, opts],
+    queryFn: () =>
+      runAdHocReport<AdHocBillingOutput>(oystehrZambda, {
+        datasetId: 'billing',
+        dateRange,
+        options: opts,
+      }),
+    staleTime: ADHOC_QUERY_STALE_MS,
+  });
+
+  return result.rows.map(
+    (row): AdHocBillingRow => ({
+      ...row,
+      date: toLocalYmd(row.date),
+      lastPaymentDate: row.lastPaymentDate == null ? row.lastPaymentDate : toLocalYmd(row.lastPaymentDate),
+    })
   );
-
-  return rows;
 }
 
 export const billingDataset: AdHocDataset = {
@@ -57,6 +49,9 @@ export const billingDataset: AdHocDataset = {
     'One row per encounter, focused on billing & revenue; optional patient-payment, insurance-coverage, ' +
     'charges/fee-schedule, and billing-code layers.',
   options: ADHOC_BILLING_OPTIONS,
+  layers: BILLING_LAYERS,
+  baseSchema: BillingBaseRowSchema,
+  internalFields: BILLING_INTERNAL_FIELDS,
   fetch: fetchAdHocBilling,
   buildSchema: (rows, options) => {
     const opts = options ?? {};

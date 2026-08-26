@@ -24,55 +24,44 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
-  CanonicalUrl,
-  CreateAppointmentResponse,
-  CREATED_BY_SYSTEM,
-  createUserResourcesForPatient,
   CURRENT_EXAM_MIGRATION_VERSION,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   EXAM_MIGRATION_VERSION_URL,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
-  FhirAppointmentStatus,
-  FhirEncounterStatus,
-  FOLLOWUP_SUBTYPE_SYSTEM,
-  FOLLOWUP_SYSTEMS,
-  FollowUpOptions,
-  formatPhoneNumber,
-  formatPhoneNumberDisplay,
-  getAppointmentDurationFromSlot,
-  getCanonicalQuestionnaire,
-  getCoding,
-  getFullestAvailableName,
-  getGroupAssignmentMode,
-  getSlotBookedViaGroupId,
-  getTaskResource,
-  isValidUUID,
-  makePrepopulatedItemsForPatient,
-  OTTEHR_MODULE,
+  INTAKE_PAPERWORK_QR_TAG,
   PATIENT_BILLING_ACCOUNT_TYPE,
-  PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
-  RETURNING_PATIENT_META_TAG,
-  ScheduleOwnerFhirResource,
-  Secrets,
   SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-  TaskIndicator,
-  User,
-  VisitType,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
+import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { makePrepopulatedItemsForPatient } from 'utils/lib/helpers/paperwork/prePopulation';
+import { Secrets } from 'utils/lib/secrets';
+import { FhirAppointmentStatus, FhirEncounterStatus } from 'utils/lib/types/api/appointment.types';
 import {
-  AuditableZambdaEndpoints,
-  createAuditEvent,
-  createClinicalOystehrClient,
-  generatePatientRelatedRequests,
-  getAuth0Token,
-  getUser,
-  isTestUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  CreateAppointmentResponse,
+  FollowUpOptions,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { User } from 'utils/lib/types/api/user.types';
+import { CanonicalUrl, CREATED_BY_SYSTEM, ServiceMode, TaskIndicator } from 'utils/lib/types/common';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, RETURNING_PATIENT_META_TAG } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
+import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import {
   createAppointmentComplexValidation,
@@ -86,7 +75,9 @@ interface CreateAppointmentInput {
   scheduleOwner: ScheduleOwnerFhirResource;
   serviceMode: ServiceMode;
   patient: PatientInfo;
-  user: User;
+  user: User | undefined;
+  isM2M: boolean;
+  m2mClientId?: string;
   questionnaireCanonical: CanonicalUrl;
   secrets: Secrets | null;
   visitType: VisitType;
@@ -110,8 +101,13 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
 
   const token = input.headers.Authorization.replace('Bearer ', '');
 
-  const user = await getUser(token, input.secrets);
-  const validatedParameters = validateCreateAppointmentParams(input, user);
+  const isM2M = isM2MClient(token);
+  const m2mClientId = isM2M ? getM2MClientId(token) : undefined;
+  let user: User | undefined = undefined;
+  if (!isM2M) {
+    user = await getUser(token, input.secrets);
+  }
+  const validatedParameters = validateCreateAppointmentParams(input, user, isM2M);
   const { secrets, language } = validatedParameters;
 
   console.groupEnd();
@@ -167,6 +163,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       patient,
       serviceMode,
       user,
+      isM2M,
+      m2mClientId,
       language,
       secrets,
       visitType,
@@ -231,6 +229,8 @@ export async function createAppointment(
     scheduleOwner,
     patient,
     user,
+    isM2M,
+    m2mClientId,
     secrets,
     visitType,
     serviceMode,
@@ -270,18 +270,25 @@ export async function createAppointment(
 
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
 
-  const createdBy = isEHRUser
+  const createdBy = isM2M
+    ? `M2M Client ${m2mClientId}`
+    : isEHRUser
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   console.log('getting questionnaire ID to create blank questionnaire response');
 
-  const currentQuestionnaire = await getCanonicalQuestionnaire(questionnaireUrl, oystehr);
+  // If the resolved questionnaire is a paperwork flow, assemble its constituent forms into a concrete
+  // item[] so pre-fill runs against the flattened pages; a non-flow questionnaire is returned as-is.
+  const currentQuestionnaire = await resolveEffectiveQuestionnaire(
+    await getCanonicalQuestionnaire(questionnaireUrl, oystehr),
+    oystehr
+  );
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {
     console.log('Getting verifiedPhoneNumber for new patient', patient.phoneNumber);
-    if (isEHRUser) {
+    if (isM2M || isEHRUser) {
       if (!patient.phoneNumber) {
         throw new Error('No phone number found for patient');
       }
@@ -321,7 +328,7 @@ export async function createAppointment(
     oystehr: oystehr,
     updatePatientRequest,
     createPatientRequest,
-    performPreProcessing: user && !isTestUser(user),
+    performPreProcessing: Boolean(user) && !isTestUser(user!),
     listRequests,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
@@ -843,6 +850,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'in-progress',
+    // Marks this as the intake paperwork QR so readers recognize it even when it points at a
+    // paperwork flow (whose canonical is the flow url, not an intake-paperwork url).
+    meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
     subject: { reference: patientRef },
     encounter: { reference: encUrl },
     item, // contains the pre-populated answers for the Patient

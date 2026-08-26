@@ -29,6 +29,7 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_INTEGRATION: '',
   PATIENT_BALANCE_SOURCE: 'candid',
   STRIPE_WEBHOOK_SECRET: '',
+  STRIPE_PLATFORM_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
@@ -48,6 +49,59 @@ async function generate(input: GenerateResourcesArgs): Promise<void> {
     billingOutputPath: `${outputPath}/billing_app`,
     env,
   });
+  await generateRuntimeSeedRemovals({
+    runtimeSeedDir: `${configDir}/runtime-seed`,
+    outputFile: `${outputPath}/oystehr/removed-locations.tf.json`,
+  });
+}
+
+/**
+ * Resources under config/runtime-seed/ are provisioned at runtime by seed
+ * scripts (e.g. seed-runtime-resources), NOT emitted as Terraform resources.
+ * Environments that were deployed before this move still have those resources
+ * in Terraform state, so a plain apply would try to destroy them. This emits a
+ * `removed { ... destroy = false }` block per resource key, dropping them from
+ * state without touching the live FHIR resource — letting the runtime seed
+ * adopt their lifecycle. It reads whatever the active instance actually ships,
+ * so the removals are always instance-correct. Once every environment has
+ * applied past this migration, this file (and config/runtime-seed itself
+ * remaining in state) is a no-op and the generated output is empty.
+ */
+async function generateRuntimeSeedRemovals(input: { runtimeSeedDir: string; outputFile: string }): Promise<void> {
+  const { runtimeSeedDir, outputFile } = input;
+  const resourceKeys: string[] = [];
+  try {
+    const files = await fs.readdir(runtimeSeedDir, { withFileTypes: true });
+    for (const file of files) {
+      if (!file.name.endsWith('.json')) {
+        continue;
+      }
+      const content = await fs.readFile(path.join(runtimeSeedDir, file.name), 'utf-8');
+      let parsed: { fhirResources?: Record<string, unknown> };
+      try {
+        parsed = JSON.parse(content);
+      } catch (err) {
+        throw new Error(`Error parsing runtime-seed file ${file.name}: ${err}`);
+      }
+      resourceKeys.push(...Object.keys(parsed.fhirResources ?? {}));
+    }
+  } catch (err: any) {
+    // No runtime-seed directory → nothing has been moved out of Terraform.
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+  }
+
+  if (resourceKeys.length === 0) {
+    await fs.rm(outputFile, { force: true });
+    return;
+  }
+
+  const removed = resourceKeys.map((key) => ({
+    from: `oystehr_fhir_resource.${key}`,
+    lifecycle: { destroy: false },
+  }));
+  await fs.writeFile(outputFile, JSON.stringify({ removed }, null, 2));
 }
 interface GenerateSendgridResources {
   configDir: string;
@@ -281,6 +335,7 @@ const validateInput = (): GenerateResourcesArgs => {
 export {
   generate,
   generateOystehrResources,
+  generateRuntimeSeedRemovals,
   isObject,
   validateInput,
   validSchemas,

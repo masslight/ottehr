@@ -3,16 +3,14 @@ import { Alert, Box, Button, CircularProgress, FormControlLabel, Switch, TextFie
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
-  BillingRule,
-  BillingRuleInput,
   DEFAULT_RULES_ENGINE,
-  getApiError,
   isRulesEngineType,
-  RuleConditional,
   RULES_ENGINES,
   RulesEngineType,
-} from 'utils';
+} from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRule, BillingRuleInput, RuleConditional } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { TextInput } from '../components/input/TextInput';
 import { ConditionalEditor, newRuleConditional } from '../components/rules/RuleBuilder';

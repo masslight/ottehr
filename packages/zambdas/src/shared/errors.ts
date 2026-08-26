@@ -1,5 +1,5 @@
 import { captureException, captureMessage } from '@sentry/aws-serverless';
-import { handleUnknownError } from 'utils';
+import { handleUnknownError } from 'utils/lib/fhir/helpers';
 
 export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
   if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
@@ -43,4 +43,28 @@ export const sendSlackNotification = async (message: string, env: string): Promi
       link_names: true,
     }),
   });
+};
+
+/**
+ * Whether a thrown error is a FHIR "resource does not exist" response.
+ *
+ * The SDK reports FHIR failures as `OystehrFHIRError`, which carries the HTTP status on `code` and
+ * the OperationOutcome on `cause` — not on the error itself. Code that tested `error.resourceType`
+ * and `error.issue` directly therefore never matched, and treated every 404 as an unexpected failure.
+ * Both shapes are accepted here so a raw OperationOutcome (however it reaches us) still resolves.
+ */
+export const isFhirNotFoundError = (error: unknown): boolean => {
+  if (error == null || typeof error !== 'object') return false;
+  const candidate = error as { code?: unknown; cause?: unknown; resourceType?: unknown; issue?: unknown };
+
+  if (candidate.code === 404) return true;
+
+  const outcome = (candidate.resourceType === 'OperationOutcome' ? candidate : candidate.cause) as
+    | { resourceType?: unknown; issue?: { severity?: string; code?: string }[] }
+    | undefined;
+
+  return (
+    outcome?.resourceType === 'OperationOutcome' &&
+    (outcome.issue ?? []).some((issue) => issue.severity === 'error' && issue.code === 'not-found')
+  );
 };

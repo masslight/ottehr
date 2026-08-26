@@ -1,11 +1,11 @@
-import { Claim, ClaimResponse, ClaimResponseItemAdjudication, Coverage, Organization, Patient } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_CODE_TAX_EMPLOYER, FHIR_IDENTIFIER_NPI, FHIR_IDENTIFIER_SYSTEM } from 'utils';
-import { describe, expect, it } from 'vitest';
+import { Claim, ClaimResponse, Coverage, Organization, Patient } from 'fhir/r4b';
 import {
-  ADJUDICATION_CODES,
-  OYSTEHR_ADJUDICATION_SYSTEM,
-  X12_ADJUSTMENT_GROUP_SYSTEM,
-} from '../../../src/billing/claim-amounts';
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { describe, expect, it } from 'vitest';
+import { ADJUDICATION_CODES } from '../../../src/billing/claim-amounts';
 import {
   buildEraClaimRemit,
   buildEraRemitServiceLines,
@@ -17,56 +17,10 @@ import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
-  ERA_ITEM_UNITS_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
 } from '../../../src/billing/shared';
-
-const adjudication = (
-  code: string,
-  amount: number,
-  system = OYSTEHR_ADJUDICATION_SYSTEM
-): ClaimResponseItemAdjudication => ({
-  category: { coding: [{ system, code }] },
-  amount: { value: amount, currency: 'USD' },
-});
-
-const casAdjustment = (group: string, amount: number, reasonCode?: string): ClaimResponseItemAdjudication => ({
-  ...adjudication(group, amount, X12_ADJUSTMENT_GROUP_SYSTEM),
-  ...(reasonCode
-    ? { reason: { coding: [{ system: 'https://x12.org/codes/claim-adjustment-reason-codes', code: reasonCode }] } }
-    : {}),
-});
-
-// A ClaimResponse.item as Oystehr's converters actually write it: the procedure code and units
-// ride on extensions, since ClaimResponse.item has nowhere else to carry them.
-const eraItem = (parts: {
-  sequence: number;
-  procedureCode?: string;
-  units?: number;
-  adjudication: ClaimResponseItemAdjudication[];
-}): NonNullable<ClaimResponse['item']>[number] => ({
-  itemSequence: parts.sequence,
-  adjudication: parts.adjudication,
-  extension: [
-    ...(parts.procedureCode ? [{ url: ERA_ITEM_PROCEDURE_CODE_EXTENSION, valueString: parts.procedureCode }] : []),
-    ...(parts.units !== undefined ? [{ url: ERA_ITEM_UNITS_EXTENSION, valueQuantity: { value: parts.units } }] : []),
-  ],
-});
-
-const claimResponse = (overrides: Partial<ClaimResponse> = {}): ClaimResponse => ({
-  resourceType: 'ClaimResponse',
-  id: 'cr-1',
-  status: 'active',
-  type: { coding: [{ code: 'professional' }] },
-  use: 'claim',
-  patient: { reference: 'Patient/p1' },
-  created: '2026-07-15',
-  insurer: { display: 'Test Payer' },
-  outcome: 'complete',
-  request: { reference: 'Claim/c1' },
-  ...overrides,
-});
+import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 const eraExtensions = (parts: { statusCode?: string; pcn?: string; icn?: string }): ClaimResponse['extension'] => [
   ...(parts.statusCode ? [{ url: ERA_STATUS_CODE_EXTENSION, valueString: parts.statusCode }] : []),
@@ -147,6 +101,7 @@ describe('buildEraRemitServiceLines', () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toEqual({
       itemSequence: 1,
+      claimItemSequence: null,
       isClaimLevel: false,
       cptCode: '73100',
       modifiers: [],
@@ -230,8 +185,19 @@ describe('buildEraRemitServiceLines', () => {
 
     const lines = buildEraRemitServiceLines(cr, claim);
 
-    expect(lines[0]).toMatchObject({ modifiers: ['25'], serviceDate: '2026-07-09', billed: 100 });
-    expect(lines[1]).toMatchObject({ modifiers: [], units: 2, serviceDate: '2026-07-10', billed: 50 });
+    expect(lines[0]).toMatchObject({
+      claimItemSequence: 1,
+      modifiers: ['25'],
+      serviceDate: '2026-07-09',
+      billed: 100,
+    });
+    expect(lines[1]).toMatchObject({
+      claimItemSequence: 2,
+      modifiers: [],
+      units: 2,
+      serviceDate: '2026-07-10',
+      billed: 50,
+    });
   });
 
   it('assigns crossed positional sequences by code, one line each', () => {
@@ -245,8 +211,20 @@ describe('buildEraRemitServiceLines', () => {
 
     const lines = buildEraRemitServiceLines(cr, submittedClaim());
 
-    expect(lines[0]).toMatchObject({ cptCode: '87880', units: 2, billed: 50 });
-    expect(lines[1]).toMatchObject({ cptCode: '99213', modifiers: ['25'], billed: 100 });
+    expect(lines[0]).toMatchObject({
+      itemSequence: 1,
+      claimItemSequence: 2,
+      cptCode: '87880',
+      units: 2,
+      billed: 50,
+    });
+    expect(lines[1]).toMatchObject({
+      itemSequence: 2,
+      claimItemSequence: 1,
+      cptCode: '99213',
+      modifiers: ['25'],
+      billed: 100,
+    });
   });
 
   it('assigns repeated codes one-to-one, preferring the submitted charge, leaving leftovers unenriched', () => {
@@ -292,9 +270,24 @@ describe('buildEraRemitServiceLines', () => {
     const lines = buildEraRemitServiceLines(cr, claim);
 
     // charge 50 -> our line 2; charge 100 -> our line 1; the third has no line left to borrow from
-    expect(lines[0]).toMatchObject({ modifiers: [], serviceDate: '2026-07-10', billed: 50 });
-    expect(lines[1]).toMatchObject({ modifiers: ['25'], serviceDate: '2026-07-09', billed: 100 });
-    expect(lines[2]).toMatchObject({ modifiers: [], serviceDate: '2026-07-09', billed: 25 });
+    expect(lines[0]).toMatchObject({
+      claimItemSequence: 2,
+      modifiers: [],
+      serviceDate: '2026-07-10',
+      billed: 50,
+    });
+    expect(lines[1]).toMatchObject({
+      claimItemSequence: 1,
+      modifiers: ['25'],
+      serviceDate: '2026-07-09',
+      billed: 100,
+    });
+    expect(lines[2]).toMatchObject({
+      claimItemSequence: null,
+      modifiers: [],
+      serviceDate: '2026-07-09',
+      billed: 25,
+    });
   });
 
   it('never borrows another service line details when the remit code is not on the claim', () => {
@@ -312,6 +305,7 @@ describe('buildEraRemitServiceLines', () => {
 
     expect(lines[0]).toMatchObject({
       cptCode: '90717',
+      claimItemSequence: null,
       modifiers: [],
       units: null,
       // falls back to the claim's own date rather than line 1's details
@@ -343,10 +337,61 @@ describe('buildEraRemitServiceLines', () => {
     expect(lines[0]).toMatchObject({ cptCode: '99213', coinsurance: 10, isClaimLevel: false });
     expect(lines[1]).toMatchObject({
       itemSequence: null,
+      claimItemSequence: null,
       isClaimLevel: true,
       cptCode: '',
       copay: 5,
       serviceDate: '',
+    });
+  });
+
+  it('resolves a payer-added addItem line only when it carries the procedure code extension', () => {
+    const withoutExtension = claimResponse({
+      addItem: [
+        {
+          productOrService: {
+            coding: [
+              {
+                code: '87880',
+              },
+            ],
+          },
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 25)],
+        },
+      ],
+    });
+    const withExtension = claimResponse({
+      addItem: [
+        {
+          productOrService: {
+            coding: [
+              {
+                code: '87880',
+              },
+            ],
+          },
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 25)],
+          extension: [
+            {
+              url: ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+              valueString: '87880',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(buildEraRemitServiceLines(withoutExtension, submittedClaim())[0]).toMatchObject({
+      isClaimLevel: false,
+      cptCode: '87880',
+      claimItemSequence: null,
+      paid: 25,
+    });
+    expect(buildEraRemitServiceLines(withExtension, submittedClaim())[0]).toMatchObject({
+      isClaimLevel: false,
+      cptCode: '87880',
+      claimItemSequence: 2,
+      paid: 25,
     });
   });
 
@@ -371,6 +416,7 @@ describe('buildEraRemitServiceLines', () => {
 
     expect(buildEraRemitServiceLines(cr, undefined)[0]).toMatchObject({
       itemSequence: 7,
+      claimItemSequence: null,
       cptCode: '',
       units: null,
       serviceDate: '',

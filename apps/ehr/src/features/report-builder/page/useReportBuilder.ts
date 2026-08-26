@@ -3,30 +3,35 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  ADHOC_RUNTIME_VERSION,
-  AdHocDateRangeFilter,
-  AdHocRow,
-  GenerateAdHocReportInput,
-  LlmDatasetSchema,
-  SavedAdHocReportDefinition,
-} from 'utils';
-import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';
+import { AD_HOC_DATASETS, datasetCatalog, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
-import { getBatchWindowFailures } from '../query/batching';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
-// The iframe run over the real rows IS the validation pass (the zambda never executes code), so
-// this client loop is the design's "validate and regenerate on failure, bounded (~2-3 tries)":
 // 1 initial generation + up to 2 repairs.
 const MAX_AUTO_RETRIES = 2;
 
 type PreviousAttempt = NonNullable<GenerateAdHocReportInput['previousAttempt']>;
+
+interface InferResult {
+  options: Record<string, boolean>;
+  unavailable?: string[];
+  hint?: string;
+}
+
+export interface UnavailableRequest {
+  concepts: string[];
+  hint?: string;
+}
 
 function rangeFromControls(
   filter: AdHocDateRangeFilter,
@@ -68,14 +73,6 @@ function defaultOptionsFor(datasetId: string): Record<string, boolean> {
   return out;
 }
 
-// Some (not all) batched date windows failed — data is usable but incomplete. Null when all loaded.
-function partialWarningFor(rows: AdHocRow[]): string | null {
-  const f = getBatchWindowFailures(rows);
-  return f && f.failedWindows > 0
-    ? `${f.failedWindows} of ${f.totalWindows} date windows failed to load — results are partial.`
-    : null;
-}
-
 type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
   canView: boolean;
@@ -87,14 +84,15 @@ type UseReportBuilder = {
   customEndDate: string;
   rows: AdHocRow[] | null;
   schema: LlmDatasetSchema | null;
+  datasetOptions: Record<string, boolean>;
   loading: boolean;
   error: string | null;
-  partialWarning: string | null;
   request: string;
   generating: boolean;
   generatedCode: string | null;
   generatedTitle: string | undefined;
   generateError: string | null;
+  unavailableRequest: UnavailableRequest | null;
   renderError: string | null;
   showSchema: boolean;
   showCode: boolean;
@@ -123,9 +121,6 @@ type UseReportBuilder = {
   openSaveDialog: () => void;
 };
 
-// Client-side pipeline (infer layers → fetch → generate → needsLayers backfill) + save/load. Fetch
-// stays client-side: rows reach the sandboxed iframe, never the LLM (which sees only the Zod schema).
-// No refinement; the only multi-turn path is the auto-repair (previousAttempt) on a runtime crash.
 export function useReportBuilder(): UseReportBuilder {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
@@ -150,24 +145,18 @@ export function useReportBuilder(): UseReportBuilder {
   const [schema, setSchema] = useState<LlmDatasetSchema | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Soft warning: some batched date windows failed but the rest loaded. Kept separate from `error`.
-  const [partialWarning, setPartialWarning] = useState<string | null>(null);
 
   const [request, setRequest] = useState('');
   const [generating, setGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [generatedTitle, setGeneratedTitle] = useState<string | undefined>(undefined);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [unavailableRequest, setUnavailableRequest] = useState<UnavailableRequest | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [showSchema, setShowSchema] = useState(false);
   const [showCode, setShowCode] = useState(false);
-  // The request the current code was generated from — the auto-repair regenerates THIS, not
-  // whatever is currently typed in the box.
   const activeRequestRef = useRef('');
-  // Bounds transparent regenerations after a runtime crash, so broken code can't loop forever.
   const autoRetryRef = useRef(0);
-  // True once the current code is an auto-repair (or version regeneration) — a clean render then
-  // persists the fixed code back to the saved report so it doesn't repair itself on every open.
   const autoFixedRef = useRef(false);
 
   const [loadedSavedId, setLoadedSavedId] = useState<string | null>(null);
@@ -176,10 +165,6 @@ export function useReportBuilder(): UseReportBuilder {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const loadAttemptedRef = useRef(false);
-  // A regeneration requested by the saved-report loader. It must NOT call orchestrate directly:
-  // right after the loader's setState calls, orchestrate (and fetchWithOptions inside it) still
-  // close over the PREVIOUS render's datasetId/dateRange/options/schema — it would fetch the wrong
-  // dataset. Deferring through state runs it on the next render, over the committed values.
   const [pendingRegenerate, setPendingRegenerate] = useState<string | null>(null);
 
   const getDateRangeIso = useCallback(
@@ -187,8 +172,6 @@ export function useReportBuilder(): UseReportBuilder {
     [customDate, customStartDate, customEndDate]
   );
 
-  // Fetch the dataset for `opts`, build the LLM schema (static Zod metadata only — no values leave
-  // the client), return both so a caller can use them without waiting for setState.
   const fetchWithOptions = useCallback(
     async (opts: Record<string, boolean>): Promise<{ rows: AdHocRow[]; schema: LlmDatasetSchema } | null> => {
       if (!oystehrZambda) return null;
@@ -196,7 +179,6 @@ export function useReportBuilder(): UseReportBuilder {
       if (!dataset) return null;
       setLoading(true);
       setError(null);
-      setPartialWarning(null);
       try {
         const range = getDateRangeIso(dateRange);
         const fetched = await dataset.fetch({ oystehrZambda, queryClient, dateRange: range, options: opts });
@@ -209,14 +191,13 @@ export function useReportBuilder(): UseReportBuilder {
           options: opts,
           fields: builtSchema.fields.length,
         });
-        setPartialWarning(partialWarningFor(fetched));
         setRows(fetched);
         setSchema(builtSchema);
         setDatasetOptions(opts);
         return { rows: fetched, schema: builtSchema };
       } catch (e) {
         showAdHocDebugLog('fetch', 'FAILED', e);
-        setError(e instanceof Error ? e.message : 'Failed to fetch data');
+        setError(getApiError({ error: e, defaultError: 'Failed to fetch data' }));
         return null;
       } finally {
         setLoading(false);
@@ -234,33 +215,32 @@ export function useReportBuilder(): UseReportBuilder {
     setDatasetOptions(defaultOptionsFor(id));
   }, []);
 
-  // Which opt-in layers this request needs. Falls back to defaults; generate's needsLayers backfills misses.
   const inferOptions = useCallback(
-    async (message: string): Promise<Record<string, boolean>> => {
+    async (message: string): Promise<InferResult> => {
       const dataset = getDataset(datasetId);
       const layers = dataset?.options ?? [];
       const base = defaultOptionsFor(datasetId);
-      if (!oystehrZambda || layers.length === 0) return base;
+      if (!oystehrZambda || layers.length === 0) return { options: base };
       try {
-        const { layerIds } = await inferAdHocReportLayers(oystehrZambda, {
+        const { layerIds, unavailable, hint } = await inferAdHocReportLayers(oystehrZambda, {
           datasetId,
-          layers: layers.map((l) => ({ id: l.id, label: l.label, description: l.description })),
+          datasets: datasetCatalog(),
           request: message,
         });
+        if (unavailable?.length) return { options: base, unavailable, hint };
         const out = { ...base };
         layerIds.forEach((id) => {
           if (id in out) out[id] = true;
         });
-        return out;
+        return { options: out };
       } catch (e) {
         showAdHocDebugLog('infer', 'layer inference failed — using defaults', e);
-        return base;
+        return { options: base };
       }
     },
     [oystehrZambda, datasetId]
   );
 
-  // Send schema + request (never rows) to generate. Returns the result for the needsLayers backfill.
   const callGenerate = useCallback(
     async (
       message: string,
@@ -292,22 +272,25 @@ export function useReportBuilder(): UseReportBuilder {
     [oystehrZambda]
   );
 
-  // Lets the saved-report loader and the render-error repair re-invoke the pipeline via a ref.
   const orchestrateRef = useRef<(m: string, infer: boolean, prev?: PreviousAttempt) => Promise<void>>();
 
-  // infer → fetch → generate → (needsLayers) refetch + regenerate once. `infer` is false when the
-  // loaded data can be reused (auto-repair, saved-report regeneration).
   const orchestrate = useCallback(
     async (message: string, infer: boolean, previousAttempt?: PreviousAttempt): Promise<void> => {
       if (!oystehrZambda) return;
       setGenerating(true);
       setGenerateError(null);
       setRenderError(null);
+      setUnavailableRequest(null);
       try {
         let activeOpts = datasetOptions;
         let activeSchema = schema;
         if (infer) {
-          activeOpts = await inferOptions(message);
+          const inferred = await inferOptions(message);
+          if (inferred.unavailable?.length) {
+            setUnavailableRequest({ concepts: inferred.unavailable, hint: inferred.hint });
+            return;
+          }
+          activeOpts = inferred.options;
           const fetched = await fetchWithOptions(activeOpts);
           if (!fetched) return;
           activeSchema = fetched.schema;
@@ -319,7 +302,6 @@ export function useReportBuilder(): UseReportBuilder {
 
         const result = await callGenerate(message, activeSchema, previousAttempt);
 
-        // Safety net: the code named layers it needs that weren't loaded — fetch them and regenerate.
         const wanted = (result?.needsLayers ?? []).filter((id) => id in activeOpts && !activeOpts[id]);
         if (wanted.length) {
           const merged = { ...activeOpts };
@@ -329,7 +311,7 @@ export function useReportBuilder(): UseReportBuilder {
         }
       } catch (e) {
         showAdHocDebugLog('generate', 'orchestrate FAILED', e);
-        setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
+        setGenerateError(getApiError({ error: e, defaultError: 'Failed to generate report' }));
       } finally {
         setGenerating(false);
       }
@@ -339,9 +321,6 @@ export function useReportBuilder(): UseReportBuilder {
 
   orchestrateRef.current = orchestrate;
 
-  // Consume a deferred regeneration on the render AFTER the saved-report loader committed the saved
-  // dataset/range/options/schema — orchestrate now closes over the right values. infer=false: the
-  // loader already fetched the rows + schema for the saved criteria.
   useEffect(() => {
     if (!pendingRegenerate || loading || generating) return;
     const request = pendingRegenerate;
@@ -349,7 +328,6 @@ export function useReportBuilder(): UseReportBuilder {
     void orchestrate(request, false);
   }, [pendingRegenerate, loading, generating, orchestrate]);
 
-  // Editing the request and generating again IS the refinement flow — there is no separate one.
   const handleGenerate = useCallback((): void => {
     if (!request.trim() || !canCreate) return;
     autoRetryRef.current = 0;
@@ -358,10 +336,6 @@ export function useReportBuilder(): UseReportBuilder {
     void orchestrate(request, true);
   }, [request, canCreate, orchestrate]);
 
-  // When the generated code throws at runtime in the iframe, transparently regenerate once with the
-  // failing code + error attached. After the budget is spent, surface the error. A watchdog
-  // TIMEOUT is not a code failure (the code may be fine and merely slow here) — show it, never
-  // regenerate over it.
   const handleRenderError = useCallback(
     (message: string): void => {
       if (
@@ -389,12 +363,11 @@ export function useReportBuilder(): UseReportBuilder {
     [canCreate, generating, generatedCode]
   );
 
-  // Clear the generated report to start fresh. Keeps the fetched rows/schema and request text, so
-  // the user can tweak the request and regenerate without re-fetching.
   const handleReset = useCallback((): void => {
     setGeneratedCode(null);
     setGeneratedTitle(undefined);
     setGenerateError(null);
+    setUnavailableRequest(null);
     setRenderError(null);
     setLoadedSavedId(null);
     activeRequestRef.current = '';
@@ -402,9 +375,6 @@ export function useReportBuilder(): UseReportBuilder {
     autoFixedRef.current = false;
   }, []);
 
-  // Open from a saved tile (?saved=): load definition, set controls, re-fetch live data, re-run the
-  // saved code in the iframe. On a runtime-version mismatch the saved code was generated against an
-  // older execution contract — regenerate it from the saved prompt instead of running it.
   useEffect(() => {
     const savedId = searchParams.get('saved');
 
@@ -476,7 +446,7 @@ export function useReportBuilder(): UseReportBuilder {
           setGeneratedTitle(saved.title);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load saved report');
+        setError(getApiError({ error: e, defaultError: 'Failed to load saved report' }));
       } finally {
         setLoading(false);
       }
@@ -511,9 +481,8 @@ export function useReportBuilder(): UseReportBuilder {
     ]
   );
 
-  // When an auto-repaired (or version-regenerated) report renders cleanly, persist the fixed code
-  // back to the saved report so it doesn't repair itself again on every open.
   const handleRendered = useCallback((): void => {
+    setRenderError(null);
     if (!autoFixedRef.current) return;
     autoFixedRef.current = false;
     if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode) return;
@@ -561,14 +530,15 @@ export function useReportBuilder(): UseReportBuilder {
     customEndDate,
     rows,
     schema,
+    datasetOptions,
     loading,
     error,
-    partialWarning,
     request,
     generating,
     generatedCode,
     generatedTitle,
     generateError,
+    unavailableRequest,
     renderError,
     showSchema,
     showCode,

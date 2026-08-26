@@ -5,7 +5,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChartFields } from './useChartFields';
 

@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { Control, UseFormGetValues, UseFormSetValue } from 'react-hook-form';
-import { PractitionerLicense, ProviderTypeCode, RoleType, User } from 'utils';
+import { PractitionerLicense, ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
+import { RoleType, User } from 'utils/lib/types/api/user.types';
 
 export interface FormErrors {
   submit: boolean;
@@ -17,6 +18,7 @@ export interface EditEmployeeInformationProps {
   existingUser: User;
   isActive: boolean | undefined;
   licenses: PractitionerLicense[];
+  seenPatientRecently: boolean;
   getUserAndUpdatePage: () => Promise<void>;
 }
 
@@ -47,12 +49,16 @@ export interface ProviderDetailsProps {
   setValue: UseFormSetValue<any>;
   photoSrc: string;
   roles: string[];
+  seenPatientRecently: boolean;
 }
 
 export interface RoleSelectionProps {
   control: Control<any>;
   errors: FormErrors;
   isActive: boolean;
+  /** Whether the signed-in user is looking at their own record, which only changes how the
+   *  role-permission hint is worded. */
+  isOwnRecord: boolean;
   getValues: UseFormGetValues<any>;
   setValue: UseFormSetValue<any>;
 }

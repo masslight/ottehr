@@ -2,19 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
   getEncounterLockMetaTagOperations,
-  getPatchBinary,
-  isFollowupEncounter,
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import {
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { getSignatureProvenanceDeleteRequests } from '../../shared/deleteSignatureProvenances';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'unlock-appointment';

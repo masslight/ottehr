@@ -4,7 +4,8 @@ import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
-import { NoteDTO, VitalFieldNames } from 'utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 type PatientVitalsContainerProps = {
   notes?: NoteDTO[];

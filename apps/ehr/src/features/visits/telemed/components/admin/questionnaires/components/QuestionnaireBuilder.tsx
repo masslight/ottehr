@@ -10,11 +10,13 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import {
   makePracticeManagedUrl,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
+  practiceManagedQuestionnaireToFhir,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
+import { slugify } from 'utils/lib/helpers/slugify';
+import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
-  practiceManagedQuestionnaireToFhir,
-  slugify,
-} from 'utils';
+} from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { itemsReducer } from '../questionnaire.reducer';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
 import { QuestionnairePreview } from './QuestionnairePreview';
@@ -297,12 +299,13 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
         </Box>
       </Box>
 
-      {/* Floating action bar */}
+      {/* Floating action bar. `left` reads the --admin-sidebar-width custom property set by
+          AdminSidebar so the bar spans the content column instead of the full viewport. */}
       <Box
         sx={{
           position: 'fixed',
           bottom: 0,
-          left: 0,
+          left: 'var(--admin-sidebar-width, 0px)',
           right: 0,
           bgcolor: 'background.paper',
           borderTop: '1px solid',

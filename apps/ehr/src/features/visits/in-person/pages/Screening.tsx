@@ -1,7 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils';
+import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useChartFields } from '../../shared/hooks/useChartFields';

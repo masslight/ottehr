@@ -24,7 +24,8 @@ import { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { ApprovedPatientEducationItem, PATIENT_EDUCATION_LANGUAGE_LABELS } from 'utils';
+import { ApprovedPatientEducationItem } from 'utils/lib/types/api/approved-patient-education.types';
+import { PATIENT_EDUCATION_LANGUAGE_LABELS } from 'utils/lib/types/data/patient-education.types';
 import { ApprovedPatientEducationDialog } from './ApprovedPatientEducationDialog';
 import { EditApprovedPatientEducationCodesDialog } from './EditApprovedPatientEducationCodesDialog';
 

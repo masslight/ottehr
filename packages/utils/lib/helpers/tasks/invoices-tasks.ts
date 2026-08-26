@@ -1,5 +1,5 @@
 import { Task, TaskInput } from 'fhir/r4b';
-import { RcmTaskCode } from '../../fhir';
+import { RcmTaskCode } from '../../fhir/constants';
 import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
 import {
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
@@ -8,7 +8,7 @@ import {
   InvoiceTaskInput,
   InvoiceTaskInputSchema,
   InvoiceTaskSource,
-} from '../../types';
+} from '../../types/api/invoicing.types';
 
 export function createInvoiceTaskInput(input: InvoiceTaskInput): TaskInput[] {
   const fieldsNames = Object.keys(input);
@@ -115,4 +115,17 @@ export function getLatestTaskOutput(task: Task): { type: 'error' | 'success'; me
     return { type: 'error', message: lastTaskOutput.valueString };
   }
   return undefined;
+}
+
+export function getInvoiceTaskOutputs(task: Task): { invoiceId?: string; error?: string } {
+  const outputs = task.output ?? [];
+  const invoiceId = outputs
+    .slice()
+    .reverse()
+    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId))?.valueString;
+  const error = outputs
+    .slice()
+    .reverse()
+    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))?.valueString;
+  return { invoiceId, error };
 }

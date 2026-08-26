@@ -17,16 +17,12 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import {
-  FOLLOWUP_SYSTEMS,
-  M2MClientMockType,
-  MergePatientsResponse,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RoleType,
-  SaveChartDataRequest,
-  SaveChartDataResponse,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { PATIENT_BILLING_ACCOUNT_TYPE, WORKERS_COMP_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { SaveChartDataRequest, SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { MergePatientsResponse } from 'utils/lib/types/api/patient-account';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import {
   addProcessIdMetaTagToResource,
   InsertFullAppointmentDataBaseResult,

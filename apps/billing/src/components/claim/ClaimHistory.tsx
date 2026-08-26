@@ -15,7 +15,8 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { ClaimHistoryEntry, ClaimHistoryLink, getApiError } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimHistoryEntry, ClaimHistoryLink, ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import { getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '../../themes/ottehr/colors';
@@ -48,6 +49,19 @@ function HistoryValue({
   return (
     <Box component="span" sx={{ color }}>
       {formatValue(value)}
+    </Box>
+  );
+}
+
+// The rule that made a change, as a suffix linking to the rule's editor.
+function RuleSuffix({ rule }: { rule?: ClaimHistoryRuleRef }): ReactElement | null {
+  if (!rule?.id || !rule.name || !rule.engine) return null;
+  return (
+    <Box component="span" sx={{ color: 'text.secondary' }}>
+      {' · via '}
+      <MuiLink component={RouterLink} to={`/rules/${rule.engine}/${rule.id}`} sx={{ fontWeight: 500 }}>
+        {rule.name}
+      </MuiLink>
     </Box>
   );
 }
@@ -85,6 +99,7 @@ function HistoryDetail({ entry }: { entry: ClaimHistoryEntry }): ReactElement {
             <></>
           )}
           <HistoryValue value={change.newValue} link={change.newLink} />
+          <RuleSuffix rule={change.rule} />
         </Typography>
       ))}
     </>

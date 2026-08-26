@@ -9,16 +9,16 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  chartDataTagSystem,
-  CODE_SYSTEM_ICD_10,
-  DiagnosisDTO,
-  IN_HOUSE_TEST_CODE_SYSTEM,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionKey,
-} from 'utils';
-import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
+} from 'utils/lib/types/data/apply-template.types';
+import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { describe, expect, test } from 'vitest';
 import { isExternalLabPlanServiceRequest } from '../../src/ehr/apply-template/apply-external-labs';
 import { isInHouseLabPlanServiceRequest } from '../../src/ehr/apply-template/apply-in-house-labs';
@@ -29,7 +29,7 @@ import {
   makeCreateRequests,
 } from '../../src/ehr/apply-template/index';
 import { validateRequestParameters } from '../../src/ehr/apply-template/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const createInput = (body: Record<string, unknown>): ZambdaInput => ({
   body: JSON.stringify(body),
@@ -597,6 +597,30 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
 
     const createdCpts = getCptPostRequests(requests);
     expect(createdCpts).toHaveLength(0);
+  });
+
+  test('external lab CPT codes in cptCodesFromLabsToSkip suppress the matching template CPT Procedure', () => {
+    // Simulates the dedup path for external labs: collectExternalLabCptProcedures
+    // returns { cptCodesToSkip: Set{'36415'} }. The caller merges this into
+    // cptCodesFromLabsToSkip before calling makeCreateRequests, so the template's
+    // standalone CPT Procedure for 36415 is dropped.
+    const cptProc = makeCptProcedure('cpt-ext', '36415');
+    const templateList = makeCptTemplateList([cptProc]);
+    const actions = makeActions({ cptCodes: 'append' });
+
+    const externalLabCptCodesToSkip = new Set(['36415']);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      externalLabCptCodesToSkip,
+      new Set(),
+      []
+    );
+
+    const createdCpts = getCptPostRequests(requests);
+    expect(createdCpts.map((c) => c.code)).not.toContain('36415');
   });
 
   test('append both: a CPT code NOT on any lab plan is still created normally', () => {

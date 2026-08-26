@@ -1,20 +1,20 @@
+import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   AdHocEncounterRow,
+  AdHocEncountersOutput,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-  VisitStatusLabel,
-} from 'utils';
-import { getAdHocEncounters } from '../../../api/api';
+} from 'utils/lib/types/adhoc/datasets/encounters';
+import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { buildTrackingBoardPath } from '../../../pages/reports/trackingBoardLink';
-import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from '../query/batching';
+import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, AdHocRow, FetchContext } from './types';
 
-export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = layerOptions(ENCOUNTER_LAYERS);
+export const ADHOC_ENCOUNTERS_OPTIONS: AdHocLayer[] = layerOptions(ENCOUNTER_LAYERS);
 
 function localizeEncounterRow(row: AdHocEncounterRow): AdHocEncounterRow {
   return {
@@ -41,22 +41,18 @@ async function fetchAdHocEncounters({
 }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
 
-  const flags = layerIncludeFlags(ENCOUNTER_LAYERS, opts);
+  const result = await queryClient.fetchQuery({
+    queryKey: ['adhoc-encounters', dateRange, opts],
+    queryFn: () =>
+      runAdHocReport<AdHocEncountersOutput>(oystehrZambda, {
+        datasetId: 'encounters-comprehensive',
+        dateRange,
+        options: opts,
+      }),
+    staleTime: ADHOC_QUERY_STALE_MS,
+  });
 
-  const rows = await fetchBatchedRange(
-    dateRange,
-    (range) =>
-      queryClient
-        .fetchQuery({
-          queryKey: ['adhoc-encounters', range, flags],
-          queryFn: () => getAdHocEncounters(oystehrZambda, { dateRange: range, ...flags }),
-          staleTime: ADHOC_QUERY_STALE_MS,
-        })
-        .then((r) => r.encounters.map(localizeEncounterRow)),
-    dedupeByEncounter
-  );
-
-  return rows;
+  return result.encounters.map(localizeEncounterRow);
 }
 
 export const adhocEncountersDataset: AdHocDataset = {
@@ -66,6 +62,9 @@ export const adhocEncountersDataset: AdHocDataset = {
     'One row per encounter with visit, patient, contact, and location/provider detail; optional ' +
     'clinical codes, KPI timing, and AI-assistance layers.',
   options: ADHOC_ENCOUNTERS_OPTIONS,
+  layers: ENCOUNTER_LAYERS,
+  baseSchema: EncounterBaseRowSchema,
+  internalFields: ENCOUNTER_INTERNAL_FIELDS,
   fetch: fetchAdHocEncounters,
   buildSchema: (rows, options) => {
     const opts = options ?? {};

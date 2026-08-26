@@ -1,8 +1,9 @@
 import { FormFieldItemRecord, FormFieldItemRecordSchema, FormFieldsDisplayItem, FormFieldSection } from 'config-types';
 import { FC, ReactElement } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Section } from 'src/components/layout';
-import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG } from 'utils';
+import { Section } from 'src/components/layout/Section';
+import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 
 interface PatientRecordFormSectionInput {
   formSection: FormFieldSection;

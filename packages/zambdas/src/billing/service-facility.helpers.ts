@@ -1,15 +1,15 @@
 import { Coding, Location } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
-  getNPI,
-  SaveServiceFacilityInput,
-  ServiceFacilityItem,
-} from 'utils';
-import { isWorkingCopy, SOURCE_IDENTIFIER_SYSTEM } from './shared';
+} from 'utils/lib/fhir/constants';
+import { getNPI } from 'utils/lib/fhir/helpers';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
+import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
+import { copySourceId, isWorkingCopy } from './shared';
 
 export function getCLIA(location: Location): string | undefined {
   return location.identifier?.find((identifier) => identifier.system === FHIR_IDENTIFIER_CLIA)?.value;
@@ -21,12 +21,7 @@ export function getPlaceOfServiceCode(location: Location): string | undefined {
 
 // FHIR Location -> the flat shape the billing UI consumes.
 export function mapServiceFacility(location: Location): ServiceFacilityItem {
-  let workingCopyReferenceResourceId: string | undefined;
-  if (isWorkingCopy(location)) {
-    workingCopyReferenceResourceId = location.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Location/', '');
-  }
+  const workingCopyReferenceResourceId = isWorkingCopy(location) ? copySourceId(location) : undefined;
   const address = location.address;
   return {
     id: location.id ?? '',

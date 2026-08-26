@@ -1,15 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Task as FhirTask } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import {
-  BUCKET_NAMES,
-  EXPORT_CSV_OUTPUT_URL_CODE,
-  EXPORT_INVOICES_CSV_TASK_CODE,
-  EXPORT_INVOICES_CSV_TASK_SYSTEM,
-  getSecret,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { EXPORT_INVOICES_CSV_TASK_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { cleanupExportTaskFiles } from '../cleanup-export-task-files';
 
 const CLEANUP_AGE_MINUTES = 10;
 
@@ -21,60 +18,20 @@ export const index = wrapHandler(
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
     const projectId = getSecret(SecretsKeys.PROJECT_ID, input.secrets);
-    const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
 
-    // Find completed or failed export tasks
-    const tasks = (
-      await oystehr.fhir.search<FhirTask>({
-        resourceType: 'Task',
-        params: [
-          { name: 'code', value: `${EXPORT_INVOICES_CSV_TASK_SYSTEM}|${EXPORT_INVOICES_CSV_TASK_CODE}` },
-          { name: 'status', value: 'completed,failed' },
-        ],
-      })
-    ).unbundle();
-
-    const cutoff = DateTime.now().minus({ minutes: CLEANUP_AGE_MINUTES });
-    const eligibleTasks = tasks.filter((task) => {
-      const lastModified = task.meta?.lastUpdated;
-      return lastModified && DateTime.fromISO(lastModified) < cutoff;
+    const response = await cleanupExportTaskFiles({
+      oystehr,
+      taskSystem: EXPORT_INVOICES_CSV_TASK_SYSTEM,
+      taskCode: EXPORT_INVOICES_CSV_TASK_CODE,
+      bucketName: `${projectId}-${BUCKET_NAMES.REPORTS}`,
+      ageMinutes: CLEANUP_AGE_MINUTES,
     });
 
-    console.log(
-      `Found ${tasks.length} completed/failed export tasks, ${eligibleTasks.length} older than ${CLEANUP_AGE_MINUTES} minutes`
-    );
-
-    let deletedFiles = 0;
-
-    for (const task of eligibleTasks) {
-      // Delete the Z3 object if the task has an output URL
-      const outputUrl = task.output?.find((o) => o.type?.coding?.some((c) => c.code === EXPORT_CSV_OUTPUT_URL_CODE))
-        ?.valueString;
-
-      if (outputUrl) {
-        // Extract the object path from the full Z3 URL
-        // URL format: https://<api>/z3/<bucketName>/<objectPath>
-        const z3Marker = `z3/${bucketName}/`;
-        const markerIndex = outputUrl.indexOf(z3Marker);
-        if (markerIndex !== -1) {
-          const objectPath = outputUrl.substring(markerIndex + z3Marker.length);
-          try {
-            await oystehr.z3.deleteObject({ bucketName, 'objectPath+': objectPath });
-            deletedFiles++;
-            console.log(`Deleted Z3 object: ${objectPath}`);
-          } catch (error) {
-            console.error(`Failed to delete Z3 object ${objectPath}:`, error);
-          }
-        }
-      }
-    }
-
-    const message = `Cleanup complete: deleted ${deletedFiles} Z3 files`;
-    console.log(message);
+    console.log(response.message);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message, deletedFiles }),
+      body: JSON.stringify(response),
     };
   }
 );

@@ -2,12 +2,12 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useNavigate } from 'react-router-dom';
+import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
 import { intakeFlowPageRoute } from '../../App';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
 import { getWelcomeTitle } from '../../branding/welcomeTitle';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
-import { CustomContainer } from '../features/common';
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
 

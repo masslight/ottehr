@@ -2,58 +2,55 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Appointment, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  AllStates,
-  APPOINTMENT_ALREADY_EXISTS_ERROR,
-  BOOKING_CONFIG,
-  CanonicalUrl,
-  CHARACTER_LIMIT_EXCEEDED_ERROR,
-  checkSlotAvailable,
+  makeSlotAtLocationExtensionEntry,
+  parseQuestionnaireCanonicalExtension,
+  SERVICE_CATEGORY_SYSTEM,
+  SLOT_FALLBACK_REROUTED_TAG,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { isLocationVirtual, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { Secrets } from 'utils/lib/secrets';
+import {
   CreateAppointmentInputParams,
-  FHIR_RESOURCE_NOT_FOUND,
   FollowUpOptions,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { AllStates, CanonicalUrl, PersonSex, ServiceMode } from 'utils/lib/types/common';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import {
+  APPOINTMENT_ALREADY_EXISTS_ERROR,
+  CHARACTER_LIMIT_EXCEEDED_ERROR,
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUIRED_PARAMETERS,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  SLOT_UNAVAILABLE_ERROR,
+} from 'utils/lib/types/errors';
+import {
+  checkSlotAvailable,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  INVALID_INPUT_ERROR,
-  isLocationVirtual,
-  isPhoneNumberValid,
-  locationSupportsServiceMode,
-  makeSlotAtLocationExtensionEntry,
-  MISSING_REQUIRED_PARAMETERS,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  parseQuestionnaireCanonicalExtension,
-  PatientInfo,
-  PersonSex,
-  REASON_FOR_VISIT_SEPARATOR,
-  REASON_MAXIMUM_CHAR_LIMIT,
-  resolveServiceCategory,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-  SLOT_FALLBACK_REROUTED_TAG,
-  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
-  SLOT_UNAVAILABLE_ERROR,
-  VisitType,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { REASON_MAXIMUM_CHAR_LIMIT } from 'utils/lib/validation/constants';
 import { z } from 'zod';
-import {
-  checkIsEHRUser,
-  isTestUser,
-  resolveBookingLocationId,
-  safeJsonParse,
-  safeValidate,
-  userHasAccessToPatient,
-  ZambdaInput,
-} from '../../../shared';
+import { checkIsEHRUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 import { tryGroupMemberFallback } from './groupMemberFallback';
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;
-  user: User;
-  isEHRUser: boolean;
+  user: User | undefined;
+  isM2M: boolean;
+  isEHRUser: boolean | undefined;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
 };
@@ -67,7 +64,11 @@ const CreateAppointmentBodySchema = z.object({
   followUpOptions: z.unknown().optional(),
 });
 
-export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
+export function validateCreateAppointmentParams(
+  input: ZambdaInput,
+  user: User | undefined,
+  isM2M: boolean
+): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -97,7 +98,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
-  if (!isEHRUser && !patient.email && !patient.noEmail) {
+  if (!isM2M && !isEHRUser && !patient.email && !patient.noEmail) {
     missingRequiredPatientFields.push('email');
   }
   if (missingRequiredPatientFields.length > 0) {
@@ -159,6 +160,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   return {
     slotId,
     user,
+    isM2M,
     isEHRUser,
     patient: patient as unknown as PatientInfo,
     secrets: input.secrets,
@@ -197,7 +199,7 @@ export interface CreateAppointmentEffectInput {
   scheduleOwner: ScheduleOwnerFhirResource;
   serviceMode: ServiceMode;
   patient: PatientInfo;
-  user: User;
+  user: User | undefined;
   questionnaireCanonical: CanonicalUrl;
   visitType: VisitType;
   locationState?: string;
@@ -264,14 +266,19 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, isM2M, isEHRUser, user, patient, appointmentMetadata } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
   let locationState = input.locationState;
 
   // patient input complex validation
-  if (patient.id) {
+  // M2Ms and EHR users can access any patient,
+  // Patient users can access patients they have access to.
+  if (patient.id && !isM2M) {
+    if (!user) {
+      throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+    }
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
     if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
@@ -446,9 +453,11 @@ export const createAppointmentComplexValidation = async (
   // Check if the Slot has a questionnaire canonical extension
   // This allows slots to specify which questionnaire should be used for appointments booked on them
   let questionnaireCanonical: CanonicalUrl;
+
   const slotQuestionnaireExtension = slot.extension?.find(
     (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
   );
+
   if (slotQuestionnaireExtension?.valueString) {
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);

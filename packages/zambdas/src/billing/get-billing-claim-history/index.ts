@@ -1,9 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isPayerUrl } from 'utils/lib/helpers/helpers';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
+  CLAIM_PROVENANCE_AGENT_TYPE,
+  CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
@@ -11,20 +17,19 @@ import {
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
-  getAllFhirSearchPages,
   GetClaimHistoryResponse,
-  getOptionalSecret,
-  isPayerUrl,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, sendErrors, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/claim-history';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
+  copySourceId,
   createBillingClient,
   fhirName,
   payerDisplay,
   resolvePayersByRef,
   resourceDisplayName,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { GetClaimHistoryParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -158,8 +163,14 @@ function toHistoryEntry(
   const activityCode = provenance.activity?.coding?.[0]?.code;
   // target[0] is the changed resource (the claim itself is appended as a second target).
   const targetRef = provenance.target?.[0]?.reference;
-  const agentRef = provenance.agent?.[0]?.who?.reference;
-  const agentTypeCode = provenance.agent?.[0]?.type?.coding?.[0]?.code;
+  // Take a human agent if it's present
+  const agent =
+    provenance.agent?.find(
+      (agent) =>
+        getCoding(agent.type, CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM)?.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code
+    ) ?? provenance.agent?.[0];
+  const agentRef = agent?.who?.reference;
+  const agentTypeCode = agent?.type?.coding?.[0]?.code;
 
   // Our writer always sets these; a claim-history Provenance missing them is a real defect, not a
   // routine optional-field case — surface it rather than silently rendering blanks.
@@ -249,7 +260,9 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
     const resource = resourcesByRef.get(ref);
     const resolved = displayMissing && resource ? resourceDisplayName(resource) || value : value;
     const screen = FIELD_SCREEN[field];
-    const linkId = resource ? sourceId(resource) ?? resource.id : undefined;
+    // The master resource behind a working copy, so links open the canonical record the provider /
+    // facility screens manage rather than the per-claim copy.
+    const linkId = resource ? copySourceId(resource) ?? resource.id : undefined;
     return { value: resolved, link: screen && linkId ? { screen, id: linkId } : null };
   };
 
@@ -264,14 +277,6 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
       change.newLink = next.link;
     }
   }
-}
-
-// The master resource id behind a working copy (from its source-identifier extension), so links open
-// the canonical record the provider / facility screens manage rather than the per-claim copy.
-function sourceId(resource: Practitioner | Organization | Location): string | undefined {
-  const ref = resource.extension?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
-  if (!ref) return undefined;
-  return ref.includes('/') ? ref.split('/')[1] : ref;
 }
 
 function activityDisplay(code: string, resourceType: string): string {

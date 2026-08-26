@@ -11,7 +11,9 @@ import { getEmployees } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { ProviderDetails, SLUG_SYSTEM } from 'utils';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
+import { isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 
 const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
 type FollowupType = (typeof FOLLOWUP_TYPES)[number];
@@ -103,7 +105,7 @@ export default function OldFollowupView({ patient, followupDetails }: OldFollowu
   useEffect(() => {
     const getAndSetProviders = async (client: Oystehr): Promise<void> => {
       const getEmployeesRes = await getEmployees(client);
-      const providers = getEmployeesRes.employees.filter((employee) => employee.isProvider);
+      const providers = getEmployeesRes.employees.filter(isProvider);
       const formattedProviders: ProviderDetails[] = providers.map((prov) => {
         const id = prov.profile.split('/')[1];
         return {

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { PlanDefinition } from 'fhir/r4b';
-import { chooseJson } from 'utils';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 
 const GET_OUTREACH_CONFIG_ZAMBDA_ID = 'get-scheduled-outreach-config';
 const SAVE_OUTREACH_CONFIG_ZAMBDA_ID = 'save-scheduled-outreach-config';

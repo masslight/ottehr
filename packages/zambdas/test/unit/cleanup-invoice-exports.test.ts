@@ -1,7 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task as FhirTask } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils';
+import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -13,18 +13,33 @@ const mockOystehrClient = {
   fhir: {
     search: vi.fn(),
     delete: vi.fn(),
+    patch: vi.fn(),
   },
   z3: {
     deleteObject: vi.fn(),
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
@@ -63,6 +78,7 @@ describe('cleanup-invoice-exports', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    mockOystehrClient.fhir.patch.mockResolvedValue({});
     ({ index: handler } = (await import('../../src/cron/cleanup-invoice-exports/index')) as {
       index: ZambdaHandler;
     });

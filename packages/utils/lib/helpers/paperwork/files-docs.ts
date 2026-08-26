@@ -1,5 +1,5 @@
 import { Attachment } from 'fhir/r4b';
-import { getMimeType } from '../../utils';
+import { getMimeType } from '../../utils/file';
 
 export const addContentTypeToAttachment = (attachment: Attachment): Attachment => {
   if (attachment.contentType || !attachment.url) {

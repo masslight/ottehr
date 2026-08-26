@@ -12,13 +12,10 @@ import {
 import { Box } from '@mui/system';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import {
-  BILLING_INSURANCE_TYPE_OPTIONS,
-  BillingInsuranceType,
-  BillingPayerOption,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  VALUE_SETS,
-} from 'utils';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { BILLING_INSURANCE_TYPE_OPTIONS, BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { searchBillingPayers } from '../api/api';
 import { CoverageForm } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
@@ -28,9 +25,13 @@ import { DemographicFields } from './DemographicFields';
 interface CoverageFormFieldsProps {
   // Insurance types already held by other active coverages (disabled in the Insurance Type dropdown).
   unavailableTypes?: BillingInsuranceType[];
+  hideInsuranceType?: boolean;
 }
 
-export function CoverageFields({ unavailableTypes = [] }: CoverageFormFieldsProps): ReactElement {
+export function CoverageFields({
+  unavailableTypes = [],
+  hideInsuranceType = false,
+}: CoverageFormFieldsProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const { control, watch } = useFormContext<CoverageForm>();
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
@@ -126,42 +127,46 @@ export function CoverageFields({ unavailableTypes = [] }: CoverageFormFieldsProp
             />
           )}
         />
-        <Controller
-          name="insuranceType"
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          render={({ field, fieldState: { error: fieldError } }) => (
-            <FormControl size="small" fullWidth>
-              <InputLabel id="insurance-type-select-label" error={!!fieldError}>
-                Insurance Type *
-              </InputLabel>
-              <Select
-                aria-describedby={fieldError ? 'insurance-type-helper-text' : undefined}
-                label="Insurance Type *"
-                labelId="insurance-type-select-label"
-                size="small"
-                fullWidth
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                error={!!fieldError}
-              >
-                {BILLING_INSURANCE_TYPE_OPTIONS.map((o) => (
-                  <MenuItem key={o.value} value={o.value} disabled={unavailableTypes.includes(o.value)}>
-                    {o.label}
-                    {unavailableTypes.includes(o.value) ? ' (already on file)' : ''}
-                  </MenuItem>
-                ))}
-              </Select>
-              {fieldError ? (
-                <FormHelperText id={`insurance-type-helper-text`} error={true}>
-                  {fieldError?.message}
-                </FormHelperText>
-              ) : (
-                <></>
-              )}
-            </FormControl>
-          )}
-        />
+        {hideInsuranceType ? (
+          <></>
+        ) : (
+          <Controller
+            name="insuranceType"
+            control={control}
+            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            render={({ field, fieldState: { error: fieldError } }) => (
+              <FormControl size="small" fullWidth>
+                <InputLabel id="insurance-type-select-label" error={!!fieldError}>
+                  Insurance Type *
+                </InputLabel>
+                <Select
+                  aria-describedby={fieldError ? 'insurance-type-helper-text' : undefined}
+                  label="Insurance Type *"
+                  labelId="insurance-type-select-label"
+                  size="small"
+                  fullWidth
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  error={!!fieldError}
+                >
+                  {BILLING_INSURANCE_TYPE_OPTIONS.map((o) => (
+                    <MenuItem key={o.value} value={o.value} disabled={unavailableTypes.includes(o.value)}>
+                      {o.label}
+                      {unavailableTypes.includes(o.value) ? ' (already on file)' : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {fieldError ? (
+                  <FormHelperText id={`insurance-type-helper-text`} error={true}>
+                    {fieldError?.message}
+                  </FormHelperText>
+                ) : (
+                  <></>
+                )}
+              </FormControl>
+            )}
+          />
+        )}
         <Controller
           name="planType"
           control={control}

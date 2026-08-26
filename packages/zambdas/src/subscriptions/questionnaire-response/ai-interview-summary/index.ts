@@ -1,9 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
-import { configSentry, getAuth0Token, validateJsonBody, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { createResourcesFromAiInterview } from '../../../shared/ai';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { validateJsonBody } from '../../../shared/helpers';
+import { configSentry, wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
@@ -32,6 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     undefined,
     null,
     null,
+    undefined,
     secrets
   );
 

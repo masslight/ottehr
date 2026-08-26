@@ -12,21 +12,16 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { codeableConcept, createReference } from 'utils/lib/fhir/helpers';
 import {
-  AdministerImmunizationOrderRequest,
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_NDC,
-  codeableConcept,
-  createReference,
-  CreateUpdateImmunizationOrderResponse,
-  CVX_CODE_SYSTEM_URL,
-  EMERGENCY_CONTACT_RELATIONSHIPS,
-  getFullName,
   getMedicationName,
-  ImmunizationEmergencyContact,
-  INVALID_INPUT_ERROR,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
+} from 'utils/lib/fhir/medication-administration';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import {
+  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -34,16 +29,19 @@ import {
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fillMeta,
-  getMyPractitionerId,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  AdministerImmunizationOrderRequest,
+  CreateUpdateImmunizationOrderResponse,
+  ImmunizationEmergencyContact,
+} from 'utils/lib/types/data/immunization/types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
+import { getMyPractitionerId } from '../../../shared/practitioners';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CONTAINED_MANUFACTURER_ORG_ID,

@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { GetFaxPacketPreviewOutput } from 'utils';
+import { GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { useOystehrAPIClient } from '../../visits/shared/hooks/useOystehrAPIClient';
 import { fetchFaxPacketPreview } from '../api/faxApi';
 

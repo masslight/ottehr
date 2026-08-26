@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import * as fs from 'fs';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 // Helper to get timezone abbreviation (e.g., "PST", "EST")
 function getTimezoneAbbreviation(): string {

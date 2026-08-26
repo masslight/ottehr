@@ -1,13 +1,12 @@
+import { getSpecialtyTransferDisplay, mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
 import {
   followUpInOptions,
   getDefaultNote,
-  getSpecialtyTransferDisplay,
-  mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DispositionData, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

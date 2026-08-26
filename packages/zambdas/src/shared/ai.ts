@@ -1,34 +1,36 @@
 import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
-  AI_OBSERVATION_META_SYSTEM,
-  AiObservationField,
-  AiSuggestionItem,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  fixAndParseJsonObjectFromString,
-  getFormatDuration,
-  getSecret,
-  MIME_TYPES,
   PUBLIC_EXTENSION_BASE_URL,
-  Secrets,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
-  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { getFormatDuration } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AiSuggestionItem } from 'utils/lib/types/data/screening-questions/types';
+import { MIME_TYPES } from 'utils/lib/utils/file';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
-import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
+import { parseCreatedResourcesBundle, saveResourceRequest, updateResourceRequest } from './resources.helpers';
 import { createPresignedUrl } from './z3Utils';
 
+export const NO_SPEECH_DETECTED = 'NO_SPEECH_DETECTED';
+
 export const TRANSCRIPT_PROMPT =
-  'give a transcript of this file, include only the transcript without other input, include who the speaker is with labels for the provider and the patient';
+  'Give a transcript of this file, include only the transcript without other input, include who the speaker is ' +
+  'with labels for the provider and the patient. If the audio contains just silence or background noise, ' +
+  `respond with "${NO_SPEECH_DETECTED}"`;
 
 export class ClaudeClient {
   chatbot: ChatAnthropic;
@@ -250,7 +252,13 @@ export async function invokeChatbotVertexAI(
 export async function transcribeAndCreateResourcesFromZ3Audio(
   oystehr: Oystehr,
   m2mToken: string,
-  args: { encounterID: string; z3URL: string; duration?: number; providerUserProfile: string | null },
+  args: {
+    encounterID: string;
+    z3URL: string;
+    duration?: number;
+    providerUserProfile: string | null;
+    existingDocumentReference?: DocumentReference;
+  },
   secrets: Secrets | null
 ): Promise<string> {
   const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, args.z3URL, 'download');
@@ -279,6 +287,22 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     secrets
   );
 
+  // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
+  // fall through and build chart resources out of the sentinel string itself.
+  if (transcript.trim() === NO_SPEECH_DETECTED) {
+    console.log(
+      `[transcribeAndCreateResourcesFromZ3Audio] No speech detected in recording z3URL=${args.z3URL}; skipping AI resource creation`
+    );
+    // The in-person ambient scribe marks its recording with AMBIENT_SCRIBE_RECORDING_PENDING_CODING and the EHR
+    // keeps the scribe in "Loading" (and keeps polling) until something replaces that coding — normally
+    // createResourcesFromAiInterview, which we are skipping here. Clear the pending marker ourselves so the
+    // recording settles as a played-back-only document instead of loading forever.
+    if (args.existingDocumentReference) {
+      await clearPendingRecordingMarker(oystehr, args.existingDocumentReference);
+    }
+    return 'no speech detected; skipped AI resource creation';
+  }
+
   return createResourcesFromAiInterview(
     oystehr,
     args.encounterID,
@@ -287,8 +311,26 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     args.duration,
     mimeType,
     args.providerUserProfile,
+    args.existingDocumentReference,
     secrets
   );
+}
+
+/**
+ * Swaps a pending ambient-scribe recording's type coding for the regular consult-note coding, without adding a
+ * transcript or AI observations. Used when the recording turns out to be silent: the audio stays listed and
+ * playable, but the EHR stops treating it as a recording still awaiting transcription.
+ */
+async function clearPendingRecordingMarker(
+  oystehr: Oystehr,
+  existingDocumentReference: DocumentReference
+): Promise<void> {
+  await oystehr.fhir.update<DocumentReference>({
+    ...existingDocumentReference,
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+  });
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
@@ -314,6 +356,7 @@ export async function createResourcesFromAiInterview(
   duration: number | undefined,
   mimeType: string | null,
   providerUserProfile: string | null,
+  existingDocumentReference: DocumentReference | undefined,
   secrets: Secrets | null
 ): Promise<string> {
   let fields =
@@ -394,19 +437,23 @@ export async function createResourcesFromAiInterview(
 
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
-  const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
-  const documentReferenceCreateUrl = `urn:uuid:${uuid()}`;
+  const requests: BatchInputRequest<DocumentReference | Observation | Condition>[] = [];
+  const documentReferenceCreateUrl = existingDocumentReference?.id
+    ? `DocumentReference/${existingDocumentReference.id}`
+    : `urn:uuid:${uuid()}`;
   requests.push(
-    createDocumentReference(
-      encounterID,
-      patientId,
-      providerUserProfile,
-      documentReferenceCreateUrl,
-      z3URL,
-      chatTranscript,
-      duration,
-      mimeType
-    )
+    existingDocumentReference
+      ? updateDocumentReference(existingDocumentReference, chatTranscript)
+      : createDocumentReference(
+          encounterID,
+          patientId,
+          providerUserProfile,
+          documentReferenceCreateUrl,
+          z3URL,
+          chatTranscript,
+          duration,
+          mimeType
+        )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
   console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
@@ -491,6 +538,32 @@ function createDocumentReference(
       : [],
   };
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
+}
+
+function updateDocumentReference(
+  existingDocumentReference: DocumentReference,
+  transcript: string
+): BatchInputPutRequest<DocumentReference> {
+  const existingAttachment = existingDocumentReference.content?.[0]?.attachment;
+  const documentReference: DocumentReference = {
+    ...existingDocumentReference,
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+    content: [
+      ...(existingAttachment
+        ? [{ attachment: { ...existingAttachment, contentType: existingAttachment.contentType } }]
+        : []),
+      {
+        attachment: {
+          contentType: MIME_TYPES.TXT,
+          title: 'Transcript',
+          data: btoa(unescape(encodeURIComponent(transcript))),
+        },
+      },
+    ],
+  };
+  return updateResourceRequest(documentReference);
 }
 
 const FIELDS_WITH_ITEMS = new Set([

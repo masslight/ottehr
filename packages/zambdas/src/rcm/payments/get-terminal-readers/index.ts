@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { wrapHandler, ZambdaInput } from '../../../shared';
+import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface TerminalReaderInfo {

@@ -19,37 +19,36 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFImage } from 'pdf-lib';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { convertActivityDefinitionToDataEntryTestItem, quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
 import {
-  BRANDING_CONFIG,
-  BUCKET_NAMES,
-  compareDates,
-  convertActivityDefinitionToDataEntryTestItem,
-  createFilesDocumentReferences,
-  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
-  formatPhoneNumberDisplay,
-  formatZipcodeForDisplay,
   getAdditionalPlacerId,
-  getFullestAvailableName,
-  getNPIIdentifier,
   getOrderNumber,
   getOrderNumberFromDr,
-  getPatientFriendlyId,
   getPatientIdForLabOrder,
   getTestItemCodeFromDr,
-  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
-  IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
-  IN_HOUSE_OBS_DEF_ID_SYSTEM,
   isPSCOrder,
+} from 'utils/lib/helpers/labs/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  OBSERVATION_CODES,
+  OBSERVATION_INTERPRETATION_SYSTEM,
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import {
+  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
+  IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LABCORP_SNOMED_CODE_SYSTEM,
-  LabDrTypeTagCode,
-  LabType,
   ObsContentType,
-  OBSERVATION_CODES,
-  OBSERVATION_INTERPRETATION_SYSTEM,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
@@ -63,10 +62,10 @@ import {
   OYSTEHR_OBS_CONTENT_TYPES,
   PERFORMING_PHYSICIAN_EXTENSION_URLS,
   PERFORMING_SITE_INFO_EXTENSION_URLS,
-  quantityRangeFormat,
-  Secrets,
   SupportedObsImgAttachmentTypes,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { LabDrTypeTagCode, LabType } from 'utils/lib/types/data/labs/labs.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import { formatDateTimeForLabs, formatStringTimestampForLabs, getTimezoneForLabs } from '../../ehr/lab/shared/helpers';
 import {
   fetchResultResourcesForRelatedServiceRequest,
@@ -78,7 +77,7 @@ import {
   getExternalLabOrderResourcesViaServiceRequest,
   isLabDrTypeTagCode,
 } from '../../ehr/lab/shared/labs';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import {
   drawFieldLine,

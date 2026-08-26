@@ -1,5 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
-import { GetChartDataResponse, SaveableDTO, SearchParams } from 'utils';
+import { SearchParams } from 'utils/lib/fhir/uri';
+import { SaveableDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 

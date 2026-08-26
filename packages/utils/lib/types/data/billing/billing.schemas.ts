@@ -3,7 +3,7 @@ import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
-import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
@@ -62,6 +62,7 @@ export const SearchErasInputSchema = z.object({
   eraStatus: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
+  matchingStatus: nonEmptyString.optional(),
   // Claim-level filters (only ERAs with matched claims satisfying these)
   claimStatus: nonEmptyString.optional(),
   dosFrom: nonEmptyString.optional(),
@@ -137,6 +138,8 @@ export const GetBillingProviderInputSchema = z.object({
 
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
+  // Limit search to patient names and claim IDs.
+  patientNameOnly: z.boolean().optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   arStage: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
@@ -151,6 +154,16 @@ export const SearchBillingClaimsInputSchema = z.object({
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
+});
+
+export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
+  patientNameOnly: true,
+  offset: true,
+  pageSize: true,
+});
+
+export const GetBillingClaimsExportStatusInputSchema = z.object({
+  taskId: nonEmptyString,
 });
 
 export const SearchBillingPatientARClaimsInputSchema = z.object({
@@ -393,7 +406,7 @@ export const UpdateBillingPatientInputSchema = z.object({
 
 const subscriberRelationshipSchema = z.enum(SUBSCRIBER_RELATIONSHIPS);
 
-const insuranceTypeSchema = z.enum(['primary', 'secondary', 'workersComp']);
+const insuranceTypeSchema = z.enum(['primary', 'secondary', 'tertiary', 'quaternary', 'workersComp']);
 
 export const BillingPolicyHolderSchema = z.object({
   firstName: nonEmptyString,
@@ -409,7 +422,7 @@ export const CreateBillingCoverageInputSchema = z
     patientId: nonEmptyString,
     payerId: nonEmptyString,
     memberId: nonEmptyString,
-    insuranceType: insuranceTypeSchema,
+    insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
     policyHolder: BillingPolicyHolderSchema.optional(),
@@ -444,6 +457,10 @@ export const UpdateBillingCoverageInputSchema = z
       });
     }
   });
+
+export const GetBillingCoverageInputSchema = z.object({
+  coverageId: nonEmptyString,
+});
 
 export const DeleteBillingCoverageInputSchema = z.object({
   coverageId: nonEmptyString,
@@ -546,7 +563,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),
       coverageId: nonEmptyString.optional(),
-      removeCoverage: z.boolean().optional(),
+      coverageType: z.enum(['primary', 'secondary', 'tertiary', 'quaternary']).optional(),
+      removeCoverage: nonEmptyString.optional(),
       payerId: nonEmptyString.optional(),
       planType: z
         .string()
@@ -665,6 +683,8 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
+export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
@@ -679,6 +699,7 @@ export type CreateBillingPatientInput = z.output<typeof CreateBillingPatientInpu
 export type UpdateBillingPatientInput = z.output<typeof UpdateBillingPatientInputSchema>;
 export type CreateBillingCoverageInput = z.output<typeof CreateBillingCoverageInputSchema>;
 export type UpdateBillingCoverageInput = z.output<typeof UpdateBillingCoverageInputSchema>;
+export type GetBillingCoverageInput = z.output<typeof GetBillingCoverageInputSchema>;
 export type DeleteBillingCoverageInput = z.output<typeof DeleteBillingCoverageInputSchema>;
 export type BillingSubscriberRelationship = z.output<typeof subscriberRelationshipSchema>;
 export type BillingInsuranceType = z.output<typeof insuranceTypeSchema>;

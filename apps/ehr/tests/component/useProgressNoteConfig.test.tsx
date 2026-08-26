@@ -4,7 +4,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactNode } from 'react';
 import { adminUpdateProgressNoteConfig, getProgressNoteConfig } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils';
+import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProgressNoteConfig, useUpdateProgressNoteConfig } from '../../src/hooks/useProgressNoteConfig';
 

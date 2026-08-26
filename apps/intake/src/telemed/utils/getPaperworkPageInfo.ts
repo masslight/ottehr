@@ -1,7 +1,7 @@
 import { deepClone } from 'fast-json-patch';
 import { useMemo } from 'react';
 import { Location } from 'react-router-dom';
-import { PaperworkPage, Question } from 'utils';
+import { PaperworkPage, Question } from 'utils/lib/types/data/paperwork.types';
 
 export const usePaperworkPageInfo = ({
   location,

@@ -4,14 +4,14 @@ import { readdirSync } from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import {
-  BILLING_RESOURCE_TAG,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
-  getPatchOperationToUpdateExtension,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
+import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -9,7 +9,8 @@ import {
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
-} from 'utils';
+  ClaimHistoryRuleRef,
+} from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
@@ -140,6 +141,28 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries[0].message).toBeUndefined();
   });
 
+  it('passes a stored rule attribution through to the entry verbatim', async () => {
+    const rule: ClaimHistoryRuleRef = { id: 'rule-1', name: 'Normalize member IDs', engine: 'claim-submission' };
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      agent: [{ type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] }, who: { reference: 'Device/d1' } }],
+      extension: [
+        diffExtension([
+          { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B', rule },
+          { field: 'status', label: 'Status', previousValue: 'draft', newValue: 'active' },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    expect(entries[0].changes).toEqual([
+      { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B', rule },
+      { field: 'status', label: 'Status', previousValue: 'draft', newValue: 'active' },
+    ]);
+  });
+
   it('attributes a Device agent as a system actor and sorts newest first', async () => {
     const older: Provenance = {
       ...provenanceBase('old', '2026-05-01T10:00:00Z'),
@@ -226,7 +249,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([bad, good], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: { ENVIRONMENT: 'staging' } });
 
     expect(entries).toHaveLength(2);
     expect(entries.find((e) => e.id === 'bad')?.changes).toEqual([]);
@@ -244,7 +267,7 @@ describe('get-billing-claim-history performEffect', () => {
     } as Provenance;
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([malformed]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: { ENVIRONMENT: 'staging' } });
 
     // Graceful: the entry is still returned (with its changes) rather than crashing the view.
     expect(entries).toHaveLength(1);
@@ -252,6 +275,24 @@ describe('get-billing-claim-history performEffect', () => {
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
     const reported = captureExceptionMock.mock.calls[0][0] as Error;
     expect(reported.message).toContain('missing');
+  });
+
+  it('human agent has higher priority', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('provenance', '2026-06-15T10:00:00Z'),
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.statusChange] },
+      agent: [
+        { type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] }, who: { reference: 'Device/d1' } },
+        { type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] }, who: { reference: 'Practitioner/u1' } },
+      ],
+      extension: [
+        diffExtension([{ field: 'status.arStage', label: 'AR Stage', previousValue: null, newValue: 'Patient AR' }]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    expect(entries[0].actor.display).toContain('Doe');
   });
 });
 

@@ -45,7 +45,10 @@ on:
 jobs:
   check-changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # 5, not 2: these steps are cheap, but the full-history checkout they depend on is
+    # network-bound and has been observed between 22s and just over 2m on a slow runner —
+    # tripping the old limit and failing the whole e2e gate. Still short enough to catch a hang.
+    timeout-minutes: 5
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
       skip-reason: ${{ steps.check.outputs.skip-reason }}
@@ -172,6 +175,37 @@ jobs:
           copy-test-config-files: true
           aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
+
+      # Built alongside the terraform apply by the build-ehr-bundle job so this job doesn't pay for it.
+      # Absent for a standalone workflow_dispatch of this workflow, in which case run-e2e.ts builds as
+      # usual — hence continue-on-error.
+      - name: Download prebuilt EHR bundle
+        id: download-bundle
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ehr-bundle-${{ needs.check-changes.outputs.environment }}
+          # The artifact's paths share apps/ehr as their common ancestor, so it unpacks as
+          # build/ and env/.env.<env>.prebuilt — extract into apps/ehr to restore the real layout.
+          path: apps/ehr
+
+      # That bundle was built against an env file generated from terraform state before the apply
+      # finished. If the apply changed it, the bundle is stale: drop it and let run-e2e.ts rebuild
+      # against the copy this job just generated.
+      - name: Discard the prebuilt bundle if its env no longer matches
+        if: steps.download-bundle.outcome == 'success'
+        run: |
+          ENV_FILE="apps/ehr/env/.env.${{ needs.check-changes.outputs.environment }}"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "No env file to compare against; discarding the prebuilt bundle."
+            rm -rf apps/ehr/build
+          elif cmp -s "$ENV_FILE" "$ENV_FILE.prebuilt"; then
+            echo "Prebuilt bundle matches this job's env; using it."
+          else
+            echo "Env changed since the bundle was built; discarding it and rebuilding."
+            rm -rf apps/ehr/build
+          fi
+          rm -f "$ENV_FILE.prebuilt"
 
       - name: Run E2E tests
         run: |

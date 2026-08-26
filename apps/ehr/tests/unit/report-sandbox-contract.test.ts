@@ -1,4 +1,5 @@
-import { AdHocFrameEventSchema, transpileReportJsx } from 'utils';
+import { transpileReportJsx } from 'utils/lib/types/adhoc/generation/transpile';
+import { AdHocFrameEventSchema } from 'utils/lib/types/adhoc/sandbox/events';
 import { describe, expect, it } from 'vitest';
 import { hrefForOpenLink } from '../../src/features/report-builder/hooks/links';
 import {

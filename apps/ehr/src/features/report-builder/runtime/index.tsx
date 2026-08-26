@@ -7,7 +7,7 @@ import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import React, { useEffect } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import type { AdHocRow, LlmDatasetSchema } from 'utils';
+import type { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 // Deep imports: keep the whole utils barrel (and zod) out of the iframe bundle.
 import {
   REPORT_ROOT_NAME,

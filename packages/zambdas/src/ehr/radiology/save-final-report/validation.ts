@@ -1,5 +1,8 @@
-import { SaveRadiologyReportZambdaInput, SaveRadiologyReportZambdaInputSchema, Secrets } from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { SaveRadiologyReportZambdaInput, SaveRadiologyReportZambdaInputSchema } from 'utils/lib/types/api/radiology';
+import { validateJsonBody } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface ValidatedInput {
   body: SaveRadiologyReportZambdaInput;
@@ -36,10 +39,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
-    // userMe() (and other downstream helpers) read ENVIRONMENT via getSecret;
-    // getOptionalSecret only falls back to process.env when secrets is null, so
-    // a narrowed non-null secrets object that omits ENVIRONMENT makes those
-    // calls throw. Carry ENVIRONMENT through.
+    // Required by userMe(); see `resolveCallerPractitionerRef` in shared/practitioners.ts.
     ENVIRONMENT,
   };
 };

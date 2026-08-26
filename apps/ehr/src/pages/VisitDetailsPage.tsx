@@ -14,6 +14,7 @@ import {
   Skeleton,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -34,60 +35,59 @@ import {
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
+import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
+import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
+import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
-  BOOKING_CONFIG,
-  EHRVisitDetails,
-  FHIR_EXTENSION,
-  FhirAppointmentType,
-  formatDateForDisplay,
   getCancellationReasonDisplay,
-  getCoding,
-  getFormattedPatientFullName,
-  getInPersonVisitStatus,
-  getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitOptionsForServiceCategory,
-  GetVisitFaxHistoryOutput,
+} from 'utils/lib/fhir/appointments';
+import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
   getVisitOccupationalMedicineEmployerFromEncounter,
-  isApiError,
-  isInPersonAppointment,
   isScheduledFollowupEncounter,
-  isTelemedAppointment,
-  OrderedCoveragesWithSubscribers,
-  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
-  PATIENT_INFO_META_DATA_SYSTEM,
-  PatientAccountResponse,
-  resolveServiceCategoryAbbreviation,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceCategoryCode,
-  ServiceMode,
-  UpdateVisitDetailsInput,
-  VisitStatusLabel,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
+import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
+import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { FhirAppointmentType, ServiceMode } from 'utils/lib/types/common';
+import {
+  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
+  PATIENT_INFO_META_DATA_SYSTEM,
+} from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import { isApiError } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
-import {
-  ActivityLogDialog,
-  CancellationReasonDialog,
-  CustomDialog,
-  EditPatientInfoDialog,
-  ReportIssueDialog,
-} from '../components/dialogs';
 import { InPersonAppointmentStatusChip } from '../components/InPersonAppointmentStatusChip';
 import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
 import PatientInformation, { IconProps } from '../components/PatientInformation';
@@ -114,6 +114,19 @@ import PageContainer from '../layout/PageContainer';
 import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
+
+// The "About this patient" saves - the bottom "Save All" button and each section's own Save button
+// alike - plus the "Completed consent forms" block's own Save button are gated on the staff member
+// attesting that consent was obtained. The "Booking details" pencil-icon dialogs (DOB, reason for
+// visit, service category, non-legal guardians) and the payments, notes and document blocks are
+// intentionally not gated.
+//
+// The "About this patient" gate reads the *persisted* attestation, not the local checkbox, so it has
+// to spell out that the checkbox must be committed via the consent block's Save button first.
+const CONSENT_ATTESTATION_NOT_SAVED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
+const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
+  'Please check "I verify that patient consent has been obtained." before saving.';
 
 interface EditDOBParams {
   dob?: DateTime | null;
@@ -262,6 +275,9 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
+  const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms.
+  const allCustomForms = [...(standAloneForms ?? []), ...(intakePaperworkFlowForms ?? [])];
 
   const {
     imagesLoading,
@@ -325,10 +341,21 @@ export default function VisitDetailsPage(): ReactElement {
   });
 
   useEffect(() => {
-    if (consentAttested === null) {
+    // The route can switch to a different visit while this page stays mounted, so drop the previous
+    // visit's attestation. Without this the seeding effect below never re-runs (the local value is
+    // no longer null) and the new visit would render with the old one's checkbox state. The
+    // functional form keeps the initial mount a no-op instead of a redundant state update.
+    setConsentAttested((previous) => (previous === null ? previous : null));
+  }, [appointmentID]);
+
+  useEffect(() => {
+    // Seed the checkbox from the server only once the visit details have actually loaded. Seeding it
+    // from the `?? false` default on the first render would latch an already-attested visit to
+    // unchecked, since this only ever runs while the local value is still null.
+    if (visitDetailsData && consentAttested === null) {
       setConsentAttested(serverConsentAttested);
     }
-  }, [serverConsentAttested, consentAttested]);
+  }, [visitDetailsData, serverConsentAttested, consentAttested]);
 
   const hasConsentChanged = consentAttested !== serverConsentAttested;
 
@@ -802,6 +829,65 @@ export default function VisitDetailsPage(): ReactElement {
     />
   );
 
+  // The consent block's own Save commits the checkbox. It stays disabled until the checkbox differs
+  // from what's persisted, so when nothing has been attested yet the tooltip has to spell out that
+  // the box must be checked first. No reason means no Tooltip at all: an empty title would still
+  // wrap the button in a listener-bearing anchor that never shows anything.
+  const consentSaveBlockedReason =
+    !hasConsentChanged && !consentAttested ? CONSENT_ATTESTATION_REQUIRED_MESSAGE : undefined;
+
+  const consentAttestationSaveButton = (
+    <LoadingButton
+      data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
+      onClick={async () => {
+        await bookingDetailsMutation
+          .mutateAsync({
+            appointmentId: appointment?.id ?? '',
+            bookingDetails: {
+              consentForms: {
+                consentAttested: consentAttested ?? false,
+              },
+            },
+          })
+          .catch((error) => {
+            if (isApiError(error)) {
+              enqueueSnackbar(error.message, { variant: 'error' });
+            } else {
+              console.error('Error updating consent attestation:', error);
+              enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
+            }
+          });
+      }}
+      loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
+      disabled={!hasConsentChanged}
+    >
+      Save
+    </LoadingButton>
+  );
+
+  const consentAttestationFooter = consentAttested !== null && (
+    <Box style={{ display: 'flex', alignItems: 'center' }}>
+      <Checkbox
+        inputProps={
+          { 'data-testid': dataTestIds.visitDetailsPage.consentAttestationCheckbox } as Record<string, unknown>
+        }
+        checked={consentAttested ?? false}
+        onChange={(_e: any, checked: boolean) => {
+          setConsentAttested(checked);
+        }}
+      />
+      <Typography>I verify that patient consent has been obtained.</Typography>
+      {consentSaveBlockedReason ? (
+        <Tooltip title={consentSaveBlockedReason}>
+          {/* A disabled button emits no pointer events, so the tooltip needs an enabled wrapper. */}
+          <span>{consentAttestationSaveButton}</span>
+        </Tooltip>
+      ) : (
+        consentAttestationSaveButton
+      )}
+    </Box>
+  );
+
   return (
     <PageContainer>
       <>
@@ -1140,48 +1226,11 @@ export default function VisitDetailsPage(): ReactElement {
                         patientDetails={{
                           ...signedConsentForm,
                         }}
-                        footerCellContent={
-                          consentAttested !== null && (
-                            <Box style={{ display: 'flex', alignItems: 'center' }}>
-                              <Checkbox
-                                checked={consentAttested ?? false}
-                                onChange={(_e: any, checked: boolean) => {
-                                  setConsentAttested(checked);
-                                }}
-                              />
-                              <Typography>I verify that patient consent has been obtained.</Typography>
-                              <LoadingButton
-                                onClick={async () => {
-                                  await bookingDetailsMutation
-                                    .mutateAsync({
-                                      appointmentId: appointment?.id ?? '',
-                                      bookingDetails: {
-                                        consentForms: {
-                                          consentAttested: consentAttested ?? false,
-                                        },
-                                      },
-                                    })
-                                    .catch((error) => {
-                                      if (isApiError(error)) {
-                                        enqueueSnackbar(error.message, { variant: 'error' });
-                                      } else {
-                                        console.error('Error updating consent attestation:', error);
-                                        enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
-                                      }
-                                    });
-                                }}
-                                loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
-                                disabled={!hasConsentChanged}
-                              >
-                                Save
-                              </LoadingButton>
-                            </Box>
-                          )
-                        }
+                        footerCellContent={consentAttestationFooter}
                       />
                     </Grid>
-                    {standAloneForms && standAloneForms.length > 0 ? (
-                      standAloneForms.map((form, idx) => (
+                    {allCustomForms.length > 0 ? (
+                      allCustomForms.map((form, idx) => (
                         <Grid item key={`${form.questionnaireId}-${idx}`}>
                           <Paper sx={{ mt: 2, p: 3 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
@@ -1257,10 +1306,23 @@ export default function VisitDetailsPage(): ReactElement {
                 appointmentId={appointmentID}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
+                submitBlockedReason={serverConsentAttested ? undefined : CONSENT_ATTESTATION_NOT_SAVED_MESSAGE}
               />
             </Grid>
           </Grid>
         </Grid>
+        {patientId && encounter?.id && (
+          <Grid container direction="row">
+            <Grid item xs={12} sx={{ marginLeft: { xs: 0, sm: 8 }, marginRight: { xs: 0, sm: 8 }, marginTop: 2 }}>
+              <Typography variant="h3" color="primary.dark" marginBottom={2}>
+                Visit Documents
+              </Typography>
+              <Paper sx={{ padding: 3 }}>
+                <PatientDocumentsExplorer patientId={patientId} encounterId={encounter.id} />
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <Stack direction="row" spacing={1} useFlexGap>

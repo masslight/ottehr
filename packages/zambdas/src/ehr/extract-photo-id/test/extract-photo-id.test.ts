@@ -1,10 +1,13 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { createOystehrClient, getPresignedURL, PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction } from 'utils';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction } from 'utils/lib/types/data/documents';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAuth0Token, ZambdaInput } from '../../../shared';
 import { invokeChatbotVertexAI } from '../../../shared/ai';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { ZambdaInput } from '../../../shared/types/common';
 import { EXTRACTION_PROMPT, parseModelResponse, photoIdResponseSchema } from '../helpers';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -14,19 +17,26 @@ vi.mock('../../../shared/ai', () => ({
   VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
+vi.mock('../../../shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/getAuth0Token')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(),
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/helpers/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/helpers')>();
   return {
     ...actual,
     createOystehrClient: vi.fn(),
+  };
+});
+
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>();
+  return {
+    ...actual,
     getPresignedURL: vi.fn(),
   };
 });

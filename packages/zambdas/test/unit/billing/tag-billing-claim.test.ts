@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { HOLD_TAG_NAME } from 'utils';
+import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/tag-billing-claim';
 import { TagBillingClaimParams } from '../../../src/billing/tag-billing-claim/validateRequestParameters';
@@ -30,10 +30,13 @@ describe('tag-billing-claim complexValidation (tag must exist to be added)', () 
     await expect(complexValidation(oystehr, params('add', 'Nope'))).rejects.toThrow(/unknown tag "Nope"/);
   });
 
-  it('always allows the Hold tag without a lookup', async () => {
-    await expect(complexValidation(oystehr, params('add', HOLD_TAG_NAME))).resolves.toBeUndefined();
-    expect(search).not.toHaveBeenCalled();
-  });
+  it.each(SYSTEM_MANAGED_TAGS.map((def) => def.name))(
+    'always allows the system-managed %s tag without a lookup',
+    async (tagName) => {
+      await expect(complexValidation(oystehr, params('add', tagName))).resolves.toBeUndefined();
+      expect(search).not.toHaveBeenCalled();
+    }
+  );
 
   it('allows removing an orphaned tag whose definition no longer exists', async () => {
     search.mockResolvedValue({ unbundle: () => [] });

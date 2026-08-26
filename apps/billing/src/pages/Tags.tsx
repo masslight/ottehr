@@ -23,7 +23,10 @@ import {
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { BillingTag, getApiError, REQUIRED_FIELD_ERROR_MESSAGE, SaveBillingTagInput } from 'utils';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { SaveBillingTagInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { deleteBillingTag, saveBillingTag, searchBillingTags } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -204,7 +207,7 @@ export default function Tags(): ReactElement {
             <tbody>
               {filtered.map((tag) => (
                 <tr
-                  key={tag.id}
+                  key={tag.id || tag.name}
                   style={{ cursor: 'pointer', transition: 'background 0.08s' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = otherColors.apptHover)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '')}
@@ -233,6 +236,23 @@ export default function Tags(): ReactElement {
                       />
                       {tag.name}
                     </span>
+                    {tag.isSystemTag && (
+                      <span
+                        title="System managed — applied automatically and cannot be edited or deleted"
+                        style={{
+                          marginLeft: 8,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: otherColors.tableRow,
+                          border: `1px solid ${otherColors.solidLine}`,
+                          background: '#FAFAFA',
+                        }}
+                      >
+                        System
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
@@ -270,38 +290,42 @@ export default function Tags(): ReactElement {
                       textAlign: 'right',
                     }}
                   >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEdit(tag);
-                        }}
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          color: 'action.disabled',
-                          '&:hover': { bgcolor: otherColors.apptHover, color: 'primary.dark' },
-                        }}
-                      >
-                        <EditIcon sx={{ fontSize: 15 }} />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDelete(tag);
-                        }}
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          color: 'action.disabled',
-                          '&:hover': { bgcolor: 'error.light', color: 'error.dark' },
-                        }}
-                      >
-                        <DeleteIcon sx={{ fontSize: 15 }} />
-                      </IconButton>
-                    </span>
+                    {!tag.isSystemTag && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          aria-label={`Edit tag ${tag.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEdit(tag);
+                          }}
+                          sx={{
+                            width: 28,
+                            height: 28,
+                            color: 'action.disabled',
+                            '&:hover': { bgcolor: otherColors.apptHover, color: 'primary.dark' },
+                          }}
+                        >
+                          <EditIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          aria-label={`Delete tag ${tag.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDelete(tag);
+                          }}
+                          sx={{
+                            width: 28,
+                            height: 28,
+                            color: 'action.disabled',
+                            '&:hover': { bgcolor: 'error.light', color: 'error.dark' },
+                          }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

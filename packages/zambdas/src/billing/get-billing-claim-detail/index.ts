@@ -2,21 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  asEraClaimStatusCode,
-  BillingPolicyHolderSummary,
-  CLAIM_TAG_SYSTEM,
-  ClaimDetailResponse,
-  getClaimStatusValues,
-  getCoveragePlanType,
-  getNPI,
-  getPayerId,
-  getResourcesFromBatchInlineRequests,
-  getTaxID,
-  SubscriberRelationship,
-} from 'utils';
+import { getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { SubscriberRelationship } from 'utils/lib/fhir/constants';
+import { getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getPayerId } from 'utils/lib/helpers/helpers';
+import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingPolicyHolderSummary, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
@@ -30,6 +26,7 @@ import {
 } from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
+  copySourceId,
   createBillingClient,
   createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
@@ -43,7 +40,6 @@ import {
   getEraCheckNumber,
   getTaxonomy,
   resolvePayersByRef,
-  SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -73,7 +69,7 @@ export async function performEffect(
   const { claim, patient, billingProvider: provider, serviceFacility: facility, renderingProvider } = graph;
 
   // Coverages come back focal-first: the focal coverage is the claim's primary insurance.
-  const [coverage, secondaryCoverage] = graph.coverages;
+  const [coverage, secondaryCoverage, tertiaryCoverage, quaternaryCoverage] = graph.coverages;
   const subscriberRef = coverage?.subscriber?.reference;
   const subscriber = subscriberRef?.startsWith('RelatedPerson/')
     ? graph.subscribers.find((s) => s.id === subscriberRef.replace('RelatedPerson/', ''))
@@ -104,12 +100,20 @@ export async function performEffect(
   const payersByRef = await resolvePayersByRef(oystehr, [
     claim.insurer?.reference,
     secondaryCoverage?.payor?.[0]?.reference,
+    tertiaryCoverage?.payor?.[0]?.reference,
+    quaternaryCoverage?.payor?.[0]?.reference,
     ...claimResponses.map((cr) => cr.insurer?.reference),
     ...paymentReconciliations.map((pr) => pr.paymentIssuer?.reference),
   ]);
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
+    : undefined;
+  const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
+    ? payersByRef.get(tertiaryCoverage.payor[0].reference)
+    : undefined;
+  const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
+    ? payersByRef.get(quaternaryCoverage.payor[0].reference)
     : undefined;
 
   const billed = claim.total?.value ?? 0;
@@ -167,10 +171,7 @@ export async function performEffect(
     patientDob: patient?.birthDate ?? '',
     patientGender: patient?.gender ?? '',
     patientId: patient?.id ?? '',
-    patientOriginalId:
-      patient?.extension
-        ?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)
-        ?.valueReference?.reference?.replace('Patient/', '') ?? '',
+    patientOriginalId: copySourceId(patient) ?? '',
     patientAddress: formatAddress(patientAddr),
     patientAddressParts: toAddressParts(patientAddr),
     coverageFhirId: coverage?.id ?? '',
@@ -187,6 +188,14 @@ export async function performEffect(
     secondaryPayerName: secondaryInsurer?.name ?? '',
     secondaryPayerId: getPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
+    tertiaryPayerName: tertiaryInsurer?.name ?? '',
+    tertiaryPayerId: getPayerId(tertiaryInsurer) ?? '',
+    tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
+    quaternaryPayerName: quaternaryInsurer?.name ?? '',
+    quaternaryPayerId: getPayerId(quaternaryInsurer) ?? '',
+    quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
     nonInsurancePayerFhirId: '',
     nonInsurancePayerName: '',
     renderingProviderId: renderingProvider?.id ?? '',

@@ -1,14 +1,18 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
 
+export type ClaimCoverageType = 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+
 // Insurance types in display order, with the labels shown across the billing app.
 export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
   { value: 'primary', label: 'Primary' },
   { value: 'secondary', label: 'Secondary' },
+  { value: 'tertiary', label: 'Tertiary' },
+  { value: 'quaternary', label: 'Quaternary' },
   { value: 'workersComp', label: 'Workers Comp' },
 ];
 
@@ -16,6 +20,8 @@ export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; labe
 export const BILLING_INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string> = {
   primary: 'Primary Insurance',
   secondary: 'Secondary Insurance',
+  tertiary: 'Tertiary Insurance',
+  quaternary: 'Quaternary Insurance',
   workersComp: 'Workers Comp',
 };
 
@@ -23,15 +29,21 @@ export const BILLING_INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string>
 export const BILLING_INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string> = {
   primary: 'primary',
   secondary: 'secondary',
+  tertiary: 'tertiary',
+  quaternary: 'quaternary',
   workersComp: 'workers comp',
 };
 
 export interface BillingTag {
+  // Empty for a system-managed tag whose Basic definition hasn't been created yet.
   id: string;
   name: string;
   description: string;
   usage: number;
   updatedAt: string;
+  // System-managed tags (see ./system-tags.ts) are always returned by search-billing-tags and
+  // cannot be edited or deleted.
+  isSystemTag: boolean;
 }
 
 // Search/autocomplete option shapes — shared by the search-billing-* zambdas and the billing UI.
@@ -164,6 +176,10 @@ export interface EraListItem {
 export interface EraRemitServiceLine {
   // null for addItem rows, which carry no itemSequence
   itemSequence: number | null;
+  // Claim.item.sequence of the submitted line this row was assigned to, null when we couldn't
+  // identify one. Payers that don't echo our line control numbers number their own lines
+  // positionally, so this and itemSequence disagree on those remits.
+  claimItemSequence: number | null;
   // the addItem bucket the process-era converter uses for claim-level CAS adjustments
   isClaimLevel: boolean;
   // '' when the line couldn't be joined to a claim line (e.g. unmatched claim without contained
@@ -407,6 +423,14 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  tertiaryCoverageFhirId: string;
+  tertiaryPayerName: string;
+  tertiaryPayerId: string;
+  tertiaryMemberId: string;
+  quaternaryCoverageFhirId: string;
+  quaternaryPayerName: string;
+  quaternaryPayerId: string;
+  quaternaryMemberId: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -483,6 +507,19 @@ export interface SearchBillingClaimsResponse extends Paginated {
   incomplete?: boolean;
 }
 
+export interface BillingClaimsExportKickOffResponse {
+  taskId: string;
+}
+
+export interface BillingClaimsExportStatusResponse {
+  status: 'requested' | 'in-progress' | 'completed' | 'failed';
+  downloadUrl?: string;
+  error?: string;
+  incomplete?: boolean;
+}
+
+export type BillingClaimsExportResponse = BillingClaimsExportKickOffResponse | BillingClaimsExportStatusResponse;
+
 // amounts in dollars
 export interface PatientArClaimItem {
   claimId: string;
@@ -543,6 +580,8 @@ export interface SearchCodeResponse {
 export interface SearchBillingTagsResponse {
   tags: BillingTag[];
 }
+
+export type GetBillingCoverageResponse = BillingCoverageOption;
 
 export interface GetPatientCoveragesResponse {
   coverages: BillingCoverageOption[];

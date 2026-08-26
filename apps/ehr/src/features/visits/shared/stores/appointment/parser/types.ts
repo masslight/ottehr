@@ -1,5 +1,5 @@
 import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
-import { PaymentVariant } from 'utils';
+import { PaymentVariant } from 'utils/lib/fhir/encounter';
 import { FillingOutAs, Gender } from './constants';
 
 export type VisitDataAndMappedData = {

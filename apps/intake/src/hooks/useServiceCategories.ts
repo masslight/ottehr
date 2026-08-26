@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ServiceCategoryConfig } from 'config-types';
 import { Coding } from 'fhir/r4b';
-import { BOOKING_CONFIG, SERVICE_CATEGORY_SYSTEM } from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { useUCZambdaClient } from './useUCZambdaClient';
 
 const GET_SERVICE_CATEGORIES_ZAMBDA = 'get-service-categories';

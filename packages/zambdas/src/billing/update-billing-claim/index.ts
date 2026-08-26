@@ -12,29 +12,26 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
+import { setNpi } from 'utils/lib/fhir/helpers';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
-  BillingPolicyHolderInput,
-  BillingSubscriberRelationship,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
-  getPayerUrl,
-  setCoveragePlanType,
-  setNpi,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/helpers/rcm/constants';
+import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
-  claimResourceChangeRequests,
-  commitClaimResourceChange,
-  diffResources,
-  resolveClaimActor,
-} from '../provenance';
-import {
+  attachCoverageToClaim,
   buildAddress,
+  buildClaimCoverageCopies,
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
@@ -250,39 +247,50 @@ async function attachClaimResources(
 
   if (fields.coverageId) {
     const original = await fetchById<Coverage>(oystehr, 'Coverage', fields.coverageId);
-    const copy = prepareWorkingCopy<Coverage>(original, fields.coverageId);
-    if (claim.patient?.reference) {
-      copy.beneficiary = { reference: claim.patient.reference };
-      copy.subscriber = { reference: claim.patient.reference };
-      // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
-      const subscriberRef = original.subscriber?.reference;
-      if (subscriberRef?.startsWith('RelatedPerson/')) {
-        const subscriber = await fetchById<RelatedPerson>(
-          oystehr,
-          'RelatedPerson',
-          subscriberRef.replace('RelatedPerson/', '')
-        );
-        const subscriberCopy = prepareWorkingCopy<RelatedPerson>(subscriber, subscriber.id!);
-        subscriberCopy.patient = { reference: claim.patient.reference };
-        const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
-        copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
-      }
+    // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
+    const subscriberRef = original.subscriber?.reference;
+    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+      ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', subscriberRef.replace('RelatedPerson/', ''))
+      : undefined;
+    const { coverage: copy, subscriber: subscriberCopy } = buildClaimCoverageCopies({
+      coverage: original,
+      subscriber,
+      patientReference: claim.patient?.reference,
+    });
+    if (subscriberCopy) {
+      const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
+      copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
     }
     const created = await oystehr.fhir.create(copy);
     const payerRef = created.payor?.[0]?.reference;
     const display = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
-    // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.
-    claim.insurance = ensureClaimInsurance([
-      { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}`, display } },
-      ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-    ]);
-    if (payerRef) claim.insurer = { reference: payerRef, display };
+    attachCoverageToClaim({
+      claim,
+      coverageReference: `Coverage/${created.id}`,
+      type: fields.coverageType ?? 'primary',
+      display,
+      payerReference: payerRef,
+    });
   }
 
   if (fields.removeCoverage) {
-    // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
-    claim.insurance = [];
-    delete claim.insurer;
+    let newInsurance = claim.insurance.filter(
+      (ins) => ins.coverage.reference?.replace('Coverage/', '') !== fields.removeCoverage
+    );
+    if (!newInsurance.length) {
+      // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
+      claim.insurance = [];
+      delete claim.insurer;
+    } else {
+      newInsurance = newInsurance.map((ins, ind) => {
+        ins.sequence = ind + 1;
+        return ins;
+      });
+      if (!newInsurance.some((ins) => ins.focal)) {
+        newInsurance[0].focal = true;
+      }
+      claim.insurance = newInsurance;
+    }
   }
 
   if (fields.diagnoses) {
@@ -346,20 +354,6 @@ async function attachClaimResources(
     const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
-    const focalInsurance = claim.insurance.find((i) => i.focal);
-    const focalCoverageRef = focalInsurance?.coverage?.reference;
-    if (focalCoverageRef?.startsWith('Coverage/')) {
-      let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
-      const coverageBefore = structuredClone(coverage);
-      if (payerUrl) {
-        coverage.payor = [{ reference: payerUrl, display }];
-        if (focalInsurance?.coverage) focalInsurance.coverage.display = display;
-      }
-      if (fields.planType) coverage = setCoveragePlanType(coverage, fields.planType);
-      extraRequests.push(
-        ...claimResourceChangeRequests({ resource: coverage, before: coverageBefore, agent, claimReference })
-      );
-    }
   }
 
   return commitClaimResourceChange(oystehr, {

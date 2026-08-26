@@ -1,6 +1,7 @@
 import { _objectKeys } from 'fast-json-patch/module/helpers';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { evalEnableWhen, IntakeQuestionnaireItem } from 'utils';
+import { evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 
 type DisplayStrategy = 'enabled' | 'hidden' | 'protected';
 // this is called without all items in one place

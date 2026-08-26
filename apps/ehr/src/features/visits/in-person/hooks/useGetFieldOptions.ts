@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PROVIDERS_FILTER } from 'src/shared/utils';
-import { DiagnosisDTO, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType, UNIT_OPTIONS } from 'utils';
+import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  MedicationApplianceRoutes,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
@@ -17,6 +23,7 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
     '37839007', // Sublingual route
     '447694001', // Respiratory tract route (inhaled)
     '47625008', // Intravenous route (IV)
+    '445214009', // Infusion route (IV infusion)
     '78421000', // Intramuscular route (IM)
     '6064005', // Topical route
     '10547007', // Otic route

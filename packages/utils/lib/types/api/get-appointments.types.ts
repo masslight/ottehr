@@ -1,4 +1,4 @@
-import { InPersonAppointmentInformation } from '..';
+import { InPersonAppointmentInformation } from '../data/appointments/appointments.types';
 
 export interface GetAppointmentsZambdaInput {
   searchDateFrom: string;

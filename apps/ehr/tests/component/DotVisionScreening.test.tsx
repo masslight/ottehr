@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FC, ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { DOT_VISION_SCREENING_LABELS } from 'utils';
+import { DOT_VISION_SCREENING_LABELS } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================

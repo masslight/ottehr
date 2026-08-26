@@ -1,16 +1,15 @@
 import { Organization, Practitioner, Task } from 'fhir/r4b';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   FAX_PACKET_REQUEST_TASK_INPUT,
   FAX_PACKET_RESULTS_TASK_OUTPUT,
+  FaxPacketSource,
   FaxPacketTaskPayload,
-  getSecret,
-  removePrefix,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken } from '../../../shared';
+} from 'utils/lib/types/api/fax.types';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { resolveFaxPacketPlan } from '../../../shared/fax/resolve-fax-source';
 import { deliverFaxPacket, savePcpIfRequested } from '../../../shared/fax/run-fax-packet';
-import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapTaskHandler } from '../helpers';
 
 let cachedM2MToken: string | undefined;
@@ -34,36 +33,34 @@ const readPayload = (task: Task): FaxPacketTaskPayload => {
   return JSON.parse(raw) as FaxPacketTaskPayload;
 };
 
+/** Tasks queued before the payload carried a source are single-visit sends named by `Task.focus`. */
+const faxSourceFromTaskFocus = (task: Task): FaxPacketSource => {
+  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
+  if (!appointmentId) throw new Error('Fax packet task has neither a source nor an Appointment focus');
+  return { type: 'visit', appointmentId };
+};
+
 export const index = wrapTaskHandler(
   'sub-send-fax-packet',
   async (input, oystehr) => {
     const { task, secrets } = input;
 
-    const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
-    if (!appointmentId) throw new Error('Fax packet task focus is not an Appointment');
-
     const payload = readPayload(task);
+    const source = payload.source ?? faxSourceFromTaskFocus(task);
     const token = await ensureM2MToken(secrets);
     const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-    const [visitResources, organization, senderPractitioner] = await Promise.all([
-      getAppointmentAndRelatedResources(oystehr, appointmentId, true),
+    const [plan, organization, senderPractitioner] = await Promise.all([
+      resolveFaxPacketPlan({ oystehr, token, secrets, source }),
       oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
       oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: payload.senderPractitionerId }),
     ]);
-
-    if (!visitResources?.appointment?.id || !visitResources.patient?.id) {
-      throw new Error(`Visit resources could not be resolved for appointment ${appointmentId}`);
-    }
-
-    const patient = visitResources.patient;
 
     const results = await deliverFaxPacket({
       oystehr,
       token,
       secrets,
-      visitResources,
-      patient,
+      plan,
       organization,
       senderPractitioner,
       senderUserId: payload.senderUserId,
@@ -71,7 +68,7 @@ export const index = wrapTaskHandler(
       recipients: payload.recipients,
     });
 
-    await savePcpIfRequested(payload.recipients, patient, oystehr);
+    await savePcpIfRequested(payload.recipients, plan.patient, oystehr);
 
     // Per-recipient outcomes for the status poll. Written before wrapTaskHandler marks the task completed;
     // patchTaskStatus only touches /status + /statusReason, so this output survives.

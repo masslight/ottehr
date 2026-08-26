@@ -3,7 +3,8 @@
 // progress-note-chart-data-requested-fields.helper.ts; importing the root barrel
 // here creates a barrel → sibling → barrel cycle that leaves
 // `createVitalsSearchConfig` undefined at init time depending on bundling order.
-import { PRIVATE_EXTENSION_BASE_URL, SearchParams } from '../../fhir';
+import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir/constants';
+import { SearchParams } from '../../fhir/uri';
 import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
 import { AllChartValues, PATIENT_VITALS_META_SYSTEM } from '../../types/api/chart-data/chart-data.types';
 

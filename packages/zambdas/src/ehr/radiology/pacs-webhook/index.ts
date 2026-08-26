@@ -18,15 +18,17 @@ import {
   ADVAPACS_FHIR_BASE_URL,
   ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
   createOurDiagnosticReport,
-  getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
-  Secrets,
-  SecretsKeys,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   advaPacsFetch,
   AllRadTaskResources,
@@ -154,12 +156,13 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
     },
   ];
 
-  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time that the order was performed.
+  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time
+  // that the order was performed. Keyed on the extension alone, which is what makes it exactly-once: also
+  // requiring our status to still be pre-completed meant an order that reached `completed` by any other route
+  // (a direct patch, a seeded fixture, a callback whose patch landed while the response was lost) could never
+  // pick the stamp up afterwards, and with no stamp the order history has no `performed` row at all.
   if (advaPacsServiceRequest.status === 'completed') {
-    if (
-      srToUpdate.status !== 'completed' &&
-      srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null
-    ) {
+    if (srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null) {
       operations.push({
         op: 'add',
         path: '/extension/-',
@@ -360,6 +363,24 @@ const buildUpdateDiagnosticReportRequests = (
     };
     console.log('task config to be made', JSON.stringify(reviewTaskPostRequest.resource));
     requests.push(reviewTaskPostRequest);
+
+    // Teleradiology's read replaces the text in `presentedForm`, so keep a copy of the preliminary read the
+    // provider treated on. Guarded by the same preliminary -> final transition check, so a re-delivered
+    // callback (AdvaPACS retries) finds the report already `final` and takes no second snapshot.
+    if (ourDiagnosticReport.status === 'preliminary' && ourDiagnosticReport.presentedForm?.length) {
+      requests.push({
+        method: 'POST',
+        url: 'DiagnosticReport/',
+        resource: buildPreliminaryReportSnapshot(ourDiagnosticReport),
+      } as BatchInputPostRequest<DiagnosticReport>);
+    }
+
+    // The report is no longer the one our provider wrote, so it must stop naming them as its author — the
+    // snapshot above took the preliminary read's `performer` with it. Left behind, it would credit
+    // teleradiology's read to them and let them edit it.
+    if (ourDiagnosticReport.performer?.length) {
+      diagnosticReportPathOps.push({ op: 'remove', path: '/performer' });
+    }
   }
 
   console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(diagnosticReportPathOps, null, 2));

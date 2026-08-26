@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { getExtensionValue } from 'utils';
+import { getExtensionValue } from 'utils/lib/fhir/helpers';
 
 // Singleton Basic resource that records the state of the most recent mailed-statement
 // status-sync cron run. There is at most one of these per project; it is upserted by the

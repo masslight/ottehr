@@ -9,7 +9,7 @@ import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { useCancelMatchUnsolicitedResultTask } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { ExternalLabsStatus, LAB_ORDER_UPDATE_RESOURCES_EVENTS } from 'utils';
+import { ExternalLabsStatus, LAB_ORDER_UPDATE_RESOURCES_EVENTS } from 'utils/lib/types/data/labs/labs.types';
 
 interface FinalCardViewProps {
   isUnsolicited: boolean;

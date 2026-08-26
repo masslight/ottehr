@@ -1,7 +1,16 @@
 import { Task } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM, INVOICE_TASK_SOURCE_SYSTEM, invoiceTaskSourceTag } from '../../types';
-import { getInvoiceTaskClaimId, getInvoiceTaskSource, invoiceTaskSourceSearchParam } from './invoices-tasks';
+import {
+  INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
+  INVOICE_TASK_SOURCE_SYSTEM,
+  invoiceTaskSourceTag,
+} from '../../types/api/invoicing.types';
+import {
+  getInvoiceTaskClaimId,
+  getInvoiceTaskOutputs,
+  getInvoiceTaskSource,
+  invoiceTaskSourceSearchParam,
+} from './invoices-tasks';
 
 const task = (overrides: Partial<Task> = {}): Task => ({
   resourceType: 'Task',
@@ -82,6 +91,90 @@ describe('source tag shape', () => {
       system: INVOICE_TASK_SOURCE_SYSTEM,
       code: 'ottehr-billing',
     });
+  });
+});
+
+const invoiceIdOutput = (valueString: string): NonNullable<Task['output']>[number] => ({
+  type: { coding: [{ code: 'send-invoice-output-invoice-Id' }] },
+  valueString,
+});
+
+const errorOutput = (valueString: string): NonNullable<Task['output']>[number] => ({
+  type: { coding: [{ code: 'send-invoice-output-error' }] },
+  valueString,
+});
+
+const unrelatedOutput = (): NonNullable<Task['output']>[number] => ({
+  type: { coding: [{ code: 'some-other-output-code' }] },
+  valueString: 'ignored',
+});
+
+describe('getInvoiceTaskOutputs', () => {
+  it('returns empty object when the task has no output array', () => {
+    expect(getInvoiceTaskOutputs(task())).toEqual({});
+  });
+
+  it('returns empty object when outputs carry unrecognised codes only', () => {
+    expect(getInvoiceTaskOutputs(task({ output: [unrelatedOutput(), unrelatedOutput()] }))).toEqual({});
+  });
+
+  it('extracts a single invoice ID', () => {
+    expect(getInvoiceTaskOutputs(task({ output: [invoiceIdOutput('in_abc')] }))).toEqual({ invoiceId: 'in_abc' });
+  });
+
+  it('extracts a single error', () => {
+    expect(getInvoiceTaskOutputs(task({ output: [errorOutput('Stripe error')] }))).toEqual({
+      error: 'Stripe error',
+    });
+  });
+
+  it('picks the latest invoice ID when multiple are present', () => {
+    const result = getInvoiceTaskOutputs(
+      task({ output: [invoiceIdOutput('in_first'), invoiceIdOutput('in_second'), invoiceIdOutput('in_latest')] })
+    );
+    expect(result.invoiceId).toBe('in_latest');
+  });
+
+  it('picks the latest error when multiple are present', () => {
+    const result = getInvoiceTaskOutputs(
+      task({ output: [errorOutput('err_first'), errorOutput('err_second'), errorOutput('err_latest')] })
+    );
+    expect(result.error).toBe('err_latest');
+  });
+
+  it('returns both when invoice ID output precedes an error output', () => {
+    // typical failed-after-send sequence
+    const result = getInvoiceTaskOutputs(task({ output: [invoiceIdOutput('in_sent'), errorOutput('retry failed')] }));
+    expect(result).toEqual({ invoiceId: 'in_sent', error: 'retry failed' });
+  });
+
+  it('returns both when outputs are interleaved with unrelated entries', () => {
+    const result = getInvoiceTaskOutputs(
+      task({
+        output: [
+          unrelatedOutput(),
+          invoiceIdOutput('in_early'),
+          unrelatedOutput(),
+          errorOutput('bad email'),
+          unrelatedOutput(),
+        ],
+      })
+    );
+    expect(result).toEqual({ invoiceId: 'in_early', error: 'bad email' });
+  });
+
+  it('picks the latest of each type independently when both appear multiple times', () => {
+    const result = getInvoiceTaskOutputs(
+      task({
+        output: [
+          invoiceIdOutput('in_first'),
+          errorOutput('err_first'),
+          invoiceIdOutput('in_second'),
+          errorOutput('err_second'),
+        ],
+      })
+    );
+    expect(result).toEqual({ invoiceId: 'in_second', error: 'err_second' });
   });
 });
 

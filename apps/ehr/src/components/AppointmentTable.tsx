@@ -17,10 +17,9 @@ import { ReactElement, useCallback, useState } from 'react';
 import {
   GetVitalsForListOfEncountersResponseData,
   GetVitalsResponseData,
-  InPersonAppointmentInformation,
-  OrdersForTrackingBoardRow,
-  OrdersForTrackingBoardTable,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
+import { OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useGetEmployees } from '../features/visits/shared/hooks/useGetEmployees';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';

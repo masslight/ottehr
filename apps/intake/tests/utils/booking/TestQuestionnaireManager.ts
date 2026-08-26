@@ -1,12 +1,9 @@
 import type { QuestionnaireConfigType } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
-import {
-  CanonicalUrl,
-  createQuestionnaireFromConfig,
-  INTAKE_PAPERWORK_CONFIG,
-  ServiceMode,
-  VIRTUAL_INTAKE_PAPERWORK_CONFIG,
-} from 'utils';
+import { createQuestionnaireFromConfig } from 'utils/lib/config-helpers/shared-questionnaire';
+import { INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
 import { ResourceHandler } from '../resource-handler';
 
 /**

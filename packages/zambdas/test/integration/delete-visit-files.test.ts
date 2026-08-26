@@ -1,14 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Patient } from 'fhir/r4b';
-import { Secrets } from 'utils';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { Secrets } from 'utils/lib/secrets';
 import {
   complexValidation,
   validateRequestParameters,
   validateSecrets,
 } from '../../src/ehr/visit-details/delete-visit-files/validation';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';

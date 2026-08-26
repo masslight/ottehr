@@ -1,23 +1,21 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Condition, Encounter, Location, Patient, Practitioner, Procedure, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getEncounterVisitType, isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  getAttendingPractitionerId,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
-  getPatientFirstName,
-  getPatientLastName,
-  getVisitStatusHistory,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutputSchema,
-  isFollowupEncounter,
-  isInPersonAppointment,
-  isTelemedAppointment,
-  OTTEHR_MODULE,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/incomplete-encounters-report.types';
+import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { resolveEncounterAppointment } from '../../shared/adhoc-report';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 

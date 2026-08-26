@@ -1,14 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import {
   BillingSuggestionOutput,
-  fixAndParseJsonObjectFromString,
-  getEmCodes,
   MedicationDTO,
   PrescribedMedicationDTO,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { warmTerminologyConnection } from './terminology';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -155,6 +159,12 @@ export const index = wrapHandler(
     m2mToken = await timed('checkOrCreateM2MClientToken', () => checkOrCreateM2MClientToken(m2mToken, secrets));
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+    // Fired now and awaited only just before the terminology fan-out, so the cost of opening the first
+    // connection to the terminology host lands underneath the E&M read and the model call instead of on
+    // top of them. See warmTerminologyConnection() for why that cost is worth hiding.
+    const terminologyWarmup = warmTerminologyConnection(oystehr);
+
     const emCodeOptions = await timed('getEmCodes', () => getEmCodes(oystehr));
     const prescribedMedicationContext = formatPrescribedMedicationsForBillingPrompt(prescribedMedications);
     const currentMedicationContext = formatCurrentMedicationsForBillingPrompt(currentMedications);
@@ -364,12 +374,23 @@ export const index = wrapHandler(
 
     const codeValidationStart = Date.now();
 
-    // Validate ICD codes and get the descriptions for the codes.
-    // Look the codes up concurrently but preserve the AI's original ordering: Promise.all
-    // keeps results in input order regardless of which lookup settles first.
-    if (suggestions?.icdCodes) {
-      const validatedIcdCodes = await Promise.all(
-        suggestions.icdCodes.map(async (code) => {
+    // The warm-up fired before the E&M read, so by now it has almost certainly settled and this await
+    // is free. Awaiting it rather than ignoring it is what guarantees the fan-out below never races the
+    // very first connection to the terminology host.
+    await terminologyWarmup;
+
+    // Validate the suggested codes and fetch their descriptions. The ICD phase and the CPT phase are
+    // independent of each other, so they run concurrently: as two sequential awaits they put two full
+    // terminology round trips on the critical path where one will do.
+    //
+    // Within each phase, the per-code lookups already ran concurrently. Promise.all keeps results in
+    // input order regardless of which lookup settles first, so the AI's original ordering survives at
+    // both levels. The HCPCS lookup stays sequential behind its own CPT lookup by necessity — it is
+    // only attempted when the CPT search comes back empty — so a phase is one round trip deep, or two
+    // for the CPT codes that fall through.
+    const [validatedIcdCodes, validatedCptCodes] = await Promise.all([
+      Promise.all(
+        (suggestions?.icdCodes ?? []).map(async (code) => {
           const terminologyResponse = await oystehr.terminology.searchIcd10({
             query: code.code,
             searchType: 'code',
@@ -386,26 +407,18 @@ export const index = wrapHandler(
           console.log("Didn't get an ICD code", code.code);
           return null;
         })
-      );
-      for (const entry of validatedIcdCodes) {
-        if (entry) icdSuggestions.push(entry);
-      }
-    }
-
-    // Validate CPT codes and get the descriptions for the codes.
-    // Same as above: concurrent lookups, but keep the AI's original ordering.
-    if (suggestions?.cptCodes) {
-      const validatedCptCodes = await Promise.all(
-        suggestions.cptCodes.map(async (code) => {
+      ),
+      Promise.all(
+        (suggestions?.cptCodes ?? []).map(async (code) => {
           const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
-          const terminologyResponse = await oystehr?.terminology.searchCpt({
+          const terminologyResponse = await oystehr.terminology.searchCpt({
             query: cptCode,
             searchType: 'code',
             limit: 100,
             strictMatch: true,
           });
           if (terminologyResponse.codes.length === 0) {
-            const hcpcsSearchResponse = await oystehr?.terminology.searchHcpcs({
+            const hcpcsSearchResponse = await oystehr.terminology.searchHcpcs({
               query: cptCode,
               searchType: 'code',
               limit: 100,
@@ -429,10 +442,14 @@ export const index = wrapHandler(
           }
           return null;
         })
-      );
-      for (const entry of validatedCptCodes) {
-        if (entry) cptSuggestions.push(entry);
-      }
+      ),
+    ]);
+
+    for (const entry of validatedIcdCodes) {
+      if (entry) icdSuggestions.push(entry);
+    }
+    for (const entry of validatedCptCodes) {
+      if (entry) cptSuggestions.push(entry);
     }
 
     // Validate E&M codes and get the descriptions for the codes

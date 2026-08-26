@@ -20,21 +20,18 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { uuid } from 'short-uuid';
+import { BookableScheduleData, ScheduleStrategy, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
+import { scheduleStrategyForHealthcareService, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
+import { LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
+import { checkResourceHasSlug } from 'utils/lib/helpers/helpers';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import {
-  BookableScheduleData,
-  checkResourceHasSlug,
-  getGroupAllLocations,
-  isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleOwnerFhirResource,
-  ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
-  SLUG_SYSTEM,
-  unbundleBatchPostOutput,
-  walkGroupMemberPractitionerRoleSchedules,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
   const response: Patient = await oystehr.fhir.get({
@@ -79,7 +76,7 @@ export async function getSchedules(
   // a 400, so the filter has to branch by resource type rather than be
   // applied uniformly.
   const ownerActiveFilter: SearchParam =
-    fhirType === 'Location' ? { name: 'status:not', value: 'inactive' } : { name: 'active:not', value: 'false' };
+    fhirType === 'Location' ? LOCATION_BOOKABLE_SEARCH_PARAM : { name: 'active:not', value: 'false' };
   const searchParams: SearchParam[] = [
     ownerLookupParam,
     { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
@@ -622,4 +619,19 @@ export async function fetchAllPages(
       break;
     }
   } while (hasMorePages);
+}
+
+/**
+ * compares semver strings; returns 1 if versionA > versionB, -1 if versionA < versionB, 0 if equal
+ */
+export function compareVersions(versionA: string, versionB: string): number {
+  const a = versionA.split('.').map(Number);
+  const b = versionB.split('.').map(Number);
+
+  for (let i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return 1;
+    if (a[i] < b[i]) return -1;
+  }
+
+  return 0;
 }

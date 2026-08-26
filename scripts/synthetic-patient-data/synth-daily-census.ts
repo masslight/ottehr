@@ -23,7 +23,7 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
-import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM } from 'utils';
+import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM, isCustomerSupport, isProvider } from 'utils';
 import {
   AuthoredResultsByTest,
   finalizeInHouseLabs,
@@ -47,6 +47,7 @@ import {
   SYNTH_CRON_SYSTEM as CRON_SYSTEM,
   VISIT_STATUS_ORDER,
 } from './shared/constants';
+import { absolutizeFixtures } from './shared/fixtures';
 import { type HarnessCommand, prepareHarnessCommand } from './shared/harness-bundle';
 import { createOystehrFromToken, mintAccessToken, need, searchAllPages } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
@@ -198,11 +199,11 @@ async function resolveStaff(at: string, projectId: string): Promise<{ providers:
   );
   const nameOf = (e: any): string => `${e.firstName} ${e.lastName}`.trim();
   const providers = employees
-    .filter((e) => e.isProvider)
+    .filter((e) => isProvider(e))
     .map(nameOf)
     .filter(Boolean);
   let mas = employees
-    .filter((e) => !e.isProvider && !e.isCustomerSupport)
+    .filter((e) => !isProvider(e) && !isCustomerSupport(e))
     .map(nameOf)
     .filter(Boolean);
   if (!mas.length) mas = providers; // small clinic: providers double as intake
@@ -615,6 +616,9 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
     // non-contiguous / out-of-order subset — a plain `i < already` index cutoff
     // would re-create some and never create others).
     if (createdEmails.has(email)) continue;
+    // Absolutize fixture (ID/insurance card) paths against examples/ so they resolve
+    // from the temp scenario dir regardless of its depth (see shared/fixtures.ts).
+    absolutizeFixtures(base, EXAMPLES);
     const scenarioFile = resolve(SCEN_DIR, `census-${today}-${String(i).padStart(3, '0')}.json`);
     writeFileSync(scenarioFile, JSON.stringify(base, null, 2));
     visits.push({

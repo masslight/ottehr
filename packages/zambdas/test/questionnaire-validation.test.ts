@@ -1,7 +1,10 @@
-import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, makeValidationSchema } from 'utils';
+import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
+import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { expect, vi } from 'vitest';
 import { AnyObjectSchema, AnySchema } from 'yup';
-import { createClinicalOystehrClient, getAuth0Token } from '../src/shared';
+import { getAuth0Token } from '../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../src/shared/helpers';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';

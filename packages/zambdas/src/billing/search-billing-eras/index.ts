@@ -1,8 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
-import { EraListItem, getPayerId, getPayerUrl } from 'utils';
-import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { EraListItem } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fetchAllPages } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
 import {
   createBillingClient,
@@ -72,6 +76,13 @@ async function performEffect(
     });
   }
 
+  if (params.matchingStatus === 'anyUnmatched') {
+    searchParams.push({
+      name: '_has:Provenance:target:target:ClaimResponse.request',
+      value: '#claim',
+    });
+  }
+
   const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: searchParams,
@@ -100,7 +111,7 @@ async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds:
       resourceType: 'ClaimResponse',
       params: [
         { name: 'request', value: batch.join(',') },
-        { name: '_elements', value: 'identifier,extension' },
+        { name: '_elements', value: 'id,identifier,extension' },
         { name: '_count', value: '1000' },
       ],
     });

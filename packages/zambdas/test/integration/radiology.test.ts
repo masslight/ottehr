@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DomainResource, Procedure, ServiceRequest } from 'fhir/r4b';
-import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, M2MClientMockType } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput } from 'utils/lib/types/api/radiology';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,

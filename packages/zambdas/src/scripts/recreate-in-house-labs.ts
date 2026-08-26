@@ -1,7 +1,8 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
-import { IN_HOUSE_TAG_DEFINITION } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { IN_HOUSE_TAG_DEFINITION } from 'utils/lib/types/data/in-house/in-house.constants';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 import { testItems } from './data/base-in-house-lab-seed-data';
 import { performEffectWithEnvFile } from './helpers';
 import { buildInHouseLabActivityDefinitions } from './labs/load-in-house-labs-tests';

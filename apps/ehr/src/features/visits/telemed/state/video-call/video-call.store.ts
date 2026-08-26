@@ -1,4 +1,4 @@
-import { MeetingData } from 'utils';
+import { MeetingData } from 'utils/lib/types/data/telemed/join-call.types';
 import { create } from 'zustand';
 
 export type VirtualBackgroundSetting = { mode: 'none' } | { mode: 'blur' } | { mode: 'image'; imageBlob: Blob };

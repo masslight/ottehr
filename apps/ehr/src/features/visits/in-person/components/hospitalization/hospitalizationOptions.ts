@@ -1,4 +1,4 @@
-import { HospitalizationDTO } from 'utils';
+import { HospitalizationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const HospitalizationOptions: HospitalizationDTO[] = [
   {

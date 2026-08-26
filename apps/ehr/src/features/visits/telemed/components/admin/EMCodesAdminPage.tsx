@@ -17,7 +17,7 @@ import { useIsMutating } from '@tanstack/react-query';
 import { ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import { EmCodeOption } from 'utils';
+import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
 import { useEMCodes } from '../../../shared/hooks/useEMCodes';
 import EMCodeDeleteDialog from './EMCodeDeleteDialog';
 import EMCodeDialog from './EMCodeDialog';

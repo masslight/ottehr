@@ -3,7 +3,7 @@ import { LoadingButton } from '@mui/lab';
 import { Input, InputAdornment, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InPersonAppointmentInformation } from 'utils';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { patchAppointmentComment } from '../helpers';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { GenericToolTip } from './GenericToolTip';

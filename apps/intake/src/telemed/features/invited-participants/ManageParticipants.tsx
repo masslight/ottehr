@@ -1,6 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
-import { useGetVideoChatInvites } from '../waiting-room';
+import { useGetVideoChatInvites } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import { InvitedParticipantList } from './InvitedParticipantList';
 import { InviteParticipantForm } from './InviteParticipantForm';
 

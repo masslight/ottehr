@@ -6,8 +6,8 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusFieldKey,
   getClaimStatusFieldValue,
-  RulesEngineType,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { assertValidClaimStatusField, claimHasRealCoverage, fetchById } from '../../../billing/shared';
@@ -21,7 +21,7 @@ import { submitClaim } from './submit-claim';
 export interface FinalizeRunInput {
   oystehr: Oystehr;
   model: RulesEngineClaimModel;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent[];
 }
 
 export interface FinalizeRunResult {

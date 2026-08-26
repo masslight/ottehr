@@ -13,13 +13,13 @@ import {
 } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  getCoding,
   isScheduledFollowupEncounter,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 import { useReasonForVisitOptions } from './shared/hooks/useReasonForVisitOptions';

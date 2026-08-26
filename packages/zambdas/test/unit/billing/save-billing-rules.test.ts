@@ -1,11 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
-import { BillingRuleInput, DEFAULT_RULES_ENGINE, HOLD_TAG_NAME, RulesEngineType } from 'utils';
+import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  AUTO_ACCIDENT_TAG_NAME,
+  HOLD_TAG_NAME,
+  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+  SECONDARY_SUBMISSION_TAG_NAME,
+  SYSTEM_MANAGED_TAGS,
+} from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
-import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG, TAG_IS_SYSTEM_TAG_URL } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const create = vi.fn();
@@ -33,7 +41,7 @@ describe('save-billing-rules performEffect', () => {
     // Echo the written List back (as the server would), stamping a versionId.
     create.mockImplementation(async (resource: List | Basic) => ({ ...resource, meta: { versionId: '1' } }));
     update.mockImplementation(async (resource: List) => ({ ...resource, meta: { versionId: '2' } }));
-    // ensureHoldTag's tag lookup: no tags exist yet.
+    // ensureSystemManagedTags' tag lookup: no tags exist yet.
     search.mockResolvedValue({ unbundle: () => [] });
   });
 
@@ -55,20 +63,37 @@ describe('save-billing-rules performEffect', () => {
     expect(savedList.entry?.map((e) => e.item?.reference)).toEqual([`#${created.id}`, '#rule-1']);
   });
 
-  it('creates the List and seeds the Hold system tag when no rules List exists yet', async () => {
+  it('creates the List and seeds every system-managed tag when no rules List exists yet', async () => {
     const response = await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 
     expect(update).not.toHaveBeenCalled();
     const createdTypes = create.mock.calls.map(([r]) => r.resourceType);
     expect(createdTypes).toContain('List');
-    expect(createdTypes).toContain('Basic');
-    const holdTag = create.mock.calls.find(([r]) => r.resourceType === 'Basic')?.[0] as Basic;
-    expect(holdTag.code?.text).toBe(HOLD_TAG_NAME);
+    const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
+    expect(seededTags.map((tag) => tag.code?.text)).toEqual(SYSTEM_MANAGED_TAGS.map((def) => def.name));
+    seededTags.forEach((tag) => {
+      expect(tag.extension).toContainEqual({ url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true });
+    });
     expect(response.versionId).toBe('1');
   });
 
-  it('does not re-seed the Hold tag when it already exists', async () => {
+  it('seeds only the system-managed tags that are missing', async () => {
     search.mockResolvedValue({ unbundle: () => [{ resourceType: 'Basic', code: { text: HOLD_TAG_NAME } }] });
+
+    await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
+
+    const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
+    expect(seededTags.map((tag) => tag.code?.text)).toEqual([
+      AUTO_ACCIDENT_TAG_NAME,
+      SECONDARY_SUBMISSION_TAG_NAME,
+      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+    ]);
+  });
+
+  it('does not re-seed system-managed tags that already exist', async () => {
+    search.mockResolvedValue({
+      unbundle: () => SYSTEM_MANAGED_TAGS.map((def) => ({ resourceType: 'Basic', code: { text: def.name } })),
+    });
 
     await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 
@@ -141,9 +166,14 @@ describe('save-billing-rules complexValidation (applied tags must exist)', () =>
     );
   });
 
-  it('always allows the Hold tag, without even searching for tag definitions', async () => {
+  it('always allows system-managed tags, without even searching for tag definitions', async () => {
     mockSearches([]);
-    await expect(complexValidation(oystehr, params([tagRule('Hold it', HOLD_TAG_NAME)]))).resolves.toBeUndefined();
+    await expect(
+      complexValidation(
+        oystehr,
+        params([tagRule('Hold it', HOLD_TAG_NAME), tagRule('Mark accident', AUTO_ACCIDENT_TAG_NAME)])
+      )
+    ).resolves.toBeUndefined();
     expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(0);
   });
 

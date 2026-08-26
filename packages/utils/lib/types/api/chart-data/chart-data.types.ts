@@ -15,9 +15,10 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ObservationDTO, RadiologyDTO } from 'utils';
 import z from 'zod';
+import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
+import { RadiologyDTO } from '../radiology';
 import {
   AiObservationField,
   ASQ_FIELD,
@@ -34,6 +35,7 @@ import { GetChartDataResponse } from './get-chart-data.types';
 export interface AIChatDetails {
   documents: DocumentReference[];
   providers: Practitioner[];
+  hasPendingRecording?: boolean;
 }
 
 // todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful

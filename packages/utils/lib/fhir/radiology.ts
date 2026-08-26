@@ -1,13 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, Reference, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getScheduleOwnerFromAppointmentOrEncounter,
-  getSecret,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { getSecret, Secrets, SecretsKeys } from '../secrets';
+import { SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL } from './constants';
+import { getScheduleOwnerFromAppointmentOrEncounter } from './helpers';
 
 // cSpell:ignore: ACSN, PLAC
 /** contained-resource id for the free-text performing organization on an external radiology order */
@@ -50,6 +46,53 @@ export const SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-needs-to-be-sent-to-teleradiology';
 export const SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-has-been-sent-to-teleradiology';
+/**
+ * The practitioner who sent the order for a final read, recorded alongside the timestamp extension rather
+ * than inside it: FHIR forbids an extension carrying both a value and nested extensions.
+ */
+export const SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/service-request-sent-for-final-read-by';
+
+/*
+ * Reads are stored on `DiagnosticReport.presentedForm` as base64-encoded `text/html`. What the EHR writes is
+ * plain text with newlines turned into `<br>`; what comes back from AdvaPACS is the radiologist's own markup.
+ * Both halves of the format live here so the round-trip stays in one place — the zambdas encode, the EHR
+ * decodes, as markup for display or as text for editing.
+ */
+
+export const encodeRadiologyReport = (report: string): string =>
+  Buffer.from(report.replace(/\n/g, '<br>')).toString('base64');
+
+/** `atob` yields one character per byte, so decode the bytes as UTF-8 or non-ASCII reads come back mangled. */
+const decodeBase64Utf8 = (value: string): string =>
+  new TextDecoder().decode(Uint8Array.from(atob(value), (char) => char.charCodeAt(0)));
+
+/**
+ * Reads a stored report back as the `text/html` it was stored as. A read from AdvaPACS carries the
+ * radiologist's own formatting (italicised findings, paragraphs) and is displayed as sent, so callers must
+ * sanitize before rendering it — see `safeRadiologyReportHtml` in the EHR.
+ */
+export const decodeRadiologyReportHtml = (report: string): string => {
+  try {
+    return decodeBase64Utf8(report);
+  } catch {
+    // Not base64: show what we were given rather than blanking the read.
+    return report;
+  }
+};
+
+/**
+ * The same report as plain text, for seeding the edit field — a textarea can't hold markup, and the reads
+ * that are editable are ones we wrote ourselves as text with `<br>` line breaks.
+ */
+export const decodeRadiologyReportText = (report: string): string => {
+  const html = decodeRadiologyReportHtml(report);
+
+  // `<br>` is the line break we write; `</p>` covers paragraphs a teleradiology report may arrive with.
+  const withLineBreaks = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p\s*>/gi, '\n');
+
+  return new DOMParser().parseFromString(withLineBreaks, 'text/html').body.textContent ?? withLineBreaks;
+};
 
 // do not adjust modifierDescription, this is mapped to fhir resources
 export const LATERALITY_SELECTORS = {
@@ -125,11 +168,16 @@ export const createOurDiagnosticReport = async (
   serviceRequest: ServiceRequest,
   pacsDiagnosticReport: DiagnosticReport,
   preliminaryReport: string | undefined,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  /**
+   * Who wrote this read. Kept separate from `ServiceRequest.performer` (who performed the study) so the two
+   * can never stand in for each other. Absent for reports arriving from AdvaPACS.
+   */
+  author?: Reference
 ): Promise<void> => {
   let preliminaryReportAsBase64: string | undefined = undefined;
   if (preliminaryReport !== undefined) {
-    preliminaryReportAsBase64 = Buffer.from(preliminaryReport.replace(/\n/g, '<br>')).toString('base64');
+    preliminaryReportAsBase64 = encodeRadiologyReport(preliminaryReport);
   }
 
   const diagnosticReportToCreate: DiagnosticReport = {
@@ -163,6 +211,7 @@ export const createOurDiagnosticReport = async (
         data: preliminaryReportAsBase64,
       },
     ],
+    ...(author ? { performer: [author] } : {}),
   };
 
   if (pacsDiagnosticReport.status === 'preliminary') {

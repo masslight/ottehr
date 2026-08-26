@@ -2,32 +2,22 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
-import {
-  CANNOT_JOIN_CALL_NOT_STARTED_ERROR,
-  createOystehrClient,
-  getAppointmentResourceById,
-  getParticipantIdFromAppointment,
-  getRelatedPersonsForPatient,
-  getSecret,
-  getVirtualServiceResourceExtension,
-  JoinCallInput,
-  JoinCallResponse,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  PROJECT_WEBSITE,
-  SecretsKeys,
-  TELEMED_VIDEO_ROOM_CODE,
-} from 'utils';
-import {
-  getAuth0Token,
-  getUser,
-  getVideoEncounterForAppointment,
-  lambdaResponse,
-  reportMissingUserRelatedPerson,
-  searchInvitedParticipantResourcesByEncounterId,
-  userHasAccessToPatient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { getAppointmentResourceById, getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
+import { createOystehrClient, getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
+import { JoinCallInput, JoinCallResponse } from 'utils/lib/types/data/telemed/join-call.types';
+import { CANNOT_JOIN_CALL_NOT_STARTED_ERROR, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
+import { getUser, userHasAccessToPatient } from '../../shared/auth';
+import { getVideoEncounterForAppointment } from '../../shared/encounters';
+import { searchInvitedParticipantResourcesByEncounterId } from '../../shared/fhir';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { reportMissingUserRelatedPerson } from '../../shared/invariants';
+import { lambdaResponse } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { addUserToVideoEncounterIfNeeded } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

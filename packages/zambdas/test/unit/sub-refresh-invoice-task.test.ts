@@ -1,13 +1,14 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Operation } from 'fast-json-patch';
 import { Task, TaskInput } from 'fhir/r4b';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import {
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
   invoiceTaskSourceTag,
-  RcmTaskCodings,
   ZERO_BALANCE_BUSINESS_STATUS,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -24,17 +25,31 @@ const mockClinicalClient = {
 };
 const mockGetOrCreateCandidApiClient = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(() => mockClinicalClient),
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/helpers/candidApi', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -316,6 +331,22 @@ describe('sub-refresh-invoice-task', () => {
     expect(statusOp?.value).toBe('completed');
   });
 
+  it('omits the status op when the stored task is already at the derived status to prevent a no-op patch event re-triggering the statement subscription', async () => {
+    nonZeroBalanceAr();
+
+    // Stored task is already completed with a success output — the status op would be a no-op
+    // (completed → completed) but Oystehr still fires an update event, re-triggering
+    // SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE and generating a duplicate statement.
+    const storedTask = billingTask({
+      status: 'completed',
+      output: [{ type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'invoice-1' }],
+    });
+    await runHandler(billingTask(), storedTask);
+
+    const statusOp = patchedOperations().find((op) => op.path === '/status');
+    expect(statusOp).toBeUndefined();
+  });
+
   it('routes candid and legacy untagged tasks through Candid, not patient AR', async () => {
     mockGetOrCreateCandidApiClient.mockResolvedValue({
       patientAr: {
@@ -337,5 +368,31 @@ describe('sub-refresh-invoice-task', () => {
     expect(mockGetOrCreateCandidApiClient).toHaveBeenCalled();
     expect(mockZambdaExecute).not.toHaveBeenCalled();
     expect(JSON.parse(result.body).message).toContain('no Candid inventory record');
+  });
+
+  it('rejects a task whose dueDate is in the past', async () => {
+    const dueDateInput: TaskInput[] = [
+      {
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code: 'dueDate' }] },
+        valueString: '2000-01-01',
+      },
+    ];
+    const pastTask = billingTask({ input: dueDateInput });
+
+    await expect(runHandler(pastTask)).rejects.toThrow('dueDate');
+    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a task whose dueDate has an invalid format', async () => {
+    const dueDateInput: TaskInput[] = [
+      {
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code: 'dueDate' }] },
+        valueString: 'not-a-date',
+      },
+    ];
+    const badFormatTask = billingTask({ input: dueDateInput });
+
+    await expect(runHandler(badFormatTask)).rejects.toThrow();
+    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
   });
 });

@@ -36,3 +36,10 @@ export const NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY = {
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
+
+/**
+ * Note text of the nursing order auto-generated when an IV-route in-house medication order is administered.
+ * See IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK for the routes that trigger it.
+ */
+export const VITALS_RECHECK_NURSING_ORDER_NOTE =
+  'IV med administered. Go to Vitals and re-check/record temp, RR, HR, BP and SpO2.';

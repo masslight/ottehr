@@ -1,14 +1,16 @@
 import { Box, Typography } from '@mui/material';
 import { Appointment } from 'fhir/r4b';
 import { FC } from 'react';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import {
   formatScreeningQuestionValue,
-  getQuestionnaireResponseByLinkId,
+  shouldDisplayScreeningQuestion,
+} from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import {
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
-  patientScreeningQuestionsConfig,
-  shouldDisplayScreeningQuestion,
-} from 'utils';
+} from 'utils/lib/types/constants';
 import { ChartDataResponse, useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionView } from '../medical-history-tab/components/AdditionalQuestionRow';
 

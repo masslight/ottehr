@@ -1,8 +1,8 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
+import { ChiefComplaintCard } from 'src/features/visits/shared/components/medical-history-tab/ChiefComplaint/ChiefComplaintCard';
 import { AdditionalQuestionsCard } from '../additional-questions/AdditionalQuestionsCard';
 import { KnownAllergiesCard } from '../known-allergies/KnownAllergiesCard';
-import { ChiefComplaintCard } from './ChiefComplaint';
 import { CurrentMedicationsCard } from './CurrentMedications/CurrentMedicationsCard';
 import { MedicalConditionsCard } from './MedicalConditions/MedicalConditionsCard';
 import { SurgicalHistoryCard } from './SurgicalHistory/SurgicalHistoryCard';

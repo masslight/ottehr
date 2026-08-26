@@ -5,7 +5,7 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils/lib/types/common';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
 interface ReportIssueDialogProps {

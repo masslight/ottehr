@@ -1,15 +1,13 @@
 import fs from 'node:fs';
 import { FormFieldsDisplayItem, FormFieldSection } from 'config-types';
 import { PDFImage } from 'pdf-lib';
-import {
-  AppointmentContext,
-  evaluateFieldTriggers,
-  getPresignedURL,
-  PATIENT_RECORD_CONFIG,
-  Secrets,
-  uploadPDF,
-} from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
+import { AppointmentContext, evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { Secrets } from 'utils/lib/secrets';
+import { detectMimeTypeFromBytes, MIME_TYPES } from 'utils/lib/utils/file';
+import { uploadPDF } from 'utils/lib/utils/pdf';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import {
@@ -57,7 +55,8 @@ interface ImageLoader {
   embedImage: (client: PdfClient, imageData: ArrayBuffer, url: string) => Promise<PDFImage>;
 }
 
-const createImageLoader = (token: string): ImageLoader => ({
+// exported for unit tests
+export const createImageLoader = (token: string): ImageLoader => ({
   loadImage: async (url: string): Promise<ArrayBuffer> => {
     console.log(`Loading image from: ${url}`);
     const presignedUrl = await getPresignedURL(url, token);
@@ -67,25 +66,32 @@ const createImageLoader = (token: string): ImageLoader => ({
     return await res.arrayBuffer();
   },
 
+  // The decoder is chosen from the BYTES, never from the url: the stored object's extension comes
+  // from the browser's extension-derived File.type, so a JPEG uploaded as "insurance-card-front-2.png"
+  // used to take the PNG branch, throw "The input is not a PNG file!", and get swallowed by
+  // loadAndEmbedImages — the card silently vanished from the PDF. (The same JPEG named "card.dat"
+  // rendered fine, because the unknown-extension branch tried both decoders.)
   embedImage: async (client: PdfClient, imageData: ArrayBuffer, url: string): Promise<PDFImage> => {
-    const urlLower = url.toLowerCase();
-    const isPng = urlLower.endsWith('.png');
-    const isJpeg = urlLower.endsWith('.jpg') || urlLower.endsWith('.jpeg');
+    const bytes = new Uint8Array(imageData);
+    const detectedType = detectMimeTypeFromBytes(bytes);
 
-    if (isPng) {
+    if (detectedType === MIME_TYPES.PNG) {
       console.log(`Embedding PNG image from ${url}`);
-      return await client.embedImage(Buffer.from(imageData));
-    } else if (isJpeg) {
+      return await client.embedImage(Buffer.from(bytes));
+    }
+    if (detectedType === MIME_TYPES.JPEG) {
       console.log(`Embedding JPEG image from ${url}`);
-      return await client.embedJpg(Buffer.from(imageData));
-    } else {
-      console.warn(`Unknown image extension for ${url}, attempting JPEG`);
-      try {
-        return await client.embedJpg(Buffer.from(imageData));
-      } catch {
-        console.warn(`Failed as JPEG, trying PNG for ${url}`);
-        return await client.embedImage(Buffer.from(imageData));
-      }
+      return await client.embedJpg(Buffer.from(bytes));
+    }
+
+    // Not a format we can name (HEIC, a Z3 error document, a truncated upload). Keep the previous
+    // best-effort behavior rather than failing outright: pdf-lib may still accept the bytes.
+    console.warn(`Unrecognized image format for ${url} (${bytes.length} bytes), attempting JPEG`);
+    try {
+      return await client.embedJpg(Buffer.from(bytes));
+    } catch {
+      console.warn(`Failed as JPEG, trying PNG for ${url}`);
+      return await client.embedImage(Buffer.from(bytes));
     }
   },
 });

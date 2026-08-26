@@ -1,4 +1,5 @@
-import { RosFindingState, TemplateWarning } from 'utils';
+import { RosFindingState } from '../../ottehr-config/review-of-systems/in-person.config';
+import { TemplateWarning } from './apply-template.types';
 
 // ── admin-create-template ──
 
@@ -129,6 +130,7 @@ export interface TemplateExternalLabPlanDetail {
   note: string | null;
   psc: boolean;
   missing: boolean;
+  cptCodes: TemplateCptCodeInfo[];
 }
 
 // Each in-office procedure plan saved on a template captures everything the

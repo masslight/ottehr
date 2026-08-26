@@ -1,31 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
-  AdHocEncountersInputSchema,
-  AdHocEncountersOutputSchema,
-  AdHocLayerMap,
   BILLING_DOMAIN_FIELDS,
   BILLING_INTERNAL_FIELDS,
   BILLING_LAYERS,
   BillingBaseRowSchema,
+} from './datasets/billing';
+import { AdHocLayerMap, layerIncludeFlags, layerOptions, layerSchemas, unloadedLayers } from './datasets/dataset';
+import {
+  AdHocEncountersInputSchema,
+  AdHocEncountersOutputSchema,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-  layerSchemas,
+} from './datasets/encounters';
+import {
   llmFieldsForLayers,
   llmFieldsFromZodObject,
   MAX_DOMAIN_VALUE_LENGTH,
   MAX_DOMAIN_VALUES,
+  sampleDomains,
+} from './datasets/llm-schema';
+import {
   PATIENT_DOMAIN_FIELDS,
   PATIENT_INTERNAL_FIELDS,
   PATIENT_LAYERS,
   PatientBaseRowSchema,
-  sampleDomains,
-  unloadedLayers,
-} from './index';
+} from './datasets/patients';
 
 // The Zod layer map is the single source; the LLM serializer takes id → schema.
 const ENCOUNTER_LAYER_SCHEMAS = layerSchemas(ENCOUNTER_LAYERS);
@@ -80,10 +82,18 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       Object.fromEntries(Object.keys(ENCOUNTER_LAYER_SCHEMAS).map((id) => [id, true])),
       ENCOUNTER_INTERNAL_FIELDS
     );
-    const allowedKeys = new Set(['name', 'type', 'description', 'nullable', 'values']);
+
+    const allowedKeys = new Set(['name', 'type', 'description', 'nullable', 'values', 'fields']);
+
     for (const field of fields) {
       for (const key of Object.keys(field)) {
         expect(allowedKeys.has(key)).toBe(true);
+      }
+
+      for (const nested of field.fields ?? []) {
+        for (const key of Object.keys(nested)) {
+          expect(allowedKeys.has(key)).toBe(true);
+        }
       }
     }
   });
@@ -98,6 +108,7 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       appointmentType: 'walk-in',
       serviceCategory: 'Urgent Care',
       visitStatus: 'completed',
+      statusHistory: [{ status: 'completed', start: '2026-07-01T14:00:00Z', end: null }],
       encounterType: 'main',
       reason: 'cough',
       scheduledSlotMinutes: null,

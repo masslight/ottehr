@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { M2MClientMockType, ServiceMode } from 'utils';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { ServiceMode } from 'utils/lib/types/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getCurrentQuestionnaireForServiceType } from '../../src/patient/appointment/helpers';
 import {

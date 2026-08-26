@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Task } from 'fhir/r4b';
-import { getFullestAvailableName } from 'utils';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,
@@ -8,7 +8,8 @@ import {
 } from './outbound-delivery';
 
 export interface SendFaxAttemptInput {
-  appointmentId: string;
+  /** Absent when the packet does not belong to a single visit (a medical record, or one document). */
+  appointmentId?: string;
   faxNumber: string;
   organizationId: string;
   patientId: string;

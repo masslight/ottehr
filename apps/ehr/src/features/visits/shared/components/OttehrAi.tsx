@@ -5,19 +5,19 @@ import { DocumentReference, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  AiObservationField,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  ObservationTextFieldDTO,
   PUBLIC_EXTENSION_BASE_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { getSelectors } from 'utils/lib/store';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
+import { useAiResourcesPollingStore } from '../stores/aiResourcesPolling.store';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { Loader } from './Loader';
-import { useAiResourcesPolling } from './useAiResourcesPolling';
 
 const AI_OBSERVATION_FIELDS = {
   [AiObservationField.HistoryOfPresentIllness]: 'History of Present Illness (HPI)',
@@ -77,21 +77,15 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
     visitState: { appointment },
     isAppointmentLoading,
     appointmentError,
-    encounter,
   } = useAppointmentData();
 
-  const { isChartDataLoading, chartDataError, chartData, refetch: refetchChartData } = useChartData();
-  const { oystehr } = useApiClients();
+  const { isChartDataLoading, chartDataError, chartData } = useChartData();
 
-  const chartDataHasResources = (chartData?.aiChat?.documents?.length ?? 0) > 0;
-
-  const { isPolling, pollingExhausted, hasInterviewWithoutResources } = useAiResourcesPolling({
-    appointment,
-    encounter,
-    oystehr,
-    chartDataHasResources,
-    onRefetch: refetchChartData,
-  });
+  const { isPolling, hasPendingAiSource, pollingExhausted } = getSelectors(useAiResourcesPollingStore, [
+    'isPolling',
+    'hasPendingAiSource',
+    'pollingExhausted',
+  ]);
 
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
@@ -118,7 +112,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
   });
 
   const aiDocuments = chartData?.aiChat?.documents;
-  const shouldShowLoader = hasInterviewWithoutResources && (isLoading || isPolling);
+  const shouldShowLoader = hasPendingAiSource && (isLoading || isPolling);
 
   return (
     <Stack spacing={1}>

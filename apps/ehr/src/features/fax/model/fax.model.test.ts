@@ -1,7 +1,15 @@
-import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils';
+import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it } from 'vitest';
+import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './faxDocuments';
-import { FAX_STATUS_POLL_INTERVALS_MS, FAX_STATUS_POLL_TIMEOUT_MS, nextFaxPollInterval } from './faxPolling';
+import { buildDefaultFormValues } from './faxForm';
+import {
+  FAX_STATUS_POLL_INTERVALS_MS,
+  FAX_STATUS_POLL_TIMEOUT_MS,
+  faxHistoryQueryKey,
+  faxStatusTimeoutMessage,
+  nextFaxPollInterval,
+} from './faxPolling';
 import {
   applySaveAsPcp,
   canAddRecipient,
@@ -16,6 +24,8 @@ const availability = (overrides: Partial<Record<string, boolean>> = {}): FaxDocu
   (['progress-note', 'discharge-summary', 'lab-results', 'radiology-results', 'patient-education'] as const).map(
     (kind) => ({ kind, available: overrides[kind] ?? true })
   );
+
+const visitSource = { type: 'visit', appointmentId: 'appointment-1' } as const;
 
 const recipient = (overrides: Partial<FaxRecipientFormValue> = {}): FaxRecipientFormValue => ({
   ...emptyRecipient(),
@@ -54,6 +64,10 @@ describe('faxDocuments', () => {
 });
 
 describe('faxRecipients', () => {
+  it('does not opt a preview-less patient fax into replacing the PCP', () => {
+    expect(buildDefaultFormValues(undefined).recipients[0].saveAsPcp).toBe(false);
+  });
+
   it('prefills from the PCP and only offers to save when none is on file', () => {
     const pcp = { name: 'Tomas Jhonson', organization: 'Urgent Care Clinic', faxNumber: '2027139680' };
     expect(initialRecipients(pcp, false)[0]).toMatchObject({ ...pcp, saveAsPcp: true });
@@ -80,13 +94,27 @@ describe('faxRecipients', () => {
     expect(canSend([recipient({ faxNumber: '123' })], true)).toBe(false);
   });
 
+  it('narrows a multi-visit source to the visits left checked', () => {
+    const input = toSendFaxPacketInput(
+      { type: 'visits', patientId: 'patient-1', appointmentIds: ['a', 'b'] },
+      { recipients: [recipient()], selectedAppointmentIds: ['b'] }
+    );
+
+    expect(input.source).toEqual({ type: 'visits', patientId: 'patient-1', appointmentIds: ['b'] });
+  });
+
+  it('leaves a source without a visit choice exactly as requested', () => {
+    const source = { type: 'medical-record', patientId: 'patient-1' } as const;
+    expect(toSendFaxPacketInput(source, { recipients: [recipient()] }).source).toEqual(source);
+  });
+
   it('maps the form to the wire contract, dropping blank optional fields and the documents list', () => {
-    const input = toSendFaxPacketInput('appointment-1', {
+    const input = toSendFaxPacketInput(visitSource, {
       recipients: [recipient({ name: '  Dr. Lion  ', organization: '', phoneNumber: '', saveAsPcp: false })],
     });
 
     expect(input).toEqual({
-      appointmentId: 'appointment-1',
+      source: visitSource,
       recipients: [{ name: 'Dr. Lion', organization: undefined, faxNumber: '2027139680', phoneNumber: undefined }],
     });
     expect('documents' in input).toBe(false);
@@ -94,10 +122,19 @@ describe('faxRecipients', () => {
   });
 
   it('carries saveAsPcp through for the flagged recipient', () => {
-    const input = toSendFaxPacketInput('appointment-1', {
+    const input = toSendFaxPacketInput(visitSource, {
       recipients: [recipient({ saveAsPcp: true }), recipient({ faxNumber: '2027139681' })],
     });
     expect(input.recipients.filter((entry) => entry.saveAsPcp)).toHaveLength(1);
+  });
+
+  it('drops stale saveAsPcp state from patient-level sources', () => {
+    const input = toSendFaxPacketInput(
+      { type: 'medical-record', patientId: 'patient-1' },
+      { recipients: [recipient({ saveAsPcp: true })] }
+    );
+
+    expect(input.recipients[0].saveAsPcp).toBeUndefined();
   });
 });
 
@@ -120,5 +157,14 @@ describe('faxPolling', () => {
   it('derives the timeout from the schedule plus a grace period', () => {
     const scheduleTotal = FAX_STATUS_POLL_INTERVALS_MS.reduce((sum, ms) => sum + ms, 0);
     expect(FAX_STATUS_POLL_TIMEOUT_MS).toBeGreaterThan(scheduleTotal);
+  });
+
+  it('points timeout guidance and refreshes at the history for the source', () => {
+    expect(faxStatusTimeoutMessage(visitSource)).toContain("visit's fax history");
+    expect(faxHistoryQueryKey(visitSource)).toEqual(['get-visit-fax-history', 'appointment-1']);
+
+    const patientSource = { type: 'medical-record', patientId: 'patient-1' } as const;
+    expect(faxStatusTimeoutMessage(patientSource)).toContain("patient's fax history");
+    expect(faxHistoryQueryKey(patientSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
   });
 });

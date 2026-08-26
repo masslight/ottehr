@@ -1,12 +1,8 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import {
-  LBS_IN_KG,
-  roundNumberToDecimalPlaces,
-  textToNumericValue,
-  VitalFieldNames,
-  VitalsWeightObservationDTO,
-  VitalsWeightOption,
-} from 'utils';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsWeightObservationDTO, VitalsWeightOption } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils/lib/utils/convert';
 import { WeightLocalState } from '../types';
 
 export function useWeightLocalState(): WeightLocalState {

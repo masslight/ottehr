@@ -1,13 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  ALREADY_EXISTS_WITH_MESSAGE,
-  CPT_CODE_SYSTEM,
-  EmCodeOutput,
-  getEmCodes,
-  getEmCodesFhirResources,
-  patchWithOptimisticLock,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { getEmCodes, getEmCodesFhirResources } from 'utils/lib/helpers/em-codes';
+import { EmCodeOutput } from 'utils/lib/types/api/config/em-codes';
+import { ALREADY_EXISTS_WITH_MESSAGE } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

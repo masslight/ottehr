@@ -1,6 +1,6 @@
 import { Autocomplete, TextField } from '@mui/material';
 import { ReactElement, ReactNode, Ref, useRef, useState } from 'react';
-import { BillingCodeOption } from 'utils';
+import { BillingCodeOption } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingProcedureCodes } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 
