@@ -1,9 +1,13 @@
 import {
   Add as AddIcon,
   ArrowBack as ArrowBackIcon,
+  Delete as DeleteIcon,
   DeleteOutline as DeleteOutlineIcon,
+  Download as DownloadIcon,
   Edit as EditIcon,
+  EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
+  MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
@@ -19,6 +23,9 @@ import {
   CircularProgress,
   FormControlLabel,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Select,
   Stack,
@@ -31,6 +38,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -552,9 +560,10 @@ export default function ClaimDetail(): ReactElement {
           >
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
-            <Tab label="Write offs & Patient payments" value="3" />
-            <Tab label="Other claims" value="4" />
-            <Tab label="History" value="5" />
+            <Tab label="Attachments" value="3" />
+            <Tab label="Write offs & Patient payments" value="4" />
+            <Tab label="Other claims" value="5" />
+            <Tab label="History" value="6" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -640,15 +649,19 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
+            <AttachmentsSection claim={claim} />
+          </TabPanel>
+
+          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
             <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
-          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
           </TabPanel>
 
-          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="6" sx={{ px: 0, pt: 2 }}>
             <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
@@ -1398,6 +1411,95 @@ function ServiceLinesSection({
         </Typography>
       )}
     </EditableSection>
+  );
+}
+
+function AttachmentsSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const openMenu = (event: React.MouseEvent<HTMLElement>): void => {
+    setAnchorEl(event.currentTarget);
+  };
+  const closeMenu = (): void => {
+    setAnchorEl(null);
+  };
+
+  const onDownload = useCallback(() => {}, []);
+
+  // CW TODO: add button to add attachments
+  // CW TODO: add button to remove attachments
+  // CW TODO: allow reordering attachments
+
+  return (
+    <ReadOnlySection title="Attachments" onAdd={() => setShowAddDialog(true)}>
+      {claim.attachments.length > 0 ? (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>#</TableCell>
+                <TableCell sx={thSx}>File Name</TableCell>
+                <TableCell sx={thSx}>Date Added</TableCell>
+                <TableCell sx={thSx}>Added By</TableCell>
+                <TableCell sx={thSx}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {claim.attachments.map((line) => (
+                <TableRow key={line.sequence}>
+                  <TableCell>{line.sequence}</TableCell>
+                  <TableCell>{line.fileName}</TableCell>
+                  <TableCell>{line.dateAdded}</TableCell>
+                  <TableCell>{line.addedBy}</TableCell>
+                  <TableCell>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                      }}
+                    >
+                      <Tooltip title="Download">
+                        <IconButton size="small" onClick={onDownload} aria-label="Download">
+                          <DownloadIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="More Actions">
+                        <IconButton aria-label="More actions" onClick={openMenu}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={closeMenu}>
+                        <MenuItem onClick={() => setShowRenameDialog(true)}>
+                          <ListItemIcon>
+                            <EditOutlinedIcon fontSize="small" color="primary" />
+                          </ListItemIcon>
+                          <ListItemText>Rename document</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => setShowDeleteDialog(true)}>
+                          <ListItemIcon>
+                            <DeleteIcon color="error" />
+                          </ListItemIcon>
+                          <ListItemText>Delete document</ListItemText>
+                        </MenuItem>
+                      </Menu>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          No attachments
+        </Typography>
+      )}
+    </ReadOnlySection>
   );
 }
 

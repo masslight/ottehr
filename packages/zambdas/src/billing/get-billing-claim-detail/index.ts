@@ -8,7 +8,11 @@ import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, g
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { BillingPolicyHolderSummary, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import {
+  BillingPolicyHolderSummary,
+  ClaimAttachment,
+  ClaimDetailResponse,
+} from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
@@ -72,7 +76,14 @@ export async function performEffect(
   const { claimId } = params;
   // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
   const graph = await fetchClaimGraph(oystehr, claimId);
-  const { claim, patient, billingProvider: provider, serviceFacility: facility, renderingProvider } = graph;
+  const {
+    claim,
+    patient,
+    billingProvider: provider,
+    serviceFacility: facility,
+    renderingProvider,
+    documentReferences,
+  } = graph;
 
   // Coverages come back focal-first: the focal coverage is the claim's primary insurance.
   const [coverage, secondaryCoverage, tertiaryCoverage, quaternaryCoverage] = graph.coverages;
@@ -164,6 +175,14 @@ export async function performEffect(
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
   const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
+  const attachments = documentReferences.map<ClaimAttachment>((dr) => ({
+    sequence:
+      claim.supportingInfo?.find((si) => si.valueReference?.reference?.replace('DocumentReference/', '') === dr.id)
+        ?.sequence ?? 1,
+    id: dr.id!,
+    fileName: dr.content[0].attachment.title!,
+    dateAdded: dr.date!,
+  }));
 
   return {
     id: claim.id ?? '',
@@ -270,6 +289,7 @@ export async function performEffect(
     patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
     admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
+    attachments,
   };
 }
 
