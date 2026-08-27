@@ -32,6 +32,12 @@ vi.mock('utils/lib/statements/generate-statement', () => ({
   generateStatement: () => '<html>statement preview</html>',
 }));
 
+vi.mock('src/constants/feature-flags', () => ({
+  FEATURE_FLAGS: {
+    MAILING_PAPER_STATEMENTS_ENABLED: true,
+  },
+}));
+
 import SendStatementToPatientDialog from '../../src/components/dialogs/SendStatementToPatientDialog';
 
 const MISSING_CLAIM_MESSAGE = 'No billing claim found for Encounter/enc-1, so a statement cannot be generated.';
