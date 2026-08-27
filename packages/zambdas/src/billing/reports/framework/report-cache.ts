@@ -5,8 +5,8 @@ import { gunzipSync, gzipSync } from 'zlib';
 import { ReportPayload } from './types';
 
 export const REPORT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report');
-// stay well under FHIR resource size limits
-const MAX_CACHE_BYTES = 4 * 1024 * 1024;
+// caps the base64 attachment string, which is what counts toward FHIR resource size limits
+const MAX_CACHE_BASE64_BYTES = 4 * 1024 * 1024;
 
 // `<kind>:<cacheVersion>:<paramsKey>` — the DocumentReference identifier value for one cache entry
 export function fullCacheKey<Params>(
@@ -85,16 +85,16 @@ export async function saveReportCache<Payload extends ReportPayload>(
       gzipSync(new Uint8Array(Buffer.from(JSON.stringify(value), 'utf8'))).toString('base64');
     let toSave: Payload | undefined = payload;
     let data = encode(toSave);
-    while (data.length > MAX_CACHE_BYTES) {
+    while (data.length > MAX_CACHE_BASE64_BYTES) {
       toSave = definition.shrink?.(toSave) as Payload | undefined;
       if (!toSave) {
-        console.warn(`Report cache ${cacheKey} too large to save (${data.length} bytes); skipping save`);
+        console.warn(`Report cache ${cacheKey} too large to save (${data.length} base64 bytes); skipping save`);
         return;
       }
       const shrunk = encode(toSave);
       // a shrink that makes no progress would loop forever
       if (shrunk.length >= data.length) {
-        console.warn(`Report cache ${cacheKey} shrink made no progress (${shrunk.length} bytes); skipping save`);
+        console.warn(`Report cache ${cacheKey} shrink made no progress (${shrunk.length} base64 bytes); skipping save`);
         return;
       }
       data = shrunk;
