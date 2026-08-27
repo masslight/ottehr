@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { invokeChatbotVertexAI } from '../../src/shared/ai';
 
 // Sentry is initialised at module scope in the lambda wrapper; captureException is all this path touches.
-vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }));
+const captureException = vi.fn();
+vi.mock('@sentry/aws-serverless', () => ({
+  captureException: (...args: unknown[]) => captureException(...args),
+}));
 
 // Keyed off SecretsKeys so the test breaks if the code starts reading a different secret.
 const secrets: Secrets = {
@@ -11,19 +14,37 @@ const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
 };
 
+const responseOf = (
+  status: number,
+  body: unknown
+): { ok: boolean; status: number; statusText: string; text: () => Promise<string> } => ({
+  ok: status >= 200 && status < 300,
+  status,
+  statusText: status === 400 ? 'Bad Request' : status === 429 ? 'Too Many Requests' : 'OK',
+  text: async () => JSON.stringify(body),
+});
+
 const respondWith = (status: number, body: unknown): void => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
-      ok: status >= 200 && status < 300,
-      status,
-      statusText: status === 400 ? 'Bad Request' : 'OK',
-      text: async () => JSON.stringify(body),
-    }))
+    vi.fn(async () => responseOf(status, body))
+  );
+};
+
+// One entry per attempt, for the retry paths; the last entry repeats if the ladder runs longer.
+const respondInSequence = (...responses: [number, unknown][]): void => {
+  let attempt = 0;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      const [status, body] = responses[Math.min(attempt++, responses.length - 1)];
+      return responseOf(status, body);
+    })
   );
 };
 
 beforeEach(() => {
+  captureException.mockClear();
   vi.useFakeTimers(); // the retry ladder sleeps up to ~6s between attempts
 });
 
@@ -105,6 +126,26 @@ describe('invokeChatbotVertexAI error handling', () => {
     await expect(invoke()).rejects.toThrow(/Vertex AI returned a non-JSON body.*502 Bad Gateway/s);
   });
 
+  test('a 429 that a retry recovers from is not reported to Sentry', async () => {
+    // The production sequence: attempt 0 is shed by Vertex's shared quota, the next attempt succeeds and the
+    // caller never sees a failure. Reporting the shed attempt raised an alert for a self-healed retry.
+    respondInSequence(
+      [
+        429,
+        { error: { code: 429, message: 'Resource exhausted. Please try again later.', status: 'RESOURCE_EXHAUSTED' } },
+      ],
+      [200, { candidates: [{ content: { parts: [{ text: 'the transcript' }] } }] }]
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(invoke()).resolves.toBe('the transcript');
+    expect(captureException).not.toHaveBeenCalled();
+    // Still in the log, so the retry is visible when reading a slow invocation's trace.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Vertex AI attempt failed'), expect.anything());
+
+    warn.mockRestore();
+  });
+
   test('exhausting the retry ladder reports the statuses, not a bare AggregateError', async () => {
     respondWith(503, { error: { code: 503, message: 'The service is currently unavailable.' } });
 
@@ -116,6 +157,9 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(error?.message).toMatch(/Vertex AI request failed after 3 attempts/);
     expect(error?.message).toMatch(/503.*currently unavailable/s);
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    // One failure, one Sentry event. Each attempt used to report itself, so a single exhausted ladder
+    // raised three — before the handler's topLevelCatch reported the thrown error as a fourth.
+    expect(captureException).not.toHaveBeenCalled();
   });
 
   test('a successful response returns the candidate text', async () => {
