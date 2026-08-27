@@ -68,7 +68,7 @@ const performEffect = async (
       { name: 'category', value: FORM_TEMPLATE_CATEGORY_SEARCH_PARAM },
       // Soft-deleted templates are `superseded`; only `current` ones are live anywhere.
       { name: 'status', value: 'current' },
-      { name: '_elements', value: FORM_TEMPLATE_LIST_ELEMENTS },
+      { name: '_elements', value: FORM_TEMPLATE_LIST_ELEMENTS.join(',') },
     ],
   });
 

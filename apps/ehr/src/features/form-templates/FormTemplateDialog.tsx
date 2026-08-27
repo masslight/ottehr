@@ -17,7 +17,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
 import { createFormTemplateWithPdf, updateFormTemplate } from './form-templates.api';
-import { FORM_TEMPLATES_QUERY_KEY } from './FormTemplatesAdminPage';
+import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
 type DialogProps = {
   open: boolean;
@@ -57,9 +57,20 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
         file,
       });
     },
-    onSuccess: () => {
-      enqueueSnackbar(isEdit ? 'Form template updated' : 'Form template uploaded as a draft', { variant: 'success' });
-      void queryClient.invalidateQueries({ queryKey: FORM_TEMPLATES_QUERY_KEY });
+    onSuccess: (result) => {
+      if (isEdit) {
+        enqueueSnackbar('Form template updated', { variant: 'success' });
+      } else {
+        const analysis = 'analysis' in result ? result.analysis : undefined;
+        const mappable = analysis?.fields.filter((field) => field.mappable).length ?? 0;
+        enqueueSnackbar(
+          analysis?.status === 'printable'
+            ? 'Uploaded as a draft. This PDF has no fillable fields, so it can be shared but not prefilled.'
+            : `Uploaded as a draft with ${mappable} mappable field${mappable === 1 ? '' : 's'}.`,
+          { variant: 'success' }
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: [FORM_TEMPLATES_QUERY_KEY] });
       onClose();
     },
     onError: (err) => {

@@ -1,6 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
-import { FORM_TEMPLATE_CATEGORY_CODING, FORM_TEMPLATE_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  FORM_TEMPLATE_CATEGORY_CODING,
+  FORM_TEMPLATE_FILLABILITY_SYSTEM,
+  FORM_TEMPLATE_IDENTIFIER_SYSTEM,
+  FormTemplateFillability,
+} from 'utils/lib/fhir/constants';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
 
@@ -18,7 +23,17 @@ export const FORM_TEMPLATE_DOC_STATUS = {
  * which is where the (potentially large) field-to-context mapping lives. Listing twenty templates
  * should not transfer twenty mappings nobody asked for.
  */
-export const FORM_TEMPLATE_LIST_ELEMENTS = 'id,identifier,description,docStatus,status,content,meta';
+export const FORM_TEMPLATE_LIST_ELEMENTS = [
+  'id',
+  'identifier',
+  // Carries the fillability flag, so listings can tell a fillable template from a printable one.
+  'category',
+  'description',
+  'docStatus',
+  'status',
+  'content',
+  'meta',
+];
 
 /** Guards against acting on a DocumentReference that belongs to some other feature. */
 export const isFormTemplate = (docRef: DocumentReference): boolean =>
@@ -31,6 +46,40 @@ export const isFormTemplate = (docRef: DocumentReference): boolean =>
 
 export const getFormTemplateIdentifier = (docRef: DocumentReference): string | undefined =>
   docRef.identifier?.find((id) => id.system === FORM_TEMPLATE_IDENTIFIER_SYSTEM)?.value;
+
+/**
+ * Reads a JSON blob stored in an extension.
+ *
+ * Returns undefined rather than throwing on malformed content: a template whose inventory somehow failed
+ * to parse should still open in the admin UI so it can be re-analyzed or deleted, not become unreachable.
+ */
+export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T | undefined => {
+  const raw = docRef.extension?.find((ext) => ext.url === url)?.valueString;
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    console.warn(`Could not parse extension ${url} on DocumentReference/${docRef.id}`, error);
+    return undefined;
+  }
+};
+
+/** Replaces one JSON extension, leaving the others on the resource alone. */
+export const withExtensionJson = (
+  docRef: DocumentReference,
+  url: string,
+  value: unknown
+): DocumentReference['extension'] => [
+  ...(docRef.extension ?? []).filter((ext) => ext.url !== url),
+  { url, valueString: JSON.stringify(value) },
+];
+
+export const isFillable = (docRef: DocumentReference): boolean =>
+  (docRef.category ?? []).some((c) =>
+    (c.coding ?? []).some(
+      (coding) => coding.system === FORM_TEMPLATE_FILLABILITY_SYSTEM && coding.code === FormTemplateFillability.fillable
+    )
+  );
 
 export const isPublished = (docRef: DocumentReference): boolean =>
   docRef.docStatus === FORM_TEMPLATE_DOC_STATUS.published;
@@ -53,13 +102,25 @@ export const toFormTemplateItem = async (docRef: DocumentReference, token: strin
   if (!z3Url) {
     throw new Error(`Form template DocumentReference/${docRef.id} has no attachment URL`);
   }
+
+  // A template whose stored file has gone missing must not take the whole listing down with it. Left
+  // empty, the row still renders — which is the only way an administrator can reach the broken entry to
+  // delete it. Failing the request instead would hide every template behind one bad one.
+  let pdfPresignedUrl = '';
+  try {
+    pdfPresignedUrl = await getPresignedURL(z3Url, token);
+  } catch (error) {
+    console.warn(`Could not presign the file for form template DocumentReference/${docRef.id} (${z3Url})`, error);
+  }
+
   return {
     documentReferenceId: docRef.id!,
     identifier: getFormTemplateIdentifier(docRef) ?? '',
     title: docRef.content?.[0]?.attachment?.title ?? '',
     description: docRef.description,
     published: isPublished(docRef),
-    pdfPresignedUrl: await getPresignedURL(z3Url, token),
+    fillable: isFillable(docRef),
+    pdfPresignedUrl,
     lastUpdated: docRef.meta?.lastUpdated,
   };
 };

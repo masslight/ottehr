@@ -17,6 +17,11 @@ export interface FormTemplateItem {
   published: boolean;
   /** Short-lived download URL for the template PDF. */
   pdfPresignedUrl: string;
+  /**
+   * Whether the PDF has fillable fields. False means it can still be shared and printed, just never
+   * prefilled. Unknown for templates uploaded before analysis existed, which read as false.
+   */
+  fillable: boolean;
   lastUpdated?: string;
 }
 
@@ -71,4 +76,91 @@ export interface DeleteFormTemplateInput {
 
 export interface DeleteFormTemplateOutput {
   success: true;
+}
+
+/** AcroForm field types, narrowed to the ones a template can meaningfully expose. */
+export type FormFieldType = 'text' | 'checkbox' | 'radio' | 'dropdown' | 'optionList' | 'signature' | 'button';
+
+export interface FormFieldOption {
+  /**
+   * The value written into the PDF when this option is chosen — the field's own export value, which is
+   * whatever key its appearance dictionary uses (`Yes`, `On`, `1`, …). Only `Off` is universal. Writing a
+   * plausible-looking value the field does not recognise produces a silently blank field.
+   */
+  exportValue: string;
+  /** Human-facing label where the PDF supplies one; falls back to the export value. */
+  label: string;
+}
+
+export interface FormFieldInfo {
+  /** Fully-qualified field name — the parent chain joined by dots. */
+  name: string;
+  /** The field's `/TU` alternate text, where the author supplied one. Usually far more readable than `name`. */
+  alternateText?: string;
+  type: FormFieldType;
+  options?: FormFieldOption[];
+  maxLength?: number;
+  /** Pages the field appears on. A field can own several widgets, so this is not always a single page. */
+  pages: number[];
+  /**
+   * Where the field's first widget sits, in PDF user space (origin at the bottom-left, so a larger `y`
+   * is higher up the page), together with its size.
+   *
+   * Drives two things. It orders fields as they appear on the printed page rather than as the PDF
+   * happens to store them, which lets someone work down a long form with the page beside them. And it
+   * gives the mapping UI the rectangle to highlight, which is how a field is actually identified — a
+   * label alone cannot distinguish the patient's "First Name:" from the prescriber's.
+   */
+  position?: { page: number; x: number; y: number; width: number; height: number };
+  readOnly: boolean;
+  /** False for fields we can never populate — signatures and pushbuttons. */
+  mappable: boolean;
+}
+
+/**
+ * Outcome of inspecting an uploaded PDF.
+ *
+ * `fillable` is the only status that supports mapping. `printable` still yields a usable template — a form
+ * with no fields is a perfectly good handout — it just cannot be prefilled.
+ */
+export type FormTemplateAnalysisStatus = 'fillable' | 'printable' | 'encrypted' | 'dynamicXfa' | 'unreadable';
+
+export interface FormTemplateAnalysis {
+  status: FormTemplateAnalysisStatus;
+  fields: FormFieldInfo[];
+}
+
+export interface AnalyzeFormTemplateInput {
+  documentReferenceId: string;
+}
+
+export interface AnalyzeFormTemplateOutput extends FormTemplateAnalysis {
+  documentReferenceId: string;
+}
+
+export interface GetFormTemplateDetailInput {
+  documentReferenceId: string;
+}
+
+/**
+ * Everything the mapping screen needs in one call: the template, its field inventory, and the bindings
+ * authored so far. The list endpoint deliberately leaves the inventory and mapping behind, so this is
+ * where they are fetched.
+ */
+export interface GetFormTemplateDetailOutput {
+  item: FormTemplateItem;
+  status: FormTemplateAnalysisStatus;
+  fields: FormFieldInfo[];
+  /** `FormTemplateMapping` — typed at the call site to keep this module free of mapping imports. */
+  mapping: unknown;
+}
+
+export interface SaveFormTemplateMappingInput {
+  documentReferenceId: string;
+  /** `FormTemplateMapping`. Replaces the stored mapping wholesale. */
+  mapping: unknown;
+}
+
+export interface SaveFormTemplateMappingOutput {
+  documentReferenceId: string;
 }

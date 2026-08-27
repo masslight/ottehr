@@ -1,13 +1,16 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import TuneIcon from '@mui/icons-material/Tune';
 import {
   Box,
   Chip,
   CircularProgress,
   IconButton,
   Link,
+  Stack,
   Switch,
   Table,
   TableBody,
@@ -19,37 +22,33 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
-import { deleteFormTemplate, listFormTemplates, updateFormTemplate } from './form-templates.api';
+import { deleteFormTemplate, updateFormTemplate } from './form-templates.api';
 import { FormTemplateDialog } from './FormTemplateDialog';
-
-export const FORM_TEMPLATES_QUERY_KEY = ['form-templates'];
+import { FORM_TEMPLATES_QUERY_KEY, useFormTemplates } from './useFormTemplates';
 
 export const FormTemplatesAdminPage = (): ReactElement => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<FormTemplateItem | null>(null);
 
-  const { data, isLoading, isSuccess } = useQuery({
-    queryKey: FORM_TEMPLATES_QUERY_KEY,
-    queryFn: async () => {
-      if (!oystehrZambda) throw new Error('API client not available');
-      // Admin sees drafts too; the patient chart omits this and gets published templates only.
-      return listFormTemplates(oystehrZambda, { includeUnpublished: true });
-    },
-    enabled: !!oystehrZambda,
-  });
+  // Admin sees drafts too; the patient chart omits this and gets published templates only.
+  const { data, isLoading, isSuccess } = useFormTemplates({ includeUnpublished: true });
 
+  // Invalidate by prefix rather than by exact key: publishing changes what the *chart* sees, and that is
+  // a separately cached query.
   const invalidate = (): void => {
-    void queryClient.invalidateQueries({ queryKey: FORM_TEMPLATES_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: [FORM_TEMPLATES_QUERY_KEY] });
   };
 
   const publishMutation = useMutation({
@@ -106,7 +105,7 @@ export const FormTemplatesAdminPage = (): ReactElement => {
               <TableRow>
                 <TableCell>Title</TableCell>
                 <TableCell>Description</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Mapping</TableCell>
                 <TableCell align="center" sx={{ whiteSpace: 'nowrap', width: '1%' }}>
                   Published
                 </TableCell>
@@ -128,15 +127,27 @@ export const FormTemplatesAdminPage = (): ReactElement => {
               {items.map((item) => (
                 <TableRow key={item.documentReferenceId}>
                   <TableCell>
-                    <Link
-                      href={item.pdfPresignedUrl}
-                      target="_blank"
-                      rel="noopener"
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                    >
-                      <PictureAsPdfIcon fontSize="small" color="error" />
-                      {item.title}
-                    </Link>
+                    {item.pdfPresignedUrl ? (
+                      <Link
+                        href={item.pdfPresignedUrl}
+                        target="_blank"
+                        rel="noopener"
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                      >
+                        <PictureAsPdfIcon fontSize="small" color="error" />
+                        {item.title}
+                      </Link>
+                    ) : (
+                      <Tooltip title="The stored PDF for this template could not be found. Remove it and upload the form again.">
+                        <Stack direction="row" alignItems="center" gap={0.5}>
+                          <PictureAsPdfIcon fontSize="small" color="disabled" />
+                          <Typography variant="body2" color="text.disabled">
+                            {item.title}
+                          </Typography>
+                          <Chip size="small" color="warning" variant="outlined" label="File missing" />
+                        </Stack>
+                      </Tooltip>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color="text.secondary">
@@ -144,11 +155,13 @@ export const FormTemplatesAdminPage = (): ReactElement => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      size="small"
-                      color={item.published ? 'success' : 'default'}
-                      label={item.published ? 'Published' : 'Draft'}
-                    />
+                    {item.fillable ? (
+                      <Chip size="small" variant="outlined" label="Fillable" />
+                    ) : (
+                      <Tooltip title="This PDF has no fillable fields, so it can be shared but not prefilled">
+                        <Chip size="small" variant="outlined" icon={<LinkOffIcon />} label="Not fillable" />
+                      </Tooltip>
+                    )}
                   </TableCell>
                   <TableCell align="center">
                     <Tooltip title={item.published ? 'Remove from patient charts' : 'Make available in patient charts'}>
@@ -168,6 +181,14 @@ export const FormTemplatesAdminPage = (): ReactElement => {
                     </Tooltip>
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: '1%' }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/admin/form-templates/${item.documentReferenceId}/mapping`)}
+                      disabled={!item.fillable}
+                      title="Map fields to chart data"
+                    >
+                      <TuneIcon fontSize="small" />
+                    </IconButton>
                     <IconButton size="small" onClick={() => setEditing(item)} title="Edit details">
                       <EditIcon fontSize="small" />
                     </IconButton>

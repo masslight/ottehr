@@ -661,8 +661,43 @@ export const FORM_TEMPLATE_CATEGORY_CODING: Coding = {
 /** `system|code` form, for `category=` searches. Never written to a resource. */
 export const FORM_TEMPLATE_CATEGORY_SEARCH_PARAM = `${DOCUMENT_CATEGORY_SYSTEM}|form-template`;
 
+/**
+ * Whether a template's PDF has fillable fields, recorded as a second `category` coding.
+ *
+ * This lives in `category` rather than alongside the field inventory in an extension because listings
+ * need it and extensions do not survive an `_elements` projection — FHIR selects whole elements, so
+ * asking for the fillability flag would drag every template's full field inventory back with it. Being
+ * 0..*, `category` accommodates this without displacing the set-membership coding, and it stays
+ * searchable if a listing ever wants to filter on it.
+ */
+export const FORM_TEMPLATE_FILLABILITY_SYSTEM = ottehrCodeSystemUrl('form-template-fillability');
+export const FormTemplateFillability = {
+  fillable: 'fillable',
+  printable: 'printable',
+} as const;
+
 /** Stable per-template business key, so a template survives having its PDF replaced. */
 export const FORM_TEMPLATE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('form-template');
+
+/**
+ * Field inventory extracted from the template PDF, stored as JSON.
+ *
+ * A cache, not a source of truth — it is always re-derivable from the file. It lives in an extension so
+ * list queries can leave it behind via `_elements`; a 200-field form is not something a listing should
+ * carry.
+ */
+export const FORM_TEMPLATE_FIELD_INVENTORY_EXTENSION_URL = ottehrExtensionUrl('form-template-field-inventory');
+
+/** Classification from the last analysis of the template PDF, so the UI can explain what a template supports. */
+export const FORM_TEMPLATE_ANALYSIS_EXTENSION_URL = ottehrExtensionUrl('form-template-analysis');
+
+/**
+ * Admin-authored bindings from chart context to the template's PDF fields, stored as JSON.
+ *
+ * Unlike the inventory this is not re-derivable — it is the authored artifact the whole feature exists
+ * to produce, so it is never rewritten except by an explicit save.
+ */
+export const FORM_TEMPLATE_MAPPING_EXTENSION_URL = ottehrExtensionUrl('form-template-mapping');
 
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
