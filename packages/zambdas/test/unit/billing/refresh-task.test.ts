@@ -47,6 +47,15 @@ describe('findActiveRefreshTask', () => {
     const oystehr = clientWith({ search: vi.fn().mockResolvedValue(searchResult([refreshTask('stale', staleISO)])) });
     expect(await findActiveRefreshTask(oystehr, CACHE_KEY)).toBeUndefined();
   });
+
+  it('classifies offset-formatted timestamps by instant, not string order', async () => {
+    const freshWithOffset = refreshTask('fresh-offset', DateTime.now().minus({ minutes: 1 }).toISO() ?? '');
+    const staleWithOffset = refreshTask('stale-offset', DateTime.now().minus({ minutes: 60 }).toISO() ?? '');
+    const oystehr = clientWith({
+      search: vi.fn().mockResolvedValue(searchResult([staleWithOffset, freshWithOffset])),
+    });
+    expect(await findActiveRefreshTask(oystehr, CACHE_KEY)).toBe(freshWithOffset);
+  });
 });
 
 describe('kickOffRefreshTask', () => {
