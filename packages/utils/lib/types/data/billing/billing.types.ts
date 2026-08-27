@@ -586,17 +586,6 @@ export interface SearchBillingTagsResponse {
   tags: BillingTag[];
 }
 
-// Refresh state of a cached billing report.
-export interface ReportRefreshStatus {
-  state: 'idle' | 'running' | 'error';
-  // when the served cache was generated
-  lastCompletedAt?: string;
-  // worker phase text while running
-  progress?: string;
-  // most recent failure's reason
-  error?: string;
-}
-
 export type GetBillingCoverageResponse = BillingCoverageOption;
 
 export interface GetPatientCoveragesResponse {
