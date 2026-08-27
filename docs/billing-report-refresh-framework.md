@@ -147,6 +147,8 @@ interface ReportRefreshStatus {
   lastCompletedAt?: string;  // ISO of the served snapshot
   progress?: string;         // live worker phase text while running
   error?: string;            // most recent failure's statusReason
+  cacheSizeBytes?: number;   // stored (gzip) size of the served cache document
+  truncated?: boolean;       // the served payload was cut down to fit cache limits
 }
 // response = { ...payloadOrSlice, generatedAt, fromCache, status }
 ```
@@ -198,8 +200,10 @@ All caches are **gzipped JSON in a `DocumentReference` attachment**, identified 
 
 - Parameterized reports get one payload document per params combination (e.g. per date window).
 - A 4 MB cap keeps documents under FHIR resource limits; oversized saves run through the
-  definition's `shrink`/`shrinkDetail` until they fit, or are skipped with a warning. A failed
+  definition's `shrink`/`shrinkDetail` until they fit, or are skipped with a warning. A shrink
+  iteration that doesn't reduce the encoded size aborts the save (no-progress guard). A failed
   cache write never fails the refresh.
+- Definitions that drop data set `truncated` on the payload; it surfaces as `status.truncated`.
 - `cacheVersion` bumps orphan old documents rather than migrating them.
 
 ## 8. The worker
@@ -248,8 +252,9 @@ streaming counts (e.g. every 250–1,000 items). Totals are only shown when know
   params change (generation-counter guarded against races/unmount), `refresh()` action, and a
   ~4 s polling loop while `status.state === 'running'`.
 - [ReportStatusBar](../apps/billing/src/components/ReportStatusBar.tsx): one widget for every
-  report header — de-emphasized "Updated 12 minutes ago" when idle (absolute time in tooltip),
-  phase text over a slim indeterminate bar when running, warning + Retry on error.
+  report header — de-emphasized "Updated 12 minutes ago · 1.2 MB" when idle (absolute time in
+  tooltip), phase text over a slim indeterminate bar when running, warning + Retry on error,
+  plus an amber "Truncated" chip whenever the served payload was cut down.
   `mergeReportStatuses` collapses several statuses (running > error > oldest idle) for pages
   hosting more than one kind.
 - [api.ts](../apps/billing/src/api/api.ts) keeps compile-time payload types via thin per-kind
