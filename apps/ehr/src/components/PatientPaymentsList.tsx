@@ -31,6 +31,7 @@ import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, List, 
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -317,6 +318,9 @@ export default function PatientPaymentList({
 
   const employerOrgId = useMemo(() => {
     if (paymentVariant !== PaymentVariant.employer) return undefined;
+    // Employer fee schedules / charge masters are legacy-only: NIO-mode employers live in the
+    // billing app and carry no clinical fee-schedule associations.
+    if (FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED) return undefined;
     return insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id;
   }, [
     paymentVariant,

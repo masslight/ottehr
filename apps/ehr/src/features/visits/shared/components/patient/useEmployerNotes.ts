@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Organization, Reference } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getEmployerNotes } from 'utils/lib/fhir/organization';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { isNioReferenceUrl, removePrefix } from 'utils/lib/helpers/helpers';
 
 const STALE_TIME_MS = 5 * 60 * 1000;
 
@@ -13,7 +13,12 @@ const STALE_TIME_MS = 5 * 60 * 1000;
  */
 export const useEmployerNotes = (employer: Reference | null | undefined): string | undefined => {
   const { oystehr } = useApiClients();
-  const employerId = employer?.reference ? removePrefix('Organization/', employer.reference) : undefined;
+  // An NIO employer lives in the billing app and exposes no notes to the clinical side; only a
+  // legacy employer Organization is resolvable (and readable) here.
+  const employerId =
+    employer?.reference && !isNioReferenceUrl(employer.reference)
+      ? removePrefix('Organization/', employer.reference)
+      : undefined;
 
   const { data } = useQuery({
     // Keyed under 'employers' so saving an employer in the admin screen, which invalidates that

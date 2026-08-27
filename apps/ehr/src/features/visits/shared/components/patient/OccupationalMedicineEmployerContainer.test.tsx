@@ -80,4 +80,15 @@ describe('OccupationalMedicineEmployerInformationContainer employer notes', () =
     expect(screen.queryByText(NOTES_LABEL)).toBeNull();
     expect(fhirGetMock).not.toHaveBeenCalled();
   });
+
+  it('never reads an NIO employer as FHIR — token references show no notes row', async () => {
+    renderContainer({
+      reference: 'https://fhir.ottehr.com/billing/non-insurance-organization/11111111-1111-4111-8111-111111111111',
+      display: 'FedEx',
+    });
+
+    await waitFor(() => expect(screen.getByText(SECTION_TITLE)).toBeInTheDocument());
+    expect(screen.queryByText(NOTES_LABEL)).toBeNull();
+    expect(fhirGetMock).not.toHaveBeenCalled();
+  });
 });

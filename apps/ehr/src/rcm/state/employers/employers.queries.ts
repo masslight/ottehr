@@ -9,7 +9,7 @@ import {
   UpdateEmployerInput,
 } from './employers.api';
 
-export const useEmployersQuery = (): UseQueryResult<Organization[], Error> => {
+export const useEmployersQuery = (options?: { enabled?: boolean }): UseQueryResult<Organization[], Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -18,7 +18,7 @@ export const useEmployersQuery = (): UseQueryResult<Organization[], Error> => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
       return listEmployers(oystehrZambda);
     },
-    enabled: !!oystehrZambda,
+    enabled: !!oystehrZambda && (options?.enabled ?? true),
   });
 };
 
