@@ -108,6 +108,7 @@ interface ReportDefinition<Params, Payload extends ReportPayload, Detail, DrillP
   // full recomputation, worker-side; detail is the optional drilldown dataset
   compute: (ctx, params, onProgress) => Promise<{ payload: Payload; detail?: Detail }>;
 
+  usesPrevious?: boolean;           // worker loads the last cached payload into ctx.previous
   savesOwnCache?: boolean;          // compute persists intermediate state itself (worker skips save)
   sanitizePayload?: (p) => Payload; // strip internal state before a payload leaves the server
   shrink?: (p) => Payload | undefined;        // shed data until an oversized payload fits
