@@ -297,14 +297,22 @@ const applyServiceLineUpdate = (
   const def = getServiceLinePropertyDef(action.set.property);
   let literalValue: string;
   if (def?.valueType === 'date') {
-    // Resolve once, before mutating any line: a derived source reads claim-level state (billable
-    // period) or the first line's original date, which must not reflect a mutation this same action
-    // is about to make (e.g. when the first line is itself among the lines being updated).
-    const resolution = resolveDateValue(action.set.value, model);
-    if ('error' in resolution) {
-      return `could not update service line property "${action.set.property}" — ${resolution.error}`;
+    if (typeof action.set.value === 'string') {
+      const trimmed = action.set.value.trim();
+      if (!trimmed) {
+        return `could not update service line property "${action.set.property}" — value is required`;
+      }
+      literalValue = trimmed;
+    } else {
+      // Resolve once, before mutating any line: a derived source reads claim-level state (billable
+      // period) or the first line's original date, which must not reflect a mutation this same action
+      // is about to make (e.g. when the first line is itself among the lines being updated).
+      const resolution = resolveDateValue(action.set.value, model);
+      if ('error' in resolution) {
+        return `could not update service line property "${action.set.property}" — ${resolution.error}`;
+      }
+      literalValue = resolution.value;
     }
-    literalValue = resolution.value;
   } else if (typeof action.set.value === 'string') {
     literalValue = action.set.value;
   } else {
