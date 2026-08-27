@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import { ReportRefreshStatus } from 'utils/lib/types/data/billing/billing.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -35,12 +36,12 @@ export async function performEffect(
   rawDrilldown?: unknown
 ): Promise<Record<string, unknown> & { fromCache: boolean; status: ReportRefreshStatus }> {
   const definition = reportRegistry[kind];
-  if (!definition) throw new Error(`No report definition registered for kind '${kind}'`);
+  if (!definition) throw INVALID_INPUT_ERROR(`No report definition registered for kind '${kind}'`);
   const params = safeValidate(definition.paramsSchema, rawParams ?? {});
   const cacheKey = fullCacheKey(definition, params);
 
   if (rawDrilldown !== undefined) {
-    if (!definition.drilldown) throw new Error(`Report kind '${kind}' does not support drilldown`);
+    if (!definition.drilldown) throw INVALID_INPUT_ERROR(`Report kind '${kind}' does not support drilldown`);
     const drillParams = safeValidate(definition.drilldown.paramsSchema, rawDrilldown);
     const cachedDetail = await loadReportCacheWithSize<ReportDetailEnvelope<unknown>>(
       oystehr,

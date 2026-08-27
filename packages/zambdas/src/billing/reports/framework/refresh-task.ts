@@ -19,7 +19,9 @@ export const REFRESH_TASK_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-re
 const identifierTokenOf = (cacheKey: string): string => `${REFRESH_TASK_IDENTIFIER_SYSTEM}|${cacheKey}`;
 
 const taskInputValue = (task: Task, code: string): string | undefined =>
-  task.input?.find((input) => input.type?.coding?.some((coding) => coding.code === code))?.valueString;
+  task.input?.find(
+    (input) => input.type?.coding?.some((coding) => coding.system === EXPORT_TASK_SYSTEM && coding.code === code)
+  )?.valueString;
 
 export const refreshTaskKind = (task: Task): string | undefined => taskInputValue(task, REFRESH_REPORT_KIND_CODE);
 export const refreshTaskParamsJson = (task: Task): string | undefined =>

@@ -70,8 +70,7 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
   useEffect(() => {
     if (!enabled) return;
     void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oystehrZambda, run, enabled]);
+  }, [run, enabled]);
 
   useEffect(() => {
     return () => {

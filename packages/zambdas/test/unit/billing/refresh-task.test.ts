@@ -1,0 +1,131 @@
+import Oystehr from '@oystehr/sdk';
+import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  findActiveRefreshTask,
+  kickOffRefreshTask,
+  REFRESH_TASK_IDENTIFIER_SYSTEM,
+} from '../../../src/billing/reports/framework/refresh-task';
+
+const CACHE_KEY = 'payments:v1:all';
+const freshISO = DateTime.now().minus({ minutes: 1 }).toUTC().toISO() ?? '';
+const staleISO = DateTime.now().minus({ minutes: 60 }).toUTC().toISO() ?? '';
+
+const refreshTask = (id: string, lastUpdated: string): Task => ({
+  resourceType: 'Task',
+  id,
+  status: 'requested',
+  intent: 'order',
+  identifier: [{ system: REFRESH_TASK_IDENTIFIER_SYSTEM, value: CACHE_KEY }],
+  meta: { lastUpdated },
+});
+
+interface FhirMocks {
+  search?: ReturnType<typeof vi.fn>;
+  create?: ReturnType<typeof vi.fn>;
+  patch?: ReturnType<typeof vi.fn>;
+}
+
+const clientWith = (fhir: FhirMocks): Oystehr => ({ fhir }) as unknown as Oystehr;
+
+const searchResult = (tasks: Task[]): { unbundle: () => Task[] } => ({ unbundle: () => tasks });
+
+describe('findActiveRefreshTask', () => {
+  it('returns undefined when no active tasks exist', async () => {
+    const oystehr = clientWith({ search: vi.fn().mockResolvedValue(searchResult([])) });
+    expect(await findActiveRefreshTask(oystehr, CACHE_KEY)).toBeUndefined();
+  });
+
+  it('returns a fresh task', async () => {
+    const fresh = refreshTask('fresh', freshISO);
+    const oystehr = clientWith({ search: vi.fn().mockResolvedValue(searchResult([fresh])) });
+    expect(await findActiveRefreshTask(oystehr, CACHE_KEY)).toBe(fresh);
+  });
+
+  it('ignores tasks past the stale threshold', async () => {
+    const oystehr = clientWith({ search: vi.fn().mockResolvedValue(searchResult([refreshTask('stale', staleISO)])) });
+    expect(await findActiveRefreshTask(oystehr, CACHE_KEY)).toBeUndefined();
+  });
+});
+
+describe('kickOffRefreshTask', () => {
+  const kickoffInput = { kind: 'payments' as const, params: {}, cacheKey: CACHE_KEY };
+
+  it('returns the existing fresh task without creating a new one', async () => {
+    const fresh = refreshTask('fresh', freshISO);
+    const create = vi.fn();
+    const oystehr = clientWith({ search: vi.fn().mockResolvedValue(searchResult([fresh])), create });
+
+    expect(await kickOffRefreshTask(oystehr, kickoffInput)).toBe(fresh);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('cancels stale tasks, then creates a new one', async () => {
+    const created = refreshTask('created', freshISO);
+    const patch = vi.fn().mockResolvedValue(undefined);
+    const create = vi.fn().mockResolvedValue(created);
+    const oystehr = clientWith({
+      search: vi
+        .fn()
+        .mockResolvedValue(searchResult([refreshTask('stale-1', staleISO), refreshTask('stale-2', staleISO)])),
+      create,
+      patch,
+    });
+
+    expect(await kickOffRefreshTask(oystehr, kickoffInput)).toBe(created);
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Task',
+        id: 'stale-1',
+        operations: expect.arrayContaining([{ op: 'replace', path: '/status', value: 'cancelled' }]),
+      })
+    );
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('still creates when cancelling a stale task fails', async () => {
+    const created = refreshTask('created', freshISO);
+    const oystehr = clientWith({
+      search: vi.fn().mockResolvedValue(searchResult([refreshTask('stale', staleISO)])),
+      create: vi.fn().mockResolvedValue(created),
+      patch: vi.fn().mockRejectedValue(new Error('gone')),
+    });
+
+    expect(await kickOffRefreshTask(oystehr, kickoffInput)).toBe(created);
+  });
+
+  it('creates with a conditional-create criterion on the cache key identifier', async () => {
+    const create = vi.fn().mockResolvedValue(refreshTask('created', freshISO));
+    const oystehr = clientWith({ search: vi.fn().mockResolvedValue(searchResult([])), create });
+
+    await kickOffRefreshTask(oystehr, kickoffInput);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: 'Task', status: 'requested' }),
+      expect.objectContaining({
+        ifNoneExist: expect.arrayContaining([
+          { name: 'identifier', value: `${REFRESH_TASK_IDENTIFIER_SYSTEM}|${CACHE_KEY}` },
+        ]),
+      })
+    );
+  });
+
+  it('falls back to the concurrent task when the conditional create races (e.g. 412)', async () => {
+    const concurrent = refreshTask('concurrent', freshISO);
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce(searchResult([])) // kickoff dedupe lookup
+      .mockResolvedValueOnce(searchResult([concurrent])); // fallback findActiveRefreshTask
+    const oystehr = clientWith({ search, create: vi.fn().mockRejectedValue(new Error('412 Precondition Failed')) });
+
+    expect(await kickOffRefreshTask(oystehr, kickoffInput)).toBe(concurrent);
+  });
+
+  it('rethrows the create error when no concurrent task exists', async () => {
+    const search = vi.fn().mockResolvedValue(searchResult([]));
+    const oystehr = clientWith({ search, create: vi.fn().mockRejectedValue(new Error('boom')) });
+
+    await expect(kickOffRefreshTask(oystehr, kickoffInput)).rejects.toThrow('boom');
+  });
+});
