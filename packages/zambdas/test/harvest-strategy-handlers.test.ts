@@ -84,7 +84,9 @@ const PATIENT: Patient & { id: string } = { resourceType: 'Patient', id: 'pat-1'
 const ENCOUNTER = { resourceType: 'Encounter', id: 'enc-1', status: 'in-progress' } as Encounter & { id: string };
 const APPOINTMENT = { resourceType: 'Appointment', id: 'appt-1', status: 'booked' } as Appointment & { id: string };
 
-const makeContext = (overrides: Partial<HarvestContext> & { oystehr?: OystehrMock } = {}): HarvestContext => ({
+const makeContext = (
+  overrides: Partial<Omit<HarvestContext, 'oystehr'>> & { oystehr?: OystehrMock } = {}
+): HarvestContext => ({
   qr: { resourceType: 'QuestionnaireResponse', status: 'in-progress', item: [] },
   pageLinkId: 'contact-information-page',
   patchIndex: 0,
