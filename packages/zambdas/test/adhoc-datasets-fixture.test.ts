@@ -25,7 +25,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
@@ -285,8 +285,11 @@ const paymentNotices: FhirResource[] = [
   paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z'),
 ];
 
-const rootResources: FhirResource[] = [appointment, encounter, patient, location, practitioner];
+// The attending provider is not an _include on the main search: it is fetched by id afterwards, so
+// the fake serves Practitioner as a scoped type rather than alongside the appointment graph.
+const rootResources: FhirResource[] = [appointment, encounter, patient, location];
 const scopedByType: Record<string, FhirResource[]> = {
+  Practitioner: [practitioner],
   Condition: [condition],
   Observation: observations,
   MedicationAdministration: medicationAdministrations,
@@ -295,38 +298,45 @@ const scopedByType: Record<string, FhirResource[]> = {
 const resourcesFor = (resourceType: string): FhirResource[] =>
   resourceType === 'Appointment' ? rootResources : scopedByType[resourceType] ?? [];
 
-// Emulates the async-bundle path the zambdas use: search returns a job handle (jobId encodes the
-// resource type and the requested offset), and waitForAsyncJob returns the completion bundle
-// (batch-response) whose first entry holds the searchset. The fixtures all fit on the first page,
-// so a non-zero offset returns an empty page — matching how searchAllAsync terminates.
+// Emulates the async-bulk path the zambdas use: the job answers with a manifest of file urls, and
+// the zambda downloads each file itself — the NDJSON is served by the stubbed fetch below.
+const ndjsonByUrl = new Map<string, string>();
+
+const manifestFor = (jobId: string): { output: { type: string; url: string }[]; requiresAccessToken: boolean } => {
+  const byType = new Map<string, FhirResource[]>();
+  for (const resource of resourcesFor(jobId)) {
+    byType.set(resource.resourceType, [...(byType.get(resource.resourceType) ?? []), resource]);
+  }
+  const output = Array.from(byType.entries()).map(([type, resources]) => {
+    const url = `https://example.test/${jobId}/${type}.ndjson`;
+    ndjsonByUrl.set(url, resources.map((resource) => JSON.stringify(resource)).join('\n'));
+    return { type, url };
+  });
+  // The manifest asks for a token, which is exactly the case where the SDK's own downloader fails.
+  return { output, requiresAccessToken: true };
+};
+
+// Stubbed rather than assigned, so vitest restores the real fetch even if a test throws — a leaked
+// stub would silently change the behaviour of whatever file runs next in this worker.
+vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
+  const url = String(input);
+  const ndjson = ndjsonByUrl.get(url);
+  if (ndjson === undefined) return { ok: false, status: 404, text: async () => 'not found' };
+  return { ok: true, status: 200, text: async () => ndjson };
+}) as unknown as typeof fetch);
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
+
 const fakeOystehr = {
   fhir: {
-    search: async ({ resourceType, params }: { resourceType: string; params?: { name: string; value: string }[] }) => ({
-      jobId: `${resourceType}#${params?.find((p) => p.name === '_offset')?.value ?? '0'}`,
+    search: async ({ resourceType }: { resourceType: string }) => ({
+      jobId: resourceType,
       contentLocation: '',
-      mode: 'bundle',
+      mode: 'bulk',
     }),
-    waitForAsyncJob: async (jobId: string) => {
-      const [resourceType, offset] = jobId.split('#');
-      const resources = Number(offset) === 0 ? resourcesFor(resourceType) : [];
-      return {
-        status: 200,
-        mode: 'bundle',
-        bundle: {
-          resourceType: 'Bundle',
-          type: 'batch-response',
-          entry: [
-            {
-              resource: {
-                resourceType: 'Bundle',
-                type: 'searchset',
-                entry: resources.map((resource) => ({ resource })),
-              },
-            },
-          ],
-        },
-      };
-    },
+    waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
 } as unknown as Oystehr;
