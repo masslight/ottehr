@@ -21,10 +21,13 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // and land at undefined (falsy → FHIR categories suppressed) — customers
   // opt in explicitly by setting `dynamicServiceCategoriesEnabled: true`.
   dynamicServiceCategoriesEnabled: true,
-  // ON in core so dev/e2e exercise the billing app's non-insurance organizations.
-  // Customer forks omit this field (undefined → falsy → legacy Employers mode with
-  // Candid sync) and opt in at their migration time.
-  nonInsuranceOrganizationsEnabled: true,
+  // OFF until an environment migrates claims to Ottehr billing: the core e2e envs still run
+  // BILLING_INTEGRATION 'all', and flag-on requires 'ottehr' exclusively (terraform generation
+  // and shouldUseCandid both reject the combination). Flip to true alongside setting
+  // BILLING_INTEGRATION='ottehr' in every env this build deploys to. Off, everything runs the
+  // legacy Employers mode with Candid sync; unit/component tests pin the flag themselves, so
+  // both paths stay covered either way.
+  nonInsuranceOrganizationsEnabled: false,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));
