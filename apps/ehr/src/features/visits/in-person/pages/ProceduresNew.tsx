@@ -981,7 +981,7 @@ export default function ProceduresNew({
         ...formValues,
         procedureType: resolvedProcedureType,
       });
-      // methods.reset() doesn't reliably notify the procedureType draft-sync subscription below,
+      // methods.reset() above doesn't reliably notify the procedureType draft-sync subscription,
       // so persist it directly here — same as every other quick-pick field going through updateState.
       if (!procedureId && encounter.id) {
         setDraft(encounter.id, { procedureType: resolvedProcedureType });
