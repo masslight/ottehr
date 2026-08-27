@@ -8,22 +8,21 @@ import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchAllPages } from '../../../shared/fhir';
 import { getRateLimitedStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
-import { ZambdaInput } from '../../../shared/types/common';
 import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
-import { CardSummary, lookupCardsWithDirectory } from '../card-directory';
-import { fullCacheKey, loadReportCache, saveReportCache } from '../framework/report-cache';
-import { ReportDefinition } from '../framework/types';
+import { lookupCardsWithDirectory } from '../card-directory';
+import { ProgressFn, ReportComputeContext, ReportDefinition } from '../framework/types';
 
 const CUSTOMER_PAGE_SIZE = 100;
+// customers listed per worker run; the build checkpoints and continues in a chained task
+const CUSTOMERS_PER_RUN = 10000;
 // hard guard against runaway accounts; the response flags truncation when hit
-const MAX_CUSTOMERS = 50000;
+const MAX_TOTAL_CUSTOMERS = 200000;
 const PATIENT_BATCH_SIZE = 100;
 const APPOINTMENT_BATCH_SIZE = 50;
-// fallback card lookups per drain batch; the rest stay queued in the cache. Directory hits
-// are free, so a warm shared cache drains far faster than this bound suggests.
-const PM_LOOKUPS_PER_RUN = 500;
-// beyond this the drain can't finish inside the worker timeout; excess customers report no card
-const MAX_PENDING_LOOKUPS = 5000;
+// queued card lookups per drain run; directory hits are free, so warm drains fly through
+const PM_LOOKUPS_PER_RUN = 2000;
+// an interrupted build older than this restarts instead of resuming
+const BUILD_STALE_HOURS = 24;
 
 interface CustomerWithAccount {
   customer: Stripe.Customer;
@@ -35,19 +34,32 @@ interface PendingLookup {
   stripeAccount: string | undefined;
 }
 
-// cached payload carries the pending fallback-lookup queue; sanitizePayload strips it
-type CardsOnFilePayload = Omit<GetBillingCardsOnFileReportResponse, 'fromCache' | 'status'> & {
+// checkpointed listing progress; null account = platform (undefined is not JSON-safe)
+export interface CardsBuildState {
+  accounts: (string | null)[];
+  accountIndex: number;
+  cursor?: string;
+  customersSeen: number;
+  rows: CardOnFileReportRow[];
+  pendingLookups: PendingLookup[];
+  openInvoices: Record<string, OpenInvoiceSummary>;
+  startedAt: string;
+}
+
+// cached payload carries the build checkpoint and pending-lookup queue; sanitizePayload strips them
+export type CardsOnFilePayload = Omit<GetBillingCardsOnFileReportResponse, 'fromCache' | 'status'> & {
   pendingLookups?: PendingLookup[];
+  building?: CardsBuildState;
 };
 
 const stripState = (state: CardsOnFilePayload): CardsOnFilePayload => {
-  const { pendingLookups: _pendingLookups, ...payload } = state;
+  const { pendingLookups: _pendingLookups, building: _building, ...payload } = state;
   return payload;
 };
 
 export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnFilePayload> = {
   kind: 'cards-on-file',
-  cacheVersion: 'v1',
+  cacheVersion: 'v2',
   paramsSchema: EmptyReportParamsSchema,
   cacheKeyOf: () => '',
   emptyPayload: () => ({
@@ -57,11 +69,14 @@ export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnF
     truncated: false,
     generatedAt: '',
   }),
-  // compute persists intermediate drain state itself
-  savesOwnCache: true,
+  usesPrevious: true,
   sanitizePayload: stripState,
-  // shed the lookup queue first, then tail rows
+  // an oversized mid-build checkpoint finalizes early; then shed the queue, then tail rows
   shrink: (payload) => {
+    if (payload.building) {
+      console.warn('Cards-on-file build state over the size cap; finalizing early');
+      return { ...finalizeBuild(payload, payload.building), truncated: true };
+    }
     if ((payload.pendingLookups?.length ?? 0) > 0) {
       console.warn('Cards-on-file cache over the size cap; dropping pending lookup queue');
       return { ...payload, pendingLookups: undefined, pendingCardLookups: 0, truncated: true };
@@ -71,77 +86,87 @@ export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnF
     }
     return undefined;
   },
-  compute: async (ctx, _params, onProgress) => ({
-    payload: await computeAndDrainCardsReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
-  }),
-  summarize: (payload) => `cards-on-file report cached (${payload.totals.customers} customers)`,
+  compute: async (ctx, _params, onProgress) => {
+    const payload = await advanceCardsReport(ctx, onProgress);
+    return { payload, continueRefresh: !!payload.building || (payload.pendingLookups?.length ?? 0) > 0 };
+  },
+  summarize: (payload) =>
+    payload.building
+      ? `cards-on-file build in progress (${payload.building.customersSeen} customers listed)`
+      : `cards-on-file report cached (${payload.totals.customers} customers)`,
 };
 
-const cacheKey = (): string => fullCacheKey(cardsOnFileReport, {});
-
-const saveState = (oystehr: Oystehr, state: CardsOnFilePayload): Promise<void> =>
-  saveReportCache(oystehr, cardsOnFileReport, cacheKey(), state);
-
-// full recomputation + queued-lookup drain
-async function computeAndDrainCardsReport(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
-  secrets: ZambdaInput['secrets'],
-  onProgress?: (message: string) => Promise<void>
+// One bounded step of the report lifecycle per worker run: resume an in-flight listing chunk,
+// else drain a batch of queued card lookups, else start a fresh build. The worker chains a
+// continuation task while there is more to do.
+async function advanceCardsReport(
+  ctx: ReportComputeContext<CardsOnFilePayload>,
+  onProgress?: ProgressFn
 ): Promise<CardsOnFilePayload> {
-  let state = await computeCardsReport(oystehr, untaggedClient, secrets, onProgress);
-  const totalLookups = state.pendingCardLookups;
-  let guard = 0;
-  while (state.pendingCardLookups > 0 && guard < 200) {
-    const previousPending = state.pendingCardLookups;
-    await onProgress?.(`resolving cards ${totalLookups - previousPending}/${totalLookups}…`);
-    state = (await continueCardLookups(oystehr, secrets)) ?? state;
-    if (state.pendingCardLookups >= previousPending) break;
-    guard += 1;
-  }
-  return state;
-}
-
-async function computeCardsReport(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
-  secrets: ZambdaInput['secrets'],
-  onProgress?: (message: string) => Promise<void>
-): Promise<CardsOnFilePayload> {
+  const { oystehr, untaggedClient, secrets, previous } = ctx;
   const stripe = getRateLimitedStripeClient(secrets);
-  const generatedAt = DateTime.now().toUTC().toISO();
 
+  const building = previous?.building;
+  const buildFresh =
+    !!building &&
+    DateTime.fromISO(building.startedAt).toMillis() > DateTime.now().minus({ hours: BUILD_STALE_HOURS }).toMillis();
+  if (previous && building && buildFresh) {
+    return buildChunk(oystehr, stripe, untaggedClient, previous, building, onProgress);
+  }
+  if (previous && !building && (previous.pendingLookups?.length ?? 0) > 0) {
+    return drainChunk(oystehr, stripe, previous, onProgress);
+  }
+
+  // fresh build: snapshot accounts and open invoices, then run the first listing chunk.
+  // The served rows stay untouched until the new build completes.
   await onProgress?.('listing Stripe accounts…');
   const accounts = await listStripeAccounts(oystehr, stripe);
-  await onProgress?.('listing customers and invoices…');
-  const [customers, openInvoicesByCustomerId] = await Promise.all([
-    listAllCustomers(stripe, accounts, async (count) => {
-      await onProgress?.(`listing customers… ${count.toLocaleString('en-US')} so far`);
-    }),
-    fetchOpenInvoices(stripe, accounts),
-  ]);
-  const truncated = customers.length >= MAX_CUSTOMERS;
-  if (customers.length === 0) {
-    return {
-      rows: [],
-      totals: { customers: 0, withCard: 0, withoutCard: 0, withOpenInvoices: 0 },
-      pendingCardLookups: 0,
-      truncated,
-      generatedAt,
-    };
-  }
-
-  // customers with open invoices get their fallback lookups in the first batch
-  const { cardByCustomerId, pending } = await resolveCards(
+  await onProgress?.('listing open invoices…');
+  const openInvoices = await fetchOpenInvoices(stripe, accounts);
+  const newBuild: CardsBuildState = {
+    accounts: accounts.map((account) => account ?? null),
+    accountIndex: 0,
+    customersSeen: 0,
+    rows: [],
+    pendingLookups: [],
+    openInvoices: Object.fromEntries(openInvoices),
+    startedAt: DateTime.now().toUTC().toISO() ?? '',
+  };
+  return buildChunk(
     oystehr,
     stripe,
-    customers,
-    new Set(openInvoicesByCustomerId.keys()),
-    async (done, total) => {
-      await onProgress?.(
-        `checking cards for ${done.toLocaleString('en-US')}/${total.toLocaleString('en-US')} customers…`
-      );
-    }
+    untaggedClient,
+    previous ?? cardsOnFileReport.emptyPayload(),
+    newBuild,
+    onProgress
+  );
+}
+
+// One listing chunk: page customers from the checkpoint, build their rows (cards from the
+// listing expansions only — the rest queue for drain runs), and either checkpoint or finalize.
+async function buildChunk(
+  oystehr: Oystehr,
+  stripe: Stripe,
+  untaggedClient: Oystehr,
+  served: CardsOnFilePayload,
+  building: CardsBuildState,
+  onProgress?: ProgressFn
+): Promise<CardsOnFilePayload> {
+  const customers = await listCustomersChunk(stripe, building, async (count) => {
+    await onProgress?.(`listing customers… ${(building.customersSeen + count).toLocaleString('en-US')} so far`);
+  });
+  building.customersSeen += customers.length;
+
+  const openInvoicesByCustomerId = new Map(Object.entries(building.openInvoices));
+  const { cardByCustomerId, needLookup } = resolveExpandedCards(customers);
+  // open-invoice customers drain first
+  building.pendingLookups.push(
+    ...needLookup
+      .filter((entry) => openInvoicesByCustomerId.has(entry.customer.id))
+      .map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount })),
+    ...needLookup
+      .filter((entry) => !openInvoicesByCustomerId.has(entry.customer.id))
+      .map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount }))
   );
 
   const patientIds = [
@@ -157,61 +182,73 @@ async function computeCardsReport(
     fetchLastVisits(untaggedClient, patientIds),
   ]);
 
-  const rows: CardOnFileReportRow[] = customers.map(({ customer, stripeAccount }) => {
-    const patientId = patientIdFromStripeMetadata(customer.metadata) ?? '';
-    const patient = isValidUUID(patientId) ? patientsById.get(patientId) : undefined;
-    const lastVisit = isValidUUID(patientId) ? lastVisitByPatientId.get(patientId) : undefined;
-    const card = cardByCustomerId.get(customer.id);
-    const openInvoices = openInvoicesByCustomerId.get(customer.id);
-    return {
-      stripeCustomerId: customer.id,
-      customerName: customer.name ?? customer.email ?? '',
-      stripeAccountId: stripeAccount ?? '',
-      livemode: customer.livemode,
-      patientId: patient?.id ?? '',
-      patientName: fhirName(patient),
-      cardId: card?.id ?? '',
-      cardBrand: card?.brand ?? '',
-      cardLast4: card?.last4 ?? '',
-      lastVisitDate: lastVisit?.start ?? '',
-      lastVisitAppointmentId: lastVisit?.id ?? '',
-      openInvoiceCount: openInvoices?.count ?? 0,
-      openInvoiceAmount: openInvoices?.amountDue ?? 0,
-      hasPastDueInvoice: openInvoices?.pastDue ?? false,
-    };
-  });
+  building.rows.push(
+    ...customers.map(({ customer, stripeAccount }) => {
+      const patientId = patientIdFromStripeMetadata(customer.metadata) ?? '';
+      const patient = isValidUUID(patientId) ? patientsById.get(patientId) : undefined;
+      const lastVisit = isValidUUID(patientId) ? lastVisitByPatientId.get(patientId) : undefined;
+      const card = cardByCustomerId.get(customer.id);
+      const openInvoices = openInvoicesByCustomerId.get(customer.id);
+      return {
+        stripeCustomerId: customer.id,
+        customerName: customer.name ?? customer.email ?? '',
+        stripeAccountId: stripeAccount ?? '',
+        livemode: customer.livemode,
+        patientId: patient?.id ?? '',
+        patientName: fhirName(patient),
+        cardId: card?.id ?? '',
+        cardBrand: card?.brand ?? '',
+        cardLast4: card?.last4 ?? '',
+        lastVisitDate: lastVisit?.start ?? '',
+        lastVisitAppointmentId: lastVisit?.id ?? '',
+        openInvoiceCount: openInvoices?.count ?? 0,
+        openInvoiceAmount: openInvoices?.amountDue ?? 0,
+        hasPastDueInvoice: openInvoices?.pastDue ?? false,
+      };
+    })
+  );
 
-  rows.sort((a, b) => (a.patientName || a.customerName).localeCompare(b.patientName || b.customerName));
-
-  const withCard = rows.filter((row) => row.cardId).length;
-  const withOpenInvoices = rows.filter((row) => row.openInvoiceCount > 0).length;
-  const boundedPending = pending.slice(0, MAX_PENDING_LOOKUPS);
-  if (boundedPending.length < pending.length) {
-    console.warn(`Capping fallback card lookups at ${MAX_PENDING_LOOKUPS} of ${pending.length}`);
+  const capHit = building.customersSeen >= MAX_TOTAL_CUSTOMERS;
+  const listingDone = building.accountIndex >= building.accounts.length || capHit;
+  if (!listingDone) {
+    return { ...served, building };
   }
-  const state: CardsOnFilePayload = {
-    rows,
-    totals: { customers: rows.length, withCard, withoutCard: rows.length - withCard, withOpenInvoices },
-    pendingCardLookups: boundedPending.length,
-    truncated: truncated || boundedPending.length < pending.length,
-    generatedAt,
-    ...(boundedPending.length > 0 ? { pendingLookups: boundedPending } : {}),
-  };
-  await saveState(oystehr, state);
-  return state;
+  const finalized = finalizeBuild(served, building);
+  return capHit ? { ...finalized, truncated: true } : finalized;
 }
 
-// One batch of queued fallback lookups against the saved report; undefined when there is no saved report.
-async function continueCardLookups(
-  oystehr: Oystehr,
-  secrets: ZambdaInput['secrets']
-): Promise<CardsOnFilePayload | undefined> {
-  const state = await loadReportCache<CardsOnFilePayload>(oystehr, cacheKey());
-  if (!state) return undefined;
-  const pending = state.pendingLookups ?? [];
-  if (pending.length === 0) return state;
+// swap the completed build into the served payload; cross-account duplicates keep the first row
+export function finalizeBuild(served: CardsOnFilePayload, building: CardsBuildState): CardsOnFilePayload {
+  const rowByCustomerId = new Map<string, CardOnFileReportRow>();
+  for (const row of building.rows) {
+    if (!rowByCustomerId.has(row.stripeCustomerId)) rowByCustomerId.set(row.stripeCustomerId, row);
+  }
+  const rows = [...rowByCustomerId.values()];
+  rows.sort((a, b) => (a.patientName || a.customerName).localeCompare(b.patientName || b.customerName));
+  const seenIds = new Set(rowByCustomerId.keys());
+  const pendingLookups = building.pendingLookups.filter((lookup) => seenIds.has(lookup.customerId));
+  const withCard = rows.filter((row) => row.cardId).length;
+  const withOpenInvoices = rows.filter((row) => row.openInvoiceCount > 0).length;
+  return {
+    ...stripState(served),
+    rows,
+    totals: { customers: rows.length, withCard, withoutCard: rows.length - withCard, withOpenInvoices },
+    pendingCardLookups: pendingLookups.length,
+    truncated: false,
+    generatedAt: DateTime.now().toUTC().toISO() ?? '',
+    ...(pendingLookups.length > 0 ? { pendingLookups } : {}),
+  };
+}
 
-  const stripe = getRateLimitedStripeClient(secrets);
+// One batch of queued card lookups against the served rows
+async function drainChunk(
+  oystehr: Oystehr,
+  stripe: Stripe,
+  state: CardsOnFilePayload,
+  onProgress?: ProgressFn
+): Promise<CardsOnFilePayload> {
+  const pending = state.pendingLookups ?? [];
+  await onProgress?.(`resolving cards… ${pending.length.toLocaleString('en-US')} remaining`);
   const batch = pending.slice(0, PM_LOOKUPS_PER_RUN);
   const rest = pending.slice(PM_LOOKUPS_PER_RUN);
   const cards = await lookupCardsWithDirectory(oystehr, stripe, batch);
@@ -227,11 +264,12 @@ async function continueCardLookups(
   }
 
   const withCard = state.rows.filter((row) => row.cardId).length;
-  state.totals = { ...state.totals, withCard, withoutCard: state.rows.length - withCard };
-  state.pendingCardLookups = rest.length;
-  state.pendingLookups = rest;
-  await saveState(oystehr, state);
-  return state;
+  return {
+    ...state,
+    totals: { ...state.totals, withCard, withoutCard: state.rows.length - withCard },
+    pendingCardLookups: rest.length,
+    pendingLookups: rest.length > 0 ? rest : undefined,
+  };
 }
 
 // platform account plus connected accounts stamped on billing provider organizations; the
@@ -289,32 +327,38 @@ async function fetchOpenInvoices(
   return byCustomerId;
 }
 
-async function listAllCustomers(
+// One page-bounded chunk of the customer listing, resuming from the build checkpoint and
+// advancing it in place. default_source expanded so legacy card customers skip the PM lookup.
+export async function listCustomersChunk(
   stripe: Stripe,
-  accounts: (string | undefined)[],
+  building: CardsBuildState,
   onCount?: (count: number) => Promise<void>
 ): Promise<CustomerWithAccount[]> {
   const customers: CustomerWithAccount[] = [];
-  // the platform key and a connected-account listing can return the same customer objects
-  const seenCustomerIds = new Set<string>();
-  // account failures propagate: a partial result must not be cached as the complete report
-  for (const stripeAccount of accounts) {
-    // auto-pagination walks every page; default_source expanded so legacy card customers skip the PM lookup
-    const listing = stripe.customers.list(
+  while (
+    building.accountIndex < building.accounts.length &&
+    customers.length < CUSTOMERS_PER_RUN &&
+    building.customersSeen + customers.length < MAX_TOTAL_CUSTOMERS
+  ) {
+    const stripeAccount = building.accounts[building.accountIndex] ?? undefined;
+    // account failures propagate: a partial result must not be cached as the complete report
+    const page = await stripe.customers.list(
       {
         limit: CUSTOMER_PAGE_SIZE,
         expand: ['data.invoice_settings.default_payment_method', 'data.default_source'],
+        ...(building.cursor ? { starting_after: building.cursor } : {}),
       },
       { stripeAccount }
     );
-    for await (const customer of listing) {
-      if (seenCustomerIds.has(customer.id)) continue;
-      seenCustomerIds.add(customer.id);
-      customers.push({ customer, stripeAccount });
-      if (customers.length % 1000 === 0) await onCount?.(customers.length);
-      if (customers.length >= MAX_CUSTOMERS) break;
+    for (const customer of page.data) customers.push({ customer, stripeAccount });
+    if (page.data.length > 0) {
+      building.cursor = page.data[page.data.length - 1].id;
+      if (customers.length % 1000 < CUSTOMER_PAGE_SIZE) await onCount?.(customers.length);
     }
-    if (customers.length >= MAX_CUSTOMERS) break;
+    if (!page.has_more || page.data.length === 0) {
+      building.accountIndex += 1;
+      building.cursor = undefined;
+    }
   }
   return customers;
 }
@@ -325,15 +369,12 @@ interface CardSummaryLike {
   last4: string;
 }
 
-// default payment method, else legacy default card source, else the shared card directory
-// (first batch now, the rest queued for continueLookups calls)
-async function resolveCards(
-  oystehr: Oystehr,
-  stripe: Stripe,
-  customers: CustomerWithAccount[],
-  priorityCustomerIds: Set<string>,
-  onProgress?: (done: number, total: number) => Promise<void>
-): Promise<{ cardByCustomerId: Map<string, CardSummaryLike>; pending: PendingLookup[] }> {
+// cards resolvable from the listing expansions alone: default payment method, else legacy
+// default card source; everything else needs a directory lookup
+function resolveExpandedCards(customers: CustomerWithAccount[]): {
+  cardByCustomerId: Map<string, CardSummaryLike>;
+  needLookup: CustomerWithAccount[];
+} {
   const cardByCustomerId = new Map<string, CardSummaryLike>();
   const needLookup: CustomerWithAccount[] = [];
 
@@ -359,24 +400,7 @@ async function resolveCards(
     }
     needLookup.push(entry);
   }
-
-  // open-invoice customers go in the first batch; the rest queue up in order
-  const prioritized: PendingLookup[] = [
-    ...needLookup.filter((entry) => priorityCustomerIds.has(entry.customer.id)),
-    ...needLookup.filter((entry) => !priorityCustomerIds.has(entry.customer.id)),
-  ].map(({ customer, stripeAccount }) => ({ customerId: customer.id, stripeAccount }));
-  const batch = prioritized.slice(0, PM_LOOKUPS_PER_RUN);
-  const pending = prioritized.slice(PM_LOOKUPS_PER_RUN);
-
-  let lastReported = 0;
-  const looked: Map<string, CardSummary> = await lookupCardsWithDirectory(oystehr, stripe, batch, async (done) => {
-    if (done - lastReported >= 100 || done === batch.length) {
-      lastReported = done;
-      await onProgress?.(done, prioritized.length);
-    }
-  });
-  for (const [customerId, card] of looked) cardByCustomerId.set(customerId, card);
-  return { cardByCustomerId, pending };
+  return { cardByCustomerId, needLookup };
 }
 
 async function fetchPatientsById(oystehr: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
