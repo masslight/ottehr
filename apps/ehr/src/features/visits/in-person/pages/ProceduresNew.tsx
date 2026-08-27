@@ -973,15 +973,21 @@ export default function ProceduresNew({
   }, [methods, procedure]);
 
   const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
-    updateState((state) => {
-      if (quickPick.procedureType) {
-        methods.reset({
-          ...formValues,
-          procedureType:
-            selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)
-              ?.name ?? quickPick.procedureType,
-        });
+    if (quickPick.procedureType) {
+      const resolvedProcedureType =
+        selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)?.name ??
+        quickPick.procedureType;
+      methods.reset({
+        ...formValues,
+        procedureType: resolvedProcedureType,
+      });
+      // methods.reset() doesn't reliably notify the procedureType draft-sync subscription below,
+      // so persist it directly here — same as every other quick-pick field going through updateState.
+      if (!procedureId && encounter.id) {
+        setDraft(encounter.id, { procedureType: resolvedProcedureType });
       }
+    }
+    updateState((state) => {
       QUICK_PICK_APPLY_KEYS.forEach((key) => {
         if (key === 'cptCodes') {
           state.cptCodes = mergeCptCodes(state.cptCodes, quickPick.cptCodes);
