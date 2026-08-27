@@ -47,13 +47,15 @@ async function searchRefreshTasksByCacheKey(
   return bundle.unbundle();
 }
 
-const staleBeforeISO = (): string => DateTime.now().minus({ minutes: STALE_REFRESH_MINUTES }).toUTC().toISO() ?? '';
+// instants, not ISO string comparison — servers may return offsets/non-normalized formats
+const instantOf = (iso: string | undefined): number => (iso ? DateTime.fromISO(iso).toMillis() : 0);
+const staleBeforeMillis = (): number => DateTime.now().minus({ minutes: STALE_REFRESH_MINUTES }).toMillis();
 
 // the running (or queued) refresh for one cache key, if any; stale tasks don't count
 export async function findActiveRefreshTask(oystehr: Oystehr, cacheKey: string): Promise<Task | undefined> {
   const tasks = await searchRefreshTasksByCacheKey(oystehr, cacheKey, 'requested,in-progress', 10);
-  const staleBefore = staleBeforeISO();
-  return tasks.find((task) => (task.meta?.lastUpdated ?? '') > staleBefore);
+  const staleBefore = staleBeforeMillis();
+  return tasks.find((task) => instantOf(task.meta?.lastUpdated) > staleBefore);
 }
 
 // most recent failed refresh newer than the served cache
@@ -63,7 +65,8 @@ export async function findRecentFailedRefreshTask(
   sinceISO: string
 ): Promise<Task | undefined> {
   const tasks = await searchRefreshTasksByCacheKey(oystehr, cacheKey, 'failed', 1);
-  return tasks.find((task) => (task.meta?.lastUpdated ?? '') > sinceISO);
+  const since = instantOf(sinceISO);
+  return tasks.find((task) => instantOf(task.meta?.lastUpdated) > since);
 }
 
 // Queues a refresh; idempotent per cache key — concurrent kickoffs resolve to one Task via
@@ -73,8 +76,8 @@ export async function kickOffRefreshTask(
   input: { kind: RefreshReportKind; params: unknown; cacheKey: string }
 ): Promise<Task> {
   const activeStatusTasks = await searchRefreshTasksByCacheKey(oystehr, input.cacheKey, 'requested,in-progress', 10);
-  const staleBefore = staleBeforeISO();
-  const fresh = activeStatusTasks.find((task) => (task.meta?.lastUpdated ?? '') > staleBefore);
+  const staleBefore = staleBeforeMillis();
+  const fresh = activeStatusTasks.find((task) => instantOf(task.meta?.lastUpdated) > staleBefore);
   if (fresh) return fresh;
 
   // stale leftovers would satisfy the conditional create forever; cancel them first
