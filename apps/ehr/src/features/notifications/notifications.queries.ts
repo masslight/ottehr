@@ -1,135 +1,55 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Operation } from 'fast-json-patch';
-import { Communication, Encounter, Extension, FhirResource, Location } from 'fhir/r4b';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { isPhoneNumberValid, removePrefix } from 'utils/lib/helpers/helpers';
-import {
-  AppointmentProviderNotificationTypes,
-  PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
-  PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
-  PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-  PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-  ProviderNotificationMethod,
-} from 'utils/lib/types/api/practitioner.types';
+import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.types';
 import {
   getAllNotificationRows,
-  ProviderNotificationPreferencesV2,
-  UiTaskCategoryId,
+  MarkProviderNotificationsReadInput,
+  ProviderNotificationDto,
+  UpdateProviderNotificationSettingsInput,
 } from 'utils/lib/types/api/provider-notifications';
+import {
+  getProviderNotifications,
+  listActiveLocations,
+  markProviderNotificationsRead,
+  updateProviderNotificationSettings,
+} from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
-import { inboundFaxMatchPath } from '../inbound-fax/routes';
-
-const COMMUNICATION_REFERENCE_PREFIX = 'Communication/';
-
-export type ProviderNotification = {
-  appointmentID: string;
-  encounter?: Encounter;
-  communication: Communication;
-  /**
-   * Pre-resolved navigation target for notifications that aren't tied to an appointment
-   * (currently inbound-fax notifications, which link to the fax match page).
-   */
-  link?: string;
-};
 
 /**
- * Destination for a notification with no appointment to fall back on, resolved from the notification
- * alone — no follow-up query on a 10-second poll, and nothing for a role without Task read to trip over.
- *
- * Inbound faxes are the case that needs it: the cron stamps the notification with its UI category and an
- * `about` reference to the fax Communication (see `buildTaskNotificationAbout` in the notifications-updater),
- * which is exactly what the match page is keyed by. Notifications written before that producer change
- * carry no `about` and simply have no link; the bell shows the last 10, so they age out.
+ * Everything the notification bell and its settings page read or write goes through zambdas, so no
+ * notification `Communication`, `Practitioner`, or `Location` is fetched or patched from the browser.
+ * The endpoints derive the practitioner they act for from the caller's token: nothing here names a
+ * recipient or a profile id, and there is nothing for a caller to swap.
  */
-export const getNotificationLink = (communication: Communication): string | undefined => {
-  // Typed against `UiTaskCategoryId` rather than asserted onto it: the coding carries whatever string the
-  // producer wrote, and this way renaming the id is a compile error instead of a link that stops resolving.
-  const inboundFaxCategory: UiTaskCategoryId = 'inboundFax';
-  const categoryCode = communication.category
-    ?.flatMap((concept) => concept.coding ?? [])
-    .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code;
-  if (categoryCode !== inboundFaxCategory) return undefined;
 
-  // Only a relative `Communication/<id>` reference names a fax we can route to. Checked with an explicit
-  // prefix strip so nothing else in `about` — a Task, or an absolute URL to some other server — can be
-  // mangled into a match-page id.
-  const faxCommunicationID = communication.about
-    ?.map((about) => removePrefix(COMMUNICATION_REFERENCE_PREFIX, about.reference ?? ''))
-    .find((id): id is string => !!id);
-  return faxCommunicationID ? inboundFaxMatchPath(faxCommunicationID) : undefined;
-};
+const PROVIDER_NOTIFICATIONS_QUERY_KEY = 'provider-notifications';
 
 export const useGetProviderNotifications = (
-  onSuccess?: (data: ProviderNotification[] | null) => void
-): UseQueryResult<ProviderNotification[], Error> => {
-  const { oystehr } = useApiClients();
+  onSuccess?: (data: ProviderNotificationDto[] | null) => void
+): UseQueryResult<ProviderNotificationDto[], Error> => {
+  const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
-  // "Phone only" (SMS, no bell) when every enabled row uses the Phone method — the bell has nothing to show.
+  // "Phone only" (SMS, no bell) when every enabled row uses the Phone method — the bell has nothing to
+  // show, so don't poll for it. Computed from the already-cached profile, which is why it stays here
+  // rather than in the endpoint: server-side it would cost a Practitioner read on every tick.
   const prefs = getProviderNotificationPreferencesV2(user?.profileResource);
   const enabledRows = prefs ? getAllNotificationRows(prefs).filter((row) => row.enabled) : [];
   const isPhoneOnly =
     enabledRows.length > 0 && enabledRows.every((row) => row.method === ProviderNotificationMethod.phone);
+
   const queryResult = useQuery({
-    queryKey: ['provider-notifications'],
+    // Keyed by profile so a sign-out/sign-in as someone else can't render the previous user's
+    // notifications from cache while the first poll is in flight.
+    queryKey: [PROVIDER_NOTIFICATIONS_QUERY_KEY, user?.profile],
 
-    queryFn: async (): Promise<ProviderNotification[]> => {
-      const notificationResources = (
-        await oystehr?.fhir.search({
-          resourceType: 'Communication',
-          params: [
-            {
-              name: '_include',
-              value: 'Communication:encounter',
-            },
-            {
-              name: 'recipient',
-              value: user!.profile,
-            },
-            {
-              name: 'category',
-              // Derived from the enum so a newly added type can't be silently invisible in the bell.
-              value: `${PROVIDER_NOTIFICATION_TYPE_SYSTEM}|${Object.values(AppointmentProviderNotificationTypes).join(
-                ','
-              )}`,
-            },
-            {
-              name: '_count',
-              value: '10',
-            },
-            {
-              name: '_sort',
-              value: '-_lastUpdated',
-            },
-          ],
-        })
-      )?.unbundle();
-      const communicationResources = notificationResources?.filter(
-        (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Communication'
-      ) as Communication[];
-      const encounterResources = notificationResources?.filter(
-        (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Encounter'
-      ) as Encounter[];
-
-      return communicationResources.map((communicationResource) => {
-        const encounterID = communicationResource.encounter?.reference?.replace('Encounter/', '');
-        const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
-        const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
-
-        const notification: ProviderNotification = {
-          appointmentID: appointmentID || '',
-          encounter,
-          communication: communicationResource,
-          link: getNotificationLink(communicationResource),
-        };
-        return notification;
-      });
+    queryFn: async (): Promise<ProviderNotificationDto[]> => {
+      const { notifications } = await getProviderNotifications(oystehrZambda!);
+      return notifications;
     },
 
-    enabled: !!(oystehr && user?.profile) && !isPhoneOnly,
+    enabled: !!(oystehrZambda && user?.profile) && !isPhoneOnly,
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
   });
@@ -140,35 +60,26 @@ export const useGetProviderNotifications = (
 };
 
 export const useGetAllLocations = (): UseQueryResult<{ id: string; name: string }[], Error> => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   return useQuery({
-    // Same key + fetch as SchedulePage's active-locations query (shared cache entry); only the `select`
-    // projection differs. Paginated so a capped page can't silently truncate the picker.
     queryKey: ['ehr-active-locations'],
-    queryFn: async (): Promise<Location[]> => {
-      if (!oystehr) return [];
-      return getAllFhirSearchPages<Location>(
-        { resourceType: 'Location', params: [{ name: 'status', value: 'active' }] },
-        oystehr
-      );
+    queryFn: async (): Promise<{ id: string; name: string }[]> => {
+      const { locations } = await listActiveLocations(oystehrZambda!);
+      return locations;
     },
-    select: (locations): { id: string; name: string }[] =>
-      locations
-        .filter((location): location is Location & { id: string } => !!location.id)
-        .map((location) => ({ id: location.id, name: location.name ?? location.id })),
-    enabled: !!oystehr,
+    enabled: !!oystehrZambda,
   });
 };
 
-export interface UpdateProviderNotificationPreferencesParams {
-  preferences: ProviderNotificationPreferencesV2;
-  phoneNumber?: string;
-}
+export type UpdateProviderNotificationPreferencesParams = UpdateProviderNotificationSettingsInput;
 
 /**
- * Persists the per-notification-type preferences. Writes the V2 JSON blob as a child of the
- * settings extension AND the derived legacy method/task/telemed values so any code still reading the old
- * flat settings keeps working during rollout. Also syncs the SMS phone number telecom.
+ * Persists the per-notification-type preferences and the SMS number for the signed-in user.
+ *
+ * The endpoint reads the Practitioner fresh and builds the patch from that, so saving twice in one
+ * session can no longer append a duplicate settings extension or `sms` telecom — which is what the
+ * profile refetch below used to be guarding against. The refetch stays because the cached Practitioner
+ * is still what `useEvolveUser` and the employee pages read preferences from.
  */
 export const useUpdateProviderNotificationPreferencesV2Mutation = (
   onSuccess: (params: UpdateProviderNotificationPreferencesParams) => void
@@ -177,92 +88,40 @@ export const useUpdateProviderNotificationPreferencesV2Mutation = (
   Error,
   UpdateProviderNotificationPreferencesParams
 > => {
-  const user = useEvolveUser();
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: ['provider-notifications'],
+    mutationKey: [PROVIDER_NOTIFICATIONS_QUERY_KEY],
 
-    mutationFn: async ({ preferences, phoneNumber }: UpdateProviderNotificationPreferencesParams) => {
-      if (!user?.profileResource) throw new Error('User practitioner profile not defined');
+    mutationFn: async (params: UpdateProviderNotificationPreferencesParams) =>
+      updateProviderNotificationSettings(params, oystehrZambda!),
 
-      // V2 blob is the sole source of truth. Legacy flat values (method/task/telemed flags) are no longer
-      // written; the un-migrated read path derives them on the fly (getProviderNotificationPreferencesV2).
-      const newNotificationSettingsExtension: Extension = {
-        url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-        extension: [{ url: PROVIDER_NOTIFICATION_PREFERENCES_V2_URL, valueString: JSON.stringify(preferences) }],
-      };
-
-      const notificationsExtIndex = (user.profileResource.extension || []).findIndex(
-        (ext) => ext.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL
-      );
-
-      const operations: Operation[] = [];
-      if (!user.profileResource.extension) {
-        operations.push({ op: 'add', path: '/extension', value: [newNotificationSettingsExtension] });
-      } else {
-        operations.push({
-          op: notificationsExtIndex >= 0 ? 'replace' : 'add',
-          path: `/extension/${notificationsExtIndex >= 0 ? notificationsExtIndex : '-'}`,
-          value: newNotificationSettingsExtension,
-        });
-      }
-
-      // Persist any valid number regardless of method — a 'computer' user must not lose what they typed
-      // on reload. SMS is still only *sent* for phone methods (see the cron).
-      if (isPhoneNumberValid(phoneNumber)) {
-        const telecoms = user.profileResource.telecom;
-        const smsIndex = telecoms?.findIndex((t) => t.system === 'sms');
-        if (smsIndex !== undefined && smsIndex >= 0) {
-          operations.push({ op: 'replace', path: `/telecom/${smsIndex}/value`, value: phoneNumber });
-        } else if (telecoms) {
-          operations.push({ op: 'add', path: '/telecom/-', value: { system: 'sms', value: phoneNumber } });
-        } else {
-          operations.push({ op: 'add', path: '/telecom', value: [{ system: 'sms', value: phoneNumber }] });
-        }
-      }
-
-      await oystehr?.fhir.patch({
-        id: user.profileResource.id ?? '',
-        resourceType: 'Practitioner',
-        operations,
-      });
-      return { preferences, phoneNumber };
-    },
-
-    onSuccess: (params) => {
-      // Refetch the cached profile — a second save would otherwise compute patch indices from a stale
-      // profileResource and append a duplicate settings extension and/or `sms` telecom.
+    onSuccess: (stored) => {
       void queryClient.refetchQueries({ queryKey: ['get-practitioner-profile'] });
-      onSuccess(params);
+      // Hands back what was actually stored — normalized preferences and the effective phone number —
+      // rather than what was sent, so the form reseeds from server truth.
+      onSuccess(stored);
     },
   });
 };
 
 export const useUpdateProviderNotificationsMutation = (
   onSuccess?: () => void
-): UseMutationResult<void, Error, { ids: NonNullable<Communication['id']>[]; status: Communication['status'] }> => {
-  const { oystehr } = useApiClients();
+): UseMutationResult<void, Error, MarkProviderNotificationsReadInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: ['provider-notifications'],
+    mutationKey: [PROVIDER_NOTIFICATIONS_QUERY_KEY],
 
-    mutationFn: async (params: { ids: NonNullable<Communication['id']>[]; status: Communication['status'] }) => {
-      const { ids, status } = params;
-      const patchOp: Operation = {
-        op: 'replace',
-        path: '/status',
-        value: status,
-      };
-
-      await oystehr?.fhir.batch({
-        requests: [
-          ...ids.map((id) =>
-            getPatchBinary({ resourceId: id, resourceType: 'Communication', patchOperations: [patchOp] })
-          ),
-        ],
-      });
+    mutationFn: async (params: MarkProviderNotificationsReadInput) => {
+      await markProviderNotificationsRead(params, oystehrZambda!);
     },
 
-    onSuccess,
+    onSuccess: async () => {
+      // Without this the badge stayed lit until the next 10-second poll, even though the user had just
+      // opened the menu and read everything in it.
+      await queryClient.invalidateQueries({ queryKey: [PROVIDER_NOTIFICATIONS_QUERY_KEY] });
+      onSuccess?.();
+    },
   });
 };
