@@ -5,6 +5,7 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
 import {
   REFRESH_REPORT_CACHE_KEY_CODE,
+  REFRESH_REPORT_CHAIN_CODE,
   REFRESH_REPORT_KIND_CODE,
   REFRESH_REPORT_PARAMS_CODE,
   REFRESH_REPORT_TASK_CODE,
@@ -13,6 +14,8 @@ import {
 
 // a refresh untouched for this long is assumed dead and no longer blocks
 const STALE_REFRESH_MINUTES = 30;
+// hard bound on chained continuation runs of one refresh
+export const MAX_REFRESH_CHAIN = 100;
 
 // the cache key doubles as a searchable Task identifier for dedupe and lookups
 export const REFRESH_TASK_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('billing-report-refresh');
@@ -28,6 +31,10 @@ export const refreshTaskParamsJson = (task: Task): string | undefined =>
   taskInputValue(task, REFRESH_REPORT_PARAMS_CODE);
 export const refreshTaskCacheKey = (task: Task): string | undefined =>
   taskInputValue(task, REFRESH_REPORT_CACHE_KEY_CODE);
+export const refreshTaskChain = (task: Task): number => {
+  const value = Number(taskInputValue(task, REFRESH_REPORT_CHAIN_CODE));
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
 
 async function searchRefreshTasksByCacheKey(
   oystehr: Oystehr,
@@ -96,7 +103,41 @@ export async function kickOffRefreshTask(
     }
   }
 
-  const task: Task = {
+  const task: Task = buildRefreshTask(input, 0);
+
+  try {
+    // returns the existing task instead of creating a second when the criteria match
+    return await oystehr.fhir.create<Task>(task, {
+      ifNoneExist: [
+        { name: 'identifier', value: identifierTokenOf(input.cacheKey) },
+        { name: 'status', value: 'requested,in-progress' },
+      ],
+    });
+  } catch (err) {
+    // e.g. HTTP 412: multiple matches — someone else already queued one
+    const existing = await findActiveRefreshTask(oystehr, input.cacheKey);
+    if (existing) return existing;
+    throw err;
+  }
+}
+
+// Queues the next run of a chained multi-run refresh. Created unconditionally (no dedupe):
+// only the currently running worker calls this, and its own in-progress Task would satisfy
+// the conditional-create criteria and swallow the continuation.
+export async function createContinuationRefreshTask(
+  oystehr: Oystehr,
+  input: { kind: RefreshReportKind; params: unknown; cacheKey: string },
+  chain: number
+): Promise<Task | undefined> {
+  if (chain >= MAX_REFRESH_CHAIN) {
+    console.warn(`Refresh chain for ${input.cacheKey} hit the ${MAX_REFRESH_CHAIN}-run bound; not continuing`);
+    return undefined;
+  }
+  return oystehr.fhir.create<Task>(buildRefreshTask(input, chain + 1));
+}
+
+function buildRefreshTask(input: { kind: RefreshReportKind; params: unknown; cacheKey: string }, chain: number): Task {
+  return {
     resourceType: 'Task',
     status: 'requested',
     intent: 'order',
@@ -116,23 +157,16 @@ export async function kickOffRefreshTask(
         type: { coding: [{ system: EXPORT_TASK_SYSTEM, code: REFRESH_REPORT_CACHE_KEY_CODE }] },
         valueString: input.cacheKey,
       },
+      ...(chain > 0
+        ? [
+            {
+              type: { coding: [{ system: EXPORT_TASK_SYSTEM, code: REFRESH_REPORT_CHAIN_CODE }] },
+              valueString: String(chain),
+            },
+          ]
+        : []),
     ],
   };
-
-  try {
-    // returns the existing task instead of creating a second when the criteria match
-    return await oystehr.fhir.create<Task>(task, {
-      ifNoneExist: [
-        { name: 'identifier', value: identifierTokenOf(input.cacheKey) },
-        { name: 'status', value: 'requested,in-progress' },
-      ],
-    });
-  } catch (err) {
-    // e.g. HTTP 412: multiple matches — someone else already queued one
-    const existing = await findActiveRefreshTask(oystehr, input.cacheKey);
-    if (existing) return existing;
-    throw err;
-  }
 }
 
 // worker-side phase reporting; failures are swallowed because progress is cosmetic

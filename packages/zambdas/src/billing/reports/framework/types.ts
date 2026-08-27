@@ -31,12 +31,14 @@ export interface ReportDefinition<Params, Payload extends ReportPayload, Detail 
   // params part of the cache key ('' for unparameterized kinds)
   cacheKeyOf: (params: Params) => string;
   emptyPayload: () => Payload;
-  // full recomputation (worker-side); detail is the optional drilldown dataset
+  // full recomputation (worker-side); detail is the optional drilldown dataset.
+  // continueRefresh queues another run (the payload should carry resumable state) — status
+  // stays 'running' for pollers until a run finishes without it.
   compute: (
     ctx: ReportComputeContext<Payload>,
     params: Params,
     onProgress: ProgressFn
-  ) => Promise<{ payload: Payload; detail?: Detail }>;
+  ) => Promise<{ payload: Payload; detail?: Detail; continueRefresh?: boolean }>;
   // worker passes the previous cached payload to compute (for incremental recomputation)
   usesPrevious?: boolean;
   // compute persists its own cache (e.g. resumable drain state); worker skips the central save

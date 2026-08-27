@@ -105,8 +105,10 @@ interface ReportDefinition<Params, Payload extends ReportPayload, Detail, DrillP
   cacheKeyOf: (params) => string;   // params part of the cache key ('' if unparameterized)
   emptyPayload: () => Payload;      // served while the first refresh runs
 
-  // full recomputation, worker-side; detail is the optional drilldown dataset
-  compute: (ctx, params, onProgress) => Promise<{ payload: Payload; detail?: Detail }>;
+  // full recomputation, worker-side; detail is the optional drilldown dataset.
+  // Returning continueRefresh: true queues another run (chained Tasks, bounded); the payload
+  // carries resumable state and pollers keep seeing 'running' until a run ends without it.
+  compute: (ctx, params, onProgress) => Promise<{ payload: Payload; detail?: Detail; continueRefresh?: boolean }>;
 
   usesPrevious?: boolean;           // worker loads the last cached payload into ctx.previous
   savesOwnCache?: boolean;          // compute persists intermediate state itself (worker skips save)
