@@ -13,6 +13,9 @@ export interface ReportContext {
   secrets: ZambdaInput['secrets'];
 }
 
+// compute-time context; previous is the last cached payload, loaded only for usesPrevious kinds
+export type ReportComputeContext<Payload> = ReportContext & { previous?: Payload };
+
 export interface ReportPayload {
   generatedAt: string;
   // set by definitions whose compute or shrink dropped data
@@ -30,10 +33,12 @@ export interface ReportDefinition<Params, Payload extends ReportPayload, Detail 
   emptyPayload: () => Payload;
   // full recomputation (worker-side); detail is the optional drilldown dataset
   compute: (
-    ctx: ReportContext,
+    ctx: ReportComputeContext<Payload>,
     params: Params,
     onProgress: ProgressFn
   ) => Promise<{ payload: Payload; detail?: Detail }>;
+  // worker passes the previous cached payload to compute (for incremental recomputation)
+  usesPrevious?: boolean;
   // compute persists its own cache (e.g. resumable drain state); worker skips the central save
   savesOwnCache?: boolean;
   // strip internal state before a cached payload leaves the server
