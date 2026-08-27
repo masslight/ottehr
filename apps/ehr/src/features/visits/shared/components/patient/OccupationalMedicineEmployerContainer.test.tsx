@@ -15,6 +15,22 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({ oystehr: { fhir: { get: fhirGetMock } }, oystehrZambda: undefined }),
 }));
 
+// The base PATIENT_RECORD_CONFIG marks this section as always-hidden (it belongs to overlay-specific
+// deployments). Remove it from hiddenFormSections so PatientRecordFormSection evaluates the triggers
+// and the section renders — exactly as an occ-med overlay config would do in production.
+vi.mock('utils/lib/ottehr-config/patient-record', async (importActual) => {
+  const actual = await importActual<typeof import('utils/lib/ottehr-config/patient-record')>();
+  return {
+    ...actual,
+    PATIENT_RECORD_CONFIG: {
+      ...actual.PATIENT_RECORD_CONFIG,
+      hiddenFormSections: actual.PATIENT_RECORD_CONFIG.hiddenFormSections.filter(
+        (id: string) => id !== 'occupational-medicine-employer-information-page'
+      ),
+    },
+  };
+});
+
 import { OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
 import { OccupationalMedicineEmployerInformationContainer } from './OccupationalMedicineEmployerContainer';
 
