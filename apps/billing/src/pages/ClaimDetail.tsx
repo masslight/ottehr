@@ -358,7 +358,7 @@ export default function ClaimDetail(): ReactElement {
               <Meta label="Date of Service" value={dos} />
               <Meta label="Claim ID" value={claim.id} copyable={true} />
               <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-              <Meta label="PCN" value={claim.pcn} copyable={true} />
+              <Meta label="PCN" value={claim.pcn.toUpperCase()} copyable={true} />
               <Meta label="Service" value={formatAntCaseString(claim.service)} />
               <Meta label="Patient DOB" value={claim.patientDob} />
             </Box>
@@ -389,7 +389,7 @@ export default function ClaimDetail(): ReactElement {
                     ))}
                   </Select>
                 </Box>
-                <Meta label="PCN" value={claim.pcn} />
+                <Meta label="PCN" value={claim.pcn.toUpperCase()} />
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Service
