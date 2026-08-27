@@ -1,14 +1,19 @@
-import { REFRESH_REPORT_KINDS, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
+import { REFRESH_REPORT_KINDS } from 'utils/lib/types/data/billing/billing.constants';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { refreshTaskKind, refreshTaskParamsJson } from '../../../billing/reports/framework/refresh-task';
 import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 import { TaskSubscriptionInput } from '../validateRequestParameters';
 
-export interface RefreshBillingReportParams {
-  kind: RefreshReportKind;
+const RefreshTaskInputSchema = z.object({
+  kind: z.enum(REFRESH_REPORT_KINDS),
   // JSON-serialized report params from the Task input
-  paramsJson: string;
-  taskId: string;
+  paramsJson: z.string(),
+  taskId: z.string().min(1),
+});
+
+export interface RefreshBillingReportParams extends z.infer<typeof RefreshTaskInputSchema> {
   secrets: ZambdaInput['secrets'];
 }
 
@@ -16,18 +21,11 @@ export function validateRequestParameters(input: TaskSubscriptionInput): Refresh
   if (!input.task) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const taskId = input.task.id;
-  if (!taskId) throw new Error('Task id is not found in the input task');
-
-  const kind = refreshTaskKind(input.task);
-  if (!kind || !REFRESH_REPORT_KINDS.includes(kind as RefreshReportKind)) {
-    throw new Error(`Unknown report kind '${kind ?? ''}' on Task/${taskId}`);
-  }
-
-  return {
-    kind: kind as RefreshReportKind,
+  const validated = safeValidate(RefreshTaskInputSchema, {
+    kind: refreshTaskKind(input.task),
     paramsJson: refreshTaskParamsJson(input.task) ?? '{}',
-    taskId,
-    secrets: input.secrets,
-  };
+    taskId: input.task.id,
+  });
+
+  return { ...validated, secrets: input.secrets };
 }
