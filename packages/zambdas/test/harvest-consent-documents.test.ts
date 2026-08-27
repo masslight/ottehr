@@ -186,7 +186,7 @@ describe('createDocumentResources', () => {
     const input = mockCreateFilesDocumentReferences.mock.calls[0][0];
     expect(input.type.coding?.[0].code).toBe(INSURANCE_CARD_CODE);
     expect(input.files).toHaveLength(4);
-    expect(input.references?.context).toEqual({ related: [{ reference: `Patient/${PATIENT_ID}` }] });
+    expect(input.references).toMatchObject({ context: { related: [{ reference: `Patient/${PATIENT_ID}` }] } });
   });
 
   test('patient condition photos are appointment-scoped and deduplicated', async () => {
@@ -197,7 +197,7 @@ describe('createDocumentResources', () => {
     expect(mockCreateFilesDocumentReferences).toHaveBeenCalledTimes(1);
     const input = mockCreateFilesDocumentReferences.mock.calls[0][0];
     expect(input.type.coding?.[0].code).toBe(PATIENT_PHOTO_CODE);
-    expect(input.references?.context).toEqual({ related: [{ reference: `Appointment/${APPOINTMENT_ID}` }] });
+    expect(input.references).toMatchObject({ context: { related: [{ reference: `Appointment/${APPOINTMENT_ID}` }] } });
 
     mockCreateFilesDocumentReferences.mockClear();
     await run(qr, [existingDocRefWith('z3://b/condition.jpg')]);
@@ -216,7 +216,7 @@ describe('createDocumentResources', () => {
     const input = mockCreateFilesDocumentReferences.mock.calls[0][0];
     expect(input.type.coding?.[0].code).toBe(SCHOOL_WORK_NOTE_TEMPLATE_CODE);
     expect(input.files.map((f) => f.url)).toEqual(['z3://b/school.pdf', 'z3://b/work.pdf']);
-    expect(input.references?.context).toEqual({ related: [{ reference: `Appointment/${APPOINTMENT_ID}` }] });
+    expect(input.references).toMatchObject({ context: { related: [{ reference: `Appointment/${APPOINTMENT_ID}` }] } });
   });
 
   test('threads the List resources returned by one document write into the next', async () => {
