@@ -3,9 +3,12 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createContinuationRefreshTask,
   findActiveRefreshTask,
   kickOffRefreshTask,
+  MAX_REFRESH_CHAIN,
   REFRESH_TASK_IDENTIFIER_SYSTEM,
+  refreshTaskChain,
 } from '../../../src/billing/reports/framework/refresh-task';
 
 const CACHE_KEY = 'payments:v1:all';
@@ -55,6 +58,35 @@ describe('findActiveRefreshTask', () => {
       search: vi.fn().mockResolvedValue(searchResult([staleWithOffset, freshWithOffset])),
     });
     expect(await findActiveRefreshTask(oystehr, CACHE_KEY)).toBe(freshWithOffset);
+  });
+});
+
+describe('createContinuationRefreshTask', () => {
+  const input = { kind: 'cards-on-file' as const, params: {}, cacheKey: CACHE_KEY };
+
+  it('creates the next task unconditionally with an incremented chain input', async () => {
+    const create = vi.fn().mockImplementation(async (task: Task) => task);
+    const oystehr = clientWith({ create });
+
+    const next = await createContinuationRefreshTask(oystehr, input, 2);
+    expect(create).toHaveBeenCalledTimes(1);
+    // no ifNoneExist: the running worker's own in-progress task would swallow the continuation
+    expect(create.mock.calls[0]).toHaveLength(1);
+    expect(next && refreshTaskChain(next)).toBe(3);
+  });
+
+  it('stops at the chain bound', async () => {
+    const create = vi.fn();
+    const oystehr = clientWith({ create });
+
+    expect(await createContinuationRefreshTask(oystehr, input, MAX_REFRESH_CHAIN)).toBeUndefined();
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshTaskChain', () => {
+  it('defaults to 0 when the input is absent', () => {
+    expect(refreshTaskChain(refreshTask('t', freshISO))).toBe(0);
   });
 });
 

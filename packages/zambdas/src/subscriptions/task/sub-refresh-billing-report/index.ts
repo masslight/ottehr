@@ -1,4 +1,8 @@
-import { updateRefreshTaskProgress } from '../../../billing/reports/framework/refresh-task';
+import {
+  createContinuationRefreshTask,
+  refreshTaskChain,
+  updateRefreshTaskProgress,
+} from '../../../billing/reports/framework/refresh-task';
 import { reportRegistry } from '../../../billing/reports/framework/registry';
 import {
   detailCacheKey,
@@ -32,7 +36,7 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   const previous = definition.usesPrevious
     ? await loadReportCache(oystehr, fullCacheKey(definition, params))
     : undefined;
-  const { payload, detail } = await definition.compute(
+  const { payload, detail, continueRefresh } = await definition.compute(
     { oystehr, untaggedClient, secrets, previous },
     params,
     onProgress
@@ -53,6 +57,17 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
       detailCacheKey(definition, params),
       { generatedAt: payload.generatedAt, detail }
     );
+  }
+  if (continueRefresh && input.task) {
+    // created before this task completes so pollers never see a gap in 'running' status
+    const next = await createContinuationRefreshTask(
+      oystehr,
+      { kind, params, cacheKey: fullCacheKey(definition, params) },
+      refreshTaskChain(input.task)
+    );
+    if (next) {
+      return { taskStatus: 'completed', statusReason: `continuing: ${definition.summarize(payload)}` };
+    }
   }
   return { taskStatus: 'completed', statusReason: definition.summarize(payload) };
 });
