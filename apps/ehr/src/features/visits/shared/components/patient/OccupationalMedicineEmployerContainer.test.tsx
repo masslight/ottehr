@@ -15,6 +15,21 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({ oystehr: { fhir: { get: fhirGetMock } }, oystehrZambda: undefined }),
 }));
 
+// Remove the occupational-medicine section from hiddenFormSections so PatientRecordFormSection renders
+// it regardless of which instance overlay is active.
+vi.mock('utils/lib/ottehr-config/patient-record', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/patient-record')>();
+  return {
+    ...original,
+    PATIENT_RECORD_CONFIG: {
+      ...original.PATIENT_RECORD_CONFIG,
+      hiddenFormSections: original.PATIENT_RECORD_CONFIG.hiddenFormSections.filter(
+        (s: string) => s !== 'occupational-medicine-employer-information-page'
+      ),
+    },
+  };
+});
+
 import { OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
 import { OccupationalMedicineEmployerInformationContainer } from './OccupationalMedicineEmployerContainer';
 
