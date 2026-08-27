@@ -17,10 +17,10 @@ import {
   patientIdFromStripeMetadata,
 } from '../../../shared/stripeIntegration';
 import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
-import { ReportDefinition } from '../framework/types';
+import { CardSummary, lookupCardsWithDirectory } from '../card-directory';
+import { ProgressFn, ReportComputeContext, ReportDefinition } from '../framework/types';
 
 const PATIENT_BATCH_SIZE = 100;
-const PM_LOOKUP_CONCURRENCY = 8;
 
 type InvoiceReportPayload = Omit<GetBillingInvoiceReportResponse, 'fromCache' | 'status'>;
 
@@ -42,32 +42,40 @@ export const invoiceReport: ReportDefinition<Record<string, never>, InvoiceRepor
   paramsSchema: EmptyReportParamsSchema,
   cacheKeyOf: () => '',
   emptyPayload: () => ({ rows: [], totals: emptyTotals(), agingTrend: [], generatedAt: '' }),
+  usesPrevious: true,
   compute: async (ctx, _params, onProgress) => ({
-    payload: await computeInvoiceReport(ctx.oystehr, ctx.untaggedClient, ctx.secrets, onProgress),
+    payload: await computeInvoiceReport(ctx, onProgress),
   }),
   summarize: (payload) => `invoice report cached (${payload.rows.length} invoices)`,
 };
 
 // full recomputation (worker-side)
 async function computeInvoiceReport(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
-  secrets: Parameters<typeof getRateLimitedStripeClient>[0],
-  onProgress?: (message: string) => Promise<void>
+  ctx: ReportComputeContext<InvoiceReportPayload>,
+  onProgress?: ProgressFn
 ): Promise<InvoiceReportPayload> {
+  const { oystehr, untaggedClient, secrets, previous } = ctx;
   const stripe = getRateLimitedStripeClient(secrets);
   const generatedAt = DateTime.now().toUTC().toISO();
   const nowSeconds = Math.floor(Date.now() / 1000);
 
   await onProgress?.('listing Stripe accounts…');
   const accounts = await listStripeAccounts(oystehr, stripe);
+
+  // month-end snapshots are immutable once past: reuse cached points and full-scan the invoice
+  // history only when one is missing (cold cache or a month rolled over)
+  const now = DateTime.now();
+  const monthEnds = trendMonthEnds(now);
+  const cachedPoints = new Map((previous?.agingTrend ?? []).map((point) => [point.snapshotDate, point]));
+  const needScan = monthEnds.some((snapshot) => !cachedPoints.has(snapshotISO(snapshot)));
+
   await onProgress?.('listing invoices…');
   // one shared progress line for both parallel listings
   const listCounts = { open: 0, scanned: 0 };
   const reportListing = async (): Promise<void> => {
     await onProgress?.(
-      `listing invoices… ${listCounts.open.toLocaleString('en-US')} open, ` +
-        `${listCounts.scanned.toLocaleString('en-US')} scanned for aging`
+      `listing invoices… ${listCounts.open.toLocaleString('en-US')} open` +
+        (needScan ? `, ${listCounts.scanned.toLocaleString('en-US')} scanned for aging` : '')
     );
   };
   const [invoices, allInvoices] = await Promise.all([
@@ -75,12 +83,18 @@ async function computeInvoiceReport(
       listCounts.open = count;
       await reportListing();
     }),
-    listAllInvoices(stripe, accounts, async (count) => {
-      listCounts.scanned = count;
-      await reportListing();
-    }),
+    needScan
+      ? listAllInvoices(stripe, accounts, async (count) => {
+          listCounts.scanned = count;
+          await reportListing();
+        })
+      : Promise.resolve<InvoiceWithAccount[]>([]),
   ]);
-  const agingTrend = computeAgingTrend(allInvoices);
+  // the "now" point only needs currently open invoices, which the rows listing already has
+  const agingTrend = [
+    ...monthEnds.map((snapshot) => cachedPoints.get(snapshotISO(snapshot)) ?? computeTrendPoint(allInvoices, snapshot)),
+    computeTrendPoint(invoices, now),
+  ];
 
   // card-on-file only matters for past-due invoices, so the lookup is scoped to those customers
   const pastDueCustomers = new Map<string, { customerId: string; stripeAccount: string | undefined }>();
@@ -90,11 +104,17 @@ async function computeInvoiceReport(
     if (customerId) pastDueCustomers.set(customerId, { customerId, stripeAccount });
   }
   await onProgress?.(`resolving cards for ${pastDueCustomers.size.toLocaleString('en-US')} past-due customers…`);
-  const cardByCustomerId = await resolveCards(stripe, [...pastDueCustomers.values()], invoices, async (done, total) => {
-    await onProgress?.(
-      `checking cards for ${done.toLocaleString('en-US')}/${total.toLocaleString('en-US')} past-due customers…`
-    );
-  });
+  const cardByCustomerId = await resolveCards(
+    oystehr,
+    stripe,
+    [...pastDueCustomers.values()],
+    invoices,
+    async (done, total) => {
+      await onProgress?.(
+        `checking cards for ${done.toLocaleString('en-US')}/${total.toLocaleString('en-US')} past-due customers…`
+      );
+    }
+  );
 
   const patientIds = [
     ...new Set(
@@ -177,45 +197,44 @@ const TREND_BUCKETS = [
 ];
 const NOT_YET_DUE = 'not-yet-due';
 
-// month-end snapshots: an invoice counts at T if finalized by T and not yet paid/voided/uncollectible at T
-function computeAgingTrend(invoices: InvoiceWithAccount[]): InvoiceAgingTrendPoint[] {
-  const now = DateTime.now();
-  const snapshots = [
-    ...Array.from({ length: TREND_MONTHS }, (_v, i) => now.minus({ months: TREND_MONTHS - i }).endOf('month')),
-    now,
-  ];
-  return snapshots.map((snapshot) => {
-    const t = Math.floor(snapshot.toSeconds());
-    const buckets: InvoiceAgingTrendPoint['buckets'] = Object.fromEntries(
-      [NOT_YET_DUE, ...TREND_BUCKETS.map((bucket) => bucket.key)].map((key) => [key, { count: 0, amountDue: 0 }])
+export const snapshotISO = (snapshot: DateTime): string => snapshot.toUTC().toISO() ?? '';
+
+// month-ends of the previous TREND_MONTHS months, oldest first
+export const trendMonthEnds = (now: DateTime): DateTime[] =>
+  Array.from({ length: TREND_MONTHS }, (_v, i) => now.minus({ months: TREND_MONTHS - i }).endOf('month'));
+
+// snapshot at T: an invoice counts if finalized by T and not yet paid/voided/uncollectible at T
+export function computeTrendPoint(invoices: InvoiceWithAccount[], snapshot: DateTime): InvoiceAgingTrendPoint {
+  const t = Math.floor(snapshot.toSeconds());
+  const buckets: InvoiceAgingTrendPoint['buckets'] = Object.fromEntries(
+    [NOT_YET_DUE, ...TREND_BUCKETS.map((bucket) => bucket.key)].map((key) => [key, { count: 0, amountDue: 0 }])
+  );
+  for (const { invoice } of invoices) {
+    const transitions = invoice.status_transitions;
+    const issuedAt = transitions?.finalized_at ?? (invoice.status !== 'draft' ? invoice.created : undefined);
+    if (!issuedAt || issuedAt > t) continue;
+    const closedAt = Math.min(
+      ...[transitions?.paid_at, transitions?.voided_at, transitions?.marked_uncollectible_at].filter(
+        (value): value is number => value != null
+      )
     );
-    for (const { invoice } of invoices) {
-      const transitions = invoice.status_transitions;
-      const issuedAt = transitions?.finalized_at ?? (invoice.status !== 'draft' ? invoice.created : undefined);
-      if (!issuedAt || issuedAt > t) continue;
-      const closedAt = Math.min(
-        ...[transitions?.paid_at, transitions?.voided_at, transitions?.marked_uncollectible_at].filter(
-          (value): value is number => value != null
-        )
-      );
-      if (Number.isFinite(closedAt) && closedAt <= t) continue;
-      const amount = (invoice.amount_due ?? 0) / 100;
-      let key = NOT_YET_DUE;
-      // automatic-collection invoices (no due_date) with a failed charge age from finalization
-      const agingAnchor = invoice.due_date ?? ((invoice.attempt_count ?? 0) > 0 ? issuedAt : undefined);
-      if (agingAnchor && agingAnchor <= t) {
-        const days = Math.floor((t - agingAnchor) / 86400);
-        key = (TREND_BUCKETS.find((bucket) => days >= bucket.minDays && days < bucket.maxDays) ?? TREND_BUCKETS[0]).key;
-      }
-      buckets[key].count += 1;
-      buckets[key].amountDue += amount;
+    if (Number.isFinite(closedAt) && closedAt <= t) continue;
+    const amount = (invoice.amount_due ?? 0) / 100;
+    let key = NOT_YET_DUE;
+    // automatic-collection invoices (no due_date) with a failed charge age from finalization
+    const agingAnchor = invoice.due_date ?? ((invoice.attempt_count ?? 0) > 0 ? issuedAt : undefined);
+    if (agingAnchor && agingAnchor <= t) {
+      const days = Math.floor((t - agingAnchor) / 86400);
+      key = (TREND_BUCKETS.find((bucket) => days >= bucket.minDays && days < bucket.maxDays) ?? TREND_BUCKETS[0]).key;
     }
-    return {
-      snapshotDate: snapshot.toUTC().toISO() ?? '',
-      label: snapshot.toFormat('MMM yyyy'),
-      buckets,
-    };
-  });
+    buckets[key].count += 1;
+    buckets[key].amountDue += amount;
+  }
+  return {
+    snapshotDate: snapshotISO(snapshot),
+    label: snapshot.toFormat('MMM yyyy'),
+    buckets,
+  };
 }
 
 // all invoices regardless of status; lean listing (no expansions) used only for the aging trend
@@ -315,19 +334,20 @@ async function listOpenInvoices(
   return invoices;
 }
 
-interface CardSummary {
+interface CardSummaryLike {
   brand: string;
   last4: string;
 }
 
-// default payment method, else legacy default card source, else the first attached card
+// default payment method, else legacy default card source, else the shared card directory
 async function resolveCards(
+  oystehr: Oystehr,
   stripe: Stripe,
   customers: { customerId: string; stripeAccount: string | undefined }[],
   invoices: InvoiceWithAccount[],
   onProgress?: (done: number, total: number) => Promise<void>
-): Promise<Map<string, CardSummary>> {
-  const cardByCustomerId = new Map<string, CardSummary>();
+): Promise<Map<string, CardSummaryLike>> {
+  const cardByCustomerId = new Map<string, CardSummaryLike>();
   const needLookup: { customerId: string; stripeAccount: string | undefined }[] = [];
 
   const expandedCustomers = new Map<string, Stripe.Customer>();
@@ -358,40 +378,11 @@ async function resolveCards(
     needLookup.push(entry);
   }
 
-  for (let i = 0; i < needLookup.length; i += PM_LOOKUP_CONCURRENCY) {
-    await Promise.all(
-      needLookup.slice(i, i + PM_LOOKUP_CONCURRENCY).map(async ({ customerId, stripeAccount }) => {
-        // a missing map entry means "no card" and drives the past-due-no-card bucket, so a
-        // failed lookup must throw rather than masquerade as that fact
-        for (let attempt = 0; ; attempt++) {
-          try {
-            const methods = await stripe.paymentMethods.list(
-              { customer: customerId, type: 'card', limit: 1 },
-              { stripeAccount }
-            );
-            const method = methods.data[0];
-            if (method) {
-              cardByCustomerId.set(customerId, {
-                brand: method.card?.brand ?? '',
-                last4: method.card?.last4 ?? '',
-              });
-            }
-            return;
-          } catch (err) {
-            const rateLimited = (err as Stripe.errors.StripeError)?.type === 'StripeRateLimitError';
-            if (rateLimited && attempt < 2) {
-              await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
-              continue;
-            }
-            throw new Error(`Failed to list payment methods for ${customerId}: ${(err as Error)?.message}`);
-          }
-        }
-      })
-    );
-    const done = Math.min(i + PM_LOOKUP_CONCURRENCY, needLookup.length);
-    if (done % 100 < PM_LOOKUP_CONCURRENCY || done === needLookup.length) {
-      await onProgress?.(done, needLookup.length);
-    }
+  const looked: Map<string, CardSummary> = await lookupCardsWithDirectory(oystehr, stripe, needLookup, async (done) => {
+    if (done % 100 < 8 || done === needLookup.length) await onProgress?.(done, needLookup.length);
+  });
+  for (const [customerId, card] of looked) {
+    cardByCustomerId.set(customerId, { brand: card.brand, last4: card.last4 });
   }
   return cardByCustomerId;
 }

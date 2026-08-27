@@ -10,6 +10,7 @@ import { fetchAllPages } from '../../../shared/fhir';
 import { getRateLimitedStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import { CardSummary, lookupCardsWithDirectory } from '../card-directory';
 import { fullCacheKey, loadReportCache, saveReportCache } from '../framework/report-cache';
 import { ReportDefinition } from '../framework/types';
 
@@ -18,9 +19,8 @@ const CUSTOMER_PAGE_SIZE = 100;
 const MAX_CUSTOMERS = 50000;
 const PATIENT_BATCH_SIZE = 100;
 const APPOINTMENT_BATCH_SIZE = 50;
-// conservative: Stripe rate limits kicked in at higher parallelism
-const PM_LOOKUP_CONCURRENCY = 8;
-// fallback paymentMethods.list calls per drain batch; the rest stay queued in the cache
+// fallback card lookups per drain batch; the rest stay queued in the cache. Directory hits
+// are free, so a warm shared cache drains far faster than this bound suggests.
 const PM_LOOKUPS_PER_RUN = 500;
 // beyond this the drain can't finish inside the worker timeout; excess customers report no card
 const MAX_PENDING_LOOKUPS = 5000;
@@ -133,6 +133,7 @@ async function computeCardsReport(
 
   // customers with open invoices get their fallback lookups in the first batch
   const { cardByCustomerId, pending } = await resolveCards(
+    oystehr,
     stripe,
     customers,
     new Set(openInvoicesByCustomerId.keys()),
@@ -213,7 +214,7 @@ async function continueCardLookups(
   const stripe = getRateLimitedStripeClient(secrets);
   const batch = pending.slice(0, PM_LOOKUPS_PER_RUN);
   const rest = pending.slice(PM_LOOKUPS_PER_RUN);
-  const cards = await lookupCards(stripe, batch);
+  const cards = await lookupCardsWithDirectory(oystehr, stripe, batch);
 
   const rowByCustomerId = new Map(state.rows.map((row) => [row.stripeCustomerId, row]));
   for (const [customerId, card] of cards) {
@@ -318,21 +319,22 @@ async function listAllCustomers(
   return customers;
 }
 
-interface CardSummary {
+interface CardSummaryLike {
   id: string;
   brand: string;
   last4: string;
 }
 
-// default payment method, else legacy default card source, else the first attached card (first
-// batch now, the rest queued for continueLookups calls)
+// default payment method, else legacy default card source, else the shared card directory
+// (first batch now, the rest queued for continueLookups calls)
 async function resolveCards(
+  oystehr: Oystehr,
   stripe: Stripe,
   customers: CustomerWithAccount[],
   priorityCustomerIds: Set<string>,
   onProgress?: (done: number, total: number) => Promise<void>
-): Promise<{ cardByCustomerId: Map<string, CardSummary>; pending: PendingLookup[] }> {
-  const cardByCustomerId = new Map<string, CardSummary>();
+): Promise<{ cardByCustomerId: Map<string, CardSummaryLike>; pending: PendingLookup[] }> {
+  const cardByCustomerId = new Map<string, CardSummaryLike>();
   const needLookup: CustomerWithAccount[] = [];
 
   for (const entry of customers) {
@@ -367,7 +369,7 @@ async function resolveCards(
   const pending = prioritized.slice(PM_LOOKUPS_PER_RUN);
 
   let lastReported = 0;
-  const looked = await lookupCards(stripe, batch, async (done) => {
+  const looked: Map<string, CardSummary> = await lookupCardsWithDirectory(oystehr, stripe, batch, async (done) => {
     if (done - lastReported >= 100 || done === batch.length) {
       lastReported = done;
       await onProgress?.(done, prioritized.length);
@@ -375,49 +377,6 @@ async function resolveCards(
   });
   for (const [customerId, card] of looked) cardByCustomerId.set(customerId, card);
   return { cardByCustomerId, pending };
-}
-
-// batched paymentMethods.list per customer, with rate-limit retries. A lookup that still fails
-// throws: "no card" is a billing fact, so an error must not be cached as one. The thrown
-// invocation leaves the previous cache and pending queue intact, making the batch retryable.
-async function lookupCards(
-  stripe: Stripe,
-  entries: PendingLookup[],
-  onDone?: (done: number) => Promise<void>
-): Promise<Map<string, CardSummary>> {
-  const cardByCustomerId = new Map<string, CardSummary>();
-  for (let i = 0; i < entries.length; i += PM_LOOKUP_CONCURRENCY) {
-    await Promise.all(
-      entries.slice(i, i + PM_LOOKUP_CONCURRENCY).map(async ({ customerId, stripeAccount }) => {
-        for (let attempt = 0; ; attempt++) {
-          try {
-            const methods = await stripe.paymentMethods.list(
-              { customer: customerId, type: 'card', limit: 1 },
-              { stripeAccount }
-            );
-            const method = methods.data[0];
-            if (method) {
-              cardByCustomerId.set(customerId, {
-                id: method.id,
-                brand: method.card?.brand ?? '',
-                last4: method.card?.last4 ?? '',
-              });
-            }
-            return;
-          } catch (err) {
-            const rateLimited = (err as Stripe.errors.StripeError)?.type === 'StripeRateLimitError';
-            if (rateLimited && attempt < 2) {
-              await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
-              continue;
-            }
-            throw new Error(`Failed to list payment methods for ${customerId}: ${(err as Error)?.message}`);
-          }
-        }
-      })
-    );
-    await onDone?.(Math.min(i + PM_LOOKUP_CONCURRENCY, entries.length));
-  }
-  return cardByCustomerId;
 }
 
 async function fetchPatientsById(oystehr: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
