@@ -18,6 +18,9 @@ export function mergeReportStatuses(...statuses: (ReportRefreshStatus | undefine
   );
 }
 
+const formatSize = (bytes: number): string =>
+  bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
 // Report-header status line + refresh button: idle / running-with-live-progress / error+Retry.
 export function ReportStatusBar({
   status,
@@ -30,9 +33,20 @@ export function ReportStatusBar({
 }): ReactElement {
   const running = status?.state === 'running';
   const lastCompleted = status?.lastCompletedAt ? DateTime.fromISO(status.lastCompletedAt) : undefined;
+  const size = status?.cacheSizeBytes ? ` · ${formatSize(status.cacheSizeBytes)}` : '';
 
   return (
     <Stack direction="row" alignItems="center" gap={1.5}>
+      {status?.truncated && (
+        <Tooltip title="The report was too large to store in full; some rows were dropped. Narrow the filters or date range for complete data.">
+          <Stack direction="row" alignItems="center" gap={0.5}>
+            <WarningIcon color="warning" sx={{ fontSize: 16 }} />
+            <Typography variant="caption" color="warning.main" noWrap>
+              Truncated
+            </Typography>
+          </Stack>
+        </Tooltip>
+      )}
       {running ? (
         <Box sx={{ minWidth: 200, maxWidth: 360 }}>
           <Typography variant="caption" color="text.secondary" noWrap component="div">
@@ -52,7 +66,7 @@ export function ReportStatusBar({
       ) : lastCompleted ? (
         <Tooltip title={lastCompleted.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}>
           <Typography variant="caption" color="text.disabled" noWrap>
-            {`Updated ${lastCompleted.toRelative() ?? ''}`}
+            {`Updated ${lastCompleted.toRelative() ?? ''}${size}`}
           </Typography>
         </Tooltip>
       ) : null}

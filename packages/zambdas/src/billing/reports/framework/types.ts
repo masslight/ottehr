@@ -15,6 +15,8 @@ export interface ReportContext {
 
 export interface ReportPayload {
   generatedAt: string;
+  // set by definitions whose compute or shrink dropped data
+  truncated?: boolean;
 }
 
 // One cached report kind: the HTTP zambda and the worker are generic over this contract.

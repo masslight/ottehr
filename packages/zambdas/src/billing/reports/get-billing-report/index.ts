@@ -9,7 +9,7 @@ import { safeValidate } from '../../../shared/validation';
 import { createBillingClient } from '../../shared';
 import { findActiveRefreshTask, findRecentFailedRefreshTask, kickOffRefreshTask } from '../framework/refresh-task';
 import { reportRegistry } from '../framework/registry';
-import { detailCacheKey, fullCacheKey, loadReportCache, ReportDetailEnvelope } from '../framework/report-cache';
+import { detailCacheKey, fullCacheKey, loadReportCacheWithSize, ReportDetailEnvelope } from '../framework/report-cache';
 import { ReportPayload } from '../framework/types';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -42,14 +42,18 @@ export async function performEffect(
   if (rawDrilldown !== undefined) {
     if (!definition.drilldown) throw new Error(`Report kind '${kind}' does not support drilldown`);
     const drillParams = safeValidate(definition.drilldown.paramsSchema, rawDrilldown);
-    const envelope = await loadReportCache<ReportDetailEnvelope<unknown>>(oystehr, detailCacheKey(definition, params));
-    const status = await statusOf(oystehr, kind, params, cacheKey, envelope?.generatedAt, undefined);
-    if (!envelope) {
+    const cachedDetail = await loadReportCacheWithSize<ReportDetailEnvelope<unknown>>(
+      oystehr,
+      detailCacheKey(definition, params)
+    );
+    const status = await statusOf(oystehr, cacheKey, cachedDetail?.payload.generatedAt, undefined);
+    if (!cachedDetail) {
       return { ...definition.drilldown.empty(), generatedAt: '', fromCache: false, status };
     }
+    status.cacheSizeBytes = cachedDetail.sizeBytes;
     return {
-      ...definition.drilldown.select(envelope.detail, drillParams),
-      generatedAt: envelope.generatedAt,
+      ...definition.drilldown.select(cachedDetail.payload.detail, drillParams),
+      generatedAt: cachedDetail.payload.generatedAt,
       fromCache: true,
       status,
     };
@@ -58,21 +62,21 @@ export async function performEffect(
   let active = refresh
     ? await kickOffRefreshTask(oystehr, { kind, params, cacheKey })
     : await findActiveRefreshTask(oystehr, cacheKey);
-  const cached = await loadReportCache<ReportPayload>(oystehr, cacheKey);
+  const cached = await loadReportCacheWithSize<ReportPayload>(oystehr, cacheKey);
   // never computed: queue the first build instead of risking the request timeout
   if (!cached && !active) {
     active = await kickOffRefreshTask(oystehr, { kind, params, cacheKey });
   }
 
-  const status = await statusOf(oystehr, kind, params, cacheKey, cached?.generatedAt, active);
-  const payload = cached ? definition.sanitizePayload?.(cached) ?? cached : definition.emptyPayload();
+  const status = await statusOf(oystehr, cacheKey, cached?.payload.generatedAt, active);
+  const payload = cached ? definition.sanitizePayload?.(cached.payload) ?? cached.payload : definition.emptyPayload();
+  if (cached) status.cacheSizeBytes = cached.sizeBytes;
+  if (payload.truncated) status.truncated = true;
   return { ...payload, fromCache: !!cached, status };
 }
 
 async function statusOf(
   oystehr: Oystehr,
-  kind: RefreshReportKind,
-  params: unknown,
   cacheKey: string,
   generatedAt: string | undefined,
   knownActive: Awaited<ReturnType<typeof findActiveRefreshTask>>

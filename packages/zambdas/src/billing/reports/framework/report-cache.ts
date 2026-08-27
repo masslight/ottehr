@@ -51,12 +51,22 @@ export async function loadReportCache<Payload extends ReportPayload>(
   oystehr: Oystehr,
   cacheKey: string
 ): Promise<Payload | undefined> {
+  return (await loadReportCacheWithSize<Payload>(oystehr, cacheKey))?.payload;
+}
+
+// payload plus the stored (gzip) size of the cache document, for the status line
+export async function loadReportCacheWithSize<Payload extends ReportPayload>(
+  oystehr: Oystehr,
+  cacheKey: string
+): Promise<{ payload: Payload; sizeBytes: number } | undefined> {
   try {
     const document = await findCacheDocument(oystehr, cacheKey);
     const data = document?.content?.[0]?.attachment?.data;
     if (!data) return undefined;
     // plain Uint8Array keeps zlib typings happy across @types/node versions
-    return JSON.parse(gunzipSync(new Uint8Array(Buffer.from(data, 'base64'))).toString('utf8'));
+    const gzipBytes = Buffer.from(data, 'base64');
+    const payload = JSON.parse(gunzipSync(new Uint8Array(gzipBytes)).toString('utf8'));
+    return { payload, sizeBytes: gzipBytes.length };
   } catch (err) {
     console.warn(`Failed to load report cache ${cacheKey}:`, (err as Error)?.message);
     return undefined;
@@ -81,7 +91,13 @@ export async function saveReportCache<Payload extends ReportPayload>(
         console.warn(`Report cache ${cacheKey} too large to save (${data.length} bytes); skipping save`);
         return;
       }
-      data = encode(toSave);
+      const shrunk = encode(toSave);
+      // a shrink that makes no progress would loop forever
+      if (shrunk.length >= data.length) {
+        console.warn(`Report cache ${cacheKey} shrink made no progress (${shrunk.length} bytes); skipping save`);
+        return;
+      }
+      data = shrunk;
     }
     const document: DocumentReference = {
       resourceType: 'DocumentReference',
