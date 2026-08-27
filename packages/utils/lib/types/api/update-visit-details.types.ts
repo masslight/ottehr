@@ -1,6 +1,7 @@
 import { Attachment, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
+import { isNioReferenceUrl } from '../../helpers/helpers';
 import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
 import { isValidUUID } from '../../validation/helper';
 import {
@@ -37,13 +38,14 @@ export interface UpdateVisitDetailsInput {
 }
 
 const ORGANIZATION_REFERENCE_PREFIX = 'Organization/';
-const organizationReferenceSchema = z
-  .string()
-  .refine(
-    (val) =>
-      val.startsWith(ORGANIZATION_REFERENCE_PREFIX) && isValidUUID(val.slice(ORGANIZATION_REFERENCE_PREFIX.length)),
-    { message: 'reference must be Organization/{uuid}' }
-  );
+const organizationReferenceSchema = z.string().refine(
+  (val) =>
+    (val.startsWith(ORGANIZATION_REFERENCE_PREFIX) && isValidUUID(val.slice(ORGANIZATION_REFERENCE_PREFIX.length))) ||
+    // A billing-app NIO reference token — resolved through the billing zambda interface, never as
+    // a FHIR read. Which form is actually acceptable is enforced by the handler per feature flag.
+    isNioReferenceUrl(val),
+  { message: 'reference must be Organization/{uuid} or a non-insurance organization reference' }
+);
 
 export const FhirOrganizationReferenceSchema = z.object({
   reference: organizationReferenceSchema,
