@@ -495,12 +495,8 @@ export function getEraCheckNumber(
 
 export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
 
-export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
-  return (
-    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
-    claim.id?.replaceAll('-', '') ??
-    ''
-  );
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string | undefined {
+  return claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value;
 }
 
 export function claimIdFromPcn(pcn: string): string | undefined {
