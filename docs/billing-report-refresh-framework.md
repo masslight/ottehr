@@ -2,7 +2,7 @@
 
 How the billing app's reports are computed, cached, refreshed, and drilled into. This document
 describes the **mechanism**; the individual reports built on it are documented in
-[billing-reports.md](./billing-reports.md).
+`billing-reports.md` (added alongside the first report definitions in a follow-up PR).
 
 ## 1. The model in one paragraph
 
