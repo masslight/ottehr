@@ -614,6 +614,10 @@ export interface ReportRefreshStatus {
   progress?: string;
   // most recent failure's reason
   error?: string;
+  // stored (gzip) size of the served cache document
+  cacheSizeBytes?: number;
+  // the served payload was cut down to fit cache limits
+  truncated?: boolean;
 }
 
 export interface GetBillingPaymentsReportResponse {

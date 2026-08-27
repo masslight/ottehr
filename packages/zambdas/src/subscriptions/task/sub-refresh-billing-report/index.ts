@@ -15,6 +15,7 @@ const ZAMBDA_NAME = 'sub-refresh-billing-report';
 export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   const { kind, paramsJson, taskId, secrets } = validateRequestParameters(input);
   const definition = reportRegistry[kind];
+  if (!definition) throw new Error(`No report definition registered for kind '${kind}'`);
   const params = safeValidate(definition.paramsSchema, JSON.parse(paramsJson));
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
