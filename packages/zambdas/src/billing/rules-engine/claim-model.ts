@@ -285,7 +285,11 @@ const resolveFirstServiceLineDate = (model: RulesEngineClaimModel): DateValueRes
 // back to the claim's first service line's date — addServiceLine's long-standing implicit behavior,
 // now this resolver's single definition of it.
 export const resolveDateValue = (value: DateValue | undefined, model: RulesEngineClaimModel): DateValueResolution => {
-  if (value != null && typeof value === 'object') return resolveFirstServiceLineDate(model);
+  if (value != null && typeof value === 'object') {
+    return value.source === 'firstServiceLineDate'
+      ? resolveFirstServiceLineDate(model)
+      : { error: 'Unknown date source' };
+  }
   const literal = value?.trim();
   return literal ? { value: literal } : resolveFirstServiceLineDate(model);
 };
