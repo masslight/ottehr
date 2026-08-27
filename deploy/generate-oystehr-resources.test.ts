@@ -1,12 +1,17 @@
 import fs from 'node:fs/promises';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock fs module before importing the module under test
 vi.mock('node:fs/promises');
 
+// FEATURE_FLAGS_CONFIG is a frozen compile-time constant, so tests toggle it through this
+// hoisted mutable object. Default off: existing tests describe the flag-off deploy path.
+const featureFlags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: false }));
+
 vi.mock('utils', () => ({
   BRANDING_CONFIG: { projectName: 'test-project' },
   SENDGRID_CONFIG: { templates: {} },
+  FEATURE_FLAGS_CONFIG: featureFlags,
 }));
 
 // Import after mocks are set up
@@ -455,6 +460,63 @@ describe('generate-oystehr-resources', () => {
         const platformWebhookSecret =
           writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
         expect(platformWebhookSecret.value).toBe('whsec_platform');
+      });
+    });
+
+    describe('NIO billing integration guard', () => {
+      const minimalSpec = { 'schema-version': '2025-09-25', secrets: {} };
+      const setupMocks = (vars: VarsFile): void => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('spec.json', true)] as never;
+          }
+          return [];
+        });
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec.json')) return JSON.stringify(minimalSpec);
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+      };
+
+      beforeEach(() => {
+        featureFlags.nonInsuranceOrganizationsEnabled = true;
+      });
+
+      afterEach(() => {
+        featureFlags.nonInsuranceOrganizationsEnabled = false;
+      });
+
+      it('accepts BILLING_INTEGRATION=ottehr when the NIO flag is on', async () => {
+        setupMocks({ BILLING_INTEGRATION: 'ottehr' });
+
+        await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
+      });
+
+      it.each(['candid', 'all'])('rejects BILLING_INTEGRATION=%s when the NIO flag is on', async (value) => {
+        setupMocks({ BILLING_INTEGRATION: value });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          'Candid claims are not supported with non-insurance organizations'
+        );
+      });
+
+      it('rejects an unset BILLING_INTEGRATION when the NIO flag is on — the runtime default is Candid', async () => {
+        setupMocks({});
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          "BILLING_INTEGRATION is '(unset)' for env 'local'"
+        );
+      });
+
+      it('leaves the flag-off world alone — unset BILLING_INTEGRATION still generates', async () => {
+        featureFlags.nonInsuranceOrganizationsEnabled = false;
+        setupMocks({});
+
+        await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
       });
     });
   });

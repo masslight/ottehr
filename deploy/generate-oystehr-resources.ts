@@ -181,9 +181,34 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
   const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
 
+  assertBillingIntegrationSupportsNios(coreVars, env);
+
   await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
   if (billingSpecs.length > 0) {
     await validateAndGenerateSpecFiles(billingSpecs, billingVars, billingOutputPath);
+  }
+}
+
+/**
+ * With nonInsuranceOrganizationsEnabled on, employer billing lives in the billing app and Candid
+ * can't see it, so claims must route through Ottehr billing exclusively. Failing generation is the
+ * loud, early stop for that misconfiguration; shouldUseCandid in packages/zambdas backstops
+ * secrets edited outside IaC. Unset BILLING_INTEGRATION counts as Candid — that's its runtime
+ * default while secrets migrate.
+ */
+function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, env: string): void {
+  if (!FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    return;
+  }
+  const billingIntegration = vars.BILLING_INTEGRATION;
+  if (billingIntegration !== 'ottehr') {
+    throw new Error(
+      `BILLING_INTEGRATION is '${
+        billingIntegration || '(unset)'
+      }' for env '${env}', which routes claims through Candid, but the nonInsuranceOrganizationsEnabled ` +
+        `feature flag is on. Candid claims are not supported with non-insurance organizations: set ` +
+        `BILLING_INTEGRATION to 'ottehr' in config/.env/${env}.json, or turn off nonInsuranceOrganizationsEnabled.`
+    );
   }
 }
 

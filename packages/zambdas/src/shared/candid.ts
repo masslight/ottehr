@@ -96,6 +96,7 @@ import {
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -1660,11 +1661,23 @@ export const getCptModifierCodeFromProcedure = (
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {
-  return (
+  const useCandid =
     ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
-    !secrets.BILLING_INTEGRATION
-  );
+    !secrets.BILLING_INTEGRATION;
+  // Candid can't see billing-app NIOs, so routing claims through it in NIO mode silently drops
+  // employer billing. Terraform generation rejects this combination; this backstop catches
+  // secrets edited outside IaC.
+  if (useCandid && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    throw new Error(
+      `BILLING_INTEGRATION is '${
+        secrets.BILLING_INTEGRATION || '(unset)'
+      }', which routes claims through Candid, but the nonInsuranceOrganizationsEnabled feature flag is on. ` +
+        `Candid claims are not supported with non-insurance organizations: set BILLING_INTEGRATION to 'ottehr', ` +
+        `or turn off nonInsuranceOrganizationsEnabled.`
+    );
+  }
+  return useCandid;
 }
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {
