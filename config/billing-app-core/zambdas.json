@@ -274,13 +274,6 @@
       "src": "src/billing/run-billing-rules-engine/index",
       "zip": ".dist/zips/run-billing-rules-engine.zip"
     },
-    "GET-BILLING-REPORT": {
-      "name": "get-billing-report",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/reports/get-billing-report/index",
-      "zip": ".dist/zips/get-billing-report.zip"
-    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
@@ -420,14 +413,6 @@
       "src": "src/subscriptions/task/sub-export-billing-claims-csv/index",
       "zip": ".dist/zips/sub-export-billing-claims-csv.zip"
     },
-    "SUB-REFRESH-BILLING-REPORT": {
-      "name": "sub-refresh-billing-report",
-      "type": "subscription",
-      "timeout": "870",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/task/sub-refresh-billing-report/index",
-      "zip": ".dist/zips/sub-refresh-billing-report.zip"
-    },
     "CLEANUP-BILLING-CLAIM-EXPORTS": {
       "name": "cleanup-billing-claim-exports",
       "type": "cron",
@@ -456,24 +441,6 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-BILLING-CLAIMS-CSV/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          }
-        ]
-      }
-    },
-    "SUB_REFRESH_BILLING_REPORT_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Recompute a heavy billing report cache asynchronously",
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|refresh-billing-report&status=requested",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-REFRESH-BILLING-REPORT/id}"
         },
         "extension": [
           {

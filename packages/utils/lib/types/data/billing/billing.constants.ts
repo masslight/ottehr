@@ -10,22 +10,6 @@ export const EXPORT_CLAIMS_CSV_TASK_CODE = 'export-billing-claims-csv';
 export const EXPORT_CLAIMS_FILTERS_CODE = 'export-claims-filters';
 export const EXPORT_CLAIMS_INCOMPLETE_CODE = 'export-claims-incomplete';
 
-// Async billing-report refresh Task: kind/params/cacheKey travel as Task inputs; the
-// Subscription matches on the code.
-export const REFRESH_REPORT_TASK_CODE = 'refresh-billing-report';
-export const REFRESH_REPORT_KIND_CODE = 'refresh-report-kind';
-export const REFRESH_REPORT_PARAMS_CODE = 'refresh-report-params';
-export const REFRESH_REPORT_CACHE_KEY_CODE = 'refresh-report-cache-key';
-export const REFRESH_REPORT_KINDS = [
-  'payments',
-  'patient-payments',
-  'invoice',
-  'cards-on-file',
-  'pipeline',
-  'productivity',
-] as const;
-export type RefreshReportKind = (typeof REFRESH_REPORT_KINDS)[number];
-
 // Max claims a single CSV export includes; matches beyond this are truncated and flagged incomplete.
 export const EXPORT_CLAIMS_MATCH_LIMIT = 10_000;
 
