@@ -63,7 +63,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box>
       <AccordionCard
         label={`Height (cm) ${latestHeightValue ?? ''}`}
         collapsed={isCollapsed}

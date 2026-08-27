@@ -279,6 +279,19 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     return (
       <Box sx={{ minHeight: '40px' }} display="flex" justifyContent="space-between" alignItems="center">
         <Box display="flex" gap={2}>
+          {/* The page relies on breadcrumbs here; the inline flow has none, so it passes onBack */}
+          {onBack && (
+            <ButtonRounded
+              data-testid={dataTestIds.orderMedicationPage.backButton}
+              variant="outlined"
+              onClick={onBack}
+              color="primary"
+              size="large"
+              startIcon={<ArrowBackIcon />}
+            >
+              Back
+            </ButtonRounded>
+          )}
           <MedicationStatusChip
             isEditable={false}
             medication={medication}
