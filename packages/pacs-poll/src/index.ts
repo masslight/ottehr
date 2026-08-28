@@ -90,6 +90,10 @@ const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceReque
           name: 'authored',
           value: `ge${twoWeeksAgo.toISODate()}`,
         },
+        {
+          name: '_tag',
+          value: 'https://fhir.ottehr.com/CodeSystem/order-type-tag|radiology',
+        },
       ],
     })
   ).unbundle();
