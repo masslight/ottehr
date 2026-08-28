@@ -141,6 +141,7 @@ const payerColumns: GridColDef[] = [
 
 const PAYMENTS_OVERVIEW_COLORS = ['#3f79c1', '#7fb069'];
 const ALLOWED_OVERVIEW_COLORS = ['#8464a9', '#e2a54b'];
+const KNOWN_METHODS = ['card', 'cash', 'check', 'invoice'];
 
 function OverviewBox({
   title,
@@ -214,17 +215,31 @@ function OverviewBox({
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }): ReactElement {
+function StatCard({
+  label,
+  value,
+  hint,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  active?: boolean;
+  onClick?: () => void;
+}): ReactElement {
   return (
     <Box
+      onClick={onClick}
       sx={{
         flex: 1,
         minWidth: 160,
-        bgcolor: 'background.paper',
-        border: `1px solid ${otherColors.lightDivider}`,
+        bgcolor: active ? '#eef4fb' : 'background.paper',
+        border: `1px solid ${active ? '#3f79c1' : otherColors.lightDivider}`,
         borderRadius: 2,
         px: 2.5,
         py: 2,
+        ...(onClick ? { cursor: 'pointer', '&:hover': { borderColor: '#3f79c1' } } : {}),
       }}
     >
       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
@@ -742,6 +757,7 @@ export default function PaymentsReport(): ReactElement {
   const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
   const [drilldown, setDrilldown] = useState<DrilldownCriteria | null>(null);
   const [patientDrilldown, setPatientDrilldown] = useState<PatientPaymentsCriteria | null>(null);
+  const [methodFilter, setMethodFilter] = useState<string | null>(null);
 
   const windowParams = useMemo(
     () => ({ ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }),
@@ -783,6 +799,14 @@ export default function PaymentsReport(): ReactElement {
   const patientCollected = patientReport?.totals.net ?? 0;
   const patientResp = totals?.patientResp ?? 0;
   const totalCollected = insurancePaid + patientCollected;
+
+  const filteredPatientRows = useMemo(() => {
+    const rows = patientReport?.rows ?? [];
+    if (!methodFilter) return rows;
+    if (methodFilter === 'other') return rows.filter((row) => !KNOWN_METHODS.includes(row.paymentMethod));
+    if (methodFilter === 'refunded') return rows.filter((row) => row.refunded > 0);
+    return rows.filter((row) => row.paymentMethod === methodFilter);
+  }, [patientReport, methodFilter]);
 
   return (
     <Box>
@@ -964,6 +988,8 @@ export default function PaymentsReport(): ReactElement {
               label={method === 'invoice' ? 'Invoices' : method === 'check' ? 'Checks' : methodLabel(method)}
               value={formatCurrency(collected)}
               hint={`${count} payments`}
+              active={methodFilter === method}
+              onClick={() => setMethodFilter(methodFilter === method ? null : method)}
             />
           );
         })}
@@ -977,18 +1003,27 @@ export default function PaymentsReport(): ReactElement {
           hint={`${(patientReport?.rows ?? [])
             .filter((row) => !['card', 'cash', 'check', 'invoice'].includes(row.paymentMethod))
             .reduce((sum, row) => sum + row.paymentCount, 0)} payments`}
+          active={methodFilter === 'other'}
+          onClick={() => setMethodFilter(methodFilter === 'other' ? null : 'other')}
         />
-        <StatCard label="Refunded" value={formatCurrency(patientReport?.totals.refunded ?? 0)} />
+        <StatCard
+          label="Refunded"
+          value={formatCurrency(patientReport?.totals.refunded ?? 0)}
+          active={methodFilter === 'refunded'}
+          onClick={() => setMethodFilter(methodFilter === 'refunded' ? null : 'refunded')}
+        />
         <StatCard
           label="Net"
           value={formatCurrency(patientReport?.totals.net ?? 0)}
           hint={`${patientReport?.totals.paymentCount ?? 0} payments total`}
+          active={methodFilter === null}
+          onClick={() => setMethodFilter(null)}
         />
       </Stack>
 
       <DataGridPro
         autoHeight
-        rows={patientReport?.rows ?? []}
+        rows={filteredPatientRows}
         getRowId={(row) => `${row.locationId || row.locationName}|${row.paymentMethod}`}
         columns={patientPaymentColumns}
         loading={patientLoading}
