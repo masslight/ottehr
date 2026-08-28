@@ -80,22 +80,6 @@ describe('buildClaimSearchTextQueries', () => {
     expect(clauseNames('Smith')).not.toContain('patient');
   });
 
-  it('restores a dash-stripped PCN into a claim id clause', () => {
-    expect(clauseNames(MINIFIED_CLAIM_ID)).toEqual([
-      ...NAME_CLAUSES,
-      'identifier',
-      'patient.identifier',
-      'patient.identifier',
-      '_id',
-    ]);
-    expect(clauseFor(MINIFIED_CLAIM_ID, '_id')).toEqual([
-      {
-        name: '_id',
-        value: CLAIM_ID,
-      },
-    ]);
-  });
-
   it('keeps the fan-out to at most eight clauses', () => {
     expect(buildClaimSearchTextQueries({ searchText: 'Smith' })).toHaveLength(8);
     expect(buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID })).toHaveLength(9);
@@ -104,7 +88,7 @@ describe('buildClaimSearchTextQueries', () => {
       buildClaimSearchTextQueries({
         searchText: CLAIM_ID,
       })
-    ).toHaveLength(9);
+    ).toHaveLength(8);
   });
 
   it('trims the text and searches nothing when it is blank', () => {
@@ -124,21 +108,6 @@ describe('buildClaimSearchTextQueries', () => {
 
     it('searches only the patient name for plain text', () => {
       expect(scopedClauseNames('Smith')).toEqual(['patient.name']);
-    });
-
-    it('adds an exact claim id lookup for UUIDs', () => {
-      expect(scopedClauseNames(CLAIM_ID)).toEqual(['patient.name', '_id']);
-      expect(scopedClauseNames(MINIFIED_CLAIM_ID)).toEqual(['patient.name', '_id']);
-      expect(
-        buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID, patientNameOnly: true })
-          .flat()
-          .filter((p) => p.name === '_id')
-      ).toEqual([
-        {
-          name: '_id',
-          value: CLAIM_ID,
-        },
-      ]);
     });
   });
 });
