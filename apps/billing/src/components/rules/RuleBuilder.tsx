@@ -39,6 +39,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   DateValue,
+  effectiveDiagnosisMode,
   operatorIsMultiValue,
   operatorIsRegex,
   operatorNeedsValue,
@@ -807,16 +808,25 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
 // input; blank optional fields fall back to the claim editor's defaults, shown as helper text.
 function AddServiceLineEditor({ name }: { name: string }): ReactElement {
   const { control } = useFormContext();
+  // diagnosisPointers only means anything when diagnosisMode is 'specific' — hide it otherwise
+  // rather than showing an input that has no effect. A rule saved before diagnosisMode existed has
+  // pointers but no mode, so fall back the same way the engine does (effectiveDiagnosisMode) instead
+  // of showing an unselected dropdown for a line that's actually pointing at specific diagnoses.
+  const diagnosisMode = useWatch({ control, name: `${name}.line.diagnosisMode` });
+  const diagnosisPointers = useWatch({ control, name: `${name}.line.diagnosisPointers` });
+  const effectiveMode = effectiveDiagnosisMode({ diagnosisMode, diagnosisPointers });
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      {ADD_SERVICE_LINE_FIELDS.map((lineField) => (
+      {ADD_SERVICE_LINE_FIELDS.filter(
+        (lineField) => lineField.id !== 'diagnosisPointers' || effectiveMode === 'specific'
+      ).map((lineField) => (
         <Controller
           key={lineField.id}
           name={`${name}.line.${lineField.id}`}
           control={control}
           rules={{
             validate: (value: string | DateValue | undefined) =>
-              addServiceLineFieldProblem(lineField.id, value) ?? true,
+              addServiceLineFieldProblem(lineField.id, value, { diagnosisMode }) ?? true,
           }}
           render={({ field: { ref, value: fieldValue, onChange, onBlur }, fieldState: { error } }) => {
             const label = lineField.required ? lineField.label : `${lineField.label} (optional)`;
@@ -1014,7 +1024,10 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             if (next === RULE_ACTION_TYPE.setField) replace(newAction());
             else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
             else if (next === RULE_ACTION_TYPE.addServiceLine)
-              replace({ type: RULE_ACTION_TYPE.addServiceLine, line: { cptCode: '', charges: '' } });
+              replace({
+                type: RULE_ACTION_TYPE.addServiceLine,
+                line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
+              });
             else if (next === RULE_ACTION_TYPE.updateServiceLines)
               replace({
                 type: RULE_ACTION_TYPE.updateServiceLines,
