@@ -153,13 +153,14 @@ export const CreateTaskDialog: React.FC<Props> = ({
     }
   }, [open, initialPatient, appointment.patient, methods]);
 
+  // useParams() returns an unstable {} outside a matched Route, so the effect deps must be the primitive params, not the object.
+  const orderFullUrl = urlParams['*'];
+  const serviceRequestId = urlParams['serviceRequestID'];
+  const procedureId = urlParams['procedureId'];
   useEffect(() => {
     if (!open) {
       return;
     }
-    const orderFullUrl = urlParams['*'];
-    const serviceRequestId = urlParams['serviceRequestID'];
-    const procedureId = urlParams['procedureId'];
     if (orderFullUrl?.startsWith('in-house-lab-orders') && serviceRequestId) {
       methods.setValue('category', MANUAL_TASK.category.inHouseLab);
       methods.setValue('order', serviceRequestId);
@@ -183,7 +184,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
     methods.setValue('location', null);
-  }, [urlParams, methods, open]);
+  }, [orderFullUrl, serviceRequestId, procedureId, methods, open]);
 
   return (
     <InPersonModal

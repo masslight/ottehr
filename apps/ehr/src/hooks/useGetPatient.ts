@@ -88,7 +88,8 @@ export const useGetPatient = (
   useEffect(() => {
     async function getPatient(): Promise<void> {
       if (!oystehr) {
-        throw new Error('oystehr is not defined');
+        // Client not ready yet (or id undefined, so the queries stay disabled); the effect re-runs once oystehr exists.
+        return;
       }
 
       if (!patientResources || !otherPatientsWithSameNameResources) {
