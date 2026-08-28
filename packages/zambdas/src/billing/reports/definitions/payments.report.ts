@@ -63,7 +63,7 @@ export const paymentsReport: ReportDefinition<
   GetBillingPaymentsReportDrilldownInput
 > = {
   kind: 'payments',
-  cacheVersion: 'v1',
+  cacheVersion: 'v2',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
   // detail spans all ERAs regardless of the window
@@ -176,6 +176,7 @@ async function computeInsurancePayments(
           billed: 0,
           allowed: 0,
           insurancePaid: 0,
+          patientResp: 0,
           checkTotal: 0,
         };
         rowsByPayerKey.set(key, row);
@@ -192,6 +193,7 @@ async function computeInsurancePayments(
         row.billed += extractReportedCharge(claimResponse) ?? 0;
         row.allowed += amounts.allowed ?? 0;
         row.insurancePaid += amounts.paid;
+        row.patientResp += amounts.patientResp ?? 0;
       }
 
       const serviceDay = claimResponseServiceDay(claimResponse, partialClaimsById);
@@ -237,6 +239,7 @@ async function computeInsurancePayments(
       billed: roundNumberToDecimalPlaces(row.billed, 2),
       allowed: roundNumberToDecimalPlaces(row.allowed, 2),
       insurancePaid: roundNumberToDecimalPlaces(row.insurancePaid, 2),
+      patientResp: roundNumberToDecimalPlaces(row.patientResp, 2),
       checkTotal: roundNumberToDecimalPlaces(row.checkTotal, 2),
     }))
     .sort((a, b) => b.insurancePaid - a.insurancePaid || b.checkTotal - a.checkTotal);
@@ -259,15 +262,17 @@ export function totalsOf(rows: PaymentsReportPayerRow[]): GetBillingPaymentsRepo
       billed: acc.billed + row.billed,
       allowed: acc.allowed + row.allowed,
       insurancePaid: acc.insurancePaid + row.insurancePaid,
+      patientResp: acc.patientResp + row.patientResp,
       checkTotal: acc.checkTotal + row.checkTotal,
     }),
-    { eraCount: 0, claimCount: 0, billed: 0, allowed: 0, insurancePaid: 0, checkTotal: 0 }
+    { eraCount: 0, claimCount: 0, billed: 0, allowed: 0, insurancePaid: 0, patientResp: 0, checkTotal: 0 }
   );
   return {
     ...totals,
     billed: roundNumberToDecimalPlaces(totals.billed, 2),
     allowed: roundNumberToDecimalPlaces(totals.allowed, 2),
     insurancePaid: roundNumberToDecimalPlaces(totals.insurancePaid, 2),
+    patientResp: roundNumberToDecimalPlaces(totals.patientResp, 2),
     checkTotal: roundNumberToDecimalPlaces(totals.checkTotal, 2),
   };
 }

@@ -47,7 +47,6 @@ export const patientPaymentsReport: ReportDefinition<
   PatientPaymentsDrilldownParams
 > = {
   kind: 'patient-payments',
-  // v2: notices from both scopes (billing-tagged + EHR-recorded), deduped by Stripe id
   cacheVersion: 'v2',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
@@ -171,8 +170,7 @@ async function loadNoticeContext(
     return fetched;
   };
 
-  // billing-tagged notices (webhook-created) plus non-billing notices (EHR-recorded payments
-  // live outside the billing workspace); window filtered in memory by day
+  // billing-tagged notices plus EHR-recorded ones outside the billing workspace
   const [billingNotices, unscopedNotices] = await Promise.all([
     fetchNotices(oystehr, []),
     fetchNotices(untaggedClient, [
@@ -190,16 +188,35 @@ async function loadNoticeContext(
     ),
   ];
 
-  const notices = allNotices.filter(
+  let notices = allNotices.filter(
     (notice) => notice.status === 'active' && noticeInWindow(notice, params.dateFrom, params.dateTo)
   );
 
-  // Stripe charges nothing recorded (missed webhooks, pre-webhook history) still count: they
-  // join as synthetic in-memory rows. Batched charges.list only — no per-charge calls.
+  // where Stripe has data it wins: fully refunded charges drop out, unrecorded charges join
+  // as synthetic rows; cash/check/external notices carry no Stripe ids and pass through
   const synthetic = new WeakSet<PaymentNotice>();
   await onProgress?.('listing Stripe charges…');
   try {
-    for (const syntheticNotice of await syntheticNoticesFromStripe(oystehr, notices, params, secrets)) {
+    const charges = await listWindowCharges(oystehr, params, secrets);
+    const chargeByAnyId = new Map<string, Stripe.Charge>();
+    for (const charge of charges) {
+      for (const id of chargeStripeIds(charge)) chargeByAnyId.set(id, charge);
+    }
+    const chargeOf = (notice: PaymentNotice): Stripe.Charge | undefined => {
+      const refundedChargeId = refundedChargeIdOf(notice);
+      return (
+        stripeIdsOf(notice)
+          .map((id) => chargeByAnyId.get(id))
+          .find(Boolean) ?? (refundedChargeId ? chargeByAnyId.get(refundedChargeId) : undefined)
+      );
+    };
+    notices = notices.filter((notice) => {
+      const charge = chargeOf(notice);
+      return !charge || !isFullyRefunded(charge);
+    });
+
+    const knownStripeIds = new Set(notices.flatMap(stripeIdsOf));
+    for (const syntheticNotice of syntheticNoticesFor(charges, knownStripeIds)) {
       synthetic.add(syntheticNotice);
       notices.push(syntheticNotice);
     }
@@ -289,25 +306,30 @@ async function fetchAllOrganizations(oystehr: Oystehr): Promise<Organization[]> 
   return orgs;
 }
 
-// In-memory PaymentNotice stand-ins for succeeded charges no notice ever recorded. They ride
-// the normal rollup/drilldown pipeline: category from the invoice id, location through the
-// charge's encounter metadata, plus a matching refund row when partially/fully refunded.
-async function syntheticNoticesFromStripe(
+const chargeStripeIds = (charge: Stripe.Charge): string[] =>
+  [
+    charge.id,
+    typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id,
+    typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id,
+  ].filter((id): id is string => !!id);
+
+const isFullyRefunded = (charge: Stripe.Charge): boolean =>
+  (charge.amount ?? 0) > 0 && (charge.amount_refunded ?? 0) >= (charge.amount ?? 0);
+
+// succeeded charges across all accounts in the window
+async function listWindowCharges(
   oystehr: Oystehr,
-  notices: PaymentNotice[],
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets']
-): Promise<PaymentNotice[]> {
+): Promise<Stripe.Charge[]> {
   const stripe = getRateLimitedStripeClient(secrets);
-  const knownStripeIds = new Set(notices.flatMap(stripeIdsOf));
   const accounts = await listStripeAccounts(oystehr, stripe);
-
   const createdWindow = {
     ...(params.dateFrom ? { gte: Math.floor(DateTime.fromISO(params.dateFrom).toSeconds()) } : {}),
     ...(params.dateTo ? { lt: Math.floor(DateTime.fromISO(params.dateTo).plus({ days: 1 }).toSeconds()) } : {}),
   };
 
-  const syntheticNotices: PaymentNotice[] = [];
+  const charges: Stripe.Charge[] = [];
   const seenChargeIds = new Set<string>();
   for (const stripeAccount of accounts) {
     const listing = stripe.charges.list(
@@ -315,59 +337,59 @@ async function syntheticNoticesFromStripe(
       { stripeAccount }
     );
     for await (const charge of listing) {
-      if (charge.status !== 'succeeded' || !charge.paid) continue;
-      if (seenChargeIds.has(charge.id)) continue;
+      if (charge.status !== 'succeeded' || !charge.paid || seenChargeIds.has(charge.id)) continue;
       seenChargeIds.add(charge.id);
-      const chargeIds = [
-        charge.id,
-        typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id,
-        typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id,
-      ].filter((id): id is string => !!id);
-      if (chargeIds.some((id) => knownStripeIds.has(id))) continue;
+      charges.push(charge);
+    }
+  }
+  return charges;
+}
 
-      const createdISO = DateTime.fromSeconds(charge.created).toUTC().toISO() ?? '';
-      const encounterId = encounterIdFromStripeMetadata(charge.metadata);
-      const base: Omit<PaymentNotice, 'amount' | 'contained'> = {
-        resourceType: 'PaymentNotice',
+// in-memory PaymentNotice stand-ins for charges with no recorded notice; they ride the normal
+// rollup/drilldown pipeline, resolving location through the charge's encounter metadata
+function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<string>): PaymentNotice[] {
+  const syntheticNotices: PaymentNotice[] = [];
+  for (const charge of charges) {
+    if (isFullyRefunded(charge)) continue;
+    const chargeIds = chargeStripeIds(charge);
+    if (chargeIds.some((id) => knownStripeIds.has(id))) continue;
+
+    const createdISO = DateTime.fromSeconds(charge.created).toUTC().toISO() ?? '';
+    const encounterId = encounterIdFromStripeMetadata(charge.metadata);
+    const base: Omit<PaymentNotice, 'amount' | 'contained'> = {
+      resourceType: 'PaymentNotice',
+      status: 'active',
+      created: createdISO,
+      payment: { display: charge.billing_details?.name ?? charge.billing_details?.email ?? undefined },
+      recipient: {},
+      identifier: chargeIds.map((id) => ({ system: STRIPE_PAYMENT_ID_SYSTEM, value: id })),
+      extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
+      ...(encounterId ? { request: { identifier: { system: CLAIM_ENCOUNTER_ID_SYSTEM, value: encounterId } } } : {}),
+    };
+    const containedFor = (value: number, disposition: string): PaymentNotice['contained'] => [
+      {
+        resourceType: 'PaymentReconciliation',
         status: 'active',
         created: createdISO,
-        // display carries the payer name for the drilldown; there is no FHIR patient link
-        payment: { display: charge.billing_details?.name ?? charge.billing_details?.email ?? undefined },
-        recipient: {},
-        identifier: chargeIds.map((id) => ({ system: STRIPE_PAYMENT_ID_SYSTEM, value: id })),
-        extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
-        ...(encounterId ? { request: { identifier: { system: CLAIM_ENCOUNTER_ID_SYSTEM, value: encounterId } } } : {}),
-      };
+        paymentDate: createdISO.slice(0, 10),
+        paymentAmount: { value, currency: 'USD' },
+        disposition,
+      },
+    ];
+    syntheticNotices.push({
+      ...base,
+      amount: { value: (charge.amount ?? 0) / 100, currency: 'USD' },
+      contained: containedFor((charge.amount ?? 0) / 100, `Stripe charge ${charge.id} with no recorded PaymentNotice`),
+    });
+    if ((charge.amount_refunded ?? 0) > 0) {
       syntheticNotices.push({
         ...base,
-        amount: { value: (charge.amount ?? 0) / 100, currency: 'USD' },
-        contained: [
-          {
-            resourceType: 'PaymentReconciliation',
-            status: 'active',
-            created: createdISO,
-            paymentDate: createdISO.slice(0, 10),
-            paymentAmount: { value: (charge.amount ?? 0) / 100, currency: 'USD' },
-            disposition: `Stripe charge ${charge.id} with no recorded PaymentNotice`,
-          },
-        ],
+        amount: { value: -((charge.amount_refunded ?? 0) / 100), currency: 'USD' },
+        contained: containedFor(
+          -((charge.amount_refunded ?? 0) / 100),
+          `Stripe refund for charge ${charge.id} with no recorded PaymentNotice`
+        ),
       });
-      if ((charge.amount_refunded ?? 0) > 0) {
-        syntheticNotices.push({
-          ...base,
-          amount: { value: -((charge.amount_refunded ?? 0) / 100), currency: 'USD' },
-          contained: [
-            {
-              resourceType: 'PaymentReconciliation',
-              status: 'active',
-              created: createdISO,
-              paymentDate: createdISO.slice(0, 10),
-              paymentAmount: { value: -((charge.amount_refunded ?? 0) / 100), currency: 'USD' },
-              disposition: `Stripe refund for charge ${charge.id} with no recorded PaymentNotice`,
-            },
-          ],
-        });
-      }
     }
   }
   return syntheticNotices;

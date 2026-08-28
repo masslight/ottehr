@@ -594,6 +594,7 @@ export interface PaymentsReportPayerRow {
   billed: number;
   allowed: number;
   insurancePaid: number;
+  patientResp: number;
   checkTotal: number;
 }
 

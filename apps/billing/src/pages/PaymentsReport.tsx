@@ -25,6 +25,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { Chart } from 'react-google-charts';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -137,6 +138,78 @@ const payerColumns: GridColDef[] = [
   },
   currencyCol('checkTotal', 'Check Total', 130),
 ];
+
+const OVERVIEW_COLORS = ['#3f79c1', '#7fb069'];
+
+function OverviewBox({
+  title,
+  total,
+  hint,
+  parts,
+}: {
+  title: string;
+  total: number;
+  hint?: string;
+  parts: { label: string; value: number }[];
+}): ReactElement {
+  return (
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        border: `1px solid ${otherColors.lightDivider}`,
+        borderRadius: 2,
+        p: 2,
+        flex: 1,
+      }}
+    >
+      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        {title}
+      </Typography>
+      <Stack direction="row" alignItems="center" gap={2}>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="h4" fontWeight={600} sx={{ mt: 0.5 }}>
+            {formatCurrency(total)}
+          </Typography>
+          {hint && (
+            <Typography variant="caption" color="text.secondary">
+              {hint}
+            </Typography>
+          )}
+          <Stack mt={1.5} gap={0.75}>
+            {parts.map((part, index) => (
+              <Stack key={part.label} direction="row" alignItems="center" gap={1}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: OVERVIEW_COLORS[index] }} />
+                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                  {part.label}
+                </Typography>
+                <Typography variant="body2" fontWeight={600}>
+                  {formatCurrency(part.value)}
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+        {parts.some((part) => part.value > 0) && (
+          <Box sx={{ width: 150, display: { xs: 'none', sm: 'block' } }}>
+            <Chart
+              chartType="PieChart"
+              width="100%"
+              height="140px"
+              data={[['Part', 'Amount'], ...parts.map((part) => [part.label, Math.max(part.value, 0)])]}
+              options={{
+                colors: OVERVIEW_COLORS,
+                pieHole: 0.5,
+                legend: 'none',
+                chartArea: { width: '92%', height: '92%' },
+                backgroundColor: 'transparent',
+              }}
+            />
+          </Box>
+        )}
+      </Stack>
+    </Box>
+  );
+}
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }): ReactElement {
   return (
@@ -703,6 +776,10 @@ export default function PaymentsReport(): ReactElement {
   });
 
   const totals = report?.totals;
+  const insurancePaid = totals?.insurancePaid ?? 0;
+  const patientCollected = patientReport?.totals.net ?? 0;
+  const patientResp = totals?.patientResp ?? 0;
+  const totalCollected = insurancePaid + patientCollected;
 
   return (
     <Box>
@@ -776,6 +853,31 @@ export default function PaymentsReport(): ReactElement {
           {error}
         </Alert>
       )}
+
+      <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ mb: 1.5 }}>
+        Overview
+      </Typography>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} gap={2} mb={2.5}>
+        <OverviewBox
+          title="Total Payments"
+          total={totalCollected}
+          hint="Everything collected in this window"
+          parts={[
+            { label: 'Paid by insurance', value: insurancePaid },
+            { label: 'Paid by patients', value: patientCollected },
+          ]}
+        />
+        <OverviewBox
+          title="Allowed by Insurance"
+          total={totals?.allowed ?? 0}
+          hint="From this window's ERAs"
+          parts={[
+            { label: 'Paid by insurance', value: insurancePaid },
+            { label: 'Patient responsibility', value: patientResp },
+          ]}
+        />
+      </Stack>
 
       <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ mb: 1.5 }}>
         Insurance Payments
