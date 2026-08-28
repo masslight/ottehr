@@ -1051,7 +1051,7 @@ export function addServiceLineFieldProblem(
       return (DIAGNOSIS_POINTER_MODES as readonly string[]).includes(trimmed) ? undefined : 'Unknown diagnosis mode';
     case 'diagnosisPointers': {
       if (!trimmed) {
-        return effectiveDiagnosisMode({ diagnosisMode: line?.diagnosisMode, diagnosisPointers: value }) === 'specific'
+        return effectiveDiagnosisMode({ diagnosisMode: line?.diagnosisMode, diagnosisPointers: trimmed }) === 'specific'
           ? "Diagnosis pointers are required when Diagnoses is 'Specific diagnoses'"
           : undefined;
       }
