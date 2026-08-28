@@ -1,4 +1,5 @@
-import { Address, ContactPoint, HumanName, Patient, Practitioner } from 'fhir/r4b';
+import { Address, ContactPoint, Coverage, HumanName, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
 import {
   isBloodPressureVitalObservation,
   isBMIVitalObservation,
@@ -12,6 +13,7 @@ import {
 } from 'utils/lib/fhir/vitals';
 import { celsiusToFahrenheit, HeightMeasurement, kgToLbs } from 'utils/lib/helpers/vitals';
 import {
+  AllergyDTO,
   VitalsBloodPressureObservationDTO,
   VitalsObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -39,8 +41,12 @@ const familyName = (person: HasName | undefined): string | undefined => person?.
 const joinedName = (person: HasName | undefined): string | undefined =>
   [givenName(person), familyName(person)].filter(Boolean).join(' ') || undefined;
 
-const homeAddress = (patient?: Patient): Address | undefined =>
-  patient?.address?.find((a) => a.use === 'home') ?? patient?.address?.[0];
+interface HasAddress {
+  address?: Address[];
+}
+
+const homeAddress = (person: HasAddress | undefined): Address | undefined =>
+  person?.address?.find((a) => a.use === 'home') ?? person?.address?.[0];
 
 const contact = (telecom: ContactPoint[] | undefined, system: 'phone' | 'email'): string | undefined =>
   telecom?.find((t) => t.system === system)?.value;
@@ -86,6 +92,88 @@ const latestWeightKg = (ctx: FormFillContext): number | undefined =>
 
 const latestBloodPressure = (ctx: FormFillContext): VitalsBloodPressureObservationDTO | undefined =>
   latestVital(ctx, isBloodPressureVitalObservation);
+
+/**
+ * An allergy's name as it should read on a form.
+ *
+ * Free-text allergies are stored with the picker's "Other" wrapper baked into the name — `Other (peanuts)`
+ * — which is an artifact of how they were entered rather than part of what the patient is allergic to.
+ */
+const allergyName = (allergy: AllergyDTO): string | undefined => {
+  const freeText = allergy.name?.match(/^Other \((.+)\)$/);
+  return freeText ? freeText[1] : allergy.name;
+};
+
+/**
+ * The member ID as printed on the insurance card.
+ *
+ * Read from the identifier rather than `subscriberId`. Both are written from the same value, but only the
+ * identifier is searchable, which is what makes it the copy the rest of the system treats as
+ * authoritative; `subscriberId` stays a fallback in case the two ever disagree.
+ */
+const memberId = (coverage: Coverage | undefined): string | undefined =>
+  coverage ? getMemberIdFromCoverage(coverage) ?? coverage.subscriberId : undefined;
+
+/**
+ * The person who holds the policy, which is frequently not the patient.
+ *
+ * Stored two different ways depending on the relationship: a subscriber who is someone else is a
+ * RelatedPerson contained on the Coverage, while a patient insured under their own policy is referenced
+ * directly and gets no contained resource at all. Both cases have to resolve, or the policy-holder block
+ * on a form silently blanks for whichever one goes unhandled — and self is the common case.
+ */
+const coverageSubscriber = (
+  ctx: FormFillContext,
+  which: 'primary' | 'secondary'
+): RelatedPerson | Patient | undefined => {
+  const coverage = ctx.insurance?.[which]?.coverage;
+  const reference = coverage?.subscriber?.reference;
+  if (!reference) return undefined;
+
+  if (reference.startsWith('#')) {
+    const contained = coverage?.contained?.find((resource) => resource.id === reference.slice(1));
+    return contained?.resourceType === 'RelatedPerson' ? contained : undefined;
+  }
+
+  // Insured under their own policy. The referenced id is checked rather than assumed, so a coverage
+  // belonging to somebody else can never fill this patient's details into a subscriber block.
+  return reference === `Patient/${ctx.patient?.id}` ? ctx.patient : undefined;
+};
+
+/**
+ * The subscriber tokens for one coverage.
+ *
+ * Built rather than written out twice: primary and secondary differ only in which coverage they read.
+ * The descriptors in `utils` are still spelled out one by one, so the keys stay greppable, and the
+ * catalog/resolver parity test catches any drift between the two halves.
+ *
+ * There are deliberately no subscriber phone or email tokens. Intake collects both, but the contained
+ * RelatedPerson is built without a telecom, so they would resolve only for self-insured patients and
+ * blank for everyone else.
+ */
+const subscriberResolvers = (which: 'primary' | 'secondary'): Record<string, FormTokenResolver> => {
+  const subscriber = (ctx: FormFillContext): RelatedPerson | Patient | undefined => coverageSubscriber(ctx, which);
+  const address = (ctx: FormFillContext): Address | undefined => homeAddress(subscriber(ctx));
+  const key = `insurance.${which}Subscriber`;
+
+  return {
+    [`${key}FirstName`]: (ctx) => givenName(subscriber(ctx)),
+    [`${key}MiddleName`]: (ctx) => givenName(subscriber(ctx), 1),
+    [`${key}LastName`]: (ctx) => familyName(subscriber(ctx)),
+    [`${key}FullName`]: (ctx) => joinedName(subscriber(ctx)),
+    [`${key}DateOfBirth`]: (ctx) => subscriber(ctx)?.birthDate,
+    [`${key}Sex`]: (ctx) => subscriber(ctx)?.gender,
+    [`${key}Relationship`]: (ctx) => {
+      const coding = ctx.insurance?.[which]?.coverage?.relationship?.coding?.[0];
+      return coding?.display ?? coding?.code;
+    },
+    [`${key}AddressLine1`]: (ctx) => address(ctx)?.line?.[0],
+    [`${key}AddressLine2`]: (ctx) => address(ctx)?.line?.[1],
+    [`${key}City`]: (ctx) => address(ctx)?.city,
+    [`${key}State`]: (ctx) => address(ctx)?.state,
+    [`${key}PostalCode`]: (ctx) => address(ctx)?.postalCode,
+  };
+};
 
 const diagnoses = (ctx: FormFillContext): { code: string; display: string; isPrimary: boolean }[] =>
   ctx.allChartData?.chartData?.diagnosis ?? [];
@@ -150,9 +238,12 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   'insurance.primaryPayerName': (ctx) =>
     ctx.insurance?.primary?.payerName ?? ctx.appointmentPackage?.insurancePlan?.name,
   'insurance.primaryMemberId': (ctx) =>
-    ctx.insurance?.primary?.coverage?.subscriberId ?? ctx.appointmentPackage?.coverage?.subscriberId,
+    memberId(ctx.insurance?.primary?.coverage) ?? memberId(ctx.appointmentPackage?.coverage),
   'insurance.secondaryPayerName': (ctx) => ctx.insurance?.secondary?.payerName,
-  'insurance.secondaryMemberId': (ctx) => ctx.insurance?.secondary?.coverage?.subscriberId,
+  'insurance.secondaryMemberId': (ctx) => memberId(ctx.insurance?.secondary?.coverage),
+
+  ...subscriberResolvers('primary'),
+  ...subscriberResolvers('secondary'),
 
   // ── Vitals ────────────────────────────────────────────────────────────────
   // Each unit is its own token rather than one token following the clinic's display preference, so a
@@ -188,6 +279,19 @@ export const TOKEN_RESOLVERS: Record<string, FormTokenResolver> = {
   'vitals.lastMenstrualPeriod': (ctx) => latestVital(ctx, isLastMenstrualPeriodVitalObservation)?.value || undefined,
 
   // ── Clinical ──────────────────────────────────────────────────────────────
+  // Only allergies the provider still has marked as current. An allergy they explicitly retired should
+  // not reappear on a form going out to a payer or another practice.
+  //
+  // There is deliberately no "drug allergies" token: the chart records what the patient is allergic to
+  // but not whether it is a medication, so the two cannot be told apart.
+  'allergies.all': (ctx) => {
+    const names = (ctx.allChartData?.chartData?.allergies ?? [])
+      .filter((allergy) => allergy.current !== false)
+      .map(allergyName)
+      .filter((name): name is string => !!name);
+    return names.length > 0 ? names.join(', ') : undefined;
+  },
+
   'diagnosis.primaryCode': (ctx) => primaryDiagnosis(ctx)?.code,
   'diagnosis.primaryDisplay': (ctx) => primaryDiagnosis(ctx)?.display,
   'diagnosis.allDisplays': (ctx) => {

@@ -98,6 +98,138 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
   { key: 'insurance.secondaryPayerName', label: 'Secondary company', group: 'Insurance', type: 'string' },
   { key: 'insurance.secondaryMemberId', label: 'Secondary member ID', group: 'Insurance', type: 'string' },
 
+  // The policy holder, who is often not the patient — a parent's plan, a spouse's plan. Forms ask for
+  // their details in a block of their own, so every part is offered separately rather than as one name.
+  //
+  // No subscriber phone or email: intake collects both, but they are dropped when the subscriber is
+  // written onto the coverage, so such a token would fill only for self-insured patients and blank for
+  // exactly the people it exists to describe.
+  {
+    key: 'insurance.primarySubscriberFirstName',
+    label: 'Primary subscriber — first name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.primarySubscriberMiddleName',
+    label: 'Primary subscriber — middle name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.primarySubscriberLastName',
+    label: 'Primary subscriber — last name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.primarySubscriberFullName',
+    label: 'Primary subscriber — full name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.primarySubscriberDateOfBirth',
+    label: 'Primary subscriber — date of birth',
+    group: 'Insurance',
+    type: 'date',
+  },
+  { key: 'insurance.primarySubscriberSex', label: 'Primary subscriber — sex', group: 'Insurance', type: 'string' },
+  {
+    key: 'insurance.primarySubscriberRelationship',
+    label: 'Primary subscriber — relationship to patient',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.primarySubscriberAddressLine1',
+    label: 'Primary subscriber — street address',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.primarySubscriberAddressLine2',
+    label: 'Primary subscriber — street address line 2',
+    group: 'Insurance',
+    type: 'string',
+  },
+  { key: 'insurance.primarySubscriberCity', label: 'Primary subscriber — city', group: 'Insurance', type: 'string' },
+  { key: 'insurance.primarySubscriberState', label: 'Primary subscriber — state', group: 'Insurance', type: 'string' },
+  {
+    key: 'insurance.primarySubscriberPostalCode',
+    label: 'Primary subscriber — ZIP code',
+    group: 'Insurance',
+    type: 'string',
+  },
+
+  {
+    key: 'insurance.secondarySubscriberFirstName',
+    label: 'Secondary subscriber — first name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberMiddleName',
+    label: 'Secondary subscriber — middle name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberLastName',
+    label: 'Secondary subscriber — last name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberFullName',
+    label: 'Secondary subscriber — full name',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberDateOfBirth',
+    label: 'Secondary subscriber — date of birth',
+    group: 'Insurance',
+    type: 'date',
+  },
+  { key: 'insurance.secondarySubscriberSex', label: 'Secondary subscriber — sex', group: 'Insurance', type: 'string' },
+  {
+    key: 'insurance.secondarySubscriberRelationship',
+    label: 'Secondary subscriber — relationship to patient',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberAddressLine1',
+    label: 'Secondary subscriber — street address',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberAddressLine2',
+    label: 'Secondary subscriber — street address line 2',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberCity',
+    label: 'Secondary subscriber — city',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberState',
+    label: 'Secondary subscriber — state',
+    group: 'Insurance',
+    type: 'string',
+  },
+  {
+    key: 'insurance.secondarySubscriberPostalCode',
+    label: 'Secondary subscriber — ZIP code',
+    group: 'Insurance',
+    type: 'string',
+  },
+
   // ── Vitals ────────────────────────────────────────────────────────────────
   // Units are explicit rather than following the clinic's display preference. A mapping authored today
   // would otherwise change meaning if that preference were ever flipped, silently altering every number
@@ -135,6 +267,18 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
   { key: 'vitals.lastMenstrualPeriod', label: 'Last menstrual period', group: 'Vitals', type: 'date' },
 
   // ── Clinical ──────────────────────────────────────────────────────────────
+  // Forms often ask for drug allergies specifically. There is no token for that, because the chart does
+  // not record whether an allergy is to a medication — the FHIR category is not persisted. Splitting on
+  // what is stored would sort by how the allergy was entered, not by what it is, and would file a food
+  // allergy under drug allergies on a form going to a payer.
+  {
+    key: 'allergies.all',
+    label: 'Allergies',
+    group: 'Clinical',
+    type: 'string',
+    description: 'Current allergies, comma-separated. Blank when none are recorded.',
+  },
+
   { key: 'diagnosis.primaryCode', label: 'Primary diagnosis code', group: 'Clinical', type: 'string' },
   { key: 'diagnosis.primaryDisplay', label: 'Primary diagnosis', group: 'Clinical', type: 'string' },
   {
