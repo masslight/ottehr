@@ -9,6 +9,7 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
+  Link,
   Paper,
   Radio,
   RadioGroup,
@@ -16,6 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
@@ -30,6 +32,7 @@ import {
   useGetUnsolicitedResultsMatchData,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import PageContainer from 'src/layout/PageContainer';
+import { APIErrorCode } from 'utils';
 import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils/lib/types/data/labs/labs.types';
 import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
@@ -60,6 +63,9 @@ export const UnsolicitedResultsMatch: React.FC = () => {
   });
 
   if (resourceSearchError) {
+    const alreadyMatched =
+      (resourceSearchError as OystehrSdkError)?.code === APIErrorCode.UNSOLICITED_RESULTS_ALREADY_MATCHED;
+
     return (
       <PageContainer>
         <DetailPageContainer>
@@ -68,10 +74,18 @@ export const UnsolicitedResultsMatch: React.FC = () => {
               {PAGE_TITLE}
             </Typography>
           </Box>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 3, mt: 1 }}>
             <Typography color="error">There was an error loading the page, please try again.</Typography>
             {resourceSearchError.message && (
               <Typography color="error">Error message: {resourceSearchError.message}</Typography>
+            )}
+            {alreadyMatched && (
+              <Link
+                sx={{ mt: 1, cursor: 'pointer' }}
+                onClick={() => navigate(`/unsolicited-results/${diagnosticReportId}/review`)}
+              >
+                Click here to view the results
+              </Link>
             )}
           </Paper>
         </DetailPageContainer>
