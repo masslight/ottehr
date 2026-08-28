@@ -63,9 +63,9 @@ export const resolveNotificationTarget = (
     .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code;
   if (categoryCode !== inboundFaxCategory) return undefined;
 
-  // Only a relative `Communication/<id>` reference names a fax we can route to. Checked with an
-  // explicit prefix strip so nothing else in `about` — a Task, or an absolute URL to some other
-  // server — can be mangled into a match-page id.
+  // A `Communication/<id>` reference is what names a fax we can route to, so the prefix strip is also
+  // the filter: the `basedOn` Task and anything else the producer hangs off `about` drop out rather
+  // than being mangled into a match-page id.
   const faxCommunicationId = communication.about
     ?.map((about) => removePrefix(COMMUNICATION_REFERENCE_PREFIX, about.reference ?? ''))
     .find((id): id is string => !!id);
@@ -92,11 +92,18 @@ export const toProviderNotificationDto = (
   };
 };
 
-/** Millis for ordering; anything unparseable or absent sorts oldest rather than poisoning the compare with NaN. */
+/**
+ * Millis for ordering; anything unparseable or absent sorts oldest.
+ *
+ * A finite sentinel rather than `-Infinity`, so two notifications that both lack a usable `sent`
+ * subtract to 0 in the comparator below instead of NaN. (`Array.prototype.sort` does coerce a NaN
+ * comparator result to +0, but relying on that leaves the comparator itself ill-defined for any other
+ * caller.)
+ */
 const sentMillis = (notification: ProviderNotificationDto): number => {
-  if (!notification.sentAt) return Number.NEGATIVE_INFINITY;
+  if (!notification.sentAt) return Number.MIN_SAFE_INTEGER;
   const millis = DateTime.fromISO(notification.sentAt).toMillis();
-  return Number.isFinite(millis) ? millis : Number.NEGATIVE_INFINITY;
+  return Number.isFinite(millis) ? millis : Number.MIN_SAFE_INTEGER;
 };
 
 /** Newest sent first — the order the bell renders, so it never has to sort. */

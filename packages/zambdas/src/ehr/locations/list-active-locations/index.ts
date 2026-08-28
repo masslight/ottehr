@@ -28,7 +28,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const locations = await getAllFhirSearchPages<Location>(
-    { resourceType: 'Location', params: [{ name: 'status', value: 'active' }] },
+    {
+      resourceType: 'Location',
+      params: [
+        { name: 'status', value: 'active' },
+        // Only the two fields the output projects. Pages run 1000 at a time, and a full Location
+        // carries addresses, telecoms, hours-of-operation, and extensions this endpoint discards.
+        { name: '_elements', value: 'id,name' },
+      ],
+    },
     oystehr
   );
 

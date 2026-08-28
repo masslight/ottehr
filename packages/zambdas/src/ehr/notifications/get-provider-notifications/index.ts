@@ -24,17 +24,22 @@ let m2mToken: string;
  * deliberately discloses only the five fields the bell renders; the notification `Communication` and
  * the `Encounter` behind its link stay server-side.
  *
- * Called on a 10-second poll per open tab, so it stays a single FHIR request: the Encounter that
- * carries a telemed notification's appointment rides along in the same search rather than being
- * fetched per notification.
+ * Called on a 10-second poll per open tab, so it stays one FHIR search: the Encounter that carries a
+ * telemed notification's appointment rides along in it rather than being fetched per notification.
+ * The recipient still costs a `/user/me` lookup per tick — `userMe` is uncached — which is why that
+ * call is overlapped with the M2M token below rather than awaited ahead of it.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const userToken = getUserToken(input);
   const { secrets } = input;
 
-  const myPractitionerId = await getMyPractitionerId(userToken, secrets);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // Independent of each other, and this runs on every tick of a 10-second poll, so overlap them
+  // instead of paying both latencies in series.
+  const [myPractitionerId, token] = await Promise.all([
+    getMyPractitionerId(userToken, secrets),
+    checkOrCreateM2MClientToken(m2mToken, secrets),
+  ]);
+  m2mToken = token;
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const resources = (

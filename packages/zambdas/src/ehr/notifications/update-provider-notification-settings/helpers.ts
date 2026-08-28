@@ -18,7 +18,8 @@ export const getSmsTelecomValue = (practitioner: Practitioner): string | undefin
  * Index-based paths, so this MUST be computed from a freshly read Practitioner. The browser used to
  * build it from its cached profile, and a second save in one session computed indices against a stale
  * copy — appending a duplicate settings extension and a duplicate `sms` telecom rather than replacing
- * either. The caller reads the resource immediately before calling this.
+ * either. The caller reads the resource immediately before calling this and writes under an optimistic
+ * lock, so a concurrent write forces a re-read and a recompute instead of a stale-index patch.
  *
  * Only the V2 blob is written. Any legacy flat children of the settings extension (`…-method`,
  * `…-enabled-task`, `…-enabled-telemed`) are dropped with the container they lived in: the V2 blob is

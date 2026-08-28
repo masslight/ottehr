@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { formatPhoneNumber, isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.types';
 import {
@@ -22,10 +23,14 @@ const ZAMBDA_NAME = 'update-provider-notification-settings';
 let m2mToken: string;
 
 /**
- * Deliberately permissive: every field optional, unknown task-category keys tolerated.
- * `normalizeNotificationPreferencesV2` is the canonicalizer — it fills gaps, coerces bad values, and
- * repairs states that could never match anything — so validation here only has to reject wrong *types*.
- * A stricter schema would reject an older client instead of upgrading what it sent.
+ * Deliberately permissive about *shape*: every field optional, unknown task-category keys tolerated, so
+ * an older client gets what it sent upgraded by `normalizeNotificationPreferencesV2` — the canonicalizer
+ * that fills gaps and repairs states that could never match anything — rather than rejected.
+ *
+ * Values, unlike shape, are checked here and not by the normalizer, which passes an unrecognized
+ * `method` straight through. That makes an unrecognized value a 400 rather than something stored; the
+ * only writers of the blob are this endpoint and the settings form, so a rejection here means a client
+ * bug, not a stored row a user could get stuck behind.
  */
 const NotificationRowPrefSchema = z
   .object({
@@ -54,8 +59,8 @@ const UpdateProviderNotificationSettingsSchema = z.object({
  * only ever write their own profile. The browser previously held `FHIR:Practitioner` update rights and
  * named the id itself.
  *
- * Returns the values as actually stored — normalized preferences and the effective SMS number — so the
- * settings form reseeds from server truth rather than from what it hoped it saved.
+ * Returns the values as actually stored — normalized preferences and the effective SMS number — so a
+ * caller can confirm what landed without re-reading the Practitioner.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const userToken = getUserToken(input);
@@ -72,22 +77,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // enabled rows are all 'computer', and the form already blocks saving when a phone method needs one.
   const phoneNumber = isPhoneNumberValid(parsed.phoneNumber) ? formatPhoneNumber(parsed.phoneNumber) : undefined;
 
-  const myPractitionerId = await getMyPractitionerId(userToken, secrets);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // Independent of each other, so overlap them rather than paying both latencies in series.
+  const [myPractitionerId, token] = await Promise.all([
+    getMyPractitionerId(userToken, secrets),
+    checkOrCreateM2MClientToken(m2mToken, secrets),
+  ]);
+  m2mToken = token;
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  // Read immediately before patching: the operations below are index-based.
   const practitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: myPractitionerId,
   });
 
-  await oystehr.fhir.patch<Practitioner>({
-    resourceType: 'Practitioner',
-    id: myPractitionerId,
-    operations: buildNotificationSettingsPatchOperations({ practitioner, preferences, phoneNumber }),
-  });
+  // Optimistically locked because the operations are index-based. Reading fresh is not enough on its
+  // own: two saves in flight at once (two tabs, two devices, a retried request) would both compute
+  // their paths against a Practitioner with no settings extension and both `add /extension/-`,
+  // appending the duplicate this is meant to prevent. On a 412 the helper re-reads and recomputes.
+  await patchWithOptimisticLock(oystehr, { ...practitioner, id: myPractitionerId }, (current) =>
+    buildNotificationSettingsPatchOperations({ practitioner: current, preferences, phoneNumber })
+  );
 
   const output: UpdateProviderNotificationSettingsOutput = {
     preferences,

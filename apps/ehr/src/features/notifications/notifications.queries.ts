@@ -26,6 +26,14 @@ import useEvolveUser from '../../hooks/useEvolveUser';
 
 const PROVIDER_NOTIFICATIONS_QUERY_KEY = 'provider-notifications';
 
+/**
+ * Suffixed so the two writes stay distinguishable to `useIsMutating`/`useMutationState`: a settings
+ * save and a bell mark-read are unrelated actions, and a spinner driven off one must not fire for the
+ * other. The bare key stays the read query's, which is what `invalidateQueries` below targets.
+ */
+const SETTINGS_MUTATION_KEY = [PROVIDER_NOTIFICATIONS_QUERY_KEY, 'settings'] as const;
+const MARK_READ_MUTATION_KEY = [PROVIDER_NOTIFICATIONS_QUERY_KEY, 'mark-read'] as const;
+
 export const useGetProviderNotifications = (
   onSuccess?: (data: ProviderNotificationDto[] | null) => void
 ): UseQueryResult<ProviderNotificationDto[], Error> => {
@@ -33,7 +41,8 @@ export const useGetProviderNotifications = (
   const user = useEvolveUser();
   // "Phone only" (SMS, no bell) when every enabled row uses the Phone method — the bell has nothing to
   // show, so don't poll for it. Computed from the already-cached profile, which is why it stays here
-  // rather than in the endpoint: server-side it would cost a Practitioner read on every tick.
+  // rather than in the endpoint: server-side it would cost a Practitioner read on every tick, on top of
+  // the `/user/me` lookup the endpoint already pays to resolve the recipient.
   const prefs = getProviderNotificationPreferencesV2(user?.profileResource);
   const enabledRows = prefs ? getAllNotificationRows(prefs).filter((row) => row.enabled) : [];
   const isPhoneOnly =
@@ -76,10 +85,11 @@ export type UpdateProviderNotificationPreferencesParams = UpdateProviderNotifica
 /**
  * Persists the per-notification-type preferences and the SMS number for the signed-in user.
  *
- * The endpoint reads the Practitioner fresh and builds the patch from that, so saving twice in one
- * session can no longer append a duplicate settings extension or `sms` telecom — which is what the
- * profile refetch below used to be guarding against. The refetch stays because the cached Practitioner
- * is still what `useEvolveUser` and the employee pages read preferences from.
+ * The endpoint reads the Practitioner fresh under an optimistic lock and builds the patch from that, so
+ * saving twice in one session can no longer append a duplicate settings extension or `sms` telecom —
+ * which is what the profile refetch below used to be guarding against. The refetch stays because the
+ * cached Practitioner is still what `useEvolveUser` and the employee pages read preferences from, and
+ * it is what the settings form reseeds itself off after a save.
  */
 export const useUpdateProviderNotificationPreferencesV2Mutation = (
   onSuccess: (params: UpdateProviderNotificationPreferencesParams) => void
@@ -91,15 +101,16 @@ export const useUpdateProviderNotificationPreferencesV2Mutation = (
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: [PROVIDER_NOTIFICATIONS_QUERY_KEY],
+    mutationKey: SETTINGS_MUTATION_KEY,
 
     mutationFn: async (params: UpdateProviderNotificationPreferencesParams) =>
       updateProviderNotificationSettings(params, oystehrZambda!),
 
     onSuccess: (stored) => {
+      // The refetch is what reseeds the form: it repopulates the cached Practitioner that
+      // `initialPreferences` and the phone field are derived from. `stored` is the endpoint's report of
+      // what actually landed, passed on for callers that want to confirm it without waiting.
       void queryClient.refetchQueries({ queryKey: ['get-practitioner-profile'] });
-      // Hands back what was actually stored — normalized preferences and the effective phone number —
-      // rather than what was sent, so the form reseeds from server truth.
       onSuccess(stored);
     },
   });
@@ -111,7 +122,7 @@ export const useUpdateProviderNotificationsMutation = (
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: [PROVIDER_NOTIFICATIONS_QUERY_KEY],
+    mutationKey: MARK_READ_MUTATION_KEY,
 
     mutationFn: async (params: MarkProviderNotificationsReadInput) => {
       await markProviderNotificationsRead(params, oystehrZambda!);

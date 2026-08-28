@@ -421,7 +421,7 @@ the caller's token — no request shape carries a recipient, a practitioner id, 
 
 | Endpoint | Replaces | Notes |
 | --- | --- | --- |
-| `get-provider-notifications` | browser `Communication` search + `_include=Communication:encounter` | No parameters. Returns `ProviderNotificationDto[]`, newest `sent` first: `{ id, message, isUnread, sentAt?, target? }`. Called on the bell's 10-second poll, so it stays one FHIR request. |
+| `get-provider-notifications` | browser `Communication` search + `_include=Communication:encounter` | No parameters. Returns `ProviderNotificationDto[]`, newest `sent` first: `{ id, message, isUnread, sentAt?, target? }`. Called on the bell's 10-second poll, so it stays one FHIR search — the Encounter behind a telemed notification's link rides along in it. Resolving the recipient still costs an uncached `/user/me` per tick, which is overlapped with the M2M token rather than awaited ahead of it. |
 | `mark-provider-notifications-read` | browser `fhir.batch` json-patch of `Communication.status` | `{ notificationIds }` → `{ markedReadIds }`. |
 | `update-provider-notification-settings` | browser `fhir.patch` on `Practitioner` | `{ preferences, phoneNumber? }` → the normalized values as stored. |
 | `list-active-locations` | browser paginated `Location?status=active` | Populates the settings table's location picker. Lives with the `locations/` zambda family since it is generic. |
@@ -442,9 +442,18 @@ Three behaviors worth knowing:
   recipient. Ids that don't qualify — someone else's, already read, chat-shaped, nonexistent — are
   dropped silently, so an id that isn't yours is indistinguishable from one that doesn't exist.
 
-The settings save reads the Practitioner fresh and builds its index-based patch from that. The browser
-built it from its cached profile, so a second save in one session computed indices against a stale copy
-and appended a duplicate settings extension and `sms` telecom instead of replacing either.
+The settings save reads the Practitioner fresh and builds its index-based patch from that, under an
+optimistic lock (`patchWithOptimisticLock`). The browser built it from its cached profile, so a second
+save in one session computed indices against a stale copy and appended a duplicate settings extension
+and `sms` telecom instead of replacing either. Reading fresh is not sufficient on its own: two saves in
+flight at once would both compute their paths against a Practitioner with no settings extension and both
+`add /extension/-`. The lock turns that race into a 412, which the helper answers with a re-read and a
+recompute.
+
+Note that the browser still holds `FHIR:Practitioner` update rights for an unrelated reason —
+`useEvolveUser` stamps a last-login meta tag and the browser timezone on mount — so this endpoint is not
+the only writer of that resource. That patch fires once per page load, before any settings save, but it
+is why the lock matters rather than being belt-and-braces.
 
 ### 9.1 FHIR permissions
 

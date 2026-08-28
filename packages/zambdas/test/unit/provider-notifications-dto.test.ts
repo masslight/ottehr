@@ -168,6 +168,14 @@ describe('byNewestSent', () => {
         .sort()
     ).toEqual(['garbage', 'missing']);
   });
+
+  it('is a finite comparator even when neither notification has a usable sent time', () => {
+    // `Array.prototype.sort` coerces a NaN result to +0, so a NaN comparator passes the ordering test
+    // above while still being ill-defined for every other caller.
+    const [missing, garbage] = [dto('missing', undefined), dto('garbage', 'not-a-date')].flatMap((n) => n ?? []);
+    expect(byNewestSent(missing, garbage)).toBe(0);
+    expect(Number.isFinite(byNewestSent(missing, garbage))).toBe(true);
+  });
 });
 
 describe('providerNotificationCategoryParam', () => {

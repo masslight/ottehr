@@ -53,11 +53,15 @@ export const ProviderNotifications: FC = memo(() => {
   const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = useCallback(() => {
     setNotificationsOpen(true);
     if (hasUnread) {
-      void updateNotifications.mutateAsync({
-        notificationIds: notifications
-          .filter((notification) => notification.isUnread)
-          .map((notification) => notification.id),
-      });
+      // Fire-and-forget, but caught: `mutateAsync` rejects on a failed mark-read, and the badge simply
+      // stays lit until the next poll rather than the browser logging an unhandled rejection.
+      void updateNotifications
+        .mutateAsync({
+          notificationIds: notifications
+            .filter((notification) => notification.isUnread)
+            .map((notification) => notification.id),
+        })
+        .catch(console.error);
     }
   }, [hasUnread, notifications, updateNotifications]);
 

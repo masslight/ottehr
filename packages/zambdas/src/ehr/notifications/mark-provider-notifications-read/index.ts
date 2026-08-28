@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { replaceOperation } from 'utils/lib/helpers/operations';
 import { MarkProviderNotificationsReadOutput } from 'utils/lib/types/api/provider-notifications';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -53,9 +54,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return { statusCode: 200, body: JSON.stringify(empty) };
   }
 
-  const myPractitionerId = await getMyPractitionerId(userToken, secrets);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // Independent of each other, so overlap them rather than paying both latencies in series.
+  const [myPractitionerId, token] = await Promise.all([
+    getMyPractitionerId(userToken, secrets),
+    checkOrCreateM2MClientToken(m2mToken, secrets),
+  ]);
+  m2mToken = token;
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const mine = (
@@ -81,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         getPatchBinary({
           resourceId: id,
           resourceType: 'Communication',
-          patchOperations: [{ op: 'replace', path: '/status', value: READ_STATUS }],
+          patchOperations: [replaceOperation('/status', READ_STATUS)],
         })
       ),
     });
