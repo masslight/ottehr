@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Claim, Encounter, Location, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   PatientPaymentsDrilldownParams,
@@ -21,7 +21,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchAllPages } from '../../../shared/fhir';
 import { getRateLimitedStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
-import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import { toDay } from '../shared';
 
@@ -43,7 +43,8 @@ export const patientPaymentsReport: ReportDefinition<
   PatientPaymentsDrilldownParams
 > = {
   kind: 'patient-payments',
-  cacheVersion: 'v1',
+  // v2: notices from both scopes (billing-tagged + EHR-recorded), deduped by Stripe id
+  cacheVersion: 'v2',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
   emptyPayload: () => ({ rows: [], totals: emptyTotals(), generatedAt: '' }),
@@ -135,23 +136,51 @@ async function loadNoticeContext(
   untaggedClient: Oystehr,
   params: ReportDateWindowParams
 ): Promise<NoticeContext> {
-  // billing-tagged (client is workspace-scoped) active notices; window filtered in memory by day
-  const allNotices: PaymentNotice[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [
-        ...(params.dateFrom ? [{ name: 'created', value: `ge${params.dateFrom}` }] : []),
-        ...(params.dateTo
-          ? [{ name: 'created', value: `le${DateTime.fromISO(params.dateTo).plus({ days: 1 }).toISODate()}` }]
-          : []),
-        { name: '_count', value: String(count) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    allNotices.push(...bundle.unbundle());
-    return bundle;
-  }, NOTICE_PAGE_SIZE);
+  const windowParams = [
+    ...(params.dateFrom ? [{ name: 'created', value: `ge${params.dateFrom}` }] : []),
+    ...(params.dateTo
+      ? [{ name: 'created', value: `le${DateTime.fromISO(params.dateTo).plus({ days: 1 }).toISODate()}` }]
+      : []),
+  ];
+  const fetchNotices = async (
+    client: Oystehr,
+    extraParams: { name: string; value: string }[]
+  ): Promise<PaymentNotice[]> => {
+    const fetched: PaymentNotice[] = [];
+    await fetchAllPages(async (offset, count) => {
+      const bundle = await client.fhir.search<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        params: [
+          ...windowParams,
+          ...extraParams,
+          { name: '_count', value: String(count) },
+          { name: '_offset', value: String(offset) },
+        ],
+      });
+      fetched.push(...bundle.unbundle());
+      return bundle;
+    }, NOTICE_PAGE_SIZE);
+    return fetched;
+  };
+
+  // billing-tagged notices (webhook-created) plus non-billing notices (EHR-recorded payments
+  // live outside the billing workspace); window filtered in memory by day
+  const [billingNotices, unscopedNotices] = await Promise.all([
+    fetchNotices(oystehr, []),
+    fetchNotices(untaggedClient, [
+      { name: '_tag:not', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
+      { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
+    ]),
+  ]);
+  // the billing-tagged copy wins when both scopes recorded the same Stripe payment
+  const billingStripeIds = new Set(billingNotices.flatMap(stripeIdsOf));
+  const billingNoticeIds = new Set(billingNotices.map((notice) => notice.id));
+  const allNotices = [
+    ...billingNotices,
+    ...unscopedNotices.filter(
+      (notice) => !billingNoticeIds.has(notice.id) && !stripeIdsOf(notice).some((id) => billingStripeIds.has(id))
+    ),
+  ];
 
   const notices = allNotices.filter(
     (notice) => notice.status === 'active' && noticeInWindow(notice, params.dateFrom, params.dateTo)
