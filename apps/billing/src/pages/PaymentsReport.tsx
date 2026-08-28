@@ -139,18 +139,21 @@ const payerColumns: GridColDef[] = [
   currencyCol('checkTotal', 'Check Total', 130),
 ];
 
-const OVERVIEW_COLORS = ['#3f79c1', '#7fb069'];
+const PAYMENTS_OVERVIEW_COLORS = ['#3f79c1', '#7fb069'];
+const ALLOWED_OVERVIEW_COLORS = ['#8464a9', '#e2a54b'];
 
 function OverviewBox({
   title,
   total,
   hint,
   parts,
+  colors,
 }: {
   title: string;
   total: number;
   hint?: string;
   parts: { label: string; value: number }[];
+  colors: string[];
 }): ReactElement {
   return (
     <Box
@@ -178,7 +181,7 @@ function OverviewBox({
           <Stack mt={1.5} gap={0.75}>
             {parts.map((part, index) => (
               <Stack key={part.label} direction="row" alignItems="center" gap={1}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: OVERVIEW_COLORS[index] }} />
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors[index] }} />
                 <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
                   {part.label}
                 </Typography>
@@ -197,7 +200,7 @@ function OverviewBox({
               height="140px"
               data={[['Part', 'Amount'], ...parts.map((part) => [part.label, Math.max(part.value, 0)])]}
               options={{
-                colors: OVERVIEW_COLORS,
+                colors,
                 pieHole: 0.5,
                 legend: 'none',
                 chartArea: { width: '92%', height: '92%' },
@@ -863,6 +866,7 @@ export default function PaymentsReport(): ReactElement {
           title="Total Payments"
           total={totalCollected}
           hint="Everything collected in this window"
+          colors={PAYMENTS_OVERVIEW_COLORS}
           parts={[
             { label: 'Paid by insurance', value: insurancePaid },
             { label: 'Paid by patients', value: patientCollected },
@@ -872,6 +876,7 @@ export default function PaymentsReport(): ReactElement {
           title="Allowed by Insurance"
           total={totals?.allowed ?? 0}
           hint="From this window's ERAs"
+          colors={ALLOWED_OVERVIEW_COLORS}
           parts={[
             { label: 'Paid by insurance', value: insurancePaid },
             { label: 'Patient responsibility', value: patientResp },
