@@ -42,7 +42,7 @@ export const ProviderNotifications: FC = memo(() => {
         id: notification.id,
         isUnread: notification.isUnread,
         message: notification.message,
-        sent: notification.sentAt ? DateTime.fromISO(notification.sentAt).toRelative()! : 'N/A',
+        sent: (notification.sentAt ? DateTime.fromISO(notification.sentAt).toRelative() : null) ?? 'N/A',
         link: pathForTarget(notification.target),
       })) ?? [],
     [notificationsData]
