@@ -1,7 +1,7 @@
 import { FC, useMemo } from 'react';
-import { matchPath, useLocation } from 'react-router-dom';
 import { getPatientLabel } from '../features/tasks/common';
 import { CreateTaskDialog } from '../features/tasks/components/CreateTaskDialog';
+import { useCommandPaletteRouteContext } from '../hooks/useCommandPaletteRouteContext';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { useCommandPaletteStore } from '../state/command-palette.store';
 
@@ -16,12 +16,7 @@ import { useCommandPaletteStore } from '../state/command-palette.store';
 export const CommandPaletteCreateTask: FC = () => {
   const open = useCommandPaletteStore((state) => state.createTaskDialogOpen);
   const setCreateTaskDialogOpen = useCommandPaletteStore((state) => state.setCreateTaskDialogOpen);
-  const { pathname } = useLocation();
-
-  const visitId = (matchPath('/in-person/:id/*', pathname) ?? matchPath('/visit/:id', pathname))?.params.id;
-  const patientId = visitId
-    ? undefined
-    : (matchPath('/patient/:id/*', pathname) ?? matchPath('/patient/:id', pathname))?.params.id;
+  const { visitId, patientId } = useCommandPaletteRouteContext();
   const { patient } = useGetPatient(open ? patientId : undefined);
 
   const initialPatient = useMemo(
