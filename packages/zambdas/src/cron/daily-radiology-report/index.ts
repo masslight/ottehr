@@ -3,6 +3,7 @@ import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ORDER_TYPE_CODE_SYSTEM,
+  RADIOLOGY_REPORT_SUPPRESSED_TAG,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { getAuth0Token } from '../../shared/getAuth0Token';
@@ -140,6 +141,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const relatedDiagnosticReports = diagnosticReports.filter(
         (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
       );
+
+      const isSuppressed = serviceRequest.meta?.tag?.some(
+        (tag) =>
+          tag.system === RADIOLOGY_REPORT_SUPPRESSED_TAG.system && tag.code === RADIOLOGY_REPORT_SUPPRESSED_TAG.code
+      );
+      if (isSuppressed) {
+        return;
+      }
 
       const maybeNeedsToBeSentForTeleradTime = serviceRequest?.extension?.find(
         (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
