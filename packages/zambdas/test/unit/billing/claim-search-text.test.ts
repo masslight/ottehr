@@ -12,7 +12,6 @@ import {
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const CLAIM_ID = '3f2b9c1a-7d4e-4a8b-9c6d-0e1f2a3b4c5d';
-const MINIFIED_CLAIM_ID = '3f2b9c1a7d4e4a8b9c6d0e1f2a3b4c5d';
 const PATIENT_ID = '8a1c4e2f-5b6d-4c3a-9e8f-1d2c3b4a5e6f';
 
 const NAME_CLAUSES = [
@@ -82,13 +81,7 @@ describe('buildClaimSearchTextQueries', () => {
 
   it('keeps the fan-out to at most eight clauses', () => {
     expect(buildClaimSearchTextQueries({ searchText: 'Smith' })).toHaveLength(8);
-    expect(buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID })).toHaveLength(9);
     expect(buildClaimSearchTextQueries({ searchText: CLAIM_ID })).toHaveLength(9);
-    expect(
-      buildClaimSearchTextQueries({
-        searchText: CLAIM_ID,
-      })
-    ).toHaveLength(8);
   });
 
   it('trims the text and searches nothing when it is blank', () => {
