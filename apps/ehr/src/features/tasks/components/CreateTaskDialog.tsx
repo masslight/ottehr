@@ -28,9 +28,18 @@ import {
 interface Props {
   open: boolean;
   handleClose: () => void;
+  /** Appointment to prefill; falls back to the `:id` url param when omitted. */
+  appointmentId?: string;
+  /** Patient to prefill when no appointment supplies one (appointment prefill wins). */
+  initialPatient?: { id: string; name: string };
 }
 
-export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
+export const CreateTaskDialog: React.FC<Props> = ({
+  open,
+  handleClose,
+  appointmentId: appointmentIdProp,
+  initialPatient,
+}) => {
   const methods = useForm();
   const formValue = methods.watch();
 
@@ -126,7 +135,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   }, [formValue.appointment, formValue.category, methods]);
 
   const urlParams = useParams();
-  const appointmentId = urlParams['id'];
+  const appointmentId = appointmentIdProp ?? urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
   useEffect(() => {
     if (appointment.patient && open) {
@@ -137,6 +146,12 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       methods.setValue('appointment', appointmentId);
     }
   }, [appointmentId, appointment, methods, open]);
+
+  useEffect(() => {
+    if (open && initialPatient && !appointment.patient && !methods.getValues('patient')) {
+      methods.setValue('patient', initialPatient);
+    }
+  }, [open, initialPatient, appointment.patient, methods]);
 
   useEffect(() => {
     if (!open) {
