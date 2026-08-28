@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
-import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -185,6 +185,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
     methods.setValue('assignee', null);
     methods.setValue('location', null);
   }, [orderFullUrl, serviceRequestId, procedureId, methods, open]);
+
+  // Visit context implies the location; declared after the URL-context effect above so its 'location' clear on open runs first.
+  useEffect(() => {
+    if (open && appointment.location?.id && !methods.getValues('location')) {
+      methods.setValue('location', { id: appointment.location.id, name: getLocationLabel(appointment.location) });
+    }
+  }, [open, appointment.location, methods]);
 
   return (
     <InPersonModal
