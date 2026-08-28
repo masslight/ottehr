@@ -14,7 +14,12 @@ export function useActionQuickPicks(): void {
   const navigate = useNavigate();
   const setCreateTaskDialogOpen = useCommandPaletteStore((state) => state.setCreateTaskDialogOpen);
   const { visitId, patientId } = useCommandPaletteRouteContext();
-  // On the in-person chart this shares the page's appointment query cache; on visit details it adds one background bundle fetch.
+  // On the in-person chart this shares the page's appointment query cache; on visit details it adds one background
+  // bundle fetch, because the visit-details page holds the same patient under its own differently-keyed query that
+  // App-level code can't reach. REFACTOR (when a third context-aware palette action appears): replace this fetch and
+  // useCommandPaletteRouteContext's route parsing with a published patient-context registry — pages that display a
+  // patient announce { patientId, encounterId } to a small store on mount (cleared on unmount) and the palette just
+  // reads it. That removes the duplicate fetch, the route-string knowledge, and makes any page palette-aware in one line.
   const { patient, encounter, followUpOriginEncounter } = useAppointmentData(visitId);
   const visitPatientId = visitId ? patient?.id : undefined;
 
