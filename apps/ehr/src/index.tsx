@@ -44,6 +44,9 @@ root.render(
               errorString.includes('Failed to fetch dynamically imported module') ||
               errorString.includes('Importing a module script failed') ||
               errorString.includes('error loading dynamically imported module') ||
+              // Safari/WebKit wording once a missing chunk is answered with 200 text/html by the
+              // SPA fallback rather than a 404. Without this the reload never fires in Safari.
+              errorString.includes('is not a valid JavaScript MIME type') ||
               errorString.includes('Failed to fetch')
             ) {
               console.log('Chunk loading error detected, reloading page...');

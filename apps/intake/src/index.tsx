@@ -1,6 +1,7 @@
 import './index.css';
 import 'utils/lib/frontend/i18n-lib/i18n';
 import { Auth0Provider } from '@auth0/auth0-react';
+import { ErrorBoundary } from '@sentry/react';
 import hasOwn from 'object.hasown';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -44,7 +45,28 @@ root.render(
         localStorage.setItem('redirectDestination', appState.target);
       }}
     >
-      <App />
+      <ErrorBoundary
+        onError={(error, errorInfo) => {
+          console.log(String(error), errorInfo);
+          // Handle chunk loading failures from deployments
+          const errorString = String(error);
+          if (
+            errorString.includes('Failed to fetch dynamically imported module') ||
+            errorString.includes('Importing a module script failed') ||
+            errorString.includes('error loading dynamically imported module') ||
+            // Safari/WebKit wording once a missing chunk is answered with 200 text/html by the
+            // SPA fallback rather than a 404. Without this the reload never fires in Safari.
+            errorString.includes('is not a valid JavaScript MIME type') ||
+            errorString.includes('Failed to fetch')
+          ) {
+            console.log('Chunk loading error detected, reloading page...');
+            location.reload();
+          }
+        }}
+        fallback={<p>An error has occurred</p>}
+      >
+        <App />
+      </ErrorBoundary>
     </Auth0Provider>
   </React.StrictMode>
 );
