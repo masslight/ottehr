@@ -220,6 +220,7 @@ const performEffect = async (
     collectExternalLabCptProcedures(
       templateList,
       encounter,
+      encounterBundle,
       actions.externalLabs,
       m2mToken,
       validatedInput.externalLabs?.paymentMethod

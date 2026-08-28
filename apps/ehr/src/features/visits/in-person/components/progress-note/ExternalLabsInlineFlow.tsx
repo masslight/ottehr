@@ -1,0 +1,82 @@
+import { Box, Stack } from '@mui/material';
+import { FC, useCallback, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { LabsTablePatientChart } from 'src/features/external-labs/components/labs-orders/LabsTablePatientChart';
+import { useLabOrderRowNavigation } from 'src/features/external-labs/components/labs-orders/useLabOrderRowNavigation';
+import { CreateExternalLabOrder } from 'src/features/external-labs/pages/CreateExternalLabOrder';
+import { externalLabsColumns } from 'src/features/external-labs/pages/ExternalLabOrdersListPage';
+import { OrderDetailsPage } from 'src/features/external-labs/pages/OrderDetails';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { LabOrderListPageDTO } from 'utils/lib/types/data/labs/labs.types';
+import { useRefreshNoteSummaries } from './useRefreshNoteSummaries';
+
+type ExternalLabsInlineView = { name: 'list' } | { name: 'create' } | { name: 'details'; serviceRequestId: string };
+
+const ITEMS_PER_PAGE = 100;
+
+export const ExternalLabsInlineFlow: FC = () => {
+  const [view, setView] = useState<ExternalLabsInlineView>({ name: 'list' });
+  const { encounter } = useAppointmentData();
+  const encounterId = encounter?.id;
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const refreshSummaries = useRefreshNoteSummaries({ fields: ['externalLabResults'] });
+  // Diagnostic-report centric results (reflex, pdf attachment) are keyed by diagnosticReportId
+  // and have no inline screen, so those rows still navigate.
+  const { openDrDrivenResult } = useLabOrderRowNavigation();
+
+  const goToList = useCallback((): void => {
+    setView({ name: 'list' });
+    refreshSummaries();
+  }, [refreshSummaries]);
+
+  const openOrder = useCallback((labOrderData: LabOrderListPageDTO): void => {
+    setView({ name: 'details', serviceRequestId: labOrderData.serviceRequestId });
+  }, []);
+
+  if (view.name === 'create') {
+    return <CreateExternalLabOrder onFinished={goToList} />;
+  }
+
+  if (view.name === 'details') {
+    return <OrderDetailsPage serviceRequestId={view.serviceRequestId} onBack={goToList} />;
+  }
+
+  if (!encounterId) {
+    console.error('No encounter ID found');
+    return null;
+  }
+
+  return (
+    <Stack spacing={1}>
+      {!isReadOnly && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <ButtonRounded
+            data-testid={dataTestIds.externalLabs.labsTable.addExternalLabBtn}
+            variant="contained"
+            color="primary"
+            size={'medium'}
+            onClick={() => setView({ name: 'create' })}
+            sx={{
+              py: 1,
+              px: 5,
+              textWrap: 'nowrap',
+            }}
+          >
+            + External Lab
+          </ButtonRounded>
+        </Box>
+      )}
+      <LabsTablePatientChart
+        searchBy={{ searchBy: { field: 'encounterId', value: encounterId }, itemsPerPage: ITEMS_PER_PAGE }}
+        columns={externalLabsColumns}
+        allowDelete={!isReadOnly}
+        allowSubmit={!isReadOnly}
+        onCreateOrder={!isReadOnly ? () => setView({ name: 'create' }) : undefined}
+        onRowClick={openOrder}
+        onDrDrivenRowClick={openDrDrivenResult}
+      />
+    </Stack>
+  );
+};

@@ -26,6 +26,7 @@ import {
   READABLE_FIELD_IDS,
   readField,
   readServiceLineProperty,
+  resolveDateValue,
   RulesEngineClaimModel,
   SERVICE_LINE_READABLE_PROPERTY_IDS,
   SERVICE_LINE_WRITABLE_PROPERTY_IDS,
@@ -185,6 +186,36 @@ describe('field catalog / claim-model pairing', () => {
     expect([...SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
     const settableIds = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
     expect([...SERVICE_LINE_WRITABLE_PROPERTY_IDS].sort()).toEqual([...settableIds].sort());
+  });
+});
+
+describe('resolveDateValue', () => {
+  it('returns a literal string as-is', () => {
+    const m = makeModel();
+    expect(resolveDateValue('2026-03-15', m)).toEqual({ value: '2026-03-15' });
+  });
+
+  it("falls back to the first service line's date when blank or omitted", () => {
+    const m = makeModel();
+    expect(resolveDateValue('', m)).toEqual({ value: '2026-01-05' });
+    expect(resolveDateValue(undefined, m)).toEqual({ value: '2026-01-05' });
+  });
+
+  it('errors on blank/omitted when the claim has no existing service lines', () => {
+    const m = makeModel();
+    m.claim.item = [];
+    expect(resolveDateValue(undefined, m)).toEqual({
+      error: 'no service date could be resolved — the claim has no existing service lines to inherit one from',
+    });
+  });
+
+  it('reads firstServiceLineDate explicitly, same as the blank fallback', () => {
+    const m = makeModel();
+    expect(resolveDateValue({ source: 'firstServiceLineDate' }, m)).toEqual({ value: '2026-01-05' });
+    m.claim.item = [];
+    expect(resolveDateValue({ source: 'firstServiceLineDate' }, m)).toEqual({
+      error: 'no service date could be resolved — the claim has no existing service lines to inherit one from',
+    });
   });
 });
 
@@ -804,6 +835,31 @@ describe('service line actions', () => {
     expect(m.claim.item).toHaveLength(1);
   });
 
+  it("adds a service line explicitly dated from the claim's first line's date", () => {
+    const m = makeModel();
+    expect(
+      applyAction(
+        {
+          type: 'addServiceLine',
+          line: { cptCode: '99050', charges: '30', serviceDate: { source: 'firstServiceLineDate' } },
+        },
+        m
+      )
+    ).toBeUndefined();
+    expect(readServiceLineProperty(m.claim.item![1], 'serviceDate')).toBe('2026-01-05');
+
+    m.claim.item = [];
+    expect(
+      applyAction(
+        {
+          type: 'addServiceLine',
+          line: { cptCode: '99051', charges: '30', serviceDate: { source: 'firstServiceLineDate' } },
+        },
+        m
+      )
+    ).toContain('service date');
+  });
+
   it('rejects invalid line place-of-service and service-date values instead of silently dropping them', () => {
     const m = makeModel();
     expect(
@@ -827,6 +883,41 @@ describe('service line actions', () => {
     // The failed actions must not have changed the claim's lines.
     expect(m.claim.item).toHaveLength(1);
     expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
+  });
+
+  it('resolves firstServiceLineDate once, before mutating, even when the first line is among those updated', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    m.claim.item![1].servicedPeriod = { start: '2026-05-05' }; // give line 2 a distinct date to update from
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' }, // includes the first line itself
+        set: { property: 'serviceDate', value: { source: 'firstServiceLineDate' } },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    // Both lines land on the *original* first line's date (2026-01-05), not a value from an
+    // already-mutated line earlier in the iteration.
+    expect(readServiceLineProperty(m.claim.item![0], 'serviceDate')).toBe('2026-01-05');
+    expect(readServiceLineProperty(m.claim.item![1], 'serviceDate')).toBe('2026-01-05');
+  });
+
+  it('fails the whole update when firstServiceLineDate cannot be resolved (no existing lines)', () => {
+    const m = makeModel();
+    m.claim.item = [];
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'serviceDate', value: { source: 'firstServiceLineDate' } },
+      },
+      m
+    );
+    expect(error).toContain('serviceDate');
+    expect(error).toContain('no service date could be resolved');
+    expect(m.claim.item).toEqual([]);
   });
 
   it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {

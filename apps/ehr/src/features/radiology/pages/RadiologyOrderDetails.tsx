@@ -16,6 +16,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useCompleteTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -50,10 +51,19 @@ const DetailRow: React.FC<{ label: string; dataTestId?: string; children: React.
   </Box>
 );
 
-export const RadiologyOrderDetailsPage: React.FC = () => {
+interface RadiologyOrderDetailsPageProps {
+  serviceRequestId?: string;
+  onBack?: () => void;
+}
+
+export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps> = ({
+  serviceRequestId: serviceRequestIdProp,
+  onBack,
+}) => {
   const urlParams = useParams();
-  const serviceRequestId = urlParams.serviceRequestID as string;
+  const serviceRequestId = serviceRequestIdProp ?? (urlParams.serviceRequestID as string);
   const navigate = useNavigate();
+  const isInlineFlow = useIsInlineFlow();
   const theme = useTheme();
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
@@ -87,9 +97,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     serviceRequestId,
   });
 
-  const handleBack = (): void => {
-    navigate(-1);
-  };
+  const handleBack = onBack ?? ((): void => navigate(-1));
 
   const consentExists = useRadiologyConsentExists();
 
@@ -266,8 +274,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     return <RadiologyOrderLoading />;
   }
 
-  return (
-    <WithRadiologyBreadcrumbs sectionName={order.studyType}>
+  const content = (
+    <>
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
           {order.isStat ? (
@@ -360,7 +368,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     ))}
                   </TextField>
                   {/* Saved on its own so the "performed" history row is filled at the moment someone records
-                      who took the image, rather than riding along with the preliminary read. */}
+                    who took the image, rather than riding along with the preliminary read. */}
                   <Tooltip placement="top" title="Save performed by">
                     <span>
                       <IconButton
@@ -574,6 +582,10 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
           </Box>
         </Stack>
       </div>
-    </WithRadiologyBreadcrumbs>
+    </>
   );
+
+  if (isInlineFlow) return content;
+
+  return <WithRadiologyBreadcrumbs sectionName={order.studyType}>{content}</WithRadiologyBreadcrumbs>;
 };
