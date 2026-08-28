@@ -1,5 +1,5 @@
 import { Stack } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
@@ -45,9 +45,14 @@ export const CreateTaskDialog: React.FC<Props> = ({
 
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Context prefills apply at most once per dialog open, so a field the user
+  // deliberately cleared isn't re-filled when a dep changes identity mid-open.
+  const prefillApplied = useRef({ patient: false, location: false });
+
   useEffect(() => {
     if (!open) {
       methods.reset();
+      prefillApplied.current = { patient: false, location: false };
     }
     setRefreshKey(Date.now());
   }, [open, methods]);
@@ -148,8 +153,15 @@ export const CreateTaskDialog: React.FC<Props> = ({
   }, [appointmentId, appointment, methods, open]);
 
   useEffect(() => {
-    if (open && initialPatient && !appointment.patient && !methods.getValues('patient')) {
+    if (
+      open &&
+      initialPatient &&
+      !prefillApplied.current.patient &&
+      !appointment.patient &&
+      !methods.getValues('patient')
+    ) {
       methods.setValue('patient', initialPatient);
+      prefillApplied.current.patient = true;
     }
   }, [open, initialPatient, appointment.patient, methods]);
 
@@ -188,8 +200,9 @@ export const CreateTaskDialog: React.FC<Props> = ({
 
   // Visit context implies the location; declared after the URL-context effect above so its 'location' clear on open runs first.
   useEffect(() => {
-    if (open && appointment.location?.id && !methods.getValues('location')) {
+    if (open && appointment.location?.id && !prefillApplied.current.location && !methods.getValues('location')) {
       methods.setValue('location', { id: appointment.location.id, name: getLocationLabel(appointment.location) });
+      prefillApplied.current.location = true;
     }
   }, [open, appointment.location, methods]);
 

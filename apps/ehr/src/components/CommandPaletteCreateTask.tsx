@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import { matchPath, useLocation } from 'react-router-dom';
 import { getPatientLabel } from '../features/tasks/common';
 import { CreateTaskDialog } from '../features/tasks/components/CreateTaskDialog';
@@ -23,6 +23,11 @@ export const CommandPaletteCreateTask: FC = () => {
     : (matchPath('/patient/:id/*', pathname) ?? matchPath('/patient/:id', pathname))?.params.id;
   const { patient } = useGetPatient(open ? patientId : undefined);
 
+  const initialPatient = useMemo(
+    () => (patient?.id ? { id: patient.id, name: getPatientLabel(patient) } : undefined),
+    [patient]
+  );
+
   if (!open) {
     return null;
   }
@@ -32,7 +37,7 @@ export const CommandPaletteCreateTask: FC = () => {
       open
       handleClose={() => setCreateTaskDialogOpen(false)}
       appointmentId={visitId}
-      initialPatient={patient?.id ? { id: patient.id, name: getPatientLabel(patient) } : undefined}
+      initialPatient={initialPatient}
     />
   );
 };

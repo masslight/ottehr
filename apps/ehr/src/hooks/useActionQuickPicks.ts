@@ -1,18 +1,8 @@
 import { useMemo } from 'react';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import useEvolveUser from './useEvolveUser';
-
-// Mirrors the /tasks route gating in App.tsx (union of both staff role blocks).
-const TASK_CREATION_ROLES = [
-  RoleType.Administrator,
-  RoleType.Manager,
-  RoleType.CustomerSupport,
-  RoleType.Staff,
-  RoleType.Provider,
-  RoleType.Clinician,
-];
+import { PRIMARY_EHR_STAFF_ROLES } from './useNavigationQuickPicks';
 
 /** Registers global action items (currently just "Create Task") in the command palette. */
 export function useActionQuickPicks(): void {
@@ -20,7 +10,7 @@ export function useActionQuickPicks(): void {
   const setCreateTaskDialogOpen = useCommandPaletteStore((state) => state.setCreateTaskDialogOpen);
 
   const items = useMemo<CommandPaletteItem[]>(() => {
-    if (!currentUser || !currentUser.hasRole(TASK_CREATION_ROLES)) {
+    if (!currentUser || !currentUser.hasRole(PRIMARY_EHR_STAFF_ROLES)) {
       return [];
     }
 
