@@ -83,24 +83,13 @@ const mechanismOfInjurySuggestion = (
   </Tooltip>
 );
 
-type MechanismOfInjuryFieldProps = {
-  /**
-   * Read and write this encounter instead of resolving one from the appointment store — for a page keyed
-   * by encounter, where the store is empty and the field would neither load nor save.
-   */
-  encounterId?: string;
-  /** Called after a save lands, for a page that owns its own chart query. */
-  onSaved?: () => void;
-};
-
-export const MechanismOfInjuryField: FC<MechanismOfInjuryFieldProps> = ({ encounterId, onSaved }) => {
+export const MechanismOfInjuryField: FC = () => {
   const { data: chartDataFields } = useChartFields({
     requestedFields: {
       mechanismOfInjury: {
         _tag: 'mechanism-of-injury',
       },
     },
-    encounterId,
   });
 
   const methods = useForm({
@@ -117,10 +106,7 @@ export const MechanismOfInjuryField: FC<MechanismOfInjuryFieldProps> = ({ encoun
 
   const { control } = methods;
 
-  const { onValueChange, isLoading, isChartDataLoading } = useDebounceNotesField('mechanismOfInjury', {
-    encounterId,
-    onSaved,
-  });
+  const { onValueChange, isLoading, isChartDataLoading } = useDebounceNotesField('mechanismOfInjury');
 
   return (
     <>
@@ -156,12 +142,11 @@ export const MechanismOfInjuryField: FC<MechanismOfInjuryFieldProps> = ({ encoun
   );
 };
 
-export const MechanismOfInjuryFieldReadOnly: FC<MechanismOfInjuryFieldProps> = ({ encounterId }) => {
+export const MechanismOfInjuryFieldReadOnly: FC = () => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
       mechanismOfInjury: { _tag: 'mechanism-of-injury' },
     },
-    encounterId,
   });
 
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;

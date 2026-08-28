@@ -65,9 +65,7 @@ async function addFromCatalogue(
   // Not supported HERE is not a failure and not an empty search result. Say what it is, and say
   // where the provider can do it, so a dictated item is never just quietly gone.
   if (options.unsupported) {
-    return skipped(
-      `adding a ${options.noun} ("${subject}") is not available on this page yet — add it in the regular chart`
-    );
+    return skipped(`the assistant cannot add a ${options.noun} yet ("${subject}") — enter it in the chart yourself`);
   }
 
   const result = await options.search(query(action));
@@ -75,8 +73,7 @@ async function addFromCatalogue(
     // The catalogue could not be consulted. Prefer its own reason — it names the unmet precondition
     // and the item — and fall back to a generic one only when it gave none.
     return skipped(
-      result?.reason ??
-        `the ${options.noun} catalogue is not available on this page yet — add "${subject}" in the regular chart`
+      result?.reason ?? `the assistant cannot search ${options.noun}s yet — enter "${subject}" in the chart yourself`
     );
   }
   const matches = result;

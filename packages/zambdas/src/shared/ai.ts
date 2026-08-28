@@ -461,7 +461,11 @@ export async function createResourcesFromAiInterview(
   // The bundle carries the full transcript and every extracted Observation/Condition — log what is
   // being written, not its contents.
   console.log(
-    `Transaction requests: ${requests.length} — ${requests.map((r) => r.resource.resourceType).join(', ')}`
+    `Transaction requests: ${requests.length} — ${requests
+      // A batch request is a union: only the write arms carry a `resource`, so a read arm is named by
+      // its method instead of reaching for a field it does not have.
+      .map((request) => ('resource' in request ? request.resource.resourceType : request.method))
+      .join(', ')}`
   );
   const transactionBundle = await oystehr.fhir.transaction({
     requests: requests,

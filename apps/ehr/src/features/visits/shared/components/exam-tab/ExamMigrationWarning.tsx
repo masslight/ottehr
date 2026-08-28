@@ -16,14 +16,9 @@ const NORMAL_EXTERNAL_GENITAL_EXAM_FIELD = 'normal-external-genital-exam';
 
 type ExamMigrationWarningProps = {
   unmatchedFields: string[];
-  // Callers that don't populate the appointment store (the Easy Chart page) pass the encounter id
-  // directly and handle the post-migration refresh themselves. Omitted → the original store-backed
-  // behavior, unchanged for the exam tab and the progress note.
-  encounterId?: string;
-  onMigrated?: () => void | Promise<void>;
 };
 
-export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedFields, encounterId, onMigrated }) => {
+export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedFields }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { resources } = useAppointmentData();
@@ -35,33 +30,26 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
   const canMigrate = !needsGenitalExamChoice || genitalExamSex !== undefined;
 
   const handleMigrate = async (): Promise<void> => {
-    const targetEncounterId = encounterId ?? resources.encounter?.id;
-    if (!oystehrZambda || !targetEncounterId) return;
+    if (!oystehrZambda || !resources.encounter?.id) return;
 
     setIsMigrating(true);
     try {
       await migrateExamData(oystehrZambda, {
-        encounterId: targetEncounterId,
+        encounterId: resources.encounter.id,
         ...(needsGenitalExamChoice && genitalExamSex ? { normalExternalGenitalExamSex: genitalExamSex } : {}),
       });
       enqueueSnackbar('Exam data migrated successfully', { variant: 'success' });
-      if (onMigrated) {
-        // Caller owns its own chart state (Easy Chart refetches getChartData); touching the
-        // appointment store here would write into a store that caller never populated.
-        await onMigrated();
-      } else {
-        // Remove only the unmatched fields from the store without touching hasInitialData
-        const currentState = useExamObservationsStore.getState();
-        const filteredState = Object.fromEntries(
-          Object.entries(currentState).filter(([key]) => !unmatchedFields.includes(key))
-        );
-        useExamObservationsStore.setState(filteredState, true);
-        // Refetch chart data to pull in the newly migrated observations
-        await queryClient.invalidateQueries({
-          queryKey: [CHART_DATA_QUERY_KEY, targetEncounterId],
-          refetchType: 'active',
-        });
-      }
+      // Remove only the unmatched fields from the store without touching hasInitialData
+      const currentState = useExamObservationsStore.getState();
+      const filteredState = Object.fromEntries(
+        Object.entries(currentState).filter(([key]) => !unmatchedFields.includes(key))
+      );
+      useExamObservationsStore.setState(filteredState, true);
+      // Refetch chart data to pull in the newly migrated observations
+      await queryClient.invalidateQueries({
+        queryKey: [CHART_DATA_QUERY_KEY, resources.encounter.id],
+        refetchType: 'active',
+      });
     } catch (error) {
       console.error('Migration failed:', error);
       enqueueSnackbar('Failed to migrate exam data. Please try again.', { variant: 'error' });

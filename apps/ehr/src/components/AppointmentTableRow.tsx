@@ -1,5 +1,4 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -1158,20 +1157,6 @@ export default function AppointmentTableRow({
           >
             <MedicalInformationIcon />
           </GoToButton>
-          {/* Sits BETWEEN Visit Details and the progress note on purpose: it reads as a third way into
-              the same visit, not as a separate product. */}
-          {FEATURE_FLAGS.EASY_CHART_ENABLED && encounterId && (
-            <GoToButton
-              text="Easy Chart"
-              // Easy Chart is a TAB of the in-person chart, so it is linked exactly like Review & Sign:
-              // by appointment id, through the helper that resolves a follow-up to its parent
-              // appointment and carries the follow-up encounter id in the query string.
-              onClick={() => navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.EASY_CHARTING))}
-              dataTestId={dataTestIds.dashboard.easyChartButton}
-            >
-              <AutoAwesomeIcon />
-            </GoToButton>
-          )}
           {renderProgressNoteButton()}
         </Stack>
       </TableCell>

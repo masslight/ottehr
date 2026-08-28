@@ -8,12 +8,9 @@
 // second; assuming writable and being wrong wastes a dictation.
 //
 // It used to FETCH all three by encounter id, because Easy Chart lived at its own /easy-chart/:encounterId
-// route where the appointment store was empty. It is now a tab of the in-person chart, so InPersonLayout
-// has already loaded exactly these resources into the store — three redundant reads, and a second serial
-// round-trip before the page could render.
-//
-// It also used to describe the patient for a banner at the top of the page. That banner is gone: the visit
-// header above states the same identity for every tab, so the page renders none of its own.
+// route where the appointment store was empty. The assistant now mounts inside InPersonLayout, which has
+// already loaded exactly these resources into the store — so fetching them again was three redundant reads
+// and a second serial round-trip before it could render.
 //
 // The read-only rule itself is NOT re-derived here: `useGetAppointmentAccessibility` is the shared hook
 // the rest of the chart gates on.
@@ -26,7 +23,7 @@ export interface EasyChartVisit {
   encounter: Encounter | undefined;
   appointment: Appointment | undefined;
   patient: Patient | undefined;
-  /** True for a signed/locked visit. The whole page goes read-only, with a visible reason. */
+  /** True for a signed/locked visit. The composer goes read-only, with a visible reason. */
   isReadOnly: boolean;
   isLoading: boolean;
 }

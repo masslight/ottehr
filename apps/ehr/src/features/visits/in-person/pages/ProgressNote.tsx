@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { ChartAssistantWidget } from 'src/features/easy-chart/components/ChartAssistantWidget';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
@@ -50,6 +51,10 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
           <UnlockAppointmentButton />
         </Box>
       </Box>
+
+      {/* Docked, not in the flow — see ChartAssistantWidget. Renders nothing when the flag is off or the
+          signed-in user is not in the charting role set. */}
+      <ChartAssistantWidget />
     </Stack>
   );
 };

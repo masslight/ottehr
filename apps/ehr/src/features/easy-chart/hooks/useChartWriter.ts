@@ -80,7 +80,7 @@ export function useChartWriter({
     async (fields: Record<string, unknown>): Promise<string[]> => {
       // The shared mutation applies the read-only rule and returns the ids it created. A throw from
       // it ("update disabled in read only mode") becomes a failed step with that text, which is the
-      // correct outcome — though the page should already be disabled with a visible reason, so a
+      // correct outcome — though the composer should already be disabled with a visible reason, so a
       // provider never reaches this by typing into a signed visit.
       const result = await saveChartData({ encounterId, ...(fields as Partial<AllChartValues>) });
       return result.createdResourceIds;
@@ -96,8 +96,9 @@ export function useChartWriter({
         // key onto the DTO map, it does not widen what may be deleted.
         //
         // encounterId is EXPLICIT, exactly as it is in `save`. The delete mutation falls back to the
-        // appointment store when it is not given one, and this page is keyed by encounterId in its own URL
-        // with that store empty — so every removal threw "api client not defined or encounterId not
+        // appointment store when it is not given one, which is only correct when the caller is certain that
+        // store is populated — when Easy Chart was a route of its own it was not, and every removal threw
+        // "api client not defined or encounterId not
         // provided" and nothing happened.
         await deleteChartData({
           encounterId,

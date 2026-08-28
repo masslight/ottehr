@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box, Card, Stack, TextField, Typography } from '@mui/material';
-import { FC, useCallback, useState } from 'react';
+import { Autocomplete, Box, Card, Stack, TextField, Typography } from '@mui/material';
+import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
@@ -11,7 +11,7 @@ import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChar
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { HospitalizationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { HospitalizationField } from './HospitalizationField';
+import { HospitalizationOptions } from './hospitalizationOptions';
 
 export const HospitalizationForm: FC = () => {
   const methods = useForm<{
@@ -41,6 +41,16 @@ export const HospitalizationForm: FC = () => {
     },
     [onSubmit, reset]
   );
+
+  const sortedHospitalizationOptions = useMemo(() => {
+    return [
+      ...HospitalizationOptions.sort((a, b) => a.display.toLowerCase().localeCompare(b.display.toLowerCase())),
+      {
+        display: 'Other',
+        code: 'other',
+      },
+    ];
+  }, []);
 
   const onSubmitForm = (data: {
     selectedHospitalization: HospitalizationDTO | null;
@@ -105,20 +115,43 @@ export const HospitalizationForm: FC = () => {
                 control={control}
                 rules={{ required: true }}
                 render={({ field: { value, onChange } }) => (
-                  <HospitalizationField
-                    value={value}
-                    disabled={isLoading || isChartDataLoading}
-                    onChange={(data) => {
+                  <Autocomplete
+                    value={value || null}
+                    onChange={async (_e, data) => {
                       onChange(data);
-                      // "Other" is the page's own branch: it reveals a free-text name and an Add button, so
-                      // it must NOT go straight to the write.
                       if (data?.display === 'Other') {
                         setIsOtherOptionSelected(true);
                       } else {
                         setIsOtherOptionSelected(false);
-                        void handleSelectOption(data);
+                        await handleSelectOption(data);
                       }
                     }}
+                    fullWidth
+                    size="small"
+                    disabled={isLoading || isChartDataLoading}
+                    options={sortedHospitalizationOptions}
+                    noOptionsText="Nothing found for this search criteria"
+                    getOptionLabel={(option) => `${option.display}`}
+                    renderOption={(props, option) => (
+                      <li {...props}>
+                        <Typography component="span"> {option.display} </Typography>
+                      </li>
+                    )}
+                    isOptionEqualToValue={(option, value) => option.code === value.code}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        data-testid={dataTestIds.hospitalizationPage.hospitalizationDropdown}
+                        label="Hospitalization"
+                        placeholder="Search"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          '& .MuiInputLabel-root': {
+                            fontWeight: 'bold',
+                          },
+                        }}
+                      />
+                    )}
                   />
                 )}
               />

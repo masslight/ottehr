@@ -12,7 +12,6 @@ export const useSaveNote: UseSaveNote = ({ encounterId, appointmentId, patientId
 
   const { setQueryCache } = useChartFields({
     appointmentId,
-    encounterId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
 

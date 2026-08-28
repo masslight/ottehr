@@ -2,7 +2,7 @@
 //
 // Everything hard lives elsewhere on purpose. The endpoint returns typed actions and every guard has
 // already run; `runPlan` settles each step; the provenance store records who wrote what. This hook is
-// the state machine that connects them and keeps the page responsive while it runs.
+// the state machine that connects them and keeps the widget responsive while it runs.
 //
 // Responsiveness is a requirement, not a nicety: the provider can keep typing, queued messages send
 // when the assistant is free, and a status line with elapsed time makes long waits visible instead of
@@ -57,10 +57,16 @@ export interface UseChartAssistantOptions {
   chartData: GetChartDataResponse | undefined;
   catalogue: Catalogue;
   writer: ChartWriter;
-  /** Refetch the chart after a turn writes, so the note pane shows what landed. */
+  /** Refetch the chart after a turn writes, so the next turn's snapshot knows what landed. */
   refetchChart: () => Promise<void>;
-  /** Called with each step's created ids so the provenance layer can attribute them. */
-  onStepsSettled: (steps: PlanStep[], narrative: string) => void;
+  /**
+   * Called with each step's created ids, so a surface that attributes rows to the assistant can do so.
+   *
+   * OPTIONAL: the docked widget renders the thread and nothing else, and the settled plan card in the
+   * thread already says what landed. A surface that tints the rows it wrote — which the note itself will,
+   * once it edits inline — passes this and keys its provenance off the ids.
+   */
+  onStepsSettled?: (steps: PlanStep[], narrative: string) => void;
   /** True for a signed visit: the composer is disabled and nothing may be sent. */
   readOnly?: boolean;
 }
@@ -152,7 +158,7 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
           encounterId: options.encounterId,
           // The chart is NOT sent. The zambda reads it by encounterId — get-chart-data twice, the same pair
           // the visit-note PDF uses — because a client-assembled summary could only ever describe the
-          // sections this page's own read layer happened to fetch, and ROS, vitals and placed orders were
+          // sections the client's own read layer happened to fetch, and ROS, vitals and placed orders were
           // silently missing from it.
           // Every turn after the first is incremental: the chart state is the truth about what exists,
           // and without this the model happily re-emits what it already charted.
@@ -203,7 +209,7 @@ export function useChartAssistant(options: UseChartAssistantOptions): ChartAssis
 
         const allSteps = [...steps, ...rejectedSteps];
         push({ role: 'assistant', kind: 'plan', steps: allSteps });
-        options.onStepsSettled(steps, message);
+        options.onStepsSettled?.(steps, message);
 
         // Summarise the assistant's turn, quote the provider's. What they SAID is evidence; what the
         // assistant DID is already in the chart state, so one line per action is enough.

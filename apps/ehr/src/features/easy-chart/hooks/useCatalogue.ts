@@ -5,8 +5,8 @@
 // replay over committed fixtures is meant to catch, and that cannot need a live environment.
 //
 // A catalogue that is NOT AVAILABLE here returns `undefined`, which is a different fact from `[]`.
-// `[]` means "searched, nothing matched" and tells the provider to reword. `undefined` means "this
-// catalogue is not on this page yet" and tells them to use the regular chart. Reporting the second
+// `[]` means "searched, nothing matched" and tells the provider to reword. `undefined` means "the
+// assistant cannot search this yet" and tells them to enter it themselves. Reporting the second
 // as the first would send them looking for the wrong problem — "no allergy matches penicillin"
 // implies the allergy database was consulted and came back empty.
 //
@@ -75,7 +75,7 @@ const ROS_ENTRIES: RosCatalogueEntry[] = Object.values(InPersonRosConfig).flatMa
   }))
 );
 
-/** Not available on this page yet — distinct from "searched and found nothing". */
+/** Not wired to the assistant yet — distinct from "searched and found nothing". */
 const UNAVAILABLE = async (): Promise<CatalogueResult> => catalogueUnavailable();
 
 export function useCatalogue(options: UseCatalogueOptions = {}): Catalogue {

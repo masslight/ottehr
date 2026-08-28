@@ -30,7 +30,6 @@ import {
   useProcedureStore,
   useVitalsDraftStore,
 } from 'src/state/draft-data.store';
-import { computeSignBlockers } from 'utils/lib/easy-chart/sign-blockers';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
@@ -71,25 +70,16 @@ export const MissingCard: FC = () => {
   const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
 
   const navigate = useNavigate();
-  // Same shared, pure rules ReviewAndSignButton gates on — a clean panel here must mean a signable
-  // note. NOTE the CC↔HPI storage swap: the HPI text is read from chiefComplaint.text.
+  const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
+  const medicalDecision = chartFields?.medicalDecision?.text;
+  const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
-  const blockerIds = new Set(
-    computeSignBlockers({
-      hasPrimaryDiagnosis: (chartData?.diagnosis || []).some((item) => item.isPrimary),
-      medicalDecision: chartFields?.medicalDecision?.text,
-      hasEmCode: Boolean(chartData?.emCode),
-      hpi,
-      patientInfoConfirmed: chartFields?.patientInfoConfirmed?.value,
-      accident: chartFields?.accident,
-      // This card does not request inHouseLabResults and has never listed pending-lab blockers;
-      // ReviewAndSignButton fetches them and surfaces them in its tooltip.
-      mdmRequired,
-    }).map((blocker) => blocker.id)
-  );
-  const isPatientVerificationMissing = blockerIds.has('patient-info-unconfirmed');
-  const accidentMissingDate = blockerIds.has('accident-no-date');
-  const accidentMissingState = blockerIds.has('accident-no-state');
+  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
+  const isPatientVerificationMissing = !patientInfoConfirmed;
+  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
+  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
+  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -107,20 +97,16 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  // `blockerIds` above is the SAME computation, from the same shared rules and the same chart reads —
-  // this card must not claim the note is complete while the sign button refuses it, or vice versa.
-  // `suggestionNote` stays separate: it is an AI HPI-quality hint, not a hard blocker. Lab-results
-  // blockers are excluded because this card is about MISSING DATA a provider can go and fill in.
-  const hasMissingData = [
-    'no-primary-dx',
-    'no-mdm',
-    'no-em',
-    'no-hpi',
-    'accident-no-date',
-    'accident-no-state',
-    'patient-info-unconfirmed',
-  ].some((id) => blockerIds.has(id));
-  if (!hasMissingData && !suggestionNote) {
+  if (
+    primaryDiagnosis &&
+    (!mdmRequired || medicalDecision) &&
+    emCode &&
+    hpi &&
+    !suggestionNote &&
+    !isPatientVerificationMissing &&
+    !accidentMissingDate &&
+    !accidentMissingState
+  ) {
     return null;
   }
 
@@ -189,7 +175,7 @@ export const MissingCard: FC = () => {
               HPI
             </Link>
           )}
-          {blockerIds.has('no-primary-dx') && (
+          {!primaryDiagnosis && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}
@@ -200,7 +186,7 @@ export const MissingCard: FC = () => {
               Primary diagnosis
             </Link>
           )}
-          {blockerIds.has('no-mdm') && (
+          {mdmRequired && !medicalDecision && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}
@@ -211,7 +197,7 @@ export const MissingCard: FC = () => {
               Medical decision making
             </Link>
           )}
-          {blockerIds.has('no-em') && (
+          {!emCode && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}

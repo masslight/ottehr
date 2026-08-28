@@ -1,4 +1,9 @@
-// The page's read layer — two SHARED-hook calls, split by what each one is actually for.
+// The assistant's read layer — two SHARED-hook calls, split by what each one is actually for.
+//
+// WHAT IT IS FOR, now that the assistant is a widget and renders no note of its own: `buildChartSnapshot`
+// turns this into the executor's view of what is ALREADY on the chart, and that view is what stops the
+// model re-charting an item every turn and what the procedure write diffs against. So the field set is
+// still deliberately broad — a section missing from here is a section the assistant believes is empty.
 //
 // The first implementation built a separate ~460-line read+write layer on the belief that
 // `useChartData` required a populated appointment store. That belief was wrong: chart data lives in
@@ -6,7 +11,7 @@
 // takes an encounterId directly. The three real gaps were fixed in the shared hooks themselves
 // rather than routed around, so what is left here is a merge and nothing else.
 //
-// THE NOTE FIELDS COME FROM useChartFields, NOT useChartData. This page used to run useChartData twice
+// THE NOTE FIELDS COME FROM useChartFields, NOT useChartData. This used to run useChartData twice
 // — once unscoped, once with requestedFields — and merge the two responses. It looked equivalent and was
 // not: useChartData carries a five-minute staleTime, so after the assistant wrote a note field react-query
 // considered the old value fresh, and the merge (scoped second, unconditionally) let that stale value mask
@@ -18,7 +23,7 @@
 // for, so a field it owns cannot be shadowed by a second query's older copy.
 //
 // The unscoped useChartData call stays, for ONE reason: only a request with requestedFields omitted
-// returns `aiChat`, i.e. the transcripts this page is built around.
+// returns `aiChat`, i.e. the ambient-scribe transcripts.
 
 import { useCallback, useMemo } from 'react';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
@@ -28,7 +33,7 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 
 /**
- * Fields the default (unscoped) chart-data response does not carry, which this page needs: the
+ * Fields the default (unscoped) chart-data response does not carry, which the snapshot needs: the
  * progress-note free-text fields, vitals, the disposition, the practice's note metadata and the
  * legacy addendum.
  */
@@ -59,8 +64,8 @@ const EXTRA_FIELDS = {
   prescribedMedications: {},
   // NOT requested. `inhouseMedications` is fetched PATIENT-scoped with a `_tag`, so it returns the
   // patient's in-house medication history across every visit — it showed a medication from a previous
-  // encounter and omitted the one just given here. The note pane takes MAR orders from the
-  // encounter-scoped get-medication-orders query instead, which is what Review & Sign does too.
+  // encounter and omitted the one just given here. Review & Sign takes MAR orders from the
+  // encounter-scoped get-medication-orders query instead, and so must anything that prints them.
 
   cptCodes: {},
   externalLabResults: {},
@@ -79,8 +84,8 @@ const EXTRA_FIELDS = {
 
 /**
  * Fields get-chart-data fetches ONLY on an explicit request, i.e. never from the unscoped call.
- * EXTRA_FIELDS must cover every one this page renders, or the section is silently empty rather than
- * erroring — the failure mode that hid hospitalizations. Pinned by a test.
+ * EXTRA_FIELDS must cover every one the snapshot describes, or the assistant reads that section as empty
+ * rather than erroring — the failure mode that hid hospitalizations. Pinned by a test.
  */
 export const REQUEST_ONLY_CHART_FIELDS = [
   'accident',
@@ -102,10 +107,10 @@ export const REQUEST_ONLY_CHART_FIELDS = [
   'vitalsObservations',
 ] as const;
 
-/** Request-only fields this page deliberately does not ask for, with the reason. */
+/** Request-only fields the assistant deliberately does not ask for, with the reason. */
 export const UNREQUESTED_BY_DESIGN: Record<string, string> = {
   birthHistory: 'not a visit-note section — it belongs to the patient record, not this encounter',
-  practitioners: 'the note pane names no practitioners; the visit query already resolves the attender',
+  practitioners: 'nothing here names a practitioner; the visit query already resolves the attender',
   preferredPharmacies: 'a prescribing concern, and prescriptions are transmitted from the regular chart',
   vitalsObservations:
     'the Vitals section renders the get-vitals response instead — the only source that stamps alertCriticality ' +
@@ -135,10 +140,10 @@ export function useEasyChartData(encounterId: string | undefined, enabled = true
   //
   // NO `shouldUpdateExams` here, deliberately. That flag populates the exam and ROS observation STORES,
   // which is a different thing from returning the data: the hosted ExamTab and RosTab render a spinner
-  // until their initialisation stores say they have data. This page used to set it because it lived at its
-  // own /easy-chart/:encounterId route, outside the chart layout. As a tab of the in-person chart it gets
-  // that from InPersonLayout, which sets the flag once for the whole route — and since the encounter id is
-  // read the same way, both calls land on ONE react-query entry rather than two.
+  // until their initialisation stores say they have data. This used to set it while Easy Chart was a route
+  // of its own, outside the chart layout. Mounted inside InPersonLayout it gets that from the layout, which
+  // sets the flag once for the whole route — and since the encounter id is read the same way, both calls
+  // land on ONE react-query entry rather than two.
   const base = useChartData({
     encounterId,
     enabled: enabled && Boolean(encounterId),

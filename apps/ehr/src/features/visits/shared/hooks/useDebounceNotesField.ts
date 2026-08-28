@@ -50,26 +50,8 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
   reasonForVisit: {},
 };
 
-export interface UseDebounceNotesFieldOptions {
-  /**
-   * Read and write this encounter instead of resolving one from the appointment store.
-   *
-   * The in-person pages pass nothing and keep reading the store. A page keyed by ENCOUNTER has no
-   * appointment there, so without this the field's own id is undefined: the read never enables and the
-   * save throws. Explicit id first, store fallback — the shape `useSaveChartData` already takes.
-   */
-  encounterId?: string;
-  /**
-   * Called after a save or delete lands. `refetchChartDataOnSave` refetches the APPOINTMENT STORE's
-   * chart query, which a page that does not populate the store has no use for — it needs its own query
-   * refreshed instead.
-   */
-  onSaved?: () => void;
-}
-
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
-  name: T,
-  { encounterId, onSaved }: UseDebounceNotesFieldOptions = {}
+  name: T
 ): {
   onValueChange: (text: string, { refetchChartDataOnSave }?: { refetchChartDataOnSave: boolean }) => void;
   isLoading: boolean;
@@ -85,7 +67,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
     requestedFields: {
       [name]: requestedFieldsOptions[name as keyof ChartDataTextValueType],
     },
-    encounterId,
   });
 
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
@@ -130,8 +111,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
       hasPendingApiRequestsRef.current = true;
 
       const variables = {
-        // Undefined keeps the store fallback, so the in-person pages are unaffected.
-        encounterId,
         [name]: {
           resourceId:
             (chartFields?.[name] as GetChartDataResponse[T])?.resourceId ||
@@ -159,7 +138,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
             hasPendingApiRequestsRef.current = false;
             latestValueFromServerRef.current = valueToSave;
-            onSaved?.();
           },
           onError: () => {
             enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {
@@ -178,7 +156,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
             hasPendingApiRequestsRef.current = false;
             latestValueFromServerRef.current = undefined;
-            onSaved?.();
 
             if (refetchChartDataOnSave) {
               // refetch chart data

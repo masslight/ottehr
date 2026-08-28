@@ -97,8 +97,6 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-// Lazy: the page pulls in the executor, the matchers and the flattened exam catalogue, none of which
-// any other route needs.
 
 const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Administrator,
