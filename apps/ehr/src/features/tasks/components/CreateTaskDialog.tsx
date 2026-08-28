@@ -49,6 +49,14 @@ export const CreateTaskDialog: React.FC<Props> = ({
   // deliberately cleared isn't re-filled when a dep changes identity mid-open.
   const prefillApplied = useRef({ patient: false, location: false });
 
+  // StrictMode double-invokes mount effects but refs survive the simulated remount;
+  // reset on cleanup so each mount's prefill pass starts fresh.
+  useEffect(() => {
+    return () => {
+      prefillApplied.current = { patient: false, location: false };
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) {
       methods.reset();
