@@ -60,12 +60,24 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
   { key: 'visit.chiefComplaint', label: 'Chief complaint', group: 'Visit', type: 'string' },
 
   // ── Provider ──────────────────────────────────────────────────────────────
+  // Decomposed for the same reason the patient's name is: forms routinely give first and last their own
+  // boxes, and splitting a joined string back apart is guesswork we should not be doing.
+  { key: 'provider.firstName', label: 'First name', group: 'Provider', type: 'string' },
+  { key: 'provider.middleName', label: 'Middle name', group: 'Provider', type: 'string' },
+  { key: 'provider.lastName', label: 'Last name', group: 'Provider', type: 'string' },
   {
     key: 'provider.fullName',
-    label: 'Name',
+    label: 'Full name',
     group: 'Provider',
     type: 'string',
-    description: 'The practitioner attending this visit.',
+    description: 'First and last name together, for forms with a single name field.',
+  },
+  {
+    key: 'provider.credentials',
+    label: 'Credentials',
+    group: 'Provider',
+    type: 'string',
+    description: 'Letters following the name, such as MD or NP.',
   },
   { key: 'provider.npi', label: 'NPI', group: 'Provider', type: 'string' },
 
@@ -78,8 +90,49 @@ export const TOKEN_CATALOG: readonly FormTokenDescriptor[] = Object.freeze([
   { key: 'facility.phone', label: 'Phone number', group: 'Facility', type: 'string' },
 
   // ── Insurance ─────────────────────────────────────────────────────────────
-  { key: 'insurance.payerName', label: 'Company', group: 'Insurance', type: 'string' },
-  { key: 'insurance.memberId', label: 'Member ID', group: 'Insurance', type: 'string' },
+  // Primary and secondary are separate tokens because forms ask for them in separate boxes — the CA
+  // prior-authorisation form has "Primary Insurance Name" and "Secondary Insurance Name" with a patient
+  // ID apiece — and a single "insurance" token cannot say which one it means.
+  { key: 'insurance.primaryPayerName', label: 'Primary company', group: 'Insurance', type: 'string' },
+  { key: 'insurance.primaryMemberId', label: 'Primary member ID', group: 'Insurance', type: 'string' },
+  { key: 'insurance.secondaryPayerName', label: 'Secondary company', group: 'Insurance', type: 'string' },
+  { key: 'insurance.secondaryMemberId', label: 'Secondary member ID', group: 'Insurance', type: 'string' },
+
+  // ── Vitals ────────────────────────────────────────────────────────────────
+  // Units are explicit rather than following the clinic's display preference. A mapping authored today
+  // would otherwise change meaning if that preference were ever flipped, silently altering every number
+  // these forms carry. Both are stored canonically — weight in kg, height in cm — and converted here.
+  //
+  // The feet/inches split exists because forms ask for it that way: the DOT medical examination has
+  // separate boxes for "height in feet (rounded down)" and "additional height in inches".
+  { key: 'vitals.heightCm', label: 'Height (cm)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.heightInches', label: 'Height (inches)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.heightFeet', label: 'Height (whole feet)', group: 'Vitals', type: 'number' },
+  {
+    key: 'vitals.heightInchesRemainder',
+    label: 'Height (inches after feet)',
+    group: 'Vitals',
+    type: 'number',
+    description: 'The inches part of a feet-and-inches height, for forms that split the two.',
+  },
+  { key: 'vitals.weightKg', label: 'Weight (kg)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.weightLbs', label: 'Weight (lbs)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.temperatureC', label: 'Temperature (°C)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.temperatureF', label: 'Temperature (°F)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.pulse', label: 'Pulse', group: 'Vitals', type: 'number' },
+  { key: 'vitals.bloodPressureSystolic', label: 'Blood pressure — systolic', group: 'Vitals', type: 'number' },
+  { key: 'vitals.bloodPressureDiastolic', label: 'Blood pressure — diastolic', group: 'Vitals', type: 'number' },
+  {
+    key: 'vitals.bloodPressure',
+    label: 'Blood pressure',
+    group: 'Vitals',
+    type: 'string',
+    description: 'Both readings in one field, written as 120/80.',
+  },
+  { key: 'vitals.respirationRate', label: 'Respiration rate', group: 'Vitals', type: 'number' },
+  { key: 'vitals.oxygenSaturation', label: 'Oxygen saturation (%)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.bmi', label: 'BMI', group: 'Vitals', type: 'number' },
+  { key: 'vitals.lastMenstrualPeriod', label: 'Last menstrual period', group: 'Vitals', type: 'date' },
 
   // ── Clinical ──────────────────────────────────────────────────────────────
   { key: 'diagnosis.primaryCode', label: 'Primary diagnosis code', group: 'Clinical', type: 'string' },

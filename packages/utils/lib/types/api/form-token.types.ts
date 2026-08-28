@@ -14,7 +14,7 @@
  */
 export type FormTokenType = 'string' | 'date' | 'boolean' | 'number';
 
-export type FormTokenGroup = 'Patient' | 'Visit' | 'Provider' | 'Facility' | 'Insurance' | 'Clinical';
+export type FormTokenGroup = 'Patient' | 'Visit' | 'Provider' | 'Facility' | 'Insurance' | 'Vitals' | 'Clinical';
 
 export interface FormTokenDescriptor {
   /**
