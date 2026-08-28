@@ -24,7 +24,7 @@ resource "terraform_data" "billing_upload" {
   # See the note on ehr_upload in deploy/apps_upload/aws/main.tf: index.html must not be cached,
   # the hashed assets must stay cached.
   provisioner "local-exec" {
-    command = "aws s3 sync ${path.module}/../../../../apps/billing/build s3://${var.billing_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps && aws s3 cp ${path.module}/../../../../apps/billing/build/index.html s3://${var.billing_bucket_id}/index.html --profile ${var.aws_profile} --cache-control 'no-cache, must-revalidate'"
+    command = "aws s3 sync ${path.module}/../../../../apps/billing/build s3://${var.billing_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps && aws s3 cp ${path.module}/../../../../apps/billing/build/index.html s3://${var.billing_bucket_id}/index.html --profile ${var.aws_profile} --cache-control 'no-cache, must-revalidate' --content-type 'text/html'"
   }
 
   # TODO: Uncomment when upgraded to TF 1.14

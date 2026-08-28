@@ -15,6 +15,29 @@ if (!Object.hasOwn) {
   hasOwn.shim();
 }
 
+const CHUNK_RELOAD_AT_KEY = 'ottehr-chunk-reload-at';
+const CHUNK_RELOAD_WINDOW_MS = 30_000;
+
+/**
+ * One reload per tab per window. A module-scope flag cannot do this: it is reset by the very
+ * reload it is meant to bound, so a chunk that stays missing would reload forever — which on a
+ * patient device mid-paperwork would be worse than showing an error. Returns true when reloading
+ * is allowed. Kept inline rather than shared with the EHR, matching the duplicated handler below.
+ */
+const canReloadForChunkError = (): boolean => {
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_AT_KEY));
+    if (last && Date.now() - last < CHUNK_RELOAD_WINDOW_MS) {
+      return false;
+    }
+    sessionStorage.setItem(CHUNK_RELOAD_AT_KEY, String(Date.now()));
+    return true;
+  } catch {
+    // Storage unavailable (Safari private mode). Keep the pre-existing behavior.
+    return true;
+  }
+};
+
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 const { VITE_APP_AUTH0_AUDIENCE, VITE_APP_AUTH_URL, VITE_APP_CLIENT_ID } = import.meta.env;
 if (!VITE_APP_CLIENT_ID || !VITE_APP_AUTH0_AUDIENCE) {
@@ -59,8 +82,12 @@ root.render(
             errorString.includes('is not a valid JavaScript MIME type') ||
             errorString.includes('Failed to fetch')
           ) {
-            console.log('Chunk loading error detected, reloading page...');
-            location.reload();
+            if (canReloadForChunkError()) {
+              console.log('Chunk loading error detected, reloading page...');
+              location.reload();
+            } else {
+              console.log('Chunk loading error persisted across a reload, showing error UI.');
+            }
           }
         }}
         fallback={<p>An error has occurred</p>}
