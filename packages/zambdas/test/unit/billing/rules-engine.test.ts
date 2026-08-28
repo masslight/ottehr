@@ -725,6 +725,76 @@ describe('service line actions', () => {
     expect(readField(m, 'billed')).toBe('170.75');
   });
 
+  it('points an added line at every claim diagnosis when diagnosisMode is "all"', () => {
+    const m = makeModel();
+    m.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+      { sequence: 3, diagnosisCodeableConcept: { coding: [{ code: 'R50.9' }] } },
+    ];
+    const error = applyAction(
+      { type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'all' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.item![1].diagnosisSequence).toEqual([1, 2, 3]);
+  });
+
+  it('points an added line at only the primary diagnosis when diagnosisMode is "primary"', () => {
+    const m = makeModel();
+    m.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    const error = applyAction(
+      { type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'primary' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.item![1].diagnosisSequence).toEqual([1]);
+  });
+
+  it('defaults to the primary diagnosis when diagnosisMode is unset, and to specific pointers when only diagnosisPointers is set (legacy rules)', () => {
+    const m1 = makeModel();
+    m1.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25' } }, m1)).toBeUndefined();
+    expect(m1.claim.item![1].diagnosisSequence).toEqual([1]);
+
+    const m2 = makeModel();
+    m2.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisPointers: '2' } }, m2)
+    ).toBeUndefined();
+    expect(m2.claim.item![1].diagnosisSequence).toEqual([2]);
+  });
+
+  it('rejects diagnosisMode "specific" with no pointers instead of silently falling back to the primary diagnosis', () => {
+    const m = makeModel();
+    expect(
+      applyAction(
+        { type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'specific' } },
+        m
+      )
+    ).toContain('diagnosis pointers are required');
+    expect(
+      applyAction(
+        {
+          type: 'addServiceLine',
+          line: { cptCode: '87880', charges: '45.25', diagnosisMode: 'specific', diagnosisPointers: '   ' },
+        },
+        m
+      )
+    ).toContain('diagnosis pointers are required');
+    // The failed adds must not have appended anything.
+    expect(m.claim.item).toHaveLength(1);
+  });
+
   it('fills the claim editor defaults for blank optional fields on an added line', () => {
     const m = makeModel();
     m.claim.careTeam = [{ sequence: 1, provider: { reference: 'Practitioner/rp' } }];
