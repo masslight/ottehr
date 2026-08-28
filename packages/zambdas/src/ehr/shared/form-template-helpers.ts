@@ -6,8 +6,9 @@ import {
   FORM_TEMPLATE_IDENTIFIER_SYSTEM,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
+import { FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
+import { FormFieldInfo, FormTemplateItem } from 'utils/lib/types/api/form-template.types';
 
 /**
  * `docStatus` marks a template as a draft (`preliminary`) or published (`final`). This mirrors the
@@ -95,6 +96,28 @@ export const getFormTemplateOrThrow = async (oystehr: Oystehr, id: string): Prom
     throw new Error(`DocumentReference/${id} is not a form template`);
   }
   return docRef;
+};
+
+/**
+ * Removes bindings that name fields the PDF no longer contains, and reports which went.
+ *
+ * Dropping rather than keeping is deliberate. A binding pointing at a field that does not exist fills
+ * nothing, produces no error, and gets written back on the next save — so it looks like configured
+ * behaviour while doing nothing at all. Removing it is destructive but visible, and the caller reports
+ * exactly what was lost.
+ */
+export const reconcileMappingWithFields = (
+  mapping: FormTemplateMapping,
+  fields: FormFieldInfo[]
+): { mapping: FormTemplateMapping; dropped: string[] } => {
+  const present = new Set(fields.map((field) => field.name));
+  const kept = mapping.bindings.filter((binding) => present.has(binding.fieldName));
+  const dropped = mapping.bindings.filter((binding) => !present.has(binding.fieldName));
+
+  return {
+    mapping: { ...mapping, bindings: kept },
+    dropped: dropped.map((binding) => binding.fieldName),
+  };
 };
 
 export const toFormTemplateItem = async (docRef: DocumentReference, token: string): Promise<FormTemplateItem> => {

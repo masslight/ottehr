@@ -43,6 +43,13 @@ export interface CreateFormTemplateUploadUrlInput {
   description?: string;
   /** Used for the stored object key; sanitized server-side. */
   fileName: string;
+  /**
+   * Set when replacing an existing template's PDF rather than creating a new template.
+   *
+   * The returned URL is a *candidate*: nothing about the template changes until the upload has been
+   * fetched and analysed successfully, so a failed replacement leaves the working template alone.
+   */
+  documentReferenceId?: string;
 }
 
 export interface CreateFormTemplateUploadUrlOutput {
@@ -163,4 +170,24 @@ export interface SaveFormTemplateMappingInput {
 
 export interface SaveFormTemplateMappingOutput {
   documentReferenceId: string;
+}
+
+export interface ReplaceFormTemplatePdfInput {
+  documentReferenceId: string;
+  /** Candidate object already uploaded via a URL minted with `documentReferenceId` set. */
+  z3Url: string;
+}
+
+export interface ReplaceFormTemplatePdfOutput {
+  documentReferenceId: string;
+  status: FormTemplateAnalysisStatus;
+  fields: FormFieldInfo[];
+  /**
+   * Fields the old mapping referred to that the new PDF does not contain. Their bindings are removed:
+   * a binding naming a field that no longer exists does nothing at fill time and would be written back
+   * on the next save, so it is a lie that is hard to notice.
+   */
+  droppedBindings: string[];
+  /** True when dropped bindings forced the template back to draft for review. */
+  returnedToDraft: boolean;
 }

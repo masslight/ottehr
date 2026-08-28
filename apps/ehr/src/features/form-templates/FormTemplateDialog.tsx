@@ -16,7 +16,8 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
-import { createFormTemplateWithPdf, updateFormTemplate } from './form-templates.api';
+import { createFormTemplateWithPdf, replaceFormTemplateWithPdf, updateFormTemplate } from './form-templates.api';
+import { clearMappingDraft } from './mapping-draft';
 import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
 type DialogProps = {
@@ -42,11 +43,26 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
       if (!oystehrZambda) throw new Error('API client not available');
 
       if (isEdit) {
-        return updateFormTemplate(oystehrZambda, {
+        await updateFormTemplate(oystehrZambda, {
           documentReferenceId: item.documentReferenceId,
           title: title.trim(),
           description: description.trim(),
         });
+
+        // Replacing the file is optional on an edit, and runs second so a rejected PDF cannot also lose
+        // the metadata change the user just made.
+        if (file) {
+          const replaced = await replaceFormTemplateWithPdf(oystehrZambda, {
+            documentReferenceId: item.documentReferenceId,
+            title: title.trim(),
+            file,
+          });
+          // A draft authored against the previous field inventory would otherwise be restored on the
+          // next visit and quietly reinstate bindings the replacement just reconciled away.
+          clearMappingDraft(item.documentReferenceId);
+          return { replaced };
+        }
+        return {};
       }
 
       if (!file) throw new Error('A PDF file is required');
@@ -59,7 +75,20 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
     },
     onSuccess: (result) => {
       if (isEdit) {
-        enqueueSnackbar('Form template updated', { variant: 'success' });
+        const replaced = 'replaced' in result ? result.replaced : undefined;
+        if (!replaced) {
+          enqueueSnackbar('Form template updated', { variant: 'success' });
+        } else if (replaced.droppedBindings.length > 0) {
+          const count = replaced.droppedBindings.length;
+          enqueueSnackbar(
+            `PDF replaced. ${count} mapped field${count === 1 ? '' : 's'} no longer exist in the new PDF and ` +
+              `${count === 1 ? 'its mapping was' : 'their mappings were'} removed` +
+              `${replaced.returnedToDraft ? '. The template has been returned to draft for review.' : '.'}`,
+            { variant: 'warning', autoHideDuration: 12000 }
+          );
+        } else {
+          enqueueSnackbar('PDF replaced. All existing field mappings still apply.', { variant: 'success' });
+        }
       } else {
         const analysis = 'analysis' in result ? result.analysis : undefined;
         const mappable = analysis?.fields.filter((field) => field.mappable).length ?? 0;
@@ -113,27 +142,27 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose, item }) => 
             fullWidth
           />
 
-          {!isEdit && (
-            <>
-              <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
-                {file ? file.name : 'Choose PDF'}
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  hidden
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </RoundedButton>
-              {fileError && (
-                <Typography color="error" variant="body2">
-                  {fileError}
-                </Typography>
-              )}
-              <Typography variant="body2" color="text.secondary">
-                New templates are saved as drafts. Publish a template to make it available in the patient chart.
-              </Typography>
-            </>
+          <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
+            {file ? file.name : isEdit ? 'Replace PDF' : 'Choose PDF'}
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              hidden
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </RoundedButton>
+          {fileError && (
+            <Typography color="error" variant="body2">
+              {fileError}
+            </Typography>
           )}
+          <Typography variant="body2" color={isEdit && file ? 'warning.main' : 'text.secondary'}>
+            {!isEdit
+              ? 'New templates are saved as drafts. Publish a template to make it available in the patient chart.'
+              : file
+              ? 'Replacing the PDF re-reads its fields. Any mapping pointing at a field the new PDF does not contain will be removed, and the template returned to draft.'
+              : 'Optional. Upload a new PDF only if the form itself has changed.'}
+          </Typography>
 
           {errorMsg && (
             <Typography color="error" variant="body2">

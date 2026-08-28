@@ -36,6 +36,7 @@ import { TOKEN_CATALOG } from 'utils/lib/form-tokens/token-catalog';
 import { FormFieldInfo, GetFormTemplateDetailOutput } from 'utils/lib/types/api/form-template.types';
 import { FormTokenDescriptor } from 'utils/lib/types/api/form-token.types';
 import { getFormTemplateDetail, saveFormTemplateMapping } from './form-templates.api';
+import { clearMappingDraft, readMappingDraft, writeMappingDraft } from './mapping-draft';
 import { FORM_TEMPLATES_QUERY_KEY } from './useFormTemplates';
 
 /**
@@ -99,27 +100,6 @@ const fieldLabel = (field: FormFieldInfo): string => {
   return name || `Unlabelled ${field.type}`;
 };
 
-/**
- * Unsaved mappings survive a reload in session storage.
- *
- * Mapping a long form is many minutes of work, and losing it to an accidental refresh is the kind of
- * thing that stops people trusting the screen. Session storage rather than local storage: the draft is
- * meant to outlive a reload, not to follow someone around for weeks after they abandoned it.
- */
-const draftKeyFor = (templateId: string): string => `ottehr.form-template-mapping-draft.${templateId}`;
-
-const readDraft = (templateId: string): FormFieldBinding[] | undefined => {
-  try {
-    const raw = sessionStorage.getItem(draftKeyFor(templateId));
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as { bindings?: unknown };
-    return Array.isArray(parsed.bindings) ? (parsed.bindings as FormFieldBinding[]) : undefined;
-  } catch {
-    // Unreadable or unavailable storage is not worth failing the page over; the draft is a convenience.
-    return undefined;
-  }
-};
-
 /** Order-insensitive, since local edit order has nothing to do with how the server stored them. */
 const sameBindings = (a: FormFieldBinding[], b: FormFieldBinding[]): boolean => {
   const normalise = (list: FormFieldBinding[]): string =>
@@ -164,7 +144,7 @@ export const FormTemplateMappingPage = (): ReactElement => {
     hydratedFor.current = templateId;
 
     const saved = (data.mapping as FormTemplateMapping | undefined)?.bindings ?? [];
-    const draft = readDraft(templateId);
+    const draft = readMappingDraft(templateId);
     const restoring = !!draft && !sameBindings(draft, saved);
     const source = restoring ? draft : saved;
 
@@ -178,14 +158,7 @@ export const FormTemplateMappingPage = (): ReactElement => {
   // Keep the draft current while there is anything unsaved to lose.
   useEffect(() => {
     if (!templateId || !dirty) return;
-    try {
-      sessionStorage.setItem(
-        draftKeyFor(templateId),
-        JSON.stringify({ version: 1, bindings: Object.values(bindings) })
-      );
-    } catch {
-      // Storage can be full or unavailable. The mapping still saves normally; only the draft is lost.
-    }
+    writeMappingDraft(templateId, Object.values(bindings));
   }, [bindings, dirty, templateId]);
 
   const saveMutation = useMutation({
@@ -199,13 +172,7 @@ export const FormTemplateMappingPage = (): ReactElement => {
     onSuccess: (savedMapping) => {
       enqueueSnackbar('Mapping saved', { variant: 'success' });
       setDirty(false);
-      if (templateId) {
-        try {
-          sessionStorage.removeItem(draftKeyFor(templateId));
-        } catch {
-          // Nothing to do: the draft is stale rather than harmful, and will be ignored on next load.
-        }
-      }
+      if (templateId) clearMappingDraft(templateId);
       // Write the saved mapping straight into the cached detail rather than refetching it. Refetching
       // would mint a new presigned URL and make the preview re-download the PDF for no reason; leaving
       // the cache alone is worse still, because reopening this page would then hydrate from a mapping

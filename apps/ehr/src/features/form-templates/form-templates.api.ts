@@ -12,6 +12,8 @@ import {
   GetFormTemplateDetailOutput,
   ListFormTemplatesInput,
   ListFormTemplatesOutput,
+  ReplaceFormTemplatePdfInput,
+  ReplaceFormTemplatePdfOutput,
   SaveFormTemplateMappingInput,
   SaveFormTemplateMappingOutput,
   UpdateFormTemplateInput,
@@ -21,6 +23,7 @@ import {
 const ANALYZE_FORM_TEMPLATE_ZAMBDA_ID = 'analyze-form-template';
 const CREATE_FORM_TEMPLATE_UPLOAD_URL_ZAMBDA_ID = 'create-form-template-upload-url';
 const GET_FORM_TEMPLATE_DETAIL_ZAMBDA_ID = 'get-form-template-detail';
+const REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID = 'replace-form-template-pdf';
 const SAVE_FORM_TEMPLATE_MAPPING_ZAMBDA_ID = 'save-form-template-mapping';
 const LIST_FORM_TEMPLATES_ZAMBDA_ID = 'list-form-templates';
 const UPDATE_FORM_TEMPLATE_ZAMBDA_ID = 'update-form-template';
@@ -115,6 +118,53 @@ export const analyzeFormTemplate = async (
     console.error(error);
     throw apiErrorToThrow(error);
   }
+};
+
+const replaceFormTemplatePdf = async (
+  oystehr: Oystehr,
+  parameters: ReplaceFormTemplatePdfInput
+): Promise<ReplaceFormTemplatePdfOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: REPLACE_FORM_TEMPLATE_PDF_ZAMBDA_ID, ...parameters });
+    return chooseJson(response) as ReplaceFormTemplatePdfOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/**
+ * Swaps an existing template's PDF and reconciles its mapping against the new field inventory.
+ *
+ * The upload goes to a candidate location and the template is only repointed once the replacement has
+ * been fetched and analysed, so a rejected or failed replacement leaves the existing template and its
+ * mapping untouched.
+ */
+export const replaceFormTemplateWithPdf = async (
+  oystehr: Oystehr,
+  parameters: { documentReferenceId: string; title: string; file: File }
+): Promise<ReplaceFormTemplatePdfOutput> => {
+  const { documentReferenceId, title, file } = parameters;
+
+  const candidate = await createFormTemplateUploadUrl(oystehr, { documentReferenceId, title, fileName: file.name });
+
+  const uploadResponse = await fetch(candidate.presignedUploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw new Error(`Failed to upload the PDF (${uploadResponse.status} ${uploadResponse.statusText})`);
+  }
+
+  const result = await replaceFormTemplatePdf(oystehr, { documentReferenceId, z3Url: candidate.z3Url });
+
+  const rejection = REJECTION_MESSAGES[result.status as FormTemplateAnalysisStatus];
+  if (rejection) {
+    throw new Error(`${rejection} The existing PDF has been kept.`);
+  }
+
+  return result;
 };
 
 /** Why a PDF could not be accepted, in terms an administrator can act on. */

@@ -20,7 +20,11 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl } from '../../shared/z3Utils';
-import { FORM_TEMPLATE_DOC_STATUS } from '../shared/form-template-helpers';
+import {
+  FORM_TEMPLATE_DOC_STATUS,
+  getFormTemplateIdentifier,
+  getFormTemplateOrThrow,
+} from '../shared/form-template-helpers';
 
 const ZAMBDA_NAME = 'create-form-template-upload-url';
 
@@ -47,6 +51,7 @@ const inputSchema: z.ZodType<CreateFormTemplateUploadUrlInput> = z.object({
   title: z.string().min(1, 'title is required'),
   description: z.string().optional(),
   fileName: z.string().min(1, 'fileName is required'),
+  documentReferenceId: z.string().min(1).optional(),
 });
 
 export function validateRequestParameters(
@@ -66,13 +71,26 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<CreateFormTemplateUploadUrlOutput> => {
-  const { title, description, fileName, secrets } = validatedInput;
+  const { title, description, fileName, documentReferenceId, secrets } = validatedInput;
 
   // A UUID segment keeps two same-day uploads of the same file name from colliding; makeZ3FileUrl
   // already prefixes the date. Templates are org-level, so this URL carries no patient path segment.
   const objectName = `${randomUUID()}-${sanitizeFileNameForZ3(fileName)}`;
   const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, fileName: objectName });
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
+
+  // Replacing an existing template's PDF: hand back a candidate location and change nothing. The
+  // template keeps pointing at its current file until the upload has been fetched and analysed, so a
+  // failed replacement leaves a working template working.
+  if (documentReferenceId) {
+    const existing = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+    return {
+      documentReferenceId,
+      identifier: getFormTemplateIdentifier(existing) ?? '',
+      z3Url,
+      presignedUploadUrl,
+    };
+  }
 
   const identifierValue = randomUUID();
   const docRef: DocumentReference = {
