@@ -6,6 +6,7 @@ import {
   RADIOLOGY_REPORT_SUPPRESSED_TAG,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -179,13 +180,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     .filter((maybeStudyReportItem) => maybeStudyReportItem !== undefined);
 
   if (studiesAwaitingFinalReportMoreThan24Hours.length > 0) {
+    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
     let outputStrings = '';
     outputStrings += 'Studies awaiting final report for more than 24 hours:';
     studiesAwaitingFinalReportMoreThan24Hours.forEach((study) => {
+      const consoleUrl = `https://console.oystehr.com/app/${projectId}/fhir/ServiceRequest/${study.serviceRequestId}`;
       outputStrings += `\nServiceRequest/${study.serviceRequestId}, Patient: ${
         study.patientName || 'Unknown'
       }, Appointment ID: ${study.appointmentId}`;
+      outputStrings += `\n  Console: ${consoleUrl}`;
     });
+    outputStrings += `\n\nTo suppress a study from this report, add this tag to the ServiceRequest in the Oystehr console:`;
+    outputStrings += `\n  ${JSON.stringify(RADIOLOGY_REPORT_SUPPRESSED_TAG)}`;
     console.log(outputStrings);
     throw new Error(outputStrings);
   } else {
