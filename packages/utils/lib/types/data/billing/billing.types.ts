@@ -468,6 +468,7 @@ export interface ClaimDetailResponse {
     serviceDate: string;
     placeOfService: string;
     diagnosisPointers: number[];
+    revenueCode: string;
   }[];
   billed: number;
   allowed: number;
@@ -489,7 +490,11 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
-  pcn: string;
+  pcn?: string;
+  billType: string;
+  patientDischargeStatusCode: string;
+  admissionType: string;
+  admissionSource: string;
 }
 
 interface Paginated {

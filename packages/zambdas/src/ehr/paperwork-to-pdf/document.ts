@@ -14,6 +14,7 @@ import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getCanonicalQuestionnaire, resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { getAppointmentType } from 'utils/lib/helpers/helpers';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { getMimeType } from 'utils/lib/utils/file';
 import { assertDefined, resolveTimezone } from '../../shared/helpers';
 
 export interface Document {
@@ -47,14 +48,14 @@ export interface Item {
   group?: string;
 }
 
-export enum ImageType {
-  JPG = 'JPG',
-  PNG = 'PNG',
-}
-
 export interface ImageItem {
   title: string;
-  imageType: ImageType;
+  /**
+   * The stored bytes. The attachment's declared contentType is deliberately NOT carried along:
+   * it is derived from the file extension of the z3 object name, which in turn comes from the
+   * browser's extension-derived File.type, so a JPEG uploaded as "card.png" is labelled image/png
+   * all the way into FHIR. The renderer sniffs the real format instead (see drawImageItem).
+   */
   imageBytes: Promise<ArrayBuffer>;
 }
 
@@ -224,18 +225,16 @@ function collectImageItems(
     const title = questionnaireItem?.text;
     const attachment = item.answer?.[0]?.valueAttachment;
 
-    if (attachment?.url && attachment?.contentType) {
-      let imageType: ImageType | undefined;
-      if (attachment.contentType === 'image/jpeg') imageType = ImageType.JPG;
-      if (attachment.contentType === 'image/png') imageType = ImageType.PNG;
-
-      if (imageType !== undefined) {
-        collected.push({
-          title: title ?? attachment.title ?? item.linkId,
-          imageType,
-          imageBytes: downloadImage(attachment.url, oystehr),
-        });
-      }
+    // The declared type only decides IF an answer is treated as an image (keeping PDF attachments
+    // such as consents and school notes out); which encoding it actually is gets decided from the
+    // bytes at render time. contentType is optional on an Attachment, so fall back to the url's
+    // extension the way isFaxableAttachment does rather than dropping the image.
+    const declaredType = attachment?.contentType ?? (attachment?.url ? getMimeType(attachment.url) : undefined);
+    if (attachment?.url && declaredType?.startsWith('image/')) {
+      collected.push({
+        title: title ?? attachment.title ?? item.linkId,
+        imageBytes: downloadImage(attachment.url, oystehr),
+      });
     }
 
     if (item.item && item.item.length > 0) {

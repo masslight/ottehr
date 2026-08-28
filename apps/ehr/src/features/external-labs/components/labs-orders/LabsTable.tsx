@@ -1,12 +1,5 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ReactElement } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  FollowUpAppointmentLookup,
-  getDrExternalLabEditUrl,
-  getExternalLabOrderEditUrl,
-  resolveOrderRoutingFromFollowUpLookup,
-} from 'src/features/visits/in-person/routing/helpers';
 import { getColumnHeader, getColumnWidth } from 'utils/lib/helpers/labs/helpers';
 import {
   ExternalLabsStatus,
@@ -34,7 +27,8 @@ interface LabsTableProps {
   allowDelete?: boolean;
   bundleRow?: ReactElement;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
-  followUpAppointmentLookup?: FollowUpAppointmentLookup;
+  onRowClick: (labOrderData: LabOrderListPageDTO) => void;
+  onDrDrivenRowClick: (result: ReflexLabDTO) => void;
 }
 
 export const LabsTable = ({
@@ -45,48 +39,9 @@ export const LabsTable = ({
   showDeleteLabOrderDialog,
   bundleRow,
   handleRejectedAbn,
-  followUpAppointmentLookup,
+  onRowClick,
+  onDrDrivenRowClick,
 }: LabsTableProps): ReactElement => {
-  const navigateTo = useNavigate();
-  const { id: appointmentIdFromUrl } = useParams();
-  const [searchParams] = useSearchParams();
-  const encounterIdParam = searchParams.get('encounterId');
-
-  const buildOrderUrl = (orderAppointmentId: string, urlBuilder: (appointmentId: string) => string): string => {
-    if (followUpAppointmentLookup) {
-      const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
-        orderAppointmentId,
-        followUpAppointmentLookup
-      );
-      const baseUrl = urlBuilder(appointmentId);
-      return encounterIdQuery ? `${baseUrl}?encounterId=${encounterIdQuery}` : baseUrl;
-    }
-    const appointmentId = appointmentIdFromUrl || orderAppointmentId;
-    const baseUrl = urlBuilder(appointmentId);
-    return encounterIdParam ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}encounterId=${encounterIdParam}` : baseUrl;
-  };
-
-  const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
-    navigateTo(
-      buildOrderUrl(labOrderData.appointmentId, (apptId) =>
-        getExternalLabOrderEditUrl(apptId, labOrderData.serviceRequestId)
-      )
-    );
-  };
-
-  const onRowClickForDrDrivenResult = (result: ReflexLabDTO): void => {
-    if (!result.appointmentId || !result.resultsDetails?.[0].diagnosticReportId) {
-      console.error(`Unable to navigate to dr result row, missing appointmentId or dr id`, result);
-      throw new Error('Unable to navigate to dr result row, missing appointmentId or dr id');
-    }
-    // todo labs future resultsDetails maybe does not need to be an array anymore
-    navigateTo(
-      buildOrderUrl(result.appointmentId, (apptId) =>
-        getDrExternalLabEditUrl(apptId, result.resultsDetails?.[0].diagnosticReportId ?? '')
-      )
-    );
-  };
-
   return (
     <TableContainer data-testid={dataTestId} sx={{ border: '1px solid #e0e0e0' }}>
       <Table>
@@ -116,7 +71,7 @@ export const LabsTable = ({
                 <LabsTableRow
                   key={`${idx}-reflex-${order.resultsDetails?.[0].diagnosticReportId}`}
                   labOrderData={order}
-                  onRowClick={() => onRowClickForDrDrivenResult(order)}
+                  onRowClick={() => onDrDrivenRowClick(order)}
                   columns={columns}
                   allowDelete={false}
                 />

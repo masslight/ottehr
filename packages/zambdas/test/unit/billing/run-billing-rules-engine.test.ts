@@ -1,9 +1,19 @@
 import Oystehr from '@oystehr/sdk';
-import { Bundle, Claim, Task } from 'fhir/r4b';
+import { Bundle, Claim, ProvenanceAgent, Task } from 'fhir/r4b';
+import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TASK_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/run-billing-rules-engine';
+
+const agent: ProvenanceAgent = {
+  type: {
+    coding: [CLAIM_PROVENANCE_AGENT_TYPE.human],
+  },
+  who: {
+    reference: 'Practitioner/u1',
+  },
+};
 
 const makeOystehr = (
   transactionImpl: (args: { requests: { resource: Task }[] }) => Promise<Bundle<Task>>
@@ -23,10 +33,14 @@ describe('run-billing-rules-engine - performEffect', () => {
   it("creates each claim's engine kickoff Task in a single transaction and returns per-claim results", async () => {
     const { oystehr, transaction } = makeOystehr(echoCreatedTasks);
 
-    const response = await performEffect(oystehr, [
-      { claimId: 'claim-1', engine: 'claim-submission', skipRules: false },
-      { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', skipRules: true },
-    ]);
+    const response = await performEffect(
+      oystehr,
+      [
+        { claimId: 'claim-1', engine: 'claim-submission', skipRules: false },
+        { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', skipRules: true },
+      ],
+      agent
+    );
 
     expect(response).toEqual({
       results: [
@@ -46,10 +60,12 @@ describe('run-billing-rules-engine - performEffect', () => {
     expect(requests[0].resource.code?.coding).toEqual([
       { system: RULES_ENGINE_TASK_SYSTEM, code: RULES_ENGINE_FHIR['claim-submission'].taskCode },
     ]);
+    expect(requests[0].resource.requester).toBe(agent.who);
     expect(requests[1].resource.focus?.reference).toBe('Claim/claim-2');
     expect(requests[1].resource.code?.coding).toEqual([
       { system: RULES_ENGINE_TASK_SYSTEM, code: RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].taskCode },
     ]);
+    expect(requests[1].resource.requester).toBe(agent.who);
   });
 
   it('throws when the transaction returns fewer tasks than claims', async () => {
@@ -58,7 +74,7 @@ describe('run-billing-rules-engine - performEffect', () => {
     );
 
     await expect(
-      performEffect(oystehr, [{ claimId: 'claim-1', engine: 'claim-submission', skipRules: false }])
+      performEffect(oystehr, [{ claimId: 'claim-1', engine: 'claim-submission', skipRules: false }], agent)
     ).rejects.toThrow();
   });
 });

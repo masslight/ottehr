@@ -18,6 +18,9 @@ import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
+  DATE_SOURCE_CATALOG,
+  DateSourceSelectValue,
+  EXACT_DATE_SOURCE,
   getRuleFieldDef,
   getServiceLinePropertyDef,
   RULE_FIELD_CATALOG,
@@ -35,6 +38,8 @@ import {
   setFieldValueProblem,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
+  DateValue,
+  effectiveDiagnosisMode,
   operatorIsMultiValue,
   operatorIsRegex,
   operatorNeedsValue,
@@ -474,6 +479,67 @@ function ServiceLineValueInput({
   );
 }
 
+// Date-or-derived-source input for the serviceDate fields addServiceLine/updateServiceLines expose.
+// Deliberately separate from TypedValueInput/ServiceLineValueInput, which ServiceLineMatchEditor also
+// uses for its (literal-only) date comparisons — this selector must not leak into line matching.
+// "Exact date" (the default) keeps the plain-string form every rule saved before this option existed
+// already uses; picking one of the other two sources swaps the field's value to a tagged object.
+function DateOrSourceInput({
+  value,
+  onChange,
+  label,
+  required,
+  error,
+  helperText,
+  inputRef,
+}: {
+  value: DateValue | null | undefined;
+  onChange: (value: DateValue) => void;
+  label?: string;
+} & ValueInputValidationProps): ReactElement {
+  const source: DateSourceSelectValue = value && typeof value === 'object' ? value.source : EXACT_DATE_SOURCE;
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <FormControl size="small" sx={{ minWidth: 220 }}>
+        <InputLabel>{label ? `${label} source` : 'Date source'}</InputLabel>
+        <Select
+          label={label ? `${label} source` : 'Date source'}
+          value={source}
+          inputRef={source !== EXACT_DATE_SOURCE ? inputRef : undefined}
+          onChange={(e) => {
+            const next = e.target.value as DateSourceSelectValue;
+            onChange(next === EXACT_DATE_SOURCE ? '' : { source: next });
+          }}
+        >
+          {DATE_SOURCE_CATALOG.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {source !== EXACT_DATE_SOURCE && helperText != null && (
+          <FormHelperText error={error}>{helperText}</FormHelperText>
+        )}
+      </FormControl>
+      {source === EXACT_DATE_SOURCE && (
+        <TextField
+          size="small"
+          type="date"
+          label={label ?? 'Date'}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => onChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          required={required}
+          error={error}
+          helperText={helperText}
+          inputRef={inputRef}
+          sx={{ minWidth: 200 }}
+        />
+      )}
+    </Box>
+  );
+}
+
 // --- Condition ---
 
 function ConditionEditor({ name }: { name: string }): ReactElement | null {
@@ -742,17 +808,42 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
 // input; blank optional fields fall back to the claim editor's defaults, shown as helper text.
 function AddServiceLineEditor({ name }: { name: string }): ReactElement {
   const { control } = useFormContext();
+  // diagnosisPointers only means anything when diagnosisMode is 'specific' — hide it otherwise
+  // rather than showing an input that has no effect. A rule saved before diagnosisMode existed has
+  // pointers but no mode, so fall back the same way the engine does (effectiveDiagnosisMode) instead
+  // of showing an unselected dropdown for a line that's actually pointing at specific diagnoses.
+  const diagnosisMode = useWatch({ control, name: `${name}.line.diagnosisMode` });
+  const diagnosisPointers = useWatch({ control, name: `${name}.line.diagnosisPointers` });
+  const effectiveMode = effectiveDiagnosisMode({ diagnosisMode, diagnosisPointers });
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      {ADD_SERVICE_LINE_FIELDS.map((lineField) => (
+      {ADD_SERVICE_LINE_FIELDS.filter(
+        (lineField) => lineField.id !== 'diagnosisPointers' || effectiveMode === 'specific'
+      ).map((lineField) => (
         <Controller
           key={lineField.id}
           name={`${name}.line.${lineField.id}`}
           control={control}
-          rules={{ validate: (value: string | undefined) => addServiceLineFieldProblem(lineField.id, value) ?? true }}
+          rules={{
+            validate: (value: string | DateValue | undefined) =>
+              addServiceLineFieldProblem(lineField.id, value, { diagnosisMode }) ?? true,
+          }}
           render={({ field: { ref, value: fieldValue, onChange, onBlur }, fieldState: { error } }) => {
             const label = lineField.required ? lineField.label : `${lineField.label} (optional)`;
             const helperText = error?.message ?? (lineField.whenBlank ? `Blank: ${lineField.whenBlank}` : undefined);
+            if (lineField.id === 'serviceDate') {
+              return (
+                <DateOrSourceInput
+                  value={fieldValue}
+                  onChange={onChange}
+                  label={label}
+                  required={lineField.required}
+                  error={!!error}
+                  helperText={helperText}
+                  inputRef={ref}
+                />
+              );
+            }
             if (lineField.format === 'cpt') {
               return (
                 <ProcedureCodeAutocomplete
@@ -820,7 +911,7 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
 // properties: replace / add / remove), and the value.
 function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
   const { control, clearErrors } = useFormContext();
-  const { value, replace } = useNode<{ property: string; value: string; operation?: ServiceLineSetOperation }>(name);
+  const { value, replace } = useNode<{ property: string; value: DateValue; operation?: ServiceLineSetOperation }>(name);
   if (!value) return null;
   const def = getServiceLinePropertyDef(value.property);
   const isList = def?.valueType === 'list';
@@ -879,24 +970,36 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
         name={`${name}.value`}
         control={control}
         rules={{
-          validate: (v: string | null | undefined) =>
+          validate: (v: DateValue | null | undefined) =>
             def ? serviceLineSetValueProblem(def, value.operation, v) ?? true : true,
         }}
-        render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) => (
-          <ServiceLineValueInput
-            def={def}
-            multiple={false}
-            value={fieldValue}
-            onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
-            label={valueLabel}
-            required={valueRequired}
-            error={!!error}
-            helperText={error?.message ?? formatHint(def)}
-            inputRef={ref}
-            // The only clearable scalar line property; an explicit empty entry means "clear it".
-            allowEmptyOption={def?.id === 'placeOfService'}
-          />
-        )}
+        render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) =>
+          def?.valueType === 'date' ? (
+            <DateOrSourceInput
+              value={fieldValue}
+              onChange={onChange}
+              label={valueLabel}
+              required={valueRequired}
+              error={!!error}
+              helperText={error?.message ?? formatHint(def)}
+              inputRef={ref}
+            />
+          ) : (
+            <ServiceLineValueInput
+              def={def}
+              multiple={false}
+              value={fieldValue as string | string[] | null | undefined}
+              onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
+              label={valueLabel}
+              required={valueRequired}
+              error={!!error}
+              helperText={error?.message ?? formatHint(def)}
+              inputRef={ref}
+              // The only clearable scalar line property; an explicit empty entry means "clear it".
+              allowEmptyOption={def?.id === 'placeOfService'}
+            />
+          )
+        }
       />
     </Box>
   );
@@ -921,7 +1024,10 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             if (next === RULE_ACTION_TYPE.setField) replace(newAction());
             else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
             else if (next === RULE_ACTION_TYPE.addServiceLine)
-              replace({ type: RULE_ACTION_TYPE.addServiceLine, line: { cptCode: '', charges: '' } });
+              replace({
+                type: RULE_ACTION_TYPE.addServiceLine,
+                line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
+              });
             else if (next === RULE_ACTION_TYPE.updateServiceLines)
               replace({
                 type: RULE_ACTION_TYPE.updateServiceLines,

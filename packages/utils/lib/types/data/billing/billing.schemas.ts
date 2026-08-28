@@ -222,6 +222,7 @@ const claimServiceLineSchema = z.object({
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
+  revenueCode: z.string().max(5).optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
@@ -572,6 +573,10 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
+      billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
+      patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
+      admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
+      admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
     }),
   }),
 ]);

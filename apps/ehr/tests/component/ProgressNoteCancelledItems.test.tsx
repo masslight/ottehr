@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -46,6 +47,16 @@ vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
 
 vi.mock('../../src/features/visits/shared/hooks/usePatientInstructionsVisibility', () => ({
   usePatientInstructionsVisibility: vi.fn(),
+}));
+
+// The vitals summary is now always rendered on the note and fetches via react-query.
+vi.mock('../../src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
+  useGetVitals: () => ({ data: undefined }),
+}));
+
+// The nursing orders summary fetches through the zambda API client.
+vi.mock('../../src/features/nursing-orders/components/orders/useNursingOrders', () => ({
+  useGetNursingOrders: () => ({ nursingOrders: [], loading: false, error: null, fetchNursingOrders: vi.fn() }),
 }));
 
 // Mock components to avoid complex rendering
@@ -205,10 +216,14 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
   });
 
   const renderComponent = (): ReturnType<typeof render> => {
+    // The always-rendered vitals summary fetches via react-query.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
-      <BrowserRouter>
-        <ProgressNoteDetails />
-      </BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <ProgressNoteDetails />
+        </BrowserRouter>
+      </QueryClientProvider>
     );
   };
 

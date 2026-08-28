@@ -8,17 +8,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   isAppointmentReadOnly: false,
-  featureFlags: { INLINE_PROGRESS_NOTE_EDITING_ENABLED: true },
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({
     isAppointmentReadOnly: mocks.isAppointmentReadOnly,
   }),
-}));
-
-vi.mock('../../src/constants/feature-flags', () => ({
-  FEATURE_FLAGS: mocks.featureFlags,
 }));
 
 import { InlineEditSection } from 'src/features/visits/in-person/components/progress-note/InlineEditSection';
@@ -37,6 +32,7 @@ const renderSection = (props?: { disabled?: boolean }): ReturnType<typeof render
   render(
     <InlineEditSection
       sectionName="allergies"
+      title="Allergies"
       editLabel="Edit allergies"
       editContent={<EditContent />}
       disabled={props?.disabled}
@@ -52,7 +48,6 @@ const renderSection = (props?: { disabled?: boolean }): ReturnType<typeof render
 describe('InlineEditSection', () => {
   beforeEach(() => {
     mocks.isAppointmentReadOnly = false;
-    mocks.featureFlags.INLINE_PROGRESS_NOTE_EDITING_ENABLED = true;
     editContentMountCount = 0;
   });
 
@@ -71,13 +66,63 @@ describe('InlineEditSection', () => {
 
     await user.click(screen.getByTestId('summary-content'));
     expect(screen.getByTestId('edit-content')).toBeVisible();
-    // summary stays visible while editing so saves are reflected live
-    expect(screen.getByTestId('summary-content')).toBeVisible();
+    // the editor shows the same information in more detail, so the read-only summary
+    // is replaced while editing; the edit label stands in as the section heading
+    expect(screen.queryByTestId('summary-content')).toBeNull();
+    expect(screen.getByText('Allergies')).toBeVisible();
     expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
 
     await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
     expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
     expect(screen.getByTestId('inline-edit-button-allergies')).toBeVisible();
+  });
+
+  it('opens the editor from the heading', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('inline-edit-header-allergies'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+    expect(screen.queryByTestId('summary-content')).toBeNull();
+  });
+
+  it('also closes when the heading itself is clicked', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(screen.getByTestId('edit-content')).toBeVisible();
+
+    await user.click(screen.getByTestId('inline-edit-header-allergies'));
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+  });
+
+  it('closes from the heading with the keyboard', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    screen.getByTestId('inline-edit-header-allergies').focus();
+    await user.keyboard('{Enter}');
+
+    expect(screen.queryByTestId('edit-content')).toBeNull();
+    expect(screen.getByTestId('summary-content')).toBeVisible();
+  });
+
+  it('scrolls the section back into view when a long editor collapses', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderSection();
+
+    await user.click(screen.getByTestId('summary-content'));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    // jsdom reports the section at top 0, which counts as hidden behind the sticky navbar
+    await user.click(screen.getByTestId('inline-edit-done-button-allergies'));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
   });
 
   it('renders plain children on read-only appointments', () => {
@@ -87,14 +132,6 @@ describe('InlineEditSection', () => {
     expect(screen.getByTestId('summary-content')).toBeVisible();
     expect(screen.queryByTestId('inline-edit-section-allergies')).toBeNull();
     expect(screen.queryByTestId('inline-edit-button-allergies')).toBeNull();
-  });
-
-  it('renders plain children when the feature flag is off', () => {
-    mocks.featureFlags.INLINE_PROGRESS_NOTE_EDITING_ENABLED = false;
-    renderSection();
-
-    expect(screen.getByTestId('summary-content')).toBeVisible();
-    expect(screen.queryByTestId('inline-edit-section-allergies')).toBeNull();
   });
 
   it('renders plain children when disabled', () => {

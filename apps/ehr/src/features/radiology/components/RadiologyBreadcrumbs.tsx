@@ -35,7 +35,6 @@ export const WithRadiologyBreadcrumbs: FC<RadiologyBreadcrumbsProps> = ({
   children,
 }) => {
   const { id: appointmentIdFromUrl } = useParams();
-
   return (
     <PageWrapper>
       <BreadcrumbsContainer>

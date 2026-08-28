@@ -94,6 +94,10 @@ import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { DateInput } from '../components/DateInput';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
+import {
+  InstitutionalClaimAdditionalFields,
+  InstitutionalClaimAdditionalFieldsData,
+} from '../components/InstitutionalClaimAdditionalFields';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -354,7 +358,7 @@ export default function ClaimDetail(): ReactElement {
               <Meta label="Date of Service" value={dos} />
               <Meta label="Claim ID" value={claim.id} copyable={true} />
               <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-              <Meta label="PCN" value={claim.pcn} copyable={true} />
+              {claim.pcn && <Meta label="PCN" value={claim.pcn.toUpperCase()} copyable={true} />}
               <Meta label="Service" value={formatAntCaseString(claim.service)} />
               <Meta label="Patient DOB" value={claim.patientDob} />
             </Box>
@@ -385,7 +389,7 @@ export default function ClaimDetail(): ReactElement {
                     ))}
                   </Select>
                 </Box>
-                <Meta label="PCN" value={claim.pcn} />
+                {claim.pcn && <Meta label="PCN" value={claim.pcn.toUpperCase()} />}
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Service
@@ -623,6 +627,9 @@ export default function ClaimDetail(): ReactElement {
             <RenderingProviderSection claim={claim} updateResource={updateResource} />
             <FacilitySection claim={claim} updateResource={updateResource} />
             <BillingProviderSection claim={claim} updateResource={updateResource} />
+            {claim.type === 'institutional' && (
+              <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
+            )}
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
@@ -1175,6 +1182,52 @@ function BillingProviderSection({
   );
 }
 
+function InstitutionalClaimAdditionalFieldsSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const handleSave = async (data: InstitutionalClaimAdditionalFieldsData): Promise<string | null> => {
+    try {
+      const error = await updateResource('Claim', claim.id, {
+        billType: data.billType,
+        patientDischargeStatusCode: data.patientDischargeStatusCode,
+        admissionType: data.admissionType,
+        admissionSource: data.admissionSource,
+      });
+      if (error) return error;
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+  };
+
+  const defaultValues = useMemo(() => {
+    return {
+      billType: claim.billType,
+      patientDischargeStatusCode: claim.patientDischargeStatusCode,
+      admissionType: claim.admissionType,
+      admissionSource: claim.admissionSource,
+    };
+  }, [claim]);
+
+  return (
+    <EditableSection
+      title="Additional Fields for Institutional Claims"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<InstitutionalClaimAdditionalFields />}
+    >
+      <Row label="Bill Type" value={claim.billType} />
+      <Row label="Patient Discharge Status Code" value={claim.patientDischargeStatusCode} />
+      <Row label="Admission Type" value={claim.admissionType} />
+      <Row label="Point of Origin / Admission Source" value={claim.admissionSource} />
+    </EditableSection>
+  );
+}
+
 function DiagnosesSection({
   claim,
   updateResource,
@@ -1247,6 +1300,7 @@ function ServiceLinesSection({
         serviceDate: line.serviceDate,
         placeOfService: line.placeOfService,
         diagnosisPointers: line.diagnosisPointers,
+        revenueCode: line.revenueCode,
       })),
     [claim]
   );
@@ -1282,6 +1336,7 @@ function ServiceLinesSection({
           ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
+          revenueCode: row.revenueCode,
         };
       }),
     });
@@ -1298,6 +1353,7 @@ function ServiceLinesSection({
           onChange={setRows}
           diagnoses={claim.diagnoses}
           defaultServiceDate={claim.created}
+          claimType={claim.type}
         />
       }
     >
@@ -1312,6 +1368,7 @@ function ServiceLinesSection({
                 <TableCell sx={thSx}>Modifiers</TableCell>
                 <TableCell sx={thSx}>Dx</TableCell>
                 <TableCell sx={thSx}>POS</TableCell>
+                {claim.type === 'institutional' && <TableCell sx={thSx}>Rev Code</TableCell>}
                 <TableCell sx={thSx}>Qty</TableCell>
                 <TableCell sx={thSx} align="right">
                   Billed
@@ -1327,6 +1384,7 @@ function ServiceLinesSection({
                   <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
                   <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
                   <TableCell>{line.placeOfService || '-'}</TableCell>
+                  {claim.type === 'institutional' && <TableCell>{line.revenueCode || '-'}</TableCell>}
                   <TableCell>{line.units} UN</TableCell>
                   <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
                 </TableRow>

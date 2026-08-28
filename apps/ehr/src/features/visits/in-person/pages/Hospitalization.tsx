@@ -1,6 +1,5 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { MedicalHistoryDoubleCard } from 'src/features/visits/shared/components/medical-history-tab/MedicalHistoryDoubleCard';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';

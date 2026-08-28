@@ -1,12 +1,17 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import {
+  SectionHeading,
+  useNoteSectionTitleInCardHeader,
+} from 'src/features/visits/shared/components/NoteSectionHeading';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 
 export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
+  const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { data: chartFields } = useChartFields({
     requestedFields: {
       surgicalHistoryNote: {
@@ -26,9 +31,7 @@ export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) =
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
       data-testid={dataTestIds.progressNotePage.surgicalHistoryContainer}
     >
-      <Typography variant="h5" color="primary.dark">
-        Surgical history
-      </Typography>
+      {!titleInCardHeader && <SectionHeading>Surgical history</SectionHeading>}
       {procedures?.length ? (
         procedures.map((procedure) => (
           <Typography key={procedure.resourceId}>

@@ -97,6 +97,7 @@ import {
   DeleteLocationParams,
   DeleteLocationResponse,
   GetLocationParams,
+  GetLocationResponse,
   ToggleLocationActiveParams,
   UpdateLocationParams,
 } from 'utils/lib/types/api/locations';
@@ -1250,7 +1251,7 @@ export const createLocation = async (params: CreateLocationParams, oystehr: Oyst
   return chooseJson(response);
 };
 
-export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<Location> => {
+export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<GetLocationResponse> => {
   const response = await oystehr.zambda.execute({ id: GET_LOCATION_ZAMBDA_ID, ...params });
   return chooseJson(response);
 };

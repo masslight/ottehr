@@ -115,12 +115,14 @@ import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
-// The bottom "Save All" button and the "Completed consent forms" block's own Save button are gated on
-// the staff member attesting that consent was obtained. The inline pencil-icon dialogs (DOB, reason
-// for visit, service category, non-legal guardians) are intentionally not gated.
+// The "About this patient" saves - the bottom "Save All" button and each section's own Save button
+// alike - plus the "Completed consent forms" block's own Save button are gated on the staff member
+// attesting that consent was obtained. The "Booking details" pencil-icon dialogs (DOB, reason for
+// visit, service category, non-legal guardians) and the payments, notes and document blocks are
+// intentionally not gated.
 //
-// The Save All gate reads the *persisted* attestation, not the local checkbox, so it has to spell out
-// that the checkbox must be committed via the consent block's Save button first.
+// The "About this patient" gate reads the *persisted* attestation, not the local checkbox, so it has
+// to spell out that the checkbox must be committed via the consent block's Save button first.
 const CONSENT_ATTESTATION_NOT_SAVED_MESSAGE =
   'Please check "I verify that patient consent has been obtained." and click Save in the "Completed consent forms" block before saving.';
 const CONSENT_ATTESTATION_REQUIRED_MESSAGE =
