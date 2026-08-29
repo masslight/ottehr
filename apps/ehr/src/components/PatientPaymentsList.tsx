@@ -76,6 +76,7 @@ import {
 import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
+import RemoveCardOnFileDialog from './dialogs/RemoveCardOnFileDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
 import { GenericToolTip } from './GenericToolTip';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
@@ -253,6 +254,7 @@ export default function PatientPaymentList({
   const queryClient = useQueryClient();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
+  const [removeCardDialogOpen, setRemoveCardDialogOpen] = useState(false);
   const {
     data: hasCreditCardOnFileFromList = false,
     isSuccess: cardOnFileKnown,
@@ -512,6 +514,7 @@ export default function PatientPaymentList({
     : 'checking card on file';
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
+  const cardOnFileClickable = cardOnFileKnown && hasCreditCardOnFileFromList === true;
 
   const handlePaymentDialogClose = useCallback(() => {
     setPaymentDialogOpen(false);
@@ -519,6 +522,25 @@ export default function PatientPaymentList({
       void refetchCardOnFile();
     }
   }, [oystehrZambda, patient?.id, appointment?.id, refetchCardOnFile]);
+
+  const removeCardOnFile = useMutation({
+    mutationFn: async () => {
+      if (!oystehrZambda || !patient?.id || !appointment?.id) throw new Error('Oystehr client is not available');
+      await oystehrZambda.zambda.execute({
+        id: 'payment-methods-unset-default',
+        beneficiaryPatientId: patient.id,
+        appointmentId: appointment.id,
+      });
+    },
+    onSuccess: async () => {
+      setRemoveCardDialogOpen(false);
+      enqueueSnackbar('Card on file removed', { variant: 'success' });
+      await refetchCardOnFile();
+    },
+    onError: () => {
+      enqueueSnackbar('Something went wrong! Unable to remove card on file.', { variant: 'error' });
+    },
+  });
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -1547,7 +1569,20 @@ export default function PatientPaymentList({
                 )
               }
             >
-              <Box sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'center' }} aria-label={cardOnFileStatusLabel}>
+              <Box
+                sx={{
+                  ml: 'auto',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  ...(cardOnFileClickable && {
+                    cursor: 'pointer',
+                    '&:hover': { opacity: 0.75 },
+                  }),
+                }}
+                aria-label={cardOnFileStatusLabel}
+                role={cardOnFileClickable ? 'button' : undefined}
+                onClick={cardOnFileClickable ? () => setRemoveCardDialogOpen(true) : undefined}
+              >
                 <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect
                     x="10"
@@ -1698,6 +1733,12 @@ export default function PatientPaymentList({
           recipientName: responsibleParty?.fullName,
           recipientEmail: responsibleParty?.email,
         }}
+      />
+      <RemoveCardOnFileDialog
+        open={removeCardDialogOpen}
+        onClose={() => setRemoveCardDialogOpen(false)}
+        onRemove={() => removeCardOnFile.mutate()}
+        loading={removeCardOnFile.isPending}
       />
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}

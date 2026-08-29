@@ -615,6 +615,13 @@
       "src": "src/patient/payment-methods/set-default/index",
       "zip": ".dist/zips/payment-methods-set-default.zip"
     },
+    "PAYMENT-METHODS-UNSET-DEFAULT": {
+      "name": "payment-methods-unset-default",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/payment-methods/unset-default/index",
+      "zip": ".dist/zips/payment-methods-unset-default.zip"
+    },
     "SEARCH-PLACES": {
       "name": "search-places",
       "type": "http_auth",
