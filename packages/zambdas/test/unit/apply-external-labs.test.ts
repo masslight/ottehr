@@ -30,6 +30,19 @@ vi.mock('../../src/ehr/lab/shared/orderable-items', () => ({
   getOrderableItems: vi.fn(),
 }));
 
+vi.mock('utils/lib/ottehr-config/value-sets', async (importActual) => {
+  const actual = await importActual<typeof import('utils/lib/ottehr-config/value-sets')>();
+  return {
+    ...actual,
+    VALUE_SETS: {
+      ...actual.VALUE_SETS,
+      externalLabCptCodesToAddPerEncounter: [
+        { value: '99001', label: 'Handling and/or conveyance of specimen for transfer to a laboratory' },
+      ],
+    },
+  };
+});
+
 const EXTERNAL_LAB_PLAN_TAG = chartDataTagSystem('external-lab-template-plan');
 const LAB_GUID = 'lab-guid-1';
 
