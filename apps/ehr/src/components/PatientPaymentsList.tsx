@@ -127,21 +127,31 @@ interface LineItem {
   modifier?: string;
   description: string;
   amount: number;
+  units: number;
   feeUnknown?: boolean;
 }
 
-function buildLineItems(
+export function buildLineItems(
   feeSchedule: ChargeItemDefinition | null | undefined,
-  cptCodes: { code: string; display: string; modifier?: { code: string; display: string }[] }[] | undefined,
+  cptCodes:
+    | { code: string; display: string; modifier?: { code: string; display: string }[]; billableUnits?: number }[]
+    | undefined,
   emCode: { code: string; display: string; modifier?: { code: string; display: string }[] } | undefined
 ): LineItem[] {
   if (!feeSchedule?.propertyGroup || (!cptCodes?.length && !emCode)) return [];
 
-  const allCodes = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
+  const allCodes: {
+    code: string;
+    display: string;
+    modifier?: { code: string; display: string }[];
+    billableUnits?: number;
+  }[] = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
     const cptModifier = cpt.modifier?.[0]?.code;
+    const { billableUnits } = cpt;
+    const units = billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : 1;
     let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let exactMatched = false;
@@ -158,7 +168,8 @@ function buildLineItems(
           code: cpt.code,
           modifier: cptModifier,
           description: cpt.display || fsCoding.display || '',
-          amount: pc.amount?.value ?? 0,
+          amount: (pc.amount?.value ?? 0) * units,
+          units,
         });
         exactMatched = true;
         noModifierFallbackPg = undefined;
@@ -180,7 +191,8 @@ function buildLineItems(
         code: cpt.code,
         modifier: cptModifier,
         description: cpt.display || fsCoding?.display || '',
-        amount: pc.amount?.value ?? 0,
+        amount: (pc.amount?.value ?? 0) * units,
+        units,
       });
     } else if (!exactMatched) {
       // Code not found in fee schedule — include with unknown fee
@@ -189,6 +201,7 @@ function buildLineItems(
         modifier: cptModifier,
         description: cpt.display || '',
         amount: 0,
+        units,
         feeUnknown: true,
       });
     }
@@ -1019,6 +1032,7 @@ export default function PatientPaymentList({
                             <Typography variant="body2" fontWeight={600}>
                               {item.code}
                               {item.modifier ? ` (${item.modifier})` : ''}
+                              {item.units > 1 ? ` × ${item.units}` : ''}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1235,6 +1249,7 @@ export default function PatientPaymentList({
                                     <Typography variant="body2" fontWeight={600}>
                                       {item.code}
                                       {item.modifier ? ` (${item.modifier})` : ''}
+                                      {item.units > 1 ? ` × ${item.units}` : ''}
                                     </Typography>
                                   </TableCell>
                                   <TableCell>
@@ -1353,6 +1368,7 @@ export default function PatientPaymentList({
                             <Typography variant="body2" fontWeight={600}>
                               {item.code}
                               {item.modifier ? ` (${item.modifier})` : ''}
+                              {item.units > 1 ? ` × ${item.units}` : ''}
                             </Typography>
                           </TableCell>
                           <TableCell>
