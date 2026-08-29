@@ -8,6 +8,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Collapse,
@@ -16,6 +17,7 @@ import {
   IconButton,
   InputLabel,
   Link,
+  ListItemText,
   MenuItem,
   Select,
   Stack,
@@ -758,6 +760,8 @@ export default function PaymentsReport(): ReactElement {
   const [drilldown, setDrilldown] = useState<DrilldownCriteria | null>(null);
   const [patientDrilldown, setPatientDrilldown] = useState<PatientPaymentsCriteria | null>(null);
   const [methodFilter, setMethodFilter] = useState<string | null>(null);
+  // empty = all locations
+  const [locationFilter, setLocationFilter] = useState<string[]>([]);
 
   const windowParams = useMemo(
     () => ({ ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }),
@@ -800,13 +804,24 @@ export default function PaymentsReport(): ReactElement {
   const patientResp = totals?.patientResp ?? 0;
   const totalCollected = insurancePaid + patientCollected;
 
-  const filteredPatientRows = useMemo(() => {
+  const patientLocations = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const row of patientReport?.rows ?? []) byId.set(row.locationId || 'none', row.locationName);
+    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [patientReport]);
+
+  const locationRows = useMemo(() => {
     const rows = patientReport?.rows ?? [];
-    if (!methodFilter) return rows;
-    if (methodFilter === 'other') return rows.filter((row) => !KNOWN_METHODS.includes(row.paymentMethod));
-    if (methodFilter === 'refunded') return rows.filter((row) => row.refunded > 0);
-    return rows.filter((row) => row.paymentMethod === methodFilter);
-  }, [patientReport, methodFilter]);
+    if (locationFilter.length === 0) return rows;
+    return rows.filter((row) => locationFilter.includes(row.locationId || 'none'));
+  }, [patientReport, locationFilter]);
+
+  const filteredPatientRows = useMemo(() => {
+    if (!methodFilter) return locationRows;
+    if (methodFilter === 'other') return locationRows.filter((row) => !KNOWN_METHODS.includes(row.paymentMethod));
+    if (methodFilter === 'refunded') return locationRows.filter((row) => row.refunded > 0);
+    return locationRows.filter((row) => row.paymentMethod === methodFilter);
+  }, [locationRows, methodFilter]);
 
   return (
     <Box>
@@ -967,9 +982,41 @@ export default function PaymentsReport(): ReactElement {
 
       <DrilldownDialog criteria={drilldown} onClose={() => setDrilldown(null)} />
 
-      <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ mt: 4, mb: 1.5 }}>
-        Patient Payments
-      </Typography>
+      <Stack direction="row" alignItems="center" gap={2} sx={{ mt: 4, mb: 1.5 }}>
+        <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ flex: 1 }}>
+          Patient Payments
+        </Typography>
+        {patientLocations.length > 1 && (
+          <FormControl size="small" sx={{ minWidth: 240 }}>
+            <InputLabel shrink>Locations</InputLabel>
+            <Select
+              multiple
+              notched
+              displayEmpty
+              label="Locations"
+              value={locationFilter}
+              onChange={(e) =>
+                setLocationFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)
+              }
+              renderValue={(selected) =>
+                selected.length === 0
+                  ? 'All locations'
+                  : patientLocations
+                      .filter((location) => selected.includes(location.id))
+                      .map((location) => location.name)
+                      .join(', ')
+              }
+            >
+              {patientLocations.map((location) => (
+                <MenuItem key={location.id} value={location.id}>
+                  <Checkbox checked={locationFilter.includes(location.id)} size="small" sx={{ py: 0 }} />
+                  <ListItemText primary={location.name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+      </Stack>
 
       {patientError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={clearPatientError}>
@@ -979,7 +1026,7 @@ export default function PaymentsReport(): ReactElement {
 
       <Stack direction={{ xs: 'column', md: 'row' }} gap={2} mb={2.5}>
         {(['card', 'cash', 'check', 'invoice'] as const).map((method) => {
-          const methodRows = (patientReport?.rows ?? []).filter((row) => row.paymentMethod === method);
+          const methodRows = locationRows.filter((row) => row.paymentMethod === method);
           const collected = methodRows.reduce((sum, row) => sum + row.collected, 0);
           const count = methodRows.reduce((sum, row) => sum + row.paymentCount, 0);
           return (
@@ -996,26 +1043,26 @@ export default function PaymentsReport(): ReactElement {
         <StatCard
           label="Other"
           value={formatCurrency(
-            (patientReport?.rows ?? [])
-              .filter((row) => !['card', 'cash', 'check', 'invoice'].includes(row.paymentMethod))
+            locationRows
+              .filter((row) => !KNOWN_METHODS.includes(row.paymentMethod))
               .reduce((sum, row) => sum + row.collected, 0)
           )}
-          hint={`${(patientReport?.rows ?? [])
-            .filter((row) => !['card', 'cash', 'check', 'invoice'].includes(row.paymentMethod))
+          hint={`${locationRows
+            .filter((row) => !KNOWN_METHODS.includes(row.paymentMethod))
             .reduce((sum, row) => sum + row.paymentCount, 0)} payments`}
           active={methodFilter === 'other'}
           onClick={() => setMethodFilter(methodFilter === 'other' ? null : 'other')}
         />
         <StatCard
           label="Refunded"
-          value={formatCurrency(patientReport?.totals.refunded ?? 0)}
+          value={formatCurrency(locationRows.reduce((sum, row) => sum + row.refunded, 0))}
           active={methodFilter === 'refunded'}
           onClick={() => setMethodFilter(methodFilter === 'refunded' ? null : 'refunded')}
         />
         <StatCard
           label="Net"
-          value={formatCurrency(patientReport?.totals.net ?? 0)}
-          hint={`${patientReport?.totals.paymentCount ?? 0} payments total`}
+          value={formatCurrency(locationRows.reduce((sum, row) => sum + row.net, 0))}
+          hint={`${locationRows.reduce((sum, row) => sum + row.paymentCount, 0)} payments total`}
           active={methodFilter === null}
           onClick={() => setMethodFilter(null)}
         />

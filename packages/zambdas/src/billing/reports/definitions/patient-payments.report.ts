@@ -25,6 +25,7 @@ import {
   STRIPE_PAYMENT_ID_SYSTEM,
 } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../payments';
 import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import { toDay } from '../shared';
@@ -118,9 +119,14 @@ const refundedChargeIdOf = (notice: PaymentNotice): string | undefined =>
 const dispositionOf = (notice: PaymentNotice): string =>
   (notice.contained?.[0] as { disposition?: string } | undefined)?.disposition ?? '';
 
+// webhook notices carry a claim-encounter-id identifier; EHR-recorded ones reference the Encounter
 const noticeEncounterId = (notice: PaymentNotice): string | undefined => {
   const identifier = notice.request?.identifier;
-  const value = identifier?.system === CLAIM_ENCOUNTER_ID_SYSTEM ? identifier.value : undefined;
+  const fromIdentifier = identifier?.system === CLAIM_ENCOUNTER_ID_SYSTEM ? identifier.value : undefined;
+  const fromReference = notice.request?.reference?.startsWith('Encounter/')
+    ? notice.request.reference.replace('Encounter/', '')
+    : undefined;
+  const value = fromIdentifier ?? fromReference;
   return value && isValidUUID(value) ? value : undefined;
 };
 
@@ -178,13 +184,24 @@ async function loadNoticeContext(
       { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
     ]),
   ]);
-  // the billing-tagged copy wins when both scopes recorded the same Stripe payment
+  // the billing-tagged copy wins: match by Stripe id, or by the clinical→billing bridge
+  // identifier for off-Stripe (cash/check) payments
   const billingStripeIds = new Set(billingNotices.flatMap(stripeIdsOf));
   const billingNoticeIds = new Set(billingNotices.map((notice) => notice.id));
+  const bridgedClinicalIds = new Set(
+    billingNotices
+      .flatMap((notice) => notice.identifier ?? [])
+      .filter((identifier) => identifier.system === CLINICAL_PAYMENT_NOTICE_ID_SYSTEM)
+      .map((identifier) => identifier.value ?? '')
+      .filter(Boolean)
+  );
   const allNotices = [
     ...billingNotices,
     ...unscopedNotices.filter(
-      (notice) => !billingNoticeIds.has(notice.id) && !stripeIdsOf(notice).some((id) => billingStripeIds.has(id))
+      (notice) =>
+        !billingNoticeIds.has(notice.id) &&
+        !bridgedClinicalIds.has(notice.id ?? '') &&
+        !stripeIdsOf(notice).some((id) => billingStripeIds.has(id))
     ),
   ];
 
@@ -333,7 +350,11 @@ async function listWindowCharges(
   const seenChargeIds = new Set<string>();
   for (const stripeAccount of accounts) {
     const listing = stripe.charges.list(
-      { limit: 100, ...(Object.keys(createdWindow).length > 0 ? { created: createdWindow } : {}) },
+      {
+        limit: 100,
+        expand: ['data.invoice'],
+        ...(Object.keys(createdWindow).length > 0 ? { created: createdWindow } : {}),
+      },
       { stripeAccount }
     );
     for await (const charge of listing) {
@@ -355,7 +376,10 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
     if (chargeIds.some((id) => knownStripeIds.has(id))) continue;
 
     const createdISO = DateTime.fromSeconds(charge.created).toUTC().toISO() ?? '';
-    const encounterId = encounterIdFromStripeMetadata(charge.metadata);
+    // invoice-settling charges usually carry encounter metadata on the invoice, not the charge
+    const invoiceMetadata = typeof charge.invoice === 'object' ? charge.invoice?.metadata : undefined;
+    const encounterId =
+      encounterIdFromStripeMetadata(charge.metadata) ?? encounterIdFromStripeMetadata(invoiceMetadata);
     const base: Omit<PaymentNotice, 'amount' | 'contained'> = {
       resourceType: 'PaymentNotice',
       status: 'active',
