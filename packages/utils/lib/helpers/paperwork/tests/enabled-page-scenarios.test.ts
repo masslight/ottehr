@@ -106,6 +106,8 @@ const BASELINE_DISABLED_BY_CATEGORY: Record<string, string[]> = {
   'urgent-care': [PAGES.occMedPaymentOption, PAGES.occMedEmployer, PAGES.wcEmployer, PAGES.attorney],
   'occupational-medicine': [PAGES.paymentOption, PAGES.wcEmployer, PAGES.attorney],
   'workers-comp': [PAGES.occMedPaymentOption, PAGES.occMedEmployer, PAGES.cardPayment, PAGES.attorney],
+  wellness: [PAGES.occMedPaymentOption, PAGES.occMedEmployer, PAGES.wcEmployer, PAGES.attorney],
+  aesthetics: [PAGES.occMedPaymentOption, PAGES.occMedEmployer, PAGES.wcEmployer, PAGES.attorney],
 };
 
 describe('conditional pages exist in both service modes', () => {
