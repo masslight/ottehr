@@ -4,11 +4,17 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
-import { CashPaymentDTO, PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { CashPaymentDTO, PatientPaymentDTO, PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
-import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../../shared/stripeIntegration';
+import {
+  applyRefundsToPaymentNotice,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  stripeEncounterMetadataQuery,
+  stripeRefundToDTO,
+} from '../../shared/stripeIntegration';
 
 interface GetPaymentsForEncounterInput {
   oystehrClient: Oystehr;
@@ -56,6 +62,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
           {
             query: stripeEncounterMetadataQuery(encounterId),
             limit: 20, // default is 10
+            expand: ['data.latest_charge'],
           },
           {
             stripeAccount, // Connected account ID if any
@@ -85,6 +92,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
         stripeClient.paymentIntents.list(
           {
             customer: customerId,
+            expand: ['data.latest_charge'],
           },
           {
             stripeAccount, // Connected account ID if any
@@ -110,7 +118,15 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     }
   }
 
-  return buildPaymentDTOs(fhirPaymentNotices, stripePayments, paymentMethods, stripeClient, stripeAccount, encounterId);
+  return buildPaymentDTOs(
+    fhirPaymentNotices,
+    stripePayments,
+    paymentMethods,
+    stripeClient,
+    stripeAccount,
+    oystehrClient,
+    encounterId
+  );
 };
 
 export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): Promise<PatientPaymentDTO[]> => {
@@ -142,6 +158,7 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
           {
             query: stripeEncounterMetadataQuery(encounterId),
             limit: 20,
+            expand: ['data.latest_charge'],
           },
           {
             stripeAccount, // Connected account ID if any
@@ -171,6 +188,7 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
         stripeClient.paymentIntents.list(
           {
             customer: customerId,
+            expand: ['data.latest_charge'],
           },
           {
             stripeAccount, // Connected account ID if any
@@ -196,7 +214,15 @@ export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): 
     }
   }
 
-  return buildPaymentDTOs(fhirPaymentNotices, stripePayments, paymentMethods, stripeClient, stripeAccount, encounterId);
+  return buildPaymentDTOs(
+    fhirPaymentNotices,
+    stripePayments,
+    paymentMethods,
+    stripeClient,
+    stripeAccount,
+    oystehrClient,
+    encounterId
+  );
 };
 
 const resolvePaymentMethodIdForIntent = async (
@@ -287,12 +313,46 @@ const getCardDetails = (
   };
 };
 
+// pulls refund state from Stripe (falling back to what is stamped on the notice) and keeps the notice in sync
+const resolveRefundsForPaymentNotice = async (
+  paymentNotice: PaymentNotice,
+  paymentIntent: Stripe.PaymentIntent | undefined,
+  stripeClient: Stripe,
+  stripeAccount: string | undefined,
+  oystehrClient: Oystehr
+): Promise<PaymentRefundDTO[] | undefined> => {
+  const storedRefunds = parsePaymentRefundsFromNotice(paymentNotice);
+  const latestCharge =
+    paymentIntent?.latest_charge && typeof paymentIntent.latest_charge !== 'string'
+      ? paymentIntent.latest_charge
+      : undefined;
+  const stripeShowsRefunds = (latestCharge?.amount_refunded ?? 0) > 0;
+
+  if (!paymentIntent || (!stripeShowsRefunds && !storedRefunds?.length)) {
+    return storedRefunds;
+  }
+
+  try {
+    const refundList = await stripeClient.refunds.list(
+      { payment_intent: paymentIntent.id, limit: 100 },
+      { stripeAccount }
+    );
+    const refunds = refundList.data.map(stripeRefundToDTO);
+    await applyRefundsToPaymentNotice(oystehrClient, paymentNotice, refunds);
+    return refunds;
+  } catch (error) {
+    console.error('Error fetching refunds for payment intent', paymentIntent.id, error);
+    return storedRefunds;
+  }
+};
+
 async function buildPaymentDTOs(
   fhirPaymentNotices: PaymentNotice[],
   stripePayments: Stripe.PaymentIntent[],
   paymentMethods: Stripe.PaymentMethod[],
   stripeClient: Stripe,
   stripeAccount: string | undefined,
+  oystehrClient: Oystehr,
   encounterId?: string
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
@@ -358,6 +418,17 @@ async function buildPaymentDTOs(
         return [];
       }
 
+      const refunds = await resolveRefundsForPaymentNotice(
+        paymentNotice,
+        paymentIntent,
+        stripeClient,
+        stripeAccount,
+        oystehrClient
+      );
+      const refundFields = refunds?.length
+        ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) }
+        : {};
+
       if (paymentMethod === 'card-reader') {
         return [
           {
@@ -368,6 +439,7 @@ async function buildPaymentDTOs(
             cardBrand,
             cardLast4: last4,
             dateISO,
+            ...refundFields,
           },
         ];
       }
@@ -383,6 +455,7 @@ async function buildPaymentDTOs(
           cardBrand,
           cardLast4: last4,
           dateISO,
+          ...refundFields,
         },
       ];
     })

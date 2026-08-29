@@ -24,6 +24,11 @@ import { allLicensesForPractitioner } from '../fhir/helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fhir/insurance';
 import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
 import { getFullName } from '../fhir/patient';
+import {
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+  settledRefundTotalInCents,
+} from '../fhir/paymentRefunds';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import { CashPaymentDTO } from '../types/api/patient-payment-types';
@@ -1643,11 +1648,17 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     return undefined;
   }
 
+  const refunds = parsePaymentRefundsFromNotice(paymentNotice);
+  const voidInfo = parsePaymentVoidFromNotice(paymentNotice);
+  const voided = !!voidInfo || paymentNotice.status === 'cancelled';
+
   return {
     paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
+    ...(refunds ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
+    ...(voided ? { voided: true, voidReason: voidInfo?.reason, voidNotes: voidInfo?.notes } : {}),
   };
 };
 

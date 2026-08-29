@@ -97,16 +97,20 @@ const claim = {
 
 const makeOystehr = (
   claimResults: Claim[][],
-  orgResults: Organization[][] = []
-): { oystehr: Oystehr; create: Mock; update: Mock } => {
+  orgResults: Organization[][] = [],
+  noticeResults: PaymentNotice[][] = []
+): { oystehr: Oystehr; create: Mock; update: Mock; patch: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
+  const noticeQueue = [...noticeResults];
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const results =
       resourceType === 'Claim'
         ? claimQueue.shift() ?? []
         : resourceType === 'Organization'
         ? orgQueue.shift() ?? []
+        : resourceType === 'PaymentNotice'
+        ? noticeQueue.shift() ?? []
         : [];
     return Promise.resolve({ unbundle: () => results });
   });
@@ -114,8 +118,9 @@ const makeOystehr = (
     .fn()
     .mockImplementation((resource: PaymentNotice) => Promise.resolve({ ...resource, id: 'pn-new' }));
   const update = vi.fn().mockResolvedValue({});
+  const patch = vi.fn().mockResolvedValue({});
   const batch = vi.fn().mockResolvedValue({ entry: [] });
-  return { oystehr: { fhir: { search, create, update, batch } } as unknown as Oystehr, create, update };
+  return { oystehr: { fhir: { search, create, update, patch, batch } } as unknown as Oystehr, create, update, patch };
 };
 
 const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET): ZambdaInput => {
@@ -336,6 +341,51 @@ describe('billing-stripe-webhook', () => {
     const notice = create.mock.calls[1][0];
     expect(notice.status).toBe('cancelled');
     expect(notice.contained[0].outcome).toBe('error');
+  });
+
+  it('stamps refund state on the source payment notices', async () => {
+    const retrieve = vi.fn().mockResolvedValue(makeCharge());
+    const refundsList = vi.fn().mockResolvedValue({
+      data: [{ id: 're_1', amount: 400, currency: 'usd', created: 1751990000, status: 'succeeded' }],
+    });
+    (getStripeClient as Mock).mockReturnValue({
+      charges: { retrieve },
+      refunds: { list: refundsList },
+    } as unknown as Stripe);
+    const sourceNotices: PaymentNotice[] = [
+      {
+        resourceType: 'PaymentNotice',
+        id: 'pn-clinical',
+        status: 'active',
+        identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+      } as PaymentNotice,
+      {
+        resourceType: 'PaymentNotice',
+        id: 'pn-billing',
+        status: 'active',
+        identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+      } as PaymentNotice,
+    ];
+    const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [sourceNotices]);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch.mock.calls.map((c) => c[0].id).sort()).toEqual(['pn-billing', 'pn-clinical']);
+    const extension = patch.mock.calls[0][0].operations[0].value.find((ext: { url: string }) =>
+      ext.url.endsWith('/payment-refunds')
+    );
+    expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
+    expect(extension.extension[0].extension).toContainEqual({ url: 'amountInCents', valueInteger: 400 });
   });
 });
 

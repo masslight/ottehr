@@ -4,13 +4,16 @@ import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconcili
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { wrapHandler } from '../../shared/sentry';
 import {
+  applyRefundsToPaymentNotice,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
+  stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
@@ -325,6 +328,48 @@ const upsertPaymentNoticeForRefund = async (
   });
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
+
+  // stamp refund state on the original payment notices (clinical + billing) so consumers don't go back to stripe
+  await markSourceNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
+};
+
+const markSourceNoticesForRefundedCharge = async (
+  oystehr: Oystehr,
+  charge: Stripe.Charge,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  let refunds: PaymentRefundDTO[];
+  try {
+    const refundList = await getStripeClient(secrets).refunds.list(
+      { charge: charge.id, limit: 100 },
+      { stripeAccount }
+    );
+    refunds = refundList.data.map(stripeRefundToDTO);
+  } catch (error) {
+    console.error(`Error listing refunds for charge ${charge.id}`, error);
+    return;
+  }
+
+  const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+  const identifierValues = [charge.id, ...(paymentIntentId ? [paymentIntentId] : [])]
+    .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
+    .join(',');
+
+  const notices = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'identifier', value: identifierValues }],
+    })
+  ).unbundle();
+
+  for (const notice of notices) {
+    try {
+      await applyRefundsToPaymentNotice(oystehr, notice, refunds);
+    } catch (error) {
+      console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
+    }
+  }
 };
 
 const upsertPaymentNoticeForChargelessInvoice = async (
