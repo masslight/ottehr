@@ -16,7 +16,7 @@ export const useGetProcedures = ({
   const hasEncounters = encounterIds.length > 0;
 
   return useQuery({
-    queryKey: ['procedures-for-tracking-board', encounterIds.sort().join(',')],
+    queryKey: ['procedures-for-tracking-board', [...encounterIds].sort().join(',')],
     queryFn: async () => {
       if (!apiClient) {
         throw new Error('API client not defined');
