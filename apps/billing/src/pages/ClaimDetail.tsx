@@ -3,6 +3,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
+  DeleteForever as DeleteForeverIcon,
   DeleteOutline as DeleteOutlineIcon,
   Description as DescriptionIcon,
   Download as DownloadIcon,
@@ -1555,14 +1556,21 @@ function AttachmentsSection({
     handleSubmit: renameFormHandleSubmit,
     formState: { isSubmitting: renameFormIsSubmitting },
   } = addFormMethods;
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const openMenu = (event: React.MouseEvent<HTMLElement>): void => {
+  const [deleteFileName, setDeleteFileName] = useState('');
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [menuLineId, setMenuLineId] = useState<string | null>(null);
+  const openMenu = (event: React.MouseEvent<HTMLElement>, lineId: string): void => {
     setAnchorEl(event.currentTarget);
+    setMenuLineId(lineId);
   };
   const closeMenu = (): void => {
     setAnchorEl(null);
   };
 
+  const openAddDialog = (): void => {
+    addReset({ name: '', reportTypeCode: '' });
+    setShowAddDialog(true);
+  };
   const closeAddDialog = (): void => {
     setShowAddDialog(false);
     setSubmitError('');
@@ -1613,7 +1621,6 @@ function AttachmentsSection({
       await renameClaimAttachment(oystehrZambda, { documentReferenceId: renameDocRefId, name });
       await refetchClaim();
       closeRenameDialog();
-      renameReset();
     } catch (err) {
       const errorMessage = getApiError({ error: err, defaultError: 'Failed to rename attachment' });
       setSubmitError(errorMessage);
@@ -1654,7 +1661,7 @@ function AttachmentsSection({
 
   return (
     <>
-      <ReadOnlySection title="Attachments" onAdd={() => setShowAddDialog(true)}>
+      <ReadOnlySection title="Attachments" onAdd={() => openAddDialog()}>
         {claim.attachments.length > 0 ? (
           <TableContainer>
             <Table size="small">
@@ -1693,11 +1700,15 @@ function AttachmentsSection({
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="More Actions">
-                          <IconButton aria-label="More actions" onClick={openMenu}>
+                          <IconButton aria-label="More actions" onClick={(e) => openMenu(e, line.id)}>
                             <MoreVertIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={closeMenu}>
+                        <Menu
+                          anchorEl={anchorEl}
+                          open={Boolean(anchorEl) && menuLineId === line.id}
+                          onClose={closeMenu}
+                        >
                           <MenuItem
                             onClick={() => {
                               setShowRenameDialog(true);
@@ -1714,6 +1725,7 @@ function AttachmentsSection({
                           <MenuItem
                             onClick={() => {
                               setShowDeleteDialog(true);
+                              setDeleteFileName(line.fileName);
                               setDeleteDocRefId(line.id);
                               closeMenu();
                             }}
@@ -1895,12 +1907,13 @@ function AttachmentsSection({
               {submitError}
             </Alert>
           )}
+          Are you sure you want to delete "{deleteFileName}"? This cannot be undone.
         </DialogContent>
         <DialogActions>
           <Button onClick={() => closeDeleteDialog()}>Cancel</Button>
           <Button
             variant="contained"
-            startIcon={deleteFormIsSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+            startIcon={deleteFormIsSubmitting ? <CircularProgress size={14} /> : <DeleteForeverIcon fontSize="small" />}
             onClick={onDelete}
             disabled={deleteFormIsSubmitting}
           >
