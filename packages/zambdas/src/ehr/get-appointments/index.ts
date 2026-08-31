@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { Bundle } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -18,7 +18,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { appointmentAttendanceTypeAppointment, appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
-import { getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
+import { chunkThings, getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
 import {
   PRIVATE_EXTENSION_BASE_URL,
   ROOM_EXTENSION_URL,
@@ -58,10 +58,9 @@ import { ZambdaInput } from '../../shared/types/common';
 import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
+  getTimezone,
   getTimezoneResourceIdFromAppointment,
   isResponseSizeExceededError,
-  makeEncounterSearchParams,
-  makeResourceCacheKey,
   mergeResources,
   parseAttenderProviderType,
   parseEncounterParticipants,
@@ -110,6 +109,11 @@ export const assignNextFlagsByPartition = (
 
 const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
   getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
+
+// Provenances for the whole board are fetched with a comma-separated `target` OR list. The chunk
+// size only bounds how large a single response can get; it is not a URL-length limit, since the SDK
+// issues searches as POST bodies.
+const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
 
 let m2mToken: string;
 
@@ -164,34 +168,22 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     return resources;
   })();
 
+  // Resolving each requested Location/Practitioner's timezone only populates the module-scope
+  // `timezoneMap` that makeAppointmentInformation reads when formatting appointment start times —
+  // the appointment search itself uses the caller-supplied timezone. So these lookups must not gate
+  // the search. Started here and awaited just before the results are formatted, they cost a round
+  // trip on a cold invocation only, and that round trip now overlaps the appointment search instead
+  // of preceding it. (On a warm invocation the map is already populated and nothing is fetched.)
+  const timezonesResolved = Promise.all(
+    requestedTimezoneRelatedResources.map((resource) =>
+      getTimezone({ oystehr, resourceType: resource.resourceType, resourceId: resource.resourceId })
+    )
+  );
+
   const { appointmentResources, appointmentsToGroupMap } = await (async () => {
-    // prepare search options
-    const searchOptions = await Promise.all(
-      requestedTimezoneRelatedResources.map(async (resource) => {
-        const cacheKey = makeResourceCacheKey({
-          resourceId: resource.resourceId,
-          resourceType: resource.resourceType,
-        });
-
-        const searchParams = await makeEncounterSearchParams({
-          resourceId: resource.resourceId,
-          resourceType: resource.resourceType,
-          cacheKey,
-          oystehr,
-        });
-
-        return {
-          resourceId: resource.resourceId,
-          resourceType: resource.resourceType,
-          searchParams,
-          cacheKey,
-        };
-      })
-    );
-
     // request appointments
     const resourceResults = await Promise.all(
-      searchOptions.map(async (options) => {
+      requestedTimezoneRelatedResources.map(async (options) => {
         const appointmentRequestInput = await getAppointmentQueryInput({
           oystehr,
           resourceId: options.resourceId,
@@ -373,42 +365,35 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   console.timeEnd('parse_search_results');
 
-  // Fallback: the main search's `_revinclude:iterate: RelatedPerson:patient` can silently
-  // miss RPs, so narrow direct query for the matched patients.
-  // Must run before the Communications search so any newly surfaced phones make it into
-  // the `sender:RelatedPerson.telecom` filter.
-  console.time('related_persons_fallback');
-  if (patientIds.length > 0) {
-    const rpBundle = await oystehr.fhir.search<RelatedPerson>({
-      resourceType: 'RelatedPerson',
-      params: [
-        { name: 'patient', value: patientIds.join(',') },
-        { name: 'relationship', value: 'user-relatedperson' },
-      ],
-    });
-    rpBundle.unbundle().forEach((rp) => {
-      if (!rp.id || !isUserRelatedPerson(rp)) return;
-      const rpRef = `RelatedPerson/${rp.id}`;
-      if (rpIdToResourceMap[rpRef]) return;
+  // Everything below depends only on the main appointment search, so it all goes out in a single
+  // round trip rather than the chain of serialized awaits this used to be. Three things made the
+  // old shape slow, and all three are addressed here:
+  //   1. the RelatedPerson fallback was awaited on its own before anything else was even issued,
+  //      costing a full FHIR round trip that nothing but the Communication search depends on;
+  //   2. Provenances were fetched with one search PER ENCOUNTER — 30 concurrent searches for a
+  //      30-row board, whose tail latency dominated the response;
+  //   3. the missing-parent-Encounter search was awaited after that group, adding another round trip
+  //      whenever the board contained follow-up visits.
+  //
+  // The Communication search is the one genuinely dependent step (it filters on RelatedPerson
+  // phone numbers). It is issued speculatively with the numbers the main search already surfaced,
+  // and only if the fallback turns up a number that search didn't cover do we make a second,
+  // narrow call — so in the common case the whole tail is a single wave.
+  console.time('related_resources');
 
-      rpIdToResourceMap[rpRef] = rp;
+  const patientIdsForSearch = patientIds.join(',');
 
-      const patientRef = rp.patient?.reference;
-      if (patientRef) {
-        (patientToRPMap[patientRef] ??= []).push(rp);
-      }
+  const relatedPersonFallbackPromise =
+    patientIds.length > 0
+      ? oystehr.fhir.search<RelatedPerson>({
+          resourceType: 'RelatedPerson',
+          params: [
+            { name: 'patient', value: patientIdsForSearch },
+            { name: 'relationship', value: 'user-relatedperson' },
+          ],
+        })
+      : Promise.resolve(undefined);
 
-      const pn = getSMSNumberForIndividual(rp);
-      if (pn) {
-        rpPhoneNumbers.add(pn);
-        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
-        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
-      }
-    });
-  }
-  console.timeEnd('related_persons_fallback');
-
-  console.time('get_all_doc_refs + get_all_communications + practitioners + signatures');
   const docRefPromise =
     patientIds.length > 0
       ? oystehr?.fhir.search<DocumentReference>({
@@ -416,24 +401,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           params: [
             { name: 'status', value: 'current' },
             { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
-            { name: 'related', value: patientIds.join(',') },
-          ],
-        })
-      : Promise.resolve(undefined);
-  const uniqueNumbers = Array.from(rpPhoneNumbers);
-
-  let allDocRefs: DocumentReference[] | undefined = undefined;
-  let communications: (Communication | RelatedPerson)[] | undefined = undefined;
-  let encounterSignatures: Provenance[] | undefined = undefined;
-
-  const communicationsPromise =
-    uniqueNumbers.length > 0
-      ? oystehr.fhir.search<Communication | RelatedPerson>({
-          resourceType: 'Communication',
-          params: [
-            { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
-            { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
-            { name: '_include', value: 'Communication:sender' },
+            { name: 'related', value: patientIdsForSearch },
           ],
         })
       : Promise.resolve(undefined);
@@ -451,33 +419,18 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     .map((enc) => enc.id)
     .filter(isTruthy);
 
-  const provenancePromises = encounterIds.map((encId) =>
+  // One search per chunk of encounters instead of one per encounter. `target` takes a comma-separated
+  // OR list; chunking only bounds the response size, since the SDK sends searches as POST bodies.
+  const provenancePromises = chunkThings(encounterIds, PROVENANCE_SEARCH_CHUNK_SIZE).map((encounterIdChunk) =>
     oystehr.fhir.search<Provenance>({
       resourceType: 'Provenance',
       params: [
-        { name: 'target', value: `Encounter/${encId}` },
+        { name: 'target', value: encounterIdChunk.map((encId) => `Encounter/${encId}`).join(',') },
         { name: 'agent-role', value: 'verifier' },
+        { name: '_count', value: `${PROVENANCE_SEARCH_CHUNK_SIZE}` },
       ],
     })
   );
-
-  const [docRefBundle, communicationBundle, participantsBundle, ...encounterSignaturesBundle] = await Promise.all([
-    docRefPromise,
-    communicationsPromise,
-    participantsPromise,
-    ...provenancePromises,
-  ]);
-
-  allDocRefs = docRefBundle?.unbundle() ?? [];
-  communications = communicationBundle?.unbundle();
-  const practitioners = participantsBundle?.unbundle() as Practitioner[];
-  practitioners?.forEach((pr) => {
-    practitionerIdToResourceMap[`Practitioner/${pr.id}`] = pr;
-  });
-
-  encounterSignatures = encounterSignaturesBundle.flatMap((bundle) => bundle?.unbundle() ?? []);
-
-  console.timeEnd('get_all_doc_refs + get_all_communications + practitioners + signatures');
 
   // For follow-up appointments, the parent encounter is typically not in the current search results.
   // Batch-fetch any parent encounters that are referenced via partOf but missing from apptRefToEncounterMap.
@@ -490,23 +443,103 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     ),
   ];
 
-  const parentEncounterToApptIdMap: Record<string, string> = {};
-  if (missingParentEncounterRefs.length > 0) {
-    const ids = missingParentEncounterRefs.map((ref) => ref.replace('Encounter/', '')).join(',');
-    const parentEncounters =
-      (
-        await oystehr.fhir.search<Encounter>({
+  const parentEncountersPromise =
+    missingParentEncounterRefs.length > 0
+      ? oystehr.fhir.search<Encounter>({
           resourceType: 'Encounter',
-          params: [{ name: '_id', value: ids }],
+          params: [
+            { name: '_id', value: missingParentEncounterRefs.map((ref) => ref.replace('Encounter/', '')).join(',') },
+          ],
         })
-      )?.unbundle() ?? [];
-    parentEncounters.forEach((enc) => {
-      const apptRef = enc.appointment?.[0]?.reference;
-      if (enc.id && apptRef) {
-        parentEncounterToApptIdMap[`Encounter/${enc.id}`] = apptRef.replace('Appointment/', '');
-      }
-    });
-  }
+      : Promise.resolve(undefined);
+
+  const searchCommunications = (phoneNumbers: string[]): Promise<Bundle<Communication | RelatedPerson> | undefined> =>
+    phoneNumbers.length > 0
+      ? oystehr.fhir.search<Communication | RelatedPerson>({
+          resourceType: 'Communication',
+          params: [
+            { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
+            { name: 'sender:RelatedPerson.telecom', value: phoneNumbers.join(',') },
+            { name: '_include', value: 'Communication:sender' },
+          ],
+        })
+      : Promise.resolve(undefined);
+
+  // Snapshot the numbers the main search already gave us; the speculative Communication search uses
+  // exactly these, so the fallback's contribution can be diffed against it below.
+  const phonesBeforeFallback = new Set(rpPhoneNumbers);
+  const communicationsPromise = searchCommunications(Array.from(phonesBeforeFallback));
+
+  const [
+    relatedPersonFallbackBundle,
+    docRefBundle,
+    participantsBundle,
+    parentEncountersBundle,
+    speculativeCommunicationBundle,
+    ...encounterSignaturesBundle
+  ] = await Promise.all([
+    relatedPersonFallbackPromise,
+    docRefPromise,
+    participantsPromise,
+    parentEncountersPromise,
+    communicationsPromise,
+    ...provenancePromises,
+  ]);
+
+  const registerRelatedPerson = (rp: RelatedPerson): void => {
+    if (!rp.id || !isUserRelatedPerson(rp)) return;
+    const rpRef = `RelatedPerson/${rp.id}`;
+    if (rpIdToResourceMap[rpRef]) return;
+
+    rpIdToResourceMap[rpRef] = rp;
+
+    const patientRef = rp.patient?.reference;
+    if (patientRef) {
+      (patientToRPMap[patientRef] ??= []).push(rp);
+    }
+
+    const pn = getSMSNumberForIndividual(rp);
+    if (pn) {
+      rpPhoneNumbers.add(pn);
+      (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+      (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
+    }
+  };
+
+  relatedPersonFallbackBundle?.unbundle().forEach(registerRelatedPerson);
+
+  // Only the numbers the fallback added need a follow-up search; normally there are none and this
+  // resolves without a round trip.
+  const phonesMissedBySpeculativeSearch = Array.from(rpPhoneNumbers).filter(
+    (phone) => !phonesBeforeFallback.has(phone)
+  );
+  const supplementalCommunicationBundle = await searchCommunications(phonesMissedBySpeculativeSearch);
+
+  const allDocRefs: DocumentReference[] = docRefBundle?.unbundle() ?? [];
+  const communications: (Communication | RelatedPerson)[] | undefined =
+    speculativeCommunicationBundle || supplementalCommunicationBundle
+      ? mergeResources([
+          ...(speculativeCommunicationBundle?.unbundle() ?? []),
+          ...(supplementalCommunicationBundle?.unbundle() ?? []),
+        ])
+      : undefined;
+
+  const practitioners = participantsBundle?.unbundle() as Practitioner[];
+  practitioners?.forEach((pr) => {
+    practitionerIdToResourceMap[`Practitioner/${pr.id}`] = pr;
+  });
+
+  const encounterSignatures: Provenance[] = encounterSignaturesBundle.flatMap((bundle) => bundle?.unbundle() ?? []);
+
+  const parentEncounterToApptIdMap: Record<string, string> = {};
+  (parentEncountersBundle?.unbundle() ?? []).forEach((enc) => {
+    const apptRef = enc.appointment?.[0]?.reference;
+    if (enc.id && apptRef) {
+      parentEncounterToApptIdMap[`Encounter/${enc.id}`] = apptRef.replace('Appointment/', '');
+    }
+  });
+
+  console.timeEnd('related_resources');
 
   // because the related person tied to the user's account has been excluded from the graph of persons
   // connected to patient resources, while the Zap sms creates communications with sender reference based on
@@ -545,6 +578,10 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       });
     });
   }
+
+  // makeAppointmentInformation reads timezoneMap, so the prefetch started before the appointment
+  // search has to be settled by now.
+  await timezonesResolved;
 
   console.time('structure_appointment_data');
   let appointments: Appointment[] = allAppointments;
