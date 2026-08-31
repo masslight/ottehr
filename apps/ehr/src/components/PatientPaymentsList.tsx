@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   capitalize,
   Checkbox,
   Chip,
@@ -1570,17 +1571,17 @@ export default function PatientPaymentList({
               }
             >
               <Box
+                component={cardOnFileClickable ? ButtonBase : 'div'}
                 sx={{
                   ml: 'auto',
                   display: 'inline-flex',
                   alignItems: 'center',
                   ...(cardOnFileClickable && {
-                    cursor: 'pointer',
+                    borderRadius: 1,
                     '&:hover': { opacity: 0.75 },
                   }),
                 }}
                 aria-label={cardOnFileStatusLabel}
-                role={cardOnFileClickable ? 'button' : undefined}
                 onClick={cardOnFileClickable ? () => setRemoveCardDialogOpen(true) : undefined}
               >
                 <svg width="38" height="38" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">

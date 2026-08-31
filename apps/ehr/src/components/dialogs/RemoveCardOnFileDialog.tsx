@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import { LoadingButton } from '@mui/lab';
 import {
   Alert,
@@ -7,6 +8,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  IconButton,
   useTheme,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
@@ -49,6 +51,15 @@ export default function RemoveCardOnFileDialog({
         },
       }}
     >
+      <IconButton
+        aria-label="close"
+        onClick={onClose}
+        disabled={loading}
+        size="medium"
+        sx={{ position: 'absolute', right: 12, top: 12 }}
+      >
+        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
+      </IconButton>
       <DialogTitle variant="h4" color="primary.dark">
         {confirming ? 'Confirm Card Removal' : 'Card on File'}
       </DialogTitle>
@@ -67,8 +78,14 @@ export default function RemoveCardOnFileDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button variant="outlined" onClick={onClose} size="medium" sx={buttonSx} disabled={loading}>
-          {confirming ? 'Cancel' : 'Close'}
+        <Button
+          variant="outlined"
+          onClick={confirming ? () => setConfirming(false) : onClose}
+          size="medium"
+          sx={buttonSx}
+          disabled={loading}
+        >
+          {confirming ? 'Back' : 'Close'}
         </Button>
         {confirming ? (
           <LoadingButton
