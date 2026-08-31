@@ -332,6 +332,19 @@ const resolveRefundsForPaymentNotice = async (
     return storedRefunds;
   }
 
+  // skip the Stripe round-trip when the stamped state is provably current
+  const storedAreTerminal = (storedRefunds ?? []).every((refund) =>
+    ['succeeded', 'failed', 'canceled'].includes(refund.status ?? '')
+  );
+  if (
+    latestCharge &&
+    storedRefunds?.length &&
+    storedAreTerminal &&
+    settledRefundTotalInCents(storedRefunds) === latestCharge.amount_refunded
+  ) {
+    return storedRefunds;
+  }
+
   try {
     const refundList = await stripeClient.refunds.list(
       { payment_intent: paymentIntent.id, limit: 100 },

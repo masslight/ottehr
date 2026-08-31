@@ -381,7 +381,8 @@ describe('billing-stripe-webhook', () => {
     expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
     expect(patch).toHaveBeenCalledTimes(2);
     expect(patch.mock.calls.map((c) => c[0].id).sort()).toEqual(['pn-billing', 'pn-clinical']);
-    const extension = patch.mock.calls[0][0].operations[0].value.find((ext: { url: string }) =>
+    const clinicalPatch = patch.mock.calls.find((c) => c[0].id === 'pn-clinical');
+    const extension = clinicalPatch?.[0].operations[0].value.find((ext: { url: string }) =>
       ext.url.endsWith('/payment-refunds')
     );
     expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
